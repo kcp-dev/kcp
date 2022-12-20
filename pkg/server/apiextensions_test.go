@@ -31,7 +31,7 @@ import (
 )
 
 func TestSystemCRDsLogicalClusterName(t *testing.T) {
-	require.Equal(t, SystemCRDLogicalCluster.String(), reservedcrdgroups.SystemCRDLogicalClusterName, "reservedcrdgroups admission check should match SystemCRDLogicalCluster")
+	require.Equal(t, SystemCRDClusterName.String(), reservedcrdgroups.SystemCRDLogicalClusterName, "reservedcrdgroups admission check should match SystemCRDLogicalCluster")
 }
 
 func TestDecorateCRDWithBinding(t *testing.T) {

@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 )
 
 const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"
 
-// clusterWorkspaceDeletionMonitor monitors ClusterWorkspaces and terminates QuotaAdmission for a logical cluster
+// clusterWorkspaceDeletionMonitor monitors LogicalClusters and terminates QuotaAdmission for a logical cluster
 // when its corresponding ClusterWorkspace is deleted.
 type clusterWorkspaceDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
@@ -42,7 +42,7 @@ type clusterWorkspaceDeletionMonitor struct {
 }
 
 func newClusterWorkspaceDeletionMonitor(
-	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	workspaceInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	stopFunc func(logicalcluster.Name),
 ) *clusterWorkspaceDeletionMonitor {
 	m := &clusterWorkspaceDeletionMonitor{
@@ -50,7 +50,7 @@ func newClusterWorkspaceDeletionMonitor(
 		stopFunc: stopFunc,
 	}
 
-	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			m.enqueue(obj)
 		},
@@ -113,14 +113,11 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 }
 
 func (m *clusterWorkspaceDeletionMonitor) process(key string) error {
-	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
 	}
-
-	// turn it into root:org:ws
-	clusterName := parent.Join(name)
 
 	m.stopFunc(clusterName)
 

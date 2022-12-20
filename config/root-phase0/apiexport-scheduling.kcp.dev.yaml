@@ -6,7 +6,7 @@ metadata:
 spec:
   latestResourceSchemas:
   - v221006-eaaf199d.locations.scheduling.kcp.dev
-  - v221006-eaaf199d.placements.scheduling.kcp.dev
+  - v221212-cf67ac73a.placements.scheduling.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}

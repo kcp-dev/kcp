@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -36,6 +39,10 @@ const (
 	APIBindingByClusterAndAcceptedClaimedGroupResources = "byClusterAndAcceptedClaimedGroupResources"
 	// ByClusterResourceStateLabelKey indexes resources based on the cluster state label key.
 	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
+	// ByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
+	ByLogicalClusterPath = "ByLogicalClusterPath"
+	// ByLogicalClusterPathAndName indexes by logical cluster path and object name, if the annotation exists.
+	ByLogicalClusterPathAndName = "ByLogicalClusterPathAndName"
 )
 
 // IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
@@ -69,6 +76,38 @@ func IndexByClusterResourceStateLabelKey(obj interface{}) ([]string, error) {
 		}
 	}
 	return ClusterResourceStateLabelKeys, nil
+}
+
+// IndexByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
+func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if path, found := metaObj.GetAnnotations()[core.LogicalClusterPathAnnotationKey]; found {
+		return []string{
+			logicalcluster.NewPath(path).String(),
+			logicalcluster.From(metaObj).String(),
+		}, nil
+	}
+
+	return []string{logicalcluster.From(metaObj).String()}, nil
+}
+
+// IndexByLogicalClusterPathAndName indexes by logical cluster path and object name, if the annotation exists.
+func IndexByLogicalClusterPathAndName(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if path, found := metaObj.GetAnnotations()[core.LogicalClusterPathAnnotationKey]; found {
+		return []string{
+			logicalcluster.NewPath(path).Join(metaObj.GetName()).String(),
+			logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String(),
+		}, nil
+	}
+
+	return []string{logicalcluster.From(metaObj).String()}, nil
 }
 
 // ByIndex returns all instances of T that match indexValue in indexName in indexer.

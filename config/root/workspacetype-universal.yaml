@@ -1,0 +1,21 @@
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: universal
+spec:
+  initializer: true
+  defaultAPIBindings:
+  - path: root
+    export: tenancy.kcp.dev
+  - path: root
+    export: scheduling.kcp.dev
+  - path: root
+    export: workload.kcp.dev
+  - path: root
+    export: apiresource.kcp.dev
+  - path: root
+    export: topology.kcp.dev
+  defaultChildren:
+    types:
+    - name: universal
+      path: root

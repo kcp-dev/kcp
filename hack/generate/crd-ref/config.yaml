@@ -72,14 +72,14 @@ source_repositories:
         topics:
           - tenancy
           - workspaces
-      clusterworkspaceshards.tenancy.kcp.dev:
+      shards.tenancy.kcp.dev:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - tenancy
           - workspaces
           - shards
-      clusterworkspacetypes.tenancy.kcp.dev:
+      workspacetypes.tenancy.kcp.dev:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:

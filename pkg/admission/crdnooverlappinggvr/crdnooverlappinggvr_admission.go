@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/labels"
@@ -77,12 +77,13 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	if a.GetKind().GroupKind() != apiextensions.Kind("CustomResourceDefinition") {
 		return nil
 	}
-	clusterName, err := request.ClusterNameFrom(ctx)
+	cluster, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
+	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Name
 	// ignore CRDs targeting system and non-root workspaces
-	if clusterName == apibinding.ShadowWorkspaceName || clusterName == logicalcluster.New("system:admin") {
+	if clusterName == apibinding.SystemBoundCRDSClusterName || clusterName == "system:admin" {
 		return nil
 	}
 

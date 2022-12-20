@@ -19,34 +19,11 @@ package apibinding
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 )
-
-const indexAPIBindingsByWorkspaceExport = "apiBindingsByWorkspaceExport"
-
-// indexAPIBindingsByWorkspaceExportFunc is an index function that maps an APIBinding to the key for its
-// spec.reference.workspace.
-func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
-	}
-
-	if apiBinding.Spec.Reference.Workspace != nil {
-		apiExportClusterName := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
-		if !ok {
-			// this will never happen due to validation
-			return []string{}, fmt.Errorf("invalid export reference")
-		}
-		key := client.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
-		return []string{key}, nil
-	}
-
-	return []string{}, nil
-}
 
 const indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
 
@@ -59,7 +36,7 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil

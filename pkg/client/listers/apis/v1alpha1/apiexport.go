@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type APIExportClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error)
 	// Cluster returns a lister that can list and get APIExports in one workspace.
-	Cluster(cluster logicalcluster.Name) APIExportLister
+	Cluster(clusterName logicalcluster.Name) APIExportLister
 	APIExportClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *aPIExportClusterLister) List(selector labels.Selector) (ret []*apisv1al
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIExports.
-func (s *aPIExportClusterLister) Cluster(cluster logicalcluster.Name) APIExportLister {
-	return &aPIExportLister{indexer: s.indexer, cluster: cluster}
+func (s *aPIExportClusterLister) Cluster(clusterName logicalcluster.Name) APIExportLister {
+	return &aPIExportLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // APIExportLister can list all APIExports, or get one in particular.
@@ -83,13 +83,13 @@ type APIExportLister interface {
 
 // aPIExportLister can list all APIExports inside a workspace.
 type aPIExportLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all APIExports in the indexer for a workspace.
 func (s *aPIExportLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*apisv1alpha1.APIExport))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *aPIExportLister) List(selector labels.Selector) (ret []*apisv1alpha1.AP
 
 // Get retrieves the APIExport from the indexer for a given workspace and name.
 func (s *aPIExportLister) Get(name string) (*apisv1alpha1.APIExport, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

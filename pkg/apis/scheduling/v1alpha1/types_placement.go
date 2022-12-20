@@ -80,7 +80,7 @@ type PlacementSpec struct {
 	// locationWorkspace is an absolute reference to a workspace for the location. If it is not set, the workspace of
 	// APIBinding will be used.
 	// +optional
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	LocationWorkspace string `json:"locationWorkspace,omitempty"`
 }
 
@@ -107,7 +107,7 @@ type LocationReference struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 
 	// Name of the Location.

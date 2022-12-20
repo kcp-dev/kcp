@@ -134,6 +134,7 @@ func startFrontProxy(
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt")),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")),
 		"--secure-port=6443",
+		"--v=4",
 	)
 	commandLine = append(commandLine, args...)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
@@ -253,7 +254,7 @@ func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 		"root": {Cluster: "root", AuthInfo: "kcp-admin"},
 		"base": {Cluster: "base", AuthInfo: "kcp-admin"},
 	}
-	kubeConfig.CurrentContext = "base"
+	kubeConfig.CurrentContext = "root"
 
 	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
 		return err
@@ -285,4 +286,32 @@ func writeShardKubeConfig(workDirPath string) error {
 	}
 
 	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp-front-proxy/shards.kubeconfig"))
+}
+
+func writeLogicalClusterAdminKubeConfig(hostIP, workDirPath string) error {
+	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
+
+	var kubeConfig clientcmdapi.Config
+	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		"logical-cluster-admin": {
+			ClientKey:         filepath.Join(workDirPath, ".kcp/logical-cluster-admin.key"),
+			ClientCertificate: filepath.Join(workDirPath, ".kcp/logical-cluster-admin.crt"),
+		},
+	}
+	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		"base": {
+			Server:               baseHost,
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+		},
+	}
+	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
+		"base": {Cluster: "base", AuthInfo: "logical-cluster-admin"},
+	}
+	kubeConfig.CurrentContext = "base"
+
+	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
+		return err
+	}
+
+	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/logical-cluster-admin.kubeconfig"))
 }

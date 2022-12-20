@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -201,11 +201,11 @@ func TestPlacementScheduling(t *testing.T) {
 				},
 			}
 
-			listLocation := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
+			listLocation := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Location, error) {
 				return testCase.locations, testCase.listLocationsError
 			}
 
-			reconciler := &placementReconciler{listLocations: listLocation}
+			reconciler := &placementReconciler{listLocationsByPath: listLocation}
 			_, updated, err := reconciler.reconcile(context.TODO(), testPlacement)
 
 			if testCase.wantError {

@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -80,7 +80,7 @@ func NewController(
 			return namespaceInformer.Lister().Cluster(clusterName).Get(namespaceName)
 		},
 
-		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Name) (sets.String, error) {
+		getSyncTargetPlacementAnnotations: func(clusterName logicalcluster.Name) (sets.String, error) {
 			placements, err := placementInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
@@ -181,9 +181,9 @@ type Controller struct {
 
 	dynClusterClient kcpdynamic.ClusterInterface
 
-	getNamespace                       func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
-	getValidSyncTargetKeysForWorkspace func(clusterName logicalcluster.Name) (sets.String, error)
-	getSyncTargetFromKey               func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
+	getNamespace                      func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
+	getSyncTargetPlacementAnnotations func(clusterName logicalcluster.Name) (sets.String, error)
+	getSyncTargetFromKey              func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
 
 	ddsif *informer.DynamicDiscoverySharedInformerFactory
 }

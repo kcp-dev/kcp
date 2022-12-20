@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type partitionSetsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *partitionSetsClusterClient) Cluster(cluster logicalcluster.Name) topologyv1alpha1client.PartitionSetInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *partitionSetsClusterClient) Cluster(clusterPath logicalcluster.Path) topologyv1alpha1client.PartitionSetInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &partitionSetsClient{Fake: c.Fake, Cluster: cluster}
+	return &partitionSetsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of PartitionSets that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *partitionSetsClusterClient) Watch(ctx context.Context, opts metav1.List
 
 type partitionSetsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *partitionSetsClient) Create(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet, opts metav1.CreateOptions) (*topologyv1alpha1.PartitionSet, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(partitionSetsResource, c.Cluster, partitionSet), &topologyv1alpha1.PartitionSet{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(partitionSetsResource, c.ClusterPath, partitionSet), &topologyv1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *partitionSetsClient) Create(ctx context.Context, partitionSet *topology
 }
 
 func (c *partitionSetsClient) Update(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet, opts metav1.UpdateOptions) (*topologyv1alpha1.PartitionSet, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(partitionSetsResource, c.Cluster, partitionSet), &topologyv1alpha1.PartitionSet{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(partitionSetsResource, c.ClusterPath, partitionSet), &topologyv1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *partitionSetsClient) Update(ctx context.Context, partitionSet *topology
 }
 
 func (c *partitionSetsClient) UpdateStatus(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet, opts metav1.UpdateOptions) (*topologyv1alpha1.PartitionSet, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(partitionSetsResource, c.Cluster, "status", partitionSet), &topologyv1alpha1.PartitionSet{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(partitionSetsResource, c.ClusterPath, "status", partitionSet), &topologyv1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *partitionSetsClient) UpdateStatus(ctx context.Context, partitionSet *to
 }
 
 func (c *partitionSetsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(partitionSetsResource, c.Cluster, name, opts), &topologyv1alpha1.PartitionSet{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(partitionSetsResource, c.ClusterPath, name, opts), &topologyv1alpha1.PartitionSet{})
 	return err
 }
 
 func (c *partitionSetsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(partitionSetsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(partitionSetsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &topologyv1alpha1.PartitionSetList{})
 	return err
 }
 
 func (c *partitionSetsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*topologyv1alpha1.PartitionSet, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(partitionSetsResource, c.Cluster, name), &topologyv1alpha1.PartitionSet{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(partitionSetsResource, c.ClusterPath, name), &topologyv1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *partitionSetsClient) Get(ctx context.Context, name string, options meta
 
 // List takes label and field selectors, and returns the list of PartitionSets that match those selectors.
 func (c *partitionSetsClient) List(ctx context.Context, opts metav1.ListOptions) (*topologyv1alpha1.PartitionSetList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(partitionSetsResource, partitionSetsKind, c.Cluster, opts), &topologyv1alpha1.PartitionSetList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(partitionSetsResource, partitionSetsKind, c.ClusterPath, opts), &topologyv1alpha1.PartitionSetList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *partitionSetsClient) List(ctx context.Context, opts metav1.ListOptions)
 }
 
 func (c *partitionSetsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(partitionSetsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(partitionSetsResource, c.ClusterPath, opts))
 }
 
 func (c *partitionSetsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*topologyv1alpha1.PartitionSet, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionSetsResource, c.Cluster, name, pt, data, subresources...), &topologyv1alpha1.PartitionSet{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionSetsResource, c.ClusterPath, name, pt, data, subresources...), &topologyv1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}

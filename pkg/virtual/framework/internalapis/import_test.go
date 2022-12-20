@@ -19,6 +19,7 @@ package internalapis
 import (
 	"embed"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -28,8 +29,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/common"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	k8sopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 	"sigs.k8s.io/yaml"
@@ -80,7 +81,7 @@ func TestImportInternalAPIs(t *testing.T) {
 	err := workloadv1alpha1.AddToScheme(workloadScheme)
 	require.NoError(t, err)
 	schemas, err := CreateAPIResourceSchemas(
-		[]*runtime.Scheme{legacyscheme.Scheme, workloadScheme},
+		[]*runtime.Scheme{clientgoscheme.Scheme, workloadScheme},
 		[]common.GetOpenAPIDefinitions{k8sopenapi.GetOpenAPIDefinitions, kcpopenapi.GetOpenAPIDefinitions},
 		apisToImport...)
 	require.NoError(t, err)
@@ -90,6 +91,6 @@ func TestImportInternalAPIs(t *testing.T) {
 		require.NoError(t, err)
 		actualContent, err := yaml.Marshal(schema)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(expectedContent, actualContent))
+		require.Empty(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")))
 	}
 }

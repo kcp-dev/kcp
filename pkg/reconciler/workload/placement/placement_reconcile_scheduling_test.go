@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -132,14 +132,14 @@ func TestSchedulingReconcile(t *testing.T) {
 			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
-			getLocation := func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
+			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
 				if testCase.location == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
 				return testCase.location, nil
 			}
 			var patched bool
-			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 				patched = true
 				nsData, _ := json.Marshal(testCase.placement)
 				updatedData, err := jsonpatch.MergePatch(nsData, data)
@@ -238,13 +238,13 @@ func TestReconcileStatusConditions(t *testing.T) {
 			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
-			getLocation := func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
+			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
 				if testCase.location == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
 				return testCase.location, nil
 			}
-			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 				nsData, _ := json.Marshal(testCase.placement)
 				updatedData, err := jsonpatch.MergePatch(nsData, data)
 				if err != nil {
@@ -296,7 +296,7 @@ func newPlacement(name, location, synctarget string) *schedulingv1alpha1.Placeme
 
 	if len(synctarget) > 0 {
 		placement.Annotations = map[string]string{
-			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: workloadv1alpha1.ToSyncTargetKey(logicalcluster.New(""), synctarget),
+			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: workloadv1alpha1.ToSyncTargetKey("", synctarget),
 		}
 	}
 

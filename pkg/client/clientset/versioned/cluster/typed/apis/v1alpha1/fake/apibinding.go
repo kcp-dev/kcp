@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type aPIBindingsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIBindingsClusterClient) Cluster(cluster logicalcluster.Name) apisv1alpha1client.APIBindingInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *aPIBindingsClusterClient) Cluster(clusterPath logicalcluster.Path) apisv1alpha1client.APIBindingInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &aPIBindingsClient{Fake: c.Fake, Cluster: cluster}
+	return &aPIBindingsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of APIBindings that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *aPIBindingsClusterClient) Watch(ctx context.Context, opts metav1.ListOp
 
 type aPIBindingsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *aPIBindingsClient) Create(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts metav1.CreateOptions) (*apisv1alpha1.APIBinding, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIBindingsResource, c.Cluster, aPIBinding), &apisv1alpha1.APIBinding{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIBindingsResource, c.ClusterPath, aPIBinding), &apisv1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *aPIBindingsClient) Create(ctx context.Context, aPIBinding *apisv1alpha1
 }
 
 func (c *aPIBindingsClient) Update(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts metav1.UpdateOptions) (*apisv1alpha1.APIBinding, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIBindingsResource, c.Cluster, aPIBinding), &apisv1alpha1.APIBinding{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIBindingsResource, c.ClusterPath, aPIBinding), &apisv1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *aPIBindingsClient) Update(ctx context.Context, aPIBinding *apisv1alpha1
 }
 
 func (c *aPIBindingsClient) UpdateStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts metav1.UpdateOptions) (*apisv1alpha1.APIBinding, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIBindingsResource, c.Cluster, "status", aPIBinding), &apisv1alpha1.APIBinding{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIBindingsResource, c.ClusterPath, "status", aPIBinding), &apisv1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *aPIBindingsClient) UpdateStatus(ctx context.Context, aPIBinding *apisv1
 }
 
 func (c *aPIBindingsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIBindingsResource, c.Cluster, name, opts), &apisv1alpha1.APIBinding{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIBindingsResource, c.ClusterPath, name, opts), &apisv1alpha1.APIBinding{})
 	return err
 }
 
 func (c *aPIBindingsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(aPIBindingsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(aPIBindingsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &apisv1alpha1.APIBindingList{})
 	return err
 }
 
 func (c *aPIBindingsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*apisv1alpha1.APIBinding, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIBindingsResource, c.Cluster, name), &apisv1alpha1.APIBinding{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIBindingsResource, c.ClusterPath, name), &apisv1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *aPIBindingsClient) Get(ctx context.Context, name string, options metav1
 
 // List takes label and field selectors, and returns the list of APIBindings that match those selectors.
 func (c *aPIBindingsClient) List(ctx context.Context, opts metav1.ListOptions) (*apisv1alpha1.APIBindingList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIBindingsResource, aPIBindingsKind, c.Cluster, opts), &apisv1alpha1.APIBindingList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIBindingsResource, aPIBindingsKind, c.ClusterPath, opts), &apisv1alpha1.APIBindingList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *aPIBindingsClient) List(ctx context.Context, opts metav1.ListOptions) (
 }
 
 func (c *aPIBindingsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIBindingsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIBindingsResource, c.ClusterPath, opts))
 }
 
 func (c *aPIBindingsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apisv1alpha1.APIBinding, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIBindingsResource, c.Cluster, name, pt, data, subresources...), &apisv1alpha1.APIBinding{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIBindingsResource, c.ClusterPath, name, pt, data, subresources...), &apisv1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}

@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -53,7 +53,7 @@ const (
 
 // statusReconciler updates conditions on the namespace.
 type statusConditionReconciler struct {
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects the
@@ -71,7 +71,7 @@ func (r *statusConditionReconciler) reconcile(ctx context.Context, ns *corev1.Na
 		return reconcileStatusStop, ns, err
 	}
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("updating status for namespace")
-	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns).Path(), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return reconcileStatusStop, ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)
 	}

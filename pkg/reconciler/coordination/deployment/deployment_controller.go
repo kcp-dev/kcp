@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	v1 "github.com/kcp-dev/client-go/informers/apps/v1"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +78,7 @@ func NewController(
 			return lister.Cluster(clusterName).Deployments(namespace).Get(name)
 		},
 		patcher: func(clusterName logicalcluster.Name, namespace string) committer.Patcher[*appsv1.Deployment] {
-			return kubeClusterClient.AppsV1().Deployments().Cluster(clusterName).Namespace(namespace)
+			return kubeClusterClient.AppsV1().Deployments().Cluster(clusterName.Path()).Namespace(namespace)
 		},
 	}
 

@@ -181,7 +181,7 @@ spec:
         - --from-kubeconfig=/kcp/{{.SecretConfigKey}}
         - --sync-target-name={{.SyncTarget}}
         - --sync-target-uid={{.SyncTargetUID}}
-        - --from-cluster={{.LogicalCluster}}
+        - --from-cluster={{.SyncTargetPath}}
         - --api-import-poll-interval={{ .APIImportPollIntervalString }}
         - --downstream-namespace-clean-delay={{ .DownstreamNamespaceCleanDelayString }}
 {{- range $resourceToSync := .ResourcesToSync}}

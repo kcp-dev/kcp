@@ -25,7 +25,7 @@ import (
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -117,7 +117,7 @@ func NewSheriffsCRDWithVersions(group string, versions ...string) *apiextensions
 func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 	group string,
 	description string,
@@ -178,7 +178,7 @@ func CreateSheriff(
 	ctx context.Context,
 	t *testing.T,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	group, name string,
 ) {
 	name = strings.ReplaceAll(name, ":", "-")

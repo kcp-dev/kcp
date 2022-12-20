@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +42,7 @@ type transformingDynamicClusterClient struct {
 	delegate    kcpdynamic.ClusterInterface
 }
 
-func (c *transformingDynamicClusterClient) Cluster(name logicalcluster.Name) dynamic.Interface {
+func (c *transformingDynamicClusterClient) Cluster(name logicalcluster.Path) dynamic.Interface {
 	return &transformingDynamicClient{
 		transformer: c.transformer,
 		delegate:    c.delegate.Cluster(name),
@@ -56,7 +56,7 @@ func (c *transformingDynamicClusterClient) Resource(resource schema.GroupVersion
 			delegate:    delegate,
 			transformer: c.transformer,
 			resourceClient: func(resource logicalcluster.Object) dynamic.ResourceInterface {
-				return delegate.Cluster(logicalcluster.From(resource))
+				return delegate.Cluster(logicalcluster.From(resource).Path())
 			},
 			resource: resource,
 		},
@@ -74,7 +74,7 @@ type transformingResourceClusterClient struct {
 	delegate kcpdynamic.ResourceClusterInterface
 }
 
-func (trc *transformingResourceClusterClient) Cluster(workspace logicalcluster.Name) dynamic.NamespaceableResourceInterface {
+func (trc *transformingResourceClusterClient) Cluster(workspace logicalcluster.Path) dynamic.NamespaceableResourceInterface {
 	delegate := trc.delegate.Cluster(workspace)
 	return &transformingNamespaceableResourceClient{
 		transformer:                    trc.transformer,

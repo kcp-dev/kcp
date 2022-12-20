@@ -22,30 +22,33 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsv1informers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -56,7 +59,7 @@ const (
 )
 
 var (
-	ShadowWorkspaceName = logicalcluster.New("system:bound-crds")
+	SystemBoundCRDSClusterName = logicalcluster.Name("system:bound-crds")
 )
 
 // NewController returns a new controller for APIBindings.
@@ -102,25 +105,37 @@ func NewController(
 		},
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			apiExport, err := apiExportInformer.Lister().Cluster(clusterName).Get(name)
-			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiExportInformer.Lister().Cluster(clusterName).Get(name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			objs, err := apiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+			if err != nil {
+				return nil, err
 			}
-			return apiExport, err
+			if len(objs) == 0 {
+				objs, err = temporaryRemoteShardApiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+				if err != nil {
+					return nil, err
+				}
+			}
+			if len(objs) == 0 {
+				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
+			}
+			return objs[0].(*apisv1alpha1.APIExport), nil
 		},
 		apiExportsIndexer:                     apiExportInformer.Informer().GetIndexer(),
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiResourceSchema, err
 		},
 
-		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+		createCRD: func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -134,17 +149,27 @@ func NewController(
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
+	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	}); err != nil {
+		return nil, err
+	}
+
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
+	indexers.AddIfNotPresentOrDie(temporaryRemoteShardApiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
+
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 	})
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIBindingsByWorkspaceExport: indexAPIBindingsByWorkspaceExportFunc,
-	}); err != nil {
-		return nil, err
-	}
 
 	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
@@ -153,7 +178,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == ShadowWorkspaceName
+			return logicalcluster.From(crd) == SystemBoundCRDSClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },
@@ -197,17 +222,6 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 	})
 
-	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
-	}); err != nil {
-		return nil, fmt.Errorf("error add CRD indexes: %w", err)
-	}
-	if err := c.temporaryRemoteShardApiExportsIndexer.AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
-	}); err != nil {
-		return nil, fmt.Errorf("error adding ApiExport indexes for the root shard: %w", err)
-	}
-
 	return c, nil
 }
 
@@ -233,13 +247,13 @@ type controller struct {
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
-	getAPIExport                          func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport                          func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	apiExportsIndexer                     cache.Indexer
 	temporaryRemoteShardApiExportsIndexer cache.Indexer
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
-	createCRD func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	createCRD func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs  func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
@@ -261,19 +275,43 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logS
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
 func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = d.Obj
+	}
+
+	export, ok := obj.(*apisv1alpha1.APIExport)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		return
+	}
+
+	// binding keys by full path
+	keys := sets.NewString()
+	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		keys.Insert(pathKeys...)
+	}
+
+	clusterKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	keys.Insert(clusterKeys...)
 
-	bindingsForExport, err := c.apiBindingsIndexer.ByIndex(indexAPIBindingsByWorkspaceExport, key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, binding := range bindingsForExport {
+	for _, key := range keys.List() {
+		binding, exists, err := c.apiBindingsIndexer.GetByKey(key)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		} else if !exists {
+			runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
+			continue
+		}
 		c.enqueueAPIBinding(binding, logging.WithObject(logger, obj.(*apisv1alpha1.APIExport)), fmt.Sprintf(" because of APIExport%s", logSuffix))
 	}
 }
@@ -295,7 +333,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	clusterName := logicalcluster.New(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
+	clusterName := logicalcluster.Name(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
 	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey])
 	if err != nil {
 		runtime.HandleError(err)
@@ -304,7 +342,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 
 	// this log here is kind of redundant normally. But we are seeing missing CRD update events
 	// and hence stale APIBindings. So this might help to undersand what's going on.
-	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", client.ToClusterAwareKey(clusterName, apiResourceSchema.Name))
+	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", kcpcache.ToClusterAwareKey(clusterName.String(), "", apiResourceSchema.Name))
 
 	c.enqueueAPIResourceSchema(apiResourceSchema, logger, " because of CRD")
 }
@@ -373,47 +411,54 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 		return true
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) error {
+func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	logger := klog.FromContext(ctx)
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
-		return nil
+		return false, nil
 	}
 
 	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+		if apierrors.IsNotFound(err) {
+			logger.Error(err, "failed to get APIBinding from lister", "cluster", clusterName)
 		}
-		return err
+
+		return false, nil // nothing we can do here
 	}
+
 	old := obj
 	obj = obj.DeepCopy()
 
 	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
-	reconcileErr := c.reconcile(ctx, obj)
-
-	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
-	// reconciliation error at the end.
+	var errs []error
+	requeue, err := c.reconcile(ctx, obj)
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if commitError := c.commit(ctx, oldResource, newResource); commitError != nil {
-		return commitError
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	return reconcileErr
+	return requeue, utilerrors.NewAggregate(errs)
 }

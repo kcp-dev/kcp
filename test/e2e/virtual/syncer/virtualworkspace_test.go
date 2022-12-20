@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,7 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
+func deploymentsAPIResourceList(clusterName logicalcluster.Name) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "APIResourceList",
@@ -69,7 +69,7 @@ func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIRe
 				SingularName:       "deployment",
 				Namespaced:         true,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "apps", "v1", "Deployment"),
+				StorageVersionHash: discovery.StorageVersionHash(clusterName, "apps", "v1", "Deployment"),
 				Categories:         []string{"all"},
 				ShortNames:         []string{"deploy"},
 			},
@@ -84,7 +84,7 @@ func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIRe
 	}
 }
 
-func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
+func requiredCoreAPIResourceList(clusterName logicalcluster.Name) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "APIResourceList",
@@ -97,7 +97,7 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				SingularName:       "configmap",
 				Namespaced:         true,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ConfigMap"),
+				StorageVersionHash: discovery.StorageVersionHash(clusterName, "", "v1", "ConfigMap"),
 			},
 			{
 				Kind:               "Namespace",
@@ -105,7 +105,7 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				SingularName:       "namespace",
 				Namespaced:         false,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Namespace"),
+				StorageVersionHash: discovery.StorageVersionHash(clusterName, "", "v1", "Namespace"),
 			},
 			{
 				Kind:               "Namespace",
@@ -121,7 +121,7 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				SingularName:       "secret",
 				Namespaced:         true,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Secret"),
+				StorageVersionHash: discovery.StorageVersionHash(clusterName, "", "v1", "Secret"),
 			},
 			{
 				Kind:               "ServiceAccount",
@@ -129,13 +129,13 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				SingularName:       "serviceaccount",
 				Namespaced:         true,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ServiceAccount"),
+				StorageVersionHash: discovery.StorageVersionHash(clusterName, "", "v1", "ServiceAccount"),
 			},
 		},
 	}
 }
 
-func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1.APIResourceList {
+func withRootComputeAPIResourceList(workspaceName logicalcluster.Name, rootComputeLogicalCluster logicalcluster.Name) []*metav1.APIResourceList {
 	coreResourceList := requiredCoreAPIResourceList(workspaceName)
 	coreResourceList.APIResources = append(coreResourceList.APIResources,
 		metav1.APIResource{
@@ -146,7 +146,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 			Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 			ShortNames:         []string{"svc"},
 			Categories:         []string{"all"},
-			StorageVersionHash: discovery.StorageVersionHash(rootcompute.RootComputeWorkspace, "", "v1", "Service"),
+			StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "", "v1", "Service"),
 		},
 		metav1.APIResource{
 			Kind:               "Service",
@@ -159,7 +159,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 	)
 
 	return []*metav1.APIResourceList{
-		deploymentsAPIResourceList(rootcompute.RootComputeWorkspace),
+		deploymentsAPIResourceList(rootComputeLogicalCluster),
 		{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "APIResourceList",
@@ -174,7 +174,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 					Namespaced:         true,
 					Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 					ShortNames:         []string{"ing"},
-					StorageVersionHash: discovery.StorageVersionHash(rootcompute.RootComputeWorkspace, "networking.k8s.io", "v1", "Ingress"),
+					StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "networking.k8s.io", "v1", "Ingress"),
 				},
 				{
 					Kind:               "Ingress",
@@ -190,6 +190,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 }
 
 func logWithTimestamp(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	t.Logf("[%s] %s", time.Now().Format("15:04:05.000000"), fmt.Sprintf(format, args...))
 }
 
@@ -206,12 +207,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, testCaseWorkspace logicalcluster.Name)
+		work func(t *testing.T, testCaseWorkspace logicalcluster.Path)
 	}{
 		{
 			name: "isolated API domains per syncer",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
-
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"))
 
 				logWithTimestamp(t, "Deploying syncer into workspace %s", kubelikeLocationWorkspace)
@@ -254,6 +254,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncer.SyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 
+				// We need to get a resource in the "root:compute" cluster to get the logical cluster name, in this case we use the
+				// kubernetes APIExport, as we know that it exists.
+				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
+				require.NoError(t, err)
+				export, err := kcpClusterClient.Cluster(rootcompute.RootComputeClusterName).ApisV1alpha1().APIExports().Get(context.Background(), "kubernetes", metav1.GetOptions{})
+				require.NoError(t, err)
+				rootComputeLogicalCluster := logicalcluster.From(export)
+
 				logWithTimestamp(t, "Check discovery in kubelike virtual workspace")
 				require.Eventually(t, func() bool {
 					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.ServerGroupsAndResources()
@@ -261,7 +269,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						return false
 					}
 					return len(cmp.Diff(
-						withRootComputeAPIResourceList(kubelikeLocationWorkspace),
+						withRootComputeAPIResourceList(kubelikeLocationWorkspace, rootComputeLogicalCluster),
 						sortAPIResourceList(kubelikeAPIResourceLists))) == 0
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -305,14 +313,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access is authorized",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
@@ -328,13 +336,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Start(t)
 
 				logWithTimestamp(t, "Create two service accounts")
-				_, err := kubeClusterClient.Cluster(wildwestLocationWorkspace).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
+				_, err := kubeClusterClient.Cluster(wildwestLocationClusterName.Path()).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "service-account-1",
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
-				_, err = kubeClusterClient.Cluster(wildwestLocationWorkspace).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
+				_, err = kubeClusterClient.Cluster(wildwestLocationClusterName.Path()).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "service-account-2",
 					},
@@ -342,7 +350,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				var token1, token2 string
 				require.Eventually(t, func() bool {
-					secrets, err := kubeClusterClient.Cluster(wildwestLocationWorkspace).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+					secrets, err := kubeClusterClient.Cluster(wildwestLocationClusterName.Path()).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 					require.NoError(t, err, "failed to list secrets")
 					for _, secret := range secrets.Items {
 						if secret.Annotations[corev1.ServiceAccountNameKey] == "service-account-1" {
@@ -370,7 +378,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.True(t, errors.IsForbidden(err))
 
 				logWithTimestamp(t, "Giving service-account-2 permissions to access wildwest virtual workspace")
-				_, err = kubeClusterClient.Cluster(wildwestLocationWorkspace).RbacV1().ClusterRoleBindings().Create(ctx,
+				_, err = kubeClusterClient.Cluster(wildwestLocationClusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx,
 					&rbacv1.ClusterRoleBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "service-account-2-sync-access",
@@ -390,7 +398,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}, metav1.CreateOptions{},
 				)
 				require.NoError(t, err)
-				_, err = kubeClusterClient.Cluster(wildwestLocationWorkspace).RbacV1().ClusterRoles().Create(ctx,
+				_, err = kubeClusterClient.Cluster(wildwestLocationClusterName.Path()).RbacV1().ClusterRoles().Create(ctx,
 					&rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "wildwest-syncer",
@@ -421,19 +429,19 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources in location workspace through syncer virtual workspace ",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationClusterName.Path())
 
-				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest"),
-					framework.WithSyncedUserWorkspaces(wildwestLocationWorkspace),
+					framework.WithSyncedUserWorkspaces(wildwestLocationClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -445,8 +453,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Start(t)
 
 				logWithTimestamp(t, "Bind wildwest location workspace to itself")
-				framework.NewBindCompute(t, wildwestLocationWorkspace, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
+				framework.NewBindCompute(t, wildwestLocationClusterName.Path(), server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.Path().Join("kubernetes").String()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
@@ -456,7 +464,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -467,7 +475,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 					},
@@ -481,7 +489,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
@@ -503,16 +511,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
 				logWithTimestamp(t, "Verify there is luckyluke via virtual workspace workspace request")
-				kcpCowboy, err := wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				kcpCowboy, err := wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
-				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
 				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
 				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
 
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -538,15 +546,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
-				_, err = vwClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to catch averell")
-				_, err = vwClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
+				_, err = vwClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has only status changed on the syncer view, since the spec.intent field is not part of summarized fields")
-				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, virtualWorkspaceModifiedkcpCowboy.ResourceVersion)
 
@@ -557,7 +565,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceModifiedkcpCowboy.Spec))
 
 				logWithTimestamp(t, "Verify that luckyluke has also status changed on the upstream view, since the status field is promoted by default")
-				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(wildwestLocationWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
 				require.Equal(t, virtualWorkspaceModifiedkcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
@@ -570,21 +578,21 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace, from a other workspace to the wildwest resources through an APIBinding",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -596,9 +604,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Start(t)
 
 				logWithTimestamp(t, "Bind consumer workspace to wildwest location workspace")
-				framework.NewBindCompute(t, consumerWorkspace, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
@@ -606,7 +614,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -619,7 +627,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 					},
@@ -633,7 +641,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
@@ -655,16 +663,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
 				logWithTimestamp(t, "Verify there is luckyluke via direct access")
-				kcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				kcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
-				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
 				require.Empty(t, cmp.Diff(kcpCowboy.Spec, virtualWorkspaceCowboy.Spec))
 				require.Empty(t, cmp.Diff(kcpCowboy.Status, virtualWorkspaceCowboy.Status))
 
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -690,15 +698,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
-				_, err = vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to catch averell")
-				_, err = vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
+				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has only status changed on the syncer view, since the spec.intent field is not part of summarized fields")
-				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, virtualWorkspaceModifiedkcpCowboy.ResourceVersion)
 
@@ -709,7 +717,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceModifiedkcpCowboy.Spec))
 
 				logWithTimestamp(t, "Verify that luckyluke has also status changed on the upstream view, since the status field is promoted by default")
-				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
 				require.Equal(t, virtualWorkspaceModifiedkcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
@@ -722,24 +730,24 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Never promote overridden syncer view status to upstream when scheduled on 2 synctargets",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
 				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying north syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying north syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest-north"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -750,15 +758,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Start(t)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
-				logWithTimestamp(t, "Deploying south syncer into workspace %s", wildwestLocationWorkspace)
-				wildwestSouthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				logWithTimestamp(t, "Deploying south syncer into workspace %s", wildwestLocationClusterName)
+				wildwestSouthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest-south"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -769,11 +777,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Start(t)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Create 2 locations, one for each SyncTarget")
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "firstlocation",
 						Labels: map[string]string{
@@ -795,7 +803,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "secondlocation",
 						Labels: map[string]string{
@@ -818,10 +826,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Create 2 placements, one for each SyncTarget")
-				framework.NewBindCompute(t, consumerWorkspace, server,
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"region": "north",
@@ -829,10 +837,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Bind(t)
 
-				framework.NewBindCompute(t, consumerWorkspace, server,
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"region": "south",
@@ -845,7 +853,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -856,7 +864,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 					},
@@ -873,7 +881,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
@@ -894,7 +902,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestamp(t, "Wait for resource controller to schedule cowboy on the 2 synctargets")
 				var kcpCowboy *wildwestv1alpha1.Cowboy
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -911,7 +919,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for the 2 syncers to own lukyluke")
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -927,49 +935,49 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via north virtual workspace to report in status that joe is in northern prison")
-				_, err = vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Patch luckyluke via second virtual workspace to report in status that joe is in southern prison")
-				_, err = vwSouthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in southern prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in southern prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has status changed on the syncer view of north syncer")
-				northVirtualWorkspaceModifiedkcpCowboy, err := vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				northVirtualWorkspaceModifiedkcpCowboy, err := vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in northern prison", northVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has status changed on the syncer view of south syncer")
-				southVirtualWorkspaceModifiedkcpCowboy, err := vwSouthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				southVirtualWorkspaceModifiedkcpCowboy, err := vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in southern prison", southVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has status unchanged on the upstream view, since the status field is never promoted when a resource is scheduled to 2 synctargets")
-				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.Status, modifiedkcpCowboy.Status)
 			},
 		},
 		{
 			name: "Correctly manage status, with promote and unpromote, when moving a cowboy from one synctarget to the other",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
 				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying north syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying north syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest-north"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -980,17 +988,17 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Start(t)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				northSyncTargetKey := wildwestNorthSyncer.ToSyncTargetKey()
 
-				logWithTimestamp(t, "Deploying south syncer into workspace %s", wildwestLocationWorkspace)
-				wildwestSouthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				logWithTimestamp(t, "Deploying south syncer into workspace %s", wildwestLocationClusterName.Path())
+				wildwestSouthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest-south"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -1001,17 +1009,17 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Start(t)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				southSyncTargetKey := wildwestSouthSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Delete default location")
-				err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Delete(ctx, "default", metav1.DeleteOptions{})
+				err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).SchedulingV1alpha1().Locations().Delete(ctx, "default", metav1.DeleteOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Create 2 locations, one for each SyncTarget")
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "firstlocation",
 						Labels: map[string]string{
@@ -1033,7 +1041,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
+				_, err = kcpClusterClient.Cluster(wildwestLocationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, &schedulingv1alpha1.Location{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "secondlocation",
 						Labels: map[string]string{
@@ -1055,13 +1063,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				logWithTimestamp(t, "Using User workspace: %s", consumerWorkspace.String())
+				logWithTimestamp(t, "Using User workspace: %s", consumerClusterName.String())
 
 				logWithTimestamp(t, "Create the north placement, for the north SyncTarget")
-				framework.NewBindCompute(t, consumerWorkspace, server,
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"region": "north",
@@ -1071,7 +1079,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -1101,7 +1109,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 					},
@@ -1112,14 +1120,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
 				logWithTimestamp(t, "Wait for resource controller to schedule cowboy on the north synctarget, and for the syncer to own it")
 				var kcpCowboy *wildwestv1alpha1.Cowboy
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -1145,24 +1153,24 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via north virtual workspace to report in status that joe is in northern prison")
-				_, err = vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has status changed on the syncer view of north syncer")
-				northVirtualWorkspaceModifiedkcpCowboy, err := vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				northVirtualWorkspaceModifiedkcpCowboy, err := vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in northern prison", northVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has also status changed on the upstream view, since the status field is promoted when scheduled on only one synctarget")
-				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in northern prison", modifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Create the south placement, for the south SyncTarget")
-				framework.NewBindCompute(t, consumerWorkspace, server,
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"region": "south",
@@ -1172,7 +1180,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for resource controller to schedule cowboy on the 2 synctargets, and for both syncers to own it")
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -1200,31 +1208,31 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via south virtual workspace to report in status that joe is in southern prison")
-				_, err = vwSouthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in southern prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in southern prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has status unchanged on the syncer view of the north syncer")
-				northVirtualWorkspaceModifiedkcpCowboy, err = vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				northVirtualWorkspaceModifiedkcpCowboy, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in northern prison", northVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has status changed on the syncer view of south syncer")
-				southVirtualWorkspaceModifiedkcpCowboy, err := vwSouthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				southVirtualWorkspaceModifiedkcpCowboy, err := vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in southern prison", southVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has status unchanged on the upstream view, since no syncer view status has been promoted since the last promotion, because scheduled on 2 synctargets")
-				modifiedkcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in northern prison", modifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Remove the placement for the north SyncTarget")
-				err = kcpClusterClient.Cluster(consumerWorkspace).SchedulingV1alpha1().Placements().Delete(ctx, "north", metav1.DeleteOptions{})
+				err = kcpClusterClient.Cluster(consumerClusterName.Path()).SchedulingV1alpha1().Placements().Delete(ctx, "north", metav1.DeleteOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Wait for resource controller to schedule cowboy on the south synctarget only, and for the south syncer only to own it")
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -1250,37 +1258,37 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Verify that luckyluke is not known on the north synctarget")
-				_, err = vwNorthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.EqualError(t, err, `cowboys.wildwest.dev "luckyluke" not found`)
 
 				logWithTimestamp(t, "Verify that luckyluke has status unchanged on the syncer view of south syncer")
-				southVirtualWorkspaceModifiedkcpCowboy, err = vwSouthClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				southVirtualWorkspaceModifiedkcpCowboy, err = vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in southern prison", southVirtualWorkspaceModifiedkcpCowboy.Status.Result)
 
 				logWithTimestamp(t, "Verify that luckyluke has now status changed on the upstream view, since the status for the south syncer has now been promoted to upstream.")
-				modifiedkcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, "joe in southern prison", modifiedkcpCowboy.Status.Result)
 			},
 		},
 		{
 			name: "Transform spec through spec-diff annotation",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -1292,9 +1300,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Start(t)
 
 				logWithTimestamp(t, "Bind consumer workspace to wildwest location workspace")
-				framework.NewBindCompute(t, consumerWorkspace, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
@@ -1302,7 +1310,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -1315,7 +1323,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 						Annotations: map[string]string{
@@ -1329,7 +1337,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
@@ -1354,9 +1362,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
 				logWithTimestamp(t, "Verify there is luckyluke via direct access")
-				kcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				kcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
-				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
 
@@ -1368,24 +1376,24 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Override summarizing rules to disable status promotion",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
 
-				wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
-				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationWorkspace)
+				wildwestLocationClusterName := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				logWithTimestamp(t, "Deploying syncer into workspace %s", wildwestLocationClusterName)
 
-				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
+				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationClusterName,
 					framework.WithExtraResources("cowboys.wildwest.dev"),
 					// empty APIExports so we do not add global kubernetes APIExport.
 					framework.WithAPIExports(""),
 					framework.WithSyncTargetName("wildwest"),
-					framework.WithSyncedUserWorkspaces(consumerWorkspace),
+					framework.WithSyncedUserWorkspaces(consumerClusterName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
 						// logical or not since cowboys is not a native type.
@@ -1397,16 +1405,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Start(t)
 
 				logWithTimestamp(t, "Bind consumer workspace to wildwest location workspace")
-				framework.NewBindCompute(t, consumerWorkspace, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationWorkspace.String()+":kubernetes"),
-					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
+				framework.NewBindCompute(t, consumerClusterName.Path(), server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationClusterName.Path()),
 				).Bind(t)
 
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
-					_, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+					_, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
@@ -1417,7 +1425,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
-				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+				_, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 						Annotations: map[string]string{
@@ -1434,7 +1442,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify there is one cowboy via direct access")
-				kcpCowboys, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+				kcpCowboys, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
@@ -1456,15 +1464,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
 				logWithTimestamp(t, "Verify there is luckyluke via direct access and through virtual workspace")
-				kcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				kcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
-				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceCowboy, err := vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
 				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
 				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
 				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -1490,15 +1498,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
-				_, err = vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
+				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Patch luckyluke via virtual workspace to catch averell")
-				_, err = vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
+				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Verify that luckyluke has only status changed on the syncer view, since the spec.intent field is not part of summarized fields")
-				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, virtualWorkspaceModifiedkcpCowboy.ResourceVersion)
 
@@ -1509,7 +1517,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceModifiedkcpCowboy.Spec))
 
 				logWithTimestamp(t, "Verify that luckyluke has status unchanged on the upstream view, since the status field promotion has been disabled by annotation")
-				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+				modifiedkcpCowboy, err := wildwestClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEqual(t, kcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
 				require.Equal(t, virtualWorkspaceModifiedkcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
@@ -1529,7 +1537,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			testCase.work(t, orgClusterName)
+			testCase.work(t, orgClusterName.Path())
 		})
 	}
 }
@@ -1545,11 +1553,11 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string)
+		work func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string)
 	}{
 		{
 			name: "list kcp resources through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1591,7 +1599,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1636,7 +1644,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace with a resource transformation",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1680,7 +1688,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "try to create a persistentvolume in kcp through upsyncer virtual workspace, without the statelabel set to Upsync, should fail",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1714,7 +1722,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1765,7 +1773,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace, try to remove the upsync state label, expect error.",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1819,7 +1827,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Delete a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1870,10 +1878,10 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			upsyncerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("upsyncer"))
+			upsyncerClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("upsyncer"))
 
-			logWithTimestamp(t, "Deploying syncer into workspace %s", upsyncerWorkspace)
-			upsyncer := framework.NewSyncerFixture(t, server, upsyncerWorkspace,
+			logWithTimestamp(t, "Deploying syncer into workspace %s", upsyncerClusterName)
+			upsyncer := framework.NewSyncerFixture(t, server, upsyncerClusterName,
 				framework.WithSyncTargetName("upsyncer"),
 				framework.WithExtraResources("persistentvolumes"),
 				framework.WithAPIExports(""),
@@ -1893,13 +1901,13 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			).Start(t)
 
 			logWithTimestamp(t, "Bind upsyncer workspace")
-			framework.NewBindCompute(t, upsyncerWorkspace, server,
-				framework.WithAPIExportsWorkloadBindOption(upsyncerWorkspace.String()+":kubernetes"),
+			framework.NewBindCompute(t, upsyncerClusterName.Path(), server,
+				framework.WithAPIExportsWorkloadBindOption(upsyncerClusterName.String()+":kubernetes"),
 			).Bind(t)
 
 			logWithTimestamp(t, "Waiting for the persistentvolumes crd to be imported and available in the upsyncer source cluster...")
 			require.Eventually(t, func() bool {
-				_, err := kubeClusterClient.CoreV1().PersistentVolumes().Cluster(upsyncerWorkspace).List(ctx, metav1.ListOptions{})
+				_, err := kubeClusterClient.CoreV1().PersistentVolumes().Cluster(upsyncerClusterName.Path()).List(ctx, metav1.ListOptions{})
 				if err != nil {
 					logWithTimestamp(t, "error seen waiting for persistentvolumes crd to become active: %v", err)
 					return false
@@ -1910,7 +1918,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			syncTargetKey := upsyncer.ToSyncTargetKey()
 
 			logWithTimestamp(t, "Starting test...")
-			testCase.work(t, upsyncer, upsyncerWorkspace, syncTargetKey)
+			testCase.work(t, upsyncer, upsyncerClusterName.Path(), syncTargetKey)
 		})
 	}
 }

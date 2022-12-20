@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	// A shard admin being member of the privileged system:masters group.
+	// A shard admin being member of the privileged system group.
 	// This will bypass most kcp authorization checks.
 	shardAdminUserName = "shard-admin"
 	// A kcp admin being member of system:kcp:clusterworkspace:admin and system:kcp:clusterworkspace:access.
@@ -118,8 +118,6 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		UID:  uuid.New().String(),
 		Groups: []string{
 			bootstrap.SystemKcpAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAccessGroup,
 		},
 	}
 

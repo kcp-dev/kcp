@@ -21,14 +21,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 )
@@ -36,7 +35,7 @@ import (
 func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var cs = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
-		if len(cs) != 3 || cs[0] != "clusters" {
+		if len(cs) < 2 || cs[0] != "clusters" {
 			http.NotFound(w, req)
 			return
 		}
@@ -49,17 +48,17 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		clusterName := logicalcluster.New(cs[1])
-		if !tenancyhelper.IsValidCluster(clusterName) {
+		clusterPath := logicalcluster.NewPath(cs[1])
+		if !clusterPath.IsValid() {
 			// this includes wildcards
-			logger.WithValues("path", req.URL.Path).V(4).Info("Invalid cluster name")
+			logger.WithValues("requestPath", req.URL.Path).V(4).Info("Invalid cluster path")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
 
-		shardURLString, found := index.Lookup(clusterName)
+		shardURLString, found := index.LookupURL(clusterPath)
 		if !found {
-			logger.WithValues("clusterName", clusterName).V(4).Info("Unknown cluster")
+			logger.WithValues("clusterPath", clusterPath).V(4).Info("Unknown cluster path")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
@@ -69,7 +68,12 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		logger.WithValues("from", req.URL.Path, "to", shardURL).V(4).Info("Redirecting")
+		logger.WithValues("from", "/clusters/"+cs[1], "to", shardURL).V(4).Info("Redirecting")
+
+		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/")
+		if len(cs) == 3 {
+			shardURL.Path += "/" + cs[2]
+		}
 
 		ctx = WithShardURL(ctx, shardURL)
 		req = req.WithContext(ctx)

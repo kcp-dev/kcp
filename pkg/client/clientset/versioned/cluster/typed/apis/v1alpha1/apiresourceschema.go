@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type APIResourceSchemasClusterGetter interface {
 // APIResourceSchemaClusterInterface can operate on APIResourceSchemas across all clusters,
 // or scope down to one cluster and return a apisv1alpha1client.APIResourceSchemaInterface.
 type APIResourceSchemaClusterInterface interface {
-	Cluster(logicalcluster.Name) apisv1alpha1client.APIResourceSchemaInterface
+	Cluster(logicalcluster.Path) apisv1alpha1client.APIResourceSchemaInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*apisv1alpha1.APIResourceSchemaList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type aPIResourceSchemasClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIResourceSchemasClusterInterface) Cluster(name logicalcluster.Name) apisv1alpha1client.APIResourceSchemaInterface {
-	if name == logicalcluster.Wildcard {
+func (c *aPIResourceSchemasClusterInterface) Cluster(clusterPath logicalcluster.Path) apisv1alpha1client.APIResourceSchemaInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).APIResourceSchemas()
+	return c.clientCache.ClusterOrDie(clusterPath).APIResourceSchemas()
 }
 
 // List returns the entire collection of all APIResourceSchemas across all clusters.

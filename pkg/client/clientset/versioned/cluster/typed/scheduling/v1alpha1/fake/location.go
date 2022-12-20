@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type locationsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *locationsClusterClient) Cluster(cluster logicalcluster.Name) schedulingv1alpha1client.LocationInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *locationsClusterClient) Cluster(clusterPath logicalcluster.Path) schedulingv1alpha1client.LocationInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &locationsClient{Fake: c.Fake, Cluster: cluster}
+	return &locationsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of Locations that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *locationsClusterClient) Watch(ctx context.Context, opts metav1.ListOpti
 
 type locationsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *locationsClient) Create(ctx context.Context, location *schedulingv1alpha1.Location, opts metav1.CreateOptions) (*schedulingv1alpha1.Location, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(locationsResource, c.Cluster, location), &schedulingv1alpha1.Location{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(locationsResource, c.ClusterPath, location), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *locationsClient) Create(ctx context.Context, location *schedulingv1alph
 }
 
 func (c *locationsClient) Update(ctx context.Context, location *schedulingv1alpha1.Location, opts metav1.UpdateOptions) (*schedulingv1alpha1.Location, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(locationsResource, c.Cluster, location), &schedulingv1alpha1.Location{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(locationsResource, c.ClusterPath, location), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *locationsClient) Update(ctx context.Context, location *schedulingv1alph
 }
 
 func (c *locationsClient) UpdateStatus(ctx context.Context, location *schedulingv1alpha1.Location, opts metav1.UpdateOptions) (*schedulingv1alpha1.Location, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(locationsResource, c.Cluster, "status", location), &schedulingv1alpha1.Location{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(locationsResource, c.ClusterPath, "status", location), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *locationsClient) UpdateStatus(ctx context.Context, location *scheduling
 }
 
 func (c *locationsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(locationsResource, c.Cluster, name, opts), &schedulingv1alpha1.Location{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(locationsResource, c.ClusterPath, name, opts), &schedulingv1alpha1.Location{})
 	return err
 }
 
 func (c *locationsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(locationsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(locationsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &schedulingv1alpha1.LocationList{})
 	return err
 }
 
 func (c *locationsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*schedulingv1alpha1.Location, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(locationsResource, c.Cluster, name), &schedulingv1alpha1.Location{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(locationsResource, c.ClusterPath, name), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *locationsClient) Get(ctx context.Context, name string, options metav1.G
 
 // List takes label and field selectors, and returns the list of Locations that match those selectors.
 func (c *locationsClient) List(ctx context.Context, opts metav1.ListOptions) (*schedulingv1alpha1.LocationList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(locationsResource, locationsKind, c.Cluster, opts), &schedulingv1alpha1.LocationList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(locationsResource, locationsKind, c.ClusterPath, opts), &schedulingv1alpha1.LocationList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *locationsClient) List(ctx context.Context, opts metav1.ListOptions) (*s
 }
 
 func (c *locationsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(locationsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(locationsResource, c.ClusterPath, opts))
 }
 
 func (c *locationsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Location, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(locationsResource, c.Cluster, name, pt, data, subresources...), &schedulingv1alpha1.Location{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(locationsResource, c.ClusterPath, name, pt, data, subresources...), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}

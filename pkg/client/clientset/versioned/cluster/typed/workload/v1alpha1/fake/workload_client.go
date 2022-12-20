@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
@@ -37,11 +37,11 @@ type WorkloadV1alpha1ClusterClient struct {
 	*kcptesting.Fake
 }
 
-func (c *WorkloadV1alpha1ClusterClient) Cluster(cluster logicalcluster.Name) workloadv1alpha1.WorkloadV1alpha1Interface {
-	if cluster == logicalcluster.Wildcard {
+func (c *WorkloadV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) workloadv1alpha1.WorkloadV1alpha1Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return &WorkloadV1alpha1Client{Fake: c.Fake, Cluster: cluster}
+	return &WorkloadV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 func (c *WorkloadV1alpha1ClusterClient) SyncTargets() kcpworkloadv1alpha1.SyncTargetClusterInterface {
@@ -52,7 +52,7 @@ var _ workloadv1alpha1.WorkloadV1alpha1Interface = (*WorkloadV1alpha1Client)(nil
 
 type WorkloadV1alpha1Client struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *WorkloadV1alpha1Client) RESTClient() rest.Interface {
@@ -61,5 +61,5 @@ func (c *WorkloadV1alpha1Client) RESTClient() rest.Interface {
 }
 
 func (c *WorkloadV1alpha1Client) SyncTargets() workloadv1alpha1.SyncTargetInterface {
-	return &syncTargetsClient{Fake: c.Fake, Cluster: c.Cluster}
+	return &syncTargetsClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

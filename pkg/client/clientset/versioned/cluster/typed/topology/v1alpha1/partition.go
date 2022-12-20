@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type PartitionsClusterGetter interface {
 // PartitionClusterInterface can operate on Partitions across all clusters,
 // or scope down to one cluster and return a topologyv1alpha1client.PartitionInterface.
 type PartitionClusterInterface interface {
-	Cluster(logicalcluster.Name) topologyv1alpha1client.PartitionInterface
+	Cluster(logicalcluster.Path) topologyv1alpha1client.PartitionInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*topologyv1alpha1.PartitionList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type partitionsClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *partitionsClusterInterface) Cluster(name logicalcluster.Name) topologyv1alpha1client.PartitionInterface {
-	if name == logicalcluster.Wildcard {
+func (c *partitionsClusterInterface) Cluster(clusterPath logicalcluster.Path) topologyv1alpha1client.PartitionInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).Partitions()
+	return c.clientCache.ClusterOrDie(clusterPath).Partitions()
 }
 
 // List returns the entire collection of all Partitions across all clusters.

@@ -1,5 +1,5 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspace
+apiVersion: tenancy.kcp.dev/v1beta1
+kind: Workspace
 metadata:
   name: compute
   annotations:

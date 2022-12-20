@@ -19,7 +19,7 @@ package framework
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,20 +32,20 @@ type bindCompute struct {
 	apiExports        []string
 	nsSelector        string
 	locationSelectors []string
-	locationWorkspace logicalcluster.Name
+	locationWorkspace logicalcluster.Path
 	kubeconfigPath    string
 	placementName     string
 }
 
-func NewBindCompute(t *testing.T, clusterName logicalcluster.Name, server RunningServer, opts ...BindComputeOption) *bindCompute {
+func NewBindCompute(t *testing.T, path logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", clusterName)
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", path)
 
 	workloadBind := &bindCompute{
 		kubeconfigPath:    kubeconfigPath,
-		locationWorkspace: clusterName,
+		locationWorkspace: path,
 	}
 
 	for _, opt := range opts {
@@ -88,7 +88,7 @@ func WithPlacementNameBindOption(placementName string) BindComputeOption {
 	}
 }
 
-func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Name) BindComputeOption {
+func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Path) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
 		w.locationWorkspace = clusterName
 	}

@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,13 +74,13 @@ type Controller struct {
 	downstreamNSInformer      informers.GenericInformer
 	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
-	syncTargetWorkspace       logicalcluster.Name
+	syncTargetClusterName     logicalcluster.Name
 	syncTargetUID             types.UID
 	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string,
+func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string,
 	upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
@@ -104,7 +104,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 
 		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
-		syncTargetWorkspace:       syncTargetWorkspace,
+		syncTargetClusterName:     syncTargetClusterName,
 		syncTargetUID:             syncTargetUID,
 		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
@@ -206,7 +206,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					logger.V(4).Info("found", "NamespaceLocator", nsLocator)
 					m := &metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
+							logicalcluster.AnnotationKey: nsLocator.ClusterName.String(),
 						},
 						Namespace: nsLocator.Namespace,
 						Name:      shared.GetUpstreamResourceName(gvr, name),
@@ -222,7 +222,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 		return upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, serviceLister, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
+	}, serviceLister, syncTargetClusterName, syncTargetUID, syncTargetName, dnsNamespace)
 
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,

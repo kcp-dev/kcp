@@ -24,7 +24,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -70,7 +70,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	}))
 
 	t.Logf("Giving user-1 admin access")
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName.Path(), []string{"user-1"}, nil, true)
 
 	type Test struct {
 		name string
@@ -83,11 +83,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 			test: func(t *testing.T) {
 				t.Parallel()
 
-				t.Logf("Creating a ClusterWorkspaceType as user-1")
+				t.Logf("Creating a WorkspaceType as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+					_, err = userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -100,11 +100,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"Initializers":["foo"]}}`)
-				wc, err := userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				wc, err := userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
 
 				t.Logf("Double check to change status as admin, which should work")
-				_, err = kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
@@ -117,7 +117,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
+					_, err := userKcpClusterClient.Cluster(orgClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -130,11 +130,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"identityHash":"4711"}}`)
-				export, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				export, err := userKcpClusterClient.Cluster(orgClusterName.Path()).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, export))
 
 				t.Logf("Double check to change status as system:master, which should work") // system CRDs even need system:master, hence we need the root shard client
-				_, err = rootKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = rootKcpClusterClient.Cluster(orgClusterName.Path()).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
@@ -153,10 +153,10 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	rbacServiceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	rbacServiceProviderClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	consumer1ClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	consumer2ClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
 
 	cfg := server.BaseConfig(t)
 
@@ -172,25 +172,25 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceProviderWorkspaces := []logicalcluster.Name{rbacServiceProviderWorkspace, serviceProvider2Workspace}
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
+	serviceProviderClusterNames := []logicalcluster.Name{rbacServiceProviderClusterName, serviceProvider2Workspace}
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
 
 	// Set up service provider workspace.
-	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
-		setUpServiceProvider(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderWorkspace, rbacServiceProviderWorkspace, cfg, t)
+	for _, serviceProviderClusterName := range serviceProviderClusterNames {
+		setUpServiceProvider(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderClusterName.Path(), rbacServiceProviderClusterName.Path(), cfg, t)
 	}
 
-	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
-		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumer1Workspace, rbacServiceProviderWorkspace)
+	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name) {
+		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumer1ClusterName, rbacServiceProviderClusterName)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys",
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       providerWorkspace.String(),
-						ExportName: "today-cowboys",
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: providerClusterName.Path().String(),
+						Name: "today-cowboys",
 					},
 				},
 			},
@@ -221,22 +221,22 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	}
 
 	m := map[logicalcluster.Name]logicalcluster.Name{
-		rbacServiceProviderWorkspace: consumer1Workspace,
-		serviceProvider2Workspace:    consumer2Workspace,
+		rbacServiceProviderClusterName: consumer1ClusterName,
+		serviceProvider2Workspace:      consumer2ClusterName,
 	}
 	for serviceProvider, consumer := range m {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
-		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, []string{"admin"})
-		bindConsumerToProvider(consumer, serviceProvider)
+		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer.Path(), []string{"user-1", "user-3"}, nil, true)
+		bindConsumerToProvider(consumer.Path(), serviceProvider)
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
-		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer).Cowboys("default")
+		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer.Path()).Cowboys("default")
 		require.NoError(t, err)
-		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
+		testCRUDOperations(ctx, t, consumer.Path(), wildwestClusterClient)
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumer)
 		cowboys, err := cowboyclient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
-		if serviceProvider == rbacServiceProviderWorkspace {
+		if serviceProvider == rbacServiceProviderClusterName {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
 			framework.Eventually(t, func() (bool, string) {
 				_, err = cowboyclient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
@@ -249,12 +249,12 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			// in consumer workspace 1 we will create a RBAC for user 2 such that they can only get/list.
 			t.Logf("Install RBAC in consumer workspace %q for user 2", consumer)
 			clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-get-list", "user-2", "User", wildwest.GroupName, "cowboys", "", []string{"get", "list"})
-			_, err = kubeClusterClient.Cluster(consumer).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(consumer.Path()).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
-			_, err = kubeClusterClient.Cluster(consumer).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(consumer.Path()).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
+			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer.Path(), []string{"user-2"}, nil, false)
 			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 			require.NoError(t, err)
 
@@ -262,7 +262,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 			// This is needed to make sure the RBAC is updated in the informers
 			require.Eventually(t, func() bool {
-				_, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+				_, err := user2Client.Cluster(consumer.Path()).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
 				return err == nil
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys")
 
@@ -273,7 +273,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				},
 			}
 			t.Logf("Make sure user 2 can not create cowboy resources in consumer workspace %q", consumer)
-			_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy2, metav1.CreateOptions{})
+			_, err = user2Client.Cluster(consumer.Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy2, metav1.CreateOptions{})
 			require.Error(t, err)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
@@ -287,16 +287,17 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       "root:not-existent",
-					ExportName: "today-cowboys",
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: "root:not-existent",
+					Name: "today-cowboys",
 				},
 			},
 		},
 	}
-	_, err = user3KcpClient.Cluster(consumer1Workspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.ErrorContains(t, err, `no permission to bind to export "today-cowboys"`)
+
+	_, err = user3KcpClient.Cluster(consumer1ClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+	require.ErrorContains(t, err, `no permission to bind to export root:not-existent:today-cowboys`)
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGroup, resource, resourceName string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
@@ -336,7 +337,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGrou
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Path, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
@@ -376,7 +377,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.C
 	require.NoError(t, err)
 }
 
-func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.ClusterInterface) {
+func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Path, wildwestClusterClient wildwestclientset.ClusterInterface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")

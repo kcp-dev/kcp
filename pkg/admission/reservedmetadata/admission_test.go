@@ -240,7 +240,7 @@ func TestAdmission(t *testing.T) {
 			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
 		},
 		{
-			testName: "created kcp.dev label as system:masters",
+			testName: "created kcp.dev label as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -308,7 +308,7 @@ func TestAdmission(t *testing.T) {
 			),
 		},
 		{
-			testName: "added kcp.dev label as system:masters",
+			testName: "added kcp.dev label as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -579,7 +579,7 @@ func TestAdmission(t *testing.T) {
 			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.dev\"",
 		},
 		{
-			testName: "added kcp.dev annotation as system:masters",
+			testName: "added kcp.dev annotation as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{

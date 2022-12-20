@@ -19,12 +19,12 @@ package options
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 type HomeWorkspaces struct {
@@ -56,6 +56,12 @@ func (hw *HomeWorkspaces) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&hw.BucketLevels, "home-workspaces-bucket-size", hw.BucketSize, "Number of characters of bucket workspace names used when bucketing home workspaces")
 	fs.StringSliceVar(&hw.HomeCreatorGroups, "home-workspaces-home-creator-groups", hw.HomeCreatorGroups, "Groups of users who can have their home workspace created automatically create when first accessing it.")
 	fs.StringVar(&hw.HomeRootPrefix, "home-workspaces-root-prefix", hw.HomeRootPrefix, "Logical cluster name of the workspace that will contains home workspaces for all workspaces.")
+
+	fs.MarkDeprecated("home-workspaces-home-creator-groups", "This flag is deprecated and will be removed in a future release.")    //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-root-prefix", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-creation-delay-seconds", "This flag is deprecated and will be removed in a future release.") //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-bucket-levels", "This flag is deprecated and will be removed in a future release.")          //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-bucket-size", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
 }
 
 func (e *HomeWorkspaces) Validate() []error {
@@ -71,11 +77,11 @@ func (e *HomeWorkspaces) Validate() []error {
 		if e.CreationDelaySeconds < 1 {
 			errs = append(errs, fmt.Errorf("--home-workspaces-creation-delay-seconds should be between 1"))
 		}
-		if homePrefix := logicalcluster.New(e.HomeRootPrefix); !homePrefix.IsValid() ||
+		if homePrefix := logicalcluster.NewPath(e.HomeRootPrefix); !homePrefix.IsValid() ||
 			homePrefix == logicalcluster.Wildcard ||
-			!homePrefix.HasPrefix(tenancyv1alpha1.RootCluster) {
+			!homePrefix.HasPrefix(core.RootCluster.Path()) {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))
-		} else if parent, ok := homePrefix.Parent(); !ok || parent != tenancyv1alpha1.RootCluster {
+		} else if parent, ok := homePrefix.Parent(); !ok || parent != core.RootCluster.Path() {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a direct child of the root logical cluster"))
 		}
 	}

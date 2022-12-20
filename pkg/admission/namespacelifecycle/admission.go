@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +37,7 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -66,7 +66,7 @@ type workspaceNamespaceLifecycle struct {
 	// namespaceLifecycle is used only when workspace is deleting
 	namespaceLifecycle *lifecycle.Lifecycle
 
-	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 }
 
 func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
@@ -112,19 +112,14 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 		return apierrors.NewInternalError(err)
 	}
 
-	org, hasParent := clusterName.Parent()
-	if !hasParent {
-		return admissionErr
-	}
-
-	workspace, err := l.getClusterWorkspace(org, clusterName.Base())
+	this, err := l.getLogicalCluster(clusterName)
 	// The shard hosting the workspace could be down,
 	// just return error from legacy namespace lifecycle admission in this case
 	if err != nil && !apierrors.IsNotFound(err) {
 		return admissionErr
 	}
 
-	if workspace.DeletionTimestamp.IsZero() {
+	if this.DeletionTimestamp.IsZero() {
 		return admissionErr
 	}
 
@@ -144,10 +139,10 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 }
 
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	l.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
+	l.SetReadyFunc(informers.Tenancy().V1beta1().Workspaces().Informer().HasSynced)
 
-	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Cluster(clusterName).Get(name)
+	l.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+		return informers.Core().V1alpha1().LogicalClusters().Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	}
 }
 
@@ -161,8 +156,8 @@ func (l *workspaceNamespaceLifecycle) ValidateInitialization() error {
 		return err
 	}
 
-	if l.getClusterWorkspace == nil {
-		return fmt.Errorf("missing getClusterWorkspace")
+	if l.getLogicalCluster == nil {
+		return fmt.Errorf("missing getLogicalCluster")
 	}
 	return nil
 }

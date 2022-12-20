@@ -110,10 +110,10 @@ a       organization   Ready   https://myhost:6443/clusters/root:a
 users   homeroot       Ready   https://myhost:6443/clusters/root:users
 ```
 
-Workspace types and their behaviors are defined using the `ClusterWorkspaceType` resource:
+Workspace types and their behaviors are defined using the `WorkspaceType` resource:
 
 ```shell
-$ kubectl get clusterworkspacetypes
+$ kubectl get workspacetypes
 NAME           AGE
 home           74m
 homebucket     74m
@@ -122,11 +122,11 @@ organization   74m
 root           74m
 team           74m
 universal      74m
-$ kubectl describe clusterworkspacetype/team
+$ kubectl describe workspacetype/team
 Name:         team
 ...
 API Version:  tenancy.kcp.dev/v1alpha1
-Kind:         ClusterWorkspaceType
+Kind:         WorkspaceType
 ...
 Spec:
   Default Child Workspace Type:

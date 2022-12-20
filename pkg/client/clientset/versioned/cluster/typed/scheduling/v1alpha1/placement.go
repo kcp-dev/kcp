@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type PlacementsClusterGetter interface {
 // PlacementClusterInterface can operate on Placements across all clusters,
 // or scope down to one cluster and return a schedulingv1alpha1client.PlacementInterface.
 type PlacementClusterInterface interface {
-	Cluster(logicalcluster.Name) schedulingv1alpha1client.PlacementInterface
+	Cluster(logicalcluster.Path) schedulingv1alpha1client.PlacementInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*schedulingv1alpha1.PlacementList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type placementsClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *placementsClusterInterface) Cluster(name logicalcluster.Name) schedulingv1alpha1client.PlacementInterface {
-	if name == logicalcluster.Wildcard {
+func (c *placementsClusterInterface) Cluster(clusterPath logicalcluster.Path) schedulingv1alpha1client.PlacementInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).Placements()
+	return c.clientCache.ClusterOrDie(clusterPath).Placements()
 }
 
 // List returns the entire collection of all Placements across all clusters.

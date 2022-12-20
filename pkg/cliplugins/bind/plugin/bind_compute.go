@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 	"github.com/spf13/cobra"
 
@@ -61,7 +61,7 @@ type BindComputeOptions struct {
 	LocationSelectorsStrings []string
 
 	// LocationWorkspace is the workspace for synctarget
-	LocationWorkspace logicalcluster.Name
+	LocationWorkspace logicalcluster.Path
 
 	// BindWaitTimeout is how long to wait for the placement to be created and successful.
 	BindWaitTimeout time.Duration
@@ -102,7 +102,7 @@ func (o *BindComputeOptions) Complete(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("a location workspace should be specified")
 	}
-	clusterName, validated := logicalcluster.NewValidated(args[0])
+	clusterName, validated := logicalcluster.NewValidatedPath(args[0])
 	if !validated {
 		return fmt.Errorf("location workspace type is incorrect")
 	}
@@ -147,63 +147,92 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
+	// apply APIBindings
 	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.NewString(o.APIExports...))
 	if err != nil {
 		return err
 	}
 
+	// and wait for them to be ready
+	var message string
+	if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
+		var ready bool
+		if ready, message = bindingsReady(bindings); ready {
+			return true, nil
+		}
+
+		var updated []*apisv1alpha1.APIBinding
+		for _, binding := range bindings {
+			b, err := userWorkspaceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			updated = append(updated, b)
+		}
+		bindings = updated
+		return false, nil
+	}); err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
+		return fmt.Errorf("APIBindings not ready: %s", message)
+	} else if err != nil {
+		return fmt.Errorf("APIBindings not ready: %w", err)
+	}
+
+	// apply placement
 	placement, err := o.applyPlacement(ctx, userWorkspaceKcpClient)
 	if err != nil {
 		return err
 	}
 
-	// wait for bind to be ready
-	if ready, message := bindReady(bindings, placement); !ready {
-		if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
-			currentPlacement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-			var currentBindings []*apisv1alpha1.APIBinding
-			for _, binding := range bindings {
-				currentBinding, err := userWorkspaceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				currentBindings = append(currentBindings, currentBinding)
-			}
-
-			ready, message = bindReady(currentBindings, currentPlacement)
-			return ready, nil
-		}); err != nil {
-			if err.Error() == wait.ErrWaitTimeout.Error() {
-				return fmt.Errorf("bind compute is not ready %s: %s", placement.Name, message)
-			}
-			return fmt.Errorf("bind compute is not ready %s: %w", placement.Name, err)
+	// and wait for it to be ready
+	if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
+		placement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
+
+		done, message = placementReadyAndScheduled(placement)
+		return done, nil
+	}); err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
+		return fmt.Errorf("placement %q not ready: %s", placement.Name, message)
+	} else if err != nil {
+		return fmt.Errorf("placement %q not ready: %w", placement.Name, err)
 	}
 
-	return nil
+	_, err = fmt.Fprintf(o.IOStreams.ErrOut, "Placement %q is ready.\n", placement.Name)
+	return err
 }
 
-func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha1.Placement) (bool, string) {
-	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
-		return false, fmt.Sprintf("placement is not ready: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady))
-	}
+func placementReadyAndScheduled(placement *schedulingv1alpha1.Placement) (bool, string) {
 	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementScheduled) {
-		return false, fmt.Sprintf("placement is not scheduled: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled))
+		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled); len(msg) > 0 {
+			return false, fmt.Sprintf("placement is not scheduled: %s", msg)
+		}
+		return false, "placement is not scheduled"
 	}
 
-	for _, binding := range bindings {
-		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			conditionMessage := "unknown reason"
-			if conditions.IsFalse(binding, apisv1alpha1.InitialBindingCompleted) {
-				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.InitialBindingCompleted)
-			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
-				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
-			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName, conditionMessage)
+	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
+		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady); msg != "" {
+			return false, fmt.Sprintf("placement is not ready: %s", msg)
 		}
+		return false, "placement is not ready"
+	}
+
+	return true, ""
+}
+
+func bindingsReady(bindings []*apisv1alpha1.APIBinding) (bool, string) {
+	for _, binding := range bindings {
+		if binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound {
+			continue
+		}
+
+		conditionMessage := "unknown reason"
+		if conditions.IsFalse(binding, apisv1alpha1.InitialBindingCompleted) {
+			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.InitialBindingCompleted)
+		} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
+			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
+		}
+		return false, fmt.Sprintf("APIBinding %q is not bound to APIExport %q yet: %s", binding.Name, logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
 	}
 
 	return true, ""
@@ -211,14 +240,14 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 
 const maxBindingNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 8
 
-func apiBindingName(clusterName logicalcluster.Name, apiExportName string) string {
+func apiBindingName(clusterName logicalcluster.Path, apiExportName string) string {
 	maxLen := len(apiExportName)
 	if maxLen > maxBindingNamePrefixLength {
 		maxLen = maxBindingNamePrefixLength
 	}
 	bindingNamePrefix := apiExportName[:maxLen]
 
-	hash := sha256.Sum224([]byte(clusterName.Path()))
+	hash := sha256.Sum224([]byte(clusterName.RequestPath()))
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 	return fmt.Sprintf("%s-%s", bindingNamePrefix, base36hash[:8])
 }
@@ -229,41 +258,70 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		return nil, err
 	}
 
+	// the cluster name we use for local bindings. If there is a binding already,
+	// we use it to get the local cluster name. Otherwise, we use the empty string.
+	// This is important to not get confused about local bindings with empty
+	// path and those with the cluster name as path.
+	var localClusterName logicalcluster.Name
+
 	existingAPIExports := sets.NewString()
 	for _, binding := range apiBindings.Items {
-		if binding.Spec.Reference.Workspace == nil {
+		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName))
+		// TODO(sttts): binding.Spec.Reference.Export.Path is not unique for one export. This whole method does not work reliably.
+		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(&binding).Path()
+		}
+		existingAPIExports.Insert(path.Join(binding.Spec.Reference.Export.Name).String())
+		localClusterName = logicalcluster.From(&binding)
+	}
+
+	if localClusterName != "" {
+		// add clusterName when missing such that our set logic works
+		old := desiredAPIExports
+		desiredAPIExports = sets.NewString()
+		for _, export := range old.List() {
+			path, name := logicalcluster.NewPath(export).Split()
+			if path.Empty() {
+				path = localClusterName.Path()
+			}
+			desiredAPIExports.Insert(path.Join(name).String())
+		}
 	}
 
 	var errs []error
 	diff := desiredAPIExports.Difference(existingAPIExports)
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
-		clusterName, name := logicalcluster.New(export).Split()
+		path, name := logicalcluster.NewPath(export).Split()
+		if path == localClusterName.Path() {
+			// empty path for local bindings
+			path = logicalcluster.Path{}
+		}
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiBindingName(clusterName, name),
+				Name: apiBindingName(path, name),
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       clusterName.String(),
-						ExportName: name,
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: path.String(),
+						Name: name,
 					},
 				},
 			},
 		}
 		binding, err := client.ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed binding APIExport %q: %w", path.Join(name), err))
+			continue
 		}
 
 		bindings = append(bindings, binding)
 
-		_, err = fmt.Fprintf(o.Out, "apibinding %s for apiexport %s created.\n", apiBinding.Name, export)
-		if err != nil {
+		if _, err = fmt.Fprintf(o.IOStreams.ErrOut, "Binding APIExport %q.\n", export); err != nil {
 			errs = append(errs, err)
 		}
 	}

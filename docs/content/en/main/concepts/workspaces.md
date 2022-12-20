@@ -39,7 +39,7 @@ define additional types.
 
 - **Root Workspace** is a singleton.  It holds some data that applies
   to all workspaces, such as the set of defined workspace types
-  (objects of type `ClusterWorkspaceType`).
+  (objects of type `WorkspaceType`).
 - **HomeRoot Workspace** is normally a singleton, holding the branch
   of workspaces that contains the user home workspaces as descendants.
   Can only be a child of the root workspace, and can only have
@@ -66,7 +66,7 @@ under `/clusters/<parent-workspace-name>:<cluster-workspace-name>`. E.g. organiz
 workspaces are accessible at `/clusters/root:<org-name>`. A user workspace is
 accessible at `/clusters/root:users:<bucket-d1>:..:<bucket-dN>:<user-workspace-name>`.
 
-ClusterWorkspaces have a type. A type is defined by a ClusterWorkspaceType. A type
+ClusterWorkspaces have a type. A type is defined by a WorkspaceType. A type
 defines initializers. They are set on new ClusterWorkspace objects and block the
 cluster workspace from leaving the initializing phase. Both system components and
 3rd party components can use initializers to customize ClusterWorkspaces on creation,
@@ -74,12 +74,12 @@ e.g. to bootstrap resources inside the workspace, or to set up permission in its
 
 A cluster workspace of type `Universal` is a workspace without further initialization
 or special properties by default, and it can be used without a corresponding
-ClusterWorkspaceType object (though one can be added and its initializers will be
+WorkspaceType object (though one can be added and its initializers will be
 applied). ClusterWorkSpaces of type `Organization` are described in the next section.
 
 {{% alert title="Note" color="primary" %}}
 In order to create cluster workspaces of a given type (including `Universal`)
-you must have `use` permissions against the `clusterworkspacetypes` resources with the
+you must have `use` permissions against the `workspacetypes` resources with the
 lower-case name of the cluster workspace type (e.g. `universal`). All `system:authenticated`
 users inherit this permission automatically for type `Universal`.
 {{% /alert %}}
@@ -151,7 +151,7 @@ Organization workspaces are ClusterWorkspaces of type `Organization`, defined in
 root workspace. Organization workspaces are accessible at `/clusters/root:<org-name>`.
 
 {{% alert title="Note" color="primary" %}}
-The organization ClusterWorkspaceType can only be created in the root workspace
+The organization WorkspaceType can only be created in the root workspace
 verified through admission.
 {{% /alert %}}
 

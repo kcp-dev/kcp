@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +45,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -97,7 +98,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName, server).Bind(t)
+				framework.NewBindCompute(t, server.clusterName.Path(), server).Bind(t)
 
 				t.Log("Wait for \"kubernetes\" apiexport")
 				require.Eventually(t, func() bool {
@@ -114,7 +115,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					}
 					return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncerFixture.SyncerConfig.SyncTargetName)
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncTargetClusterName, syncerFixture.SyncerConfig.SyncTargetName)
 
 				t.Log("Wait until the namespace is scheduled to the workload cluster")
 				require.Eventually(t, func() bool {
@@ -159,12 +160,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				cluster := &workloadv1alpha1.SyncTarget{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster7"},
 					Spec: workloadv1alpha1.SyncTargetSpec{
-						SupportedAPIExports: []apisv1alpha1.ExportReference{
+						SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 							{
-								Workspace: &apisv1alpha1.WorkspaceExportReference{
-									ExportName: "kubernetes",
-									Path:       server.clusterName.String(),
-								},
+								Export: "kubernetes",
+								Path:   server.clusterName.String(),
 							},
 						},
 					},
@@ -185,7 +184,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, 100*time.Millisecond)
 
 				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName, server,
+				framework.NewBindCompute(t, server.clusterName.Path(), server,
 					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
 				).Bind(t)
 
@@ -197,18 +196,18 @@ func TestNamespaceScheduler(t *testing.T) {
 					Version:  crd.Spec.Versions[0].Name,
 					Resource: crd.Spec.Names.Plural,
 				}
-				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName), crd)
-				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName.Path()), crd)
+				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName.Path())
 				require.Eventually(t, func() bool {
-					_, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+					_, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see CRD in cluster")
 
 				t.Log("Create a sheriff and wait for it to be scheduled")
-				_, err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "woody"), metav1.CreateOptions{})
+				_, err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "woody"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
 				require.Eventually(t, func() bool {
-					obj, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Get(ctx, "woody", metav1.GetOptions{})
+					obj, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Get(ctx, "woody", metav1.GetOptions{})
 					if err != nil {
 						t.Logf("failed to get sheriff: %v", err)
 						return false
@@ -217,24 +216,24 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 
 				t.Log("Delete the sheriff and the sheriff CRD")
-				err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
+				err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete sheriff")
-				err = crdClusterClient.Cluster(server.clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
+				err = crdClusterClient.Cluster(server.clusterName.Path()).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete CRD")
 
 				time.Sleep(7 * time.Second) // this must be longer than discovery repoll interval (5s in tests)
 
 				t.Log("Recreate the CRD, and then quickly a namespace and a CR whose CRD was just recreated")
-				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName), crd)
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName.Path()), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
-				_, err = kubeClusterClient.Cluster(server.clusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(server.clusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")
-				_, err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
+				_, err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
 
 				t.Log("Now also the sheriff should be scheduled")
 				require.Eventually(t, func() bool {
-					obj, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Get(ctx, "lucky-luke", metav1.GetOptions{})
+					obj, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Get(ctx, "lucky-luke", metav1.GetOptions{})
 					if err != nil {
 						t.Logf("failed to get sheriff: %v", err)
 						return false
@@ -261,7 +260,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
+			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
@@ -279,8 +278,8 @@ func TestNamespaceScheduler(t *testing.T) {
 			s := runningServer{
 				RunningServer:  server,
 				clusterName:    clusterName,
-				client:         kubeClusterClient.Cluster(clusterName),
-				kcpClient:      kcpClusterClient.Cluster(clusterName),
+				client:         kubeClusterClient.Cluster(clusterName.Path()),
+				kcpClient:      kcpClusterClient.Cluster(clusterName.Path()),
 				expect:         expect,
 				orgClusterName: orgClusterName,
 			}

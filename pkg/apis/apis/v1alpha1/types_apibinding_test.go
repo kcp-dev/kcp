@@ -34,30 +34,30 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "no change",
 			current: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "foo",
-					"exportName": "bar",
+				"export": map[string]interface{}{
+					"path": "foo",
+					"name": "bar",
 				},
 			},
 			old: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "foo",
-					"exportName": "bar",
+				"export": map[string]interface{}{
+					"path": "foo",
+					"name": "bar",
 				},
 			},
 		},
 		{
-			name: "change exportName",
+			name: "change export name",
 			current: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "foo",
-					"exportName": "bar",
+				"export": map[string]interface{}{
+					"path": "foo",
+					"name": "bar",
 				},
 			},
 			old: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "foo",
-					"exportName": "CHANGE",
+				"export": map[string]interface{}{
+					"path": "foo",
+					"name": "CHANGE",
 				},
 			},
 			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: \"object\": APIExport reference must not be changed"},
@@ -65,22 +65,22 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "change path",
 			current: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "foo",
-					"exportName": "bar",
+				"export": map[string]interface{}{
+					"path": "foo",
+					"name": "bar",
 				},
 			},
 			old: map[string]interface{}{
-				"workspace": map[string]interface{}{
-					"path":       "CHANGE",
-					"exportName": "bar",
+				"export": map[string]interface{}{
+					"path": "CHANGE",
+					"name": "bar",
 				},
 			},
 			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: \"object\": APIExport reference must not be changed"},
 		},
 	}
 
-	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.reference"

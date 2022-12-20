@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type aPIResourceImportsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIResourceImportsClusterClient) Cluster(cluster logicalcluster.Name) apiresourcev1alpha1client.APIResourceImportInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *aPIResourceImportsClusterClient) Cluster(clusterPath logicalcluster.Path) apiresourcev1alpha1client.APIResourceImportInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &aPIResourceImportsClient{Fake: c.Fake, Cluster: cluster}
+	return &aPIResourceImportsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of APIResourceImports that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *aPIResourceImportsClusterClient) Watch(ctx context.Context, opts metav1
 
 type aPIResourceImportsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *aPIResourceImportsClient) Create(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImport, opts metav1.CreateOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIResourceImportsResource, c.Cluster, aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIResourceImportsResource, c.ClusterPath, aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *aPIResourceImportsClient) Create(ctx context.Context, aPIResourceImport
 }
 
 func (c *aPIResourceImportsClient) Update(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImport, opts metav1.UpdateOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIResourceImportsResource, c.Cluster, aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIResourceImportsResource, c.ClusterPath, aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *aPIResourceImportsClient) Update(ctx context.Context, aPIResourceImport
 }
 
 func (c *aPIResourceImportsClient) UpdateStatus(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImport, opts metav1.UpdateOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIResourceImportsResource, c.Cluster, "status", aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIResourceImportsResource, c.ClusterPath, "status", aPIResourceImport), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *aPIResourceImportsClient) UpdateStatus(ctx context.Context, aPIResource
 }
 
 func (c *aPIResourceImportsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIResourceImportsResource, c.Cluster, name, opts), &apiresourcev1alpha1.APIResourceImport{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIResourceImportsResource, c.ClusterPath, name, opts), &apiresourcev1alpha1.APIResourceImport{})
 	return err
 }
 
 func (c *aPIResourceImportsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(aPIResourceImportsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(aPIResourceImportsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &apiresourcev1alpha1.APIResourceImportList{})
 	return err
 }
 
 func (c *aPIResourceImportsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIResourceImportsResource, c.Cluster, name), &apiresourcev1alpha1.APIResourceImport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIResourceImportsResource, c.ClusterPath, name), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *aPIResourceImportsClient) Get(ctx context.Context, name string, options
 
 // List takes label and field selectors, and returns the list of APIResourceImports that match those selectors.
 func (c *aPIResourceImportsClient) List(ctx context.Context, opts metav1.ListOptions) (*apiresourcev1alpha1.APIResourceImportList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIResourceImportsResource, aPIResourceImportsKind, c.Cluster, opts), &apiresourcev1alpha1.APIResourceImportList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIResourceImportsResource, aPIResourceImportsKind, c.ClusterPath, opts), &apiresourcev1alpha1.APIResourceImportList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *aPIResourceImportsClient) List(ctx context.Context, opts metav1.ListOpt
 }
 
 func (c *aPIResourceImportsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIResourceImportsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIResourceImportsResource, c.ClusterPath, opts))
 }
 
 func (c *aPIResourceImportsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apiresourcev1alpha1.APIResourceImport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceImportsResource, c.Cluster, name, pt, data, subresources...), &apiresourcev1alpha1.APIResourceImport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceImportsResource, c.ClusterPath, name, pt, data, subresources...), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}

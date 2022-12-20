@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -86,7 +86,7 @@ func TestValidate(t *testing.T) {
 	tests := []struct {
 		name        string
 		attr        admission.Attributes
-		clusterName string
+		clusterName logicalcluster.Name
 
 		wantErr bool
 	}{
@@ -218,7 +218,7 @@ func TestValidate(t *testing.T) {
 
 			require.NotEmpty(t, tt.clusterName, "clusterName must be set in this test")
 
-			ctx = request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New(tt.clusterName)})
+			ctx = request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}

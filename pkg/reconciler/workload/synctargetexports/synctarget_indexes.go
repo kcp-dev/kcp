@@ -19,11 +19,11 @@ package synctargetexports
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
@@ -36,7 +36,7 @@ func indexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).Path().String(), "", apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil
@@ -48,26 +48,19 @@ func indexSyncTargetsByExports(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a SyncTarget, but is %T", obj)
 	}
 
-	return getExportKeys(synctarget), nil
-}
-
-func getExportKeys(synctarget *workloadv1alpha1.SyncTarget) []string {
-	lcluster := logicalcluster.From(synctarget)
+	clusterName := logicalcluster.From(synctarget)
 	if len(synctarget.Spec.SupportedAPIExports) == 0 {
-		return []string{client.ToClusterAwareKey(lcluster, reconcilerapiexport.TemporaryComputeServiceExportName)}
+		return []string{clusterName.Path().Join(reconcilerapiexport.TemporaryComputeServiceExportName).String()}, nil
 	}
 
 	var keys []string
 	for _, export := range synctarget.Spec.SupportedAPIExports {
-		if export.Workspace == nil {
+		if len(export.Path) == 0 {
+			keys = append(keys, clusterName.Path().Join(export.Export).String())
 			continue
 		}
-		if len(export.Workspace.Path) == 0 {
-			keys = append(keys, client.ToClusterAwareKey(lcluster, export.Workspace.ExportName))
-			continue
-		}
-		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Workspace.Path), export.Workspace.ExportName))
+		keys = append(keys, logicalcluster.NewPath(export.Path).Join(export.Export).String())
 	}
 
-	return keys
+	return keys, nil
 }

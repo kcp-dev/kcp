@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -53,7 +54,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("compute"))
+	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path(), framework.WithName("compute"))
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -69,22 +70,20 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		framework.WithSyncedUserWorkspaces(computeClusterName),
 	).Start(t)
 
-	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
+	framework.Eventually(t, func() (bool, string) {
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		require.NoError(t, err)
 
 		if len(syncTarget.Status.SyncedResources) != 1 {
-			return false
+			return false, fmt.Sprintf("expected 1 synced resources (services), got %v\n\n%s", syncTarget.Status.SyncedResources, toYAML(t, syncTarget))
 		}
 
 		if syncTarget.Status.SyncedResources[0].Resource != "services" ||
 			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaAcceptedState {
-			return false
+			return false, fmt.Sprintf("expected services resource, got %v\n\n%s", syncTarget.Status.SyncedResources, toYAML(t, syncTarget))
 		}
 
-		return true
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	// create virtual workspace rest configs
@@ -115,7 +114,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
 	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -133,13 +132,13 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Bind to location workspace")
-	framework.NewBindCompute(t, computeClusterName, source,
-		framework.WithAPIExportsWorkloadBindOption(computeClusterName.String()+":kubernetes"),
+	framework.NewBindCompute(t, computeClusterName.Path(), source,
+		framework.WithAPIExportsWorkloadBindOption("kubernetes"),
 	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(computeClusterName).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(computeClusterName.Path()).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			t.Logf("service err %v", err)
 			return false
@@ -151,7 +150,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.Cluster(computeClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+	_, err = kubeClusterClient.Cluster(computeClusterName.Path()).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -184,4 +183,11 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+}
+
+func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
+	data, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(data)
 }

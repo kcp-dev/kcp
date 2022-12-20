@@ -27,7 +27,7 @@ import (
 	"sync"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +37,8 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
@@ -54,7 +55,7 @@ var (
 
 	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources
 	KcpRootGroupResourceExportNames = map[schema.GroupResource]string{
-		{Group: "tenancy.kcp.dev", Resource: "clusterworkspaceshards"}: "shards.tenancy.kcp.dev",
+		{Group: "core.kcp.dev", Resource: "shards"}: "shards.core.kcp.dev",
 	}
 )
 
@@ -135,7 +136,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			logger := logging.WithObject(logger, &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
 				},
 			}).WithValues("group", group)
 			ids.lock.RLock()
@@ -167,7 +168,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			logger := logging.WithObject(logger, &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
 				},
 			}).WithValues("gr", gr.String())
 			ids.lock.RLock()
@@ -207,7 +208,7 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 		}
 
 		if localShardKubeClusterClient != nil {
-			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
+			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
 			if err == nil {
 				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
 				if found {
@@ -219,7 +220,7 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 			// - the cm wasn't found
 			// - an entry in the cm wasn't found
 		}
-		apiExport, err := rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		apiExport, err := rootShardKcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -285,7 +286,7 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 	resource := parts[0]
 
 	gr := schema.GroupResource{Group: comps[3], Resource: resource}
-	if id, found := ids.grIdentity(gr); found {
+	if id, found := ids.grIdentity(gr); found && gr != corev1alpha1.Resource("logicalclusters") {
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}

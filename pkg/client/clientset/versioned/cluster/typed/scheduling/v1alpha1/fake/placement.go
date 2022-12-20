@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type placementsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *placementsClusterClient) Cluster(cluster logicalcluster.Name) schedulingv1alpha1client.PlacementInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *placementsClusterClient) Cluster(clusterPath logicalcluster.Path) schedulingv1alpha1client.PlacementInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &placementsClient{Fake: c.Fake, Cluster: cluster}
+	return &placementsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of Placements that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *placementsClusterClient) Watch(ctx context.Context, opts metav1.ListOpt
 
 type placementsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *placementsClient) Create(ctx context.Context, placement *schedulingv1alpha1.Placement, opts metav1.CreateOptions) (*schedulingv1alpha1.Placement, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(placementsResource, c.Cluster, placement), &schedulingv1alpha1.Placement{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(placementsResource, c.ClusterPath, placement), &schedulingv1alpha1.Placement{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *placementsClient) Create(ctx context.Context, placement *schedulingv1al
 }
 
 func (c *placementsClient) Update(ctx context.Context, placement *schedulingv1alpha1.Placement, opts metav1.UpdateOptions) (*schedulingv1alpha1.Placement, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(placementsResource, c.Cluster, placement), &schedulingv1alpha1.Placement{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(placementsResource, c.ClusterPath, placement), &schedulingv1alpha1.Placement{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *placementsClient) Update(ctx context.Context, placement *schedulingv1al
 }
 
 func (c *placementsClient) UpdateStatus(ctx context.Context, placement *schedulingv1alpha1.Placement, opts metav1.UpdateOptions) (*schedulingv1alpha1.Placement, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(placementsResource, c.Cluster, "status", placement), &schedulingv1alpha1.Placement{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(placementsResource, c.ClusterPath, "status", placement), &schedulingv1alpha1.Placement{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *placementsClient) UpdateStatus(ctx context.Context, placement *scheduli
 }
 
 func (c *placementsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(placementsResource, c.Cluster, name, opts), &schedulingv1alpha1.Placement{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(placementsResource, c.ClusterPath, name, opts), &schedulingv1alpha1.Placement{})
 	return err
 }
 
 func (c *placementsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(placementsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(placementsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &schedulingv1alpha1.PlacementList{})
 	return err
 }
 
 func (c *placementsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*schedulingv1alpha1.Placement, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(placementsResource, c.Cluster, name), &schedulingv1alpha1.Placement{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(placementsResource, c.ClusterPath, name), &schedulingv1alpha1.Placement{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *placementsClient) Get(ctx context.Context, name string, options metav1.
 
 // List takes label and field selectors, and returns the list of Placements that match those selectors.
 func (c *placementsClient) List(ctx context.Context, opts metav1.ListOptions) (*schedulingv1alpha1.PlacementList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(placementsResource, placementsKind, c.Cluster, opts), &schedulingv1alpha1.PlacementList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(placementsResource, placementsKind, c.ClusterPath, opts), &schedulingv1alpha1.PlacementList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *placementsClient) List(ctx context.Context, opts metav1.ListOptions) (*
 }
 
 func (c *placementsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(placementsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(placementsResource, c.ClusterPath, opts))
 }
 
 func (c *placementsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(placementsResource, c.Cluster, name, pt, data, subresources...), &schedulingv1alpha1.Placement{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(placementsResource, c.ClusterPath, name, pt, data, subresources...), &schedulingv1alpha1.Placement{})
 	if obj == nil {
 		return nil, err
 	}

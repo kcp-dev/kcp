@@ -1,9 +1,0 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: system:kcp:home-prefix-clusterworkspace-access
-rules:
-- apiGroups: ["tenancy.kcp.dev"]
-  resources: ["workspaces/content"]
-  resourceNames: ["HOMEPREFIX"]
-  verbs: ["access"]

@@ -36,7 +36,7 @@ type Authorization struct {
 	// paths or end in * in which case prefix-match is applied. A leading / is optional.
 	AlwaysAllowPaths []string
 
-	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is system:masters.
+	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is privileged system group.
 	AlwaysAllowGroups []string
 }
 
@@ -84,7 +84,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	workspaceLister := kcpinformer.Core().V1alpha1().LogicalClusters().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -116,10 +116,10 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
 	contentAuth = authz.NewDecorator("content.authorization.kcp.dev", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	topLevelAuth := authz.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, contentAuth)
-	topLevelAuth = authz.NewDecorator("toplevel.authorization.kcp.dev", topLevelAuth).AddAuditLogging().AddAnonymization()
+	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(workspaceLister, contentAuth)
+	requiredGroupsAuth = authz.NewDecorator("requiredgroups.authorization.kcp.dev", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
 
-	authorizers = append(authorizers, topLevelAuth)
+	authorizers = append(authorizers, requiredGroupsAuth)
 
 	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)

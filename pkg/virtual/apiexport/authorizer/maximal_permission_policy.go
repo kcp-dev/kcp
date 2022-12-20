@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -53,7 +53,7 @@ func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.Cluster
 
 	return &maximalPermissionAuthorizer{
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-			return apiExportLister.Cluster(logicalcluster.New(clusterName)).Get(apiExportName)
+			return apiExportLister.Cluster(logicalcluster.Name(clusterName)).Get(apiExportName)
 		},
 		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
 			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)

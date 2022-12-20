@@ -25,9 +25,9 @@ import (
 	"context"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/third_party/informers"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,10 +109,10 @@ type APIExportEndpointSliceInformer interface {
 	Lister() apisv1alpha1listers.APIExportEndpointSliceLister
 }
 
-func (f *aPIExportEndpointSliceClusterInformer) Cluster(cluster logicalcluster.Name) APIExportEndpointSliceInformer {
+func (f *aPIExportEndpointSliceClusterInformer) Cluster(clusterName logicalcluster.Name) APIExportEndpointSliceInformer {
 	return &aPIExportEndpointSliceInformer{
-		informer: f.Informer().Cluster(cluster),
-		lister:   f.Lister().Cluster(cluster),
+		informer: f.Informer().Cluster(clusterName),
+		lister:   f.Lister().Cluster(clusterName),
 	}
 }
 

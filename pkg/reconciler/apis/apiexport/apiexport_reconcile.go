@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -59,7 +59,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 			)
 		}
 		if errors.IsNotFound(err) {
-			if err := c.createIdentitySecret(ctx, clusterName, apiExport.Name); err != nil {
+			if err := c.createIdentitySecret(ctx, clusterName.Path(), apiExport.Name); err != nil {
 				conditions.MarkFalse(
 					apiExport,
 					apisv1alpha1.APIExportIdentityValid,
@@ -95,16 +95,19 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 		)
 	}
 
-	// check if any APIBindings are bound to this APIExport. If so, add a virtualworkspaceURL
-	apiBindings, err := c.getAPIBindingsForAPIExport(clusterName, apiExport.Name)
-	if err != nil {
-		return fmt.Errorf("error checking for APIBindings with APIExport %s|%s: %w", clusterName, apiExport.Name, err)
-	}
+	// TODO(sttts): reactivate this with multi-shard support eventually
+	/*
+		// check if any APIBindings are bound to this APIExport. If so, add a virtualworkspaceURL
+		apiBindings, err := c.getAPIBindingsForAPIExport(clusterName, apiExport.Name)
+		if err != nil {
+			return fmt.Errorf("error checking for APIBindings with APIExport %s|%s: %w", clusterName, apiExport.Name, err)
+		}
 
-	// If there are no bindings, then we can't create a URL yet.
-	if len(apiBindings) == 0 {
-		return nil
-	}
+		// If there are no bindings, then we can't create a URL yet.
+		if len(apiBindings) == 0 {
+			return nil
+		}
+	*/
 
 	if err := c.updateVirtualWorkspaceURLs(ctx, apiExport); err != nil {
 		conditions.MarkFalse(
@@ -130,14 +133,14 @@ func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 			},
 		}
 		logger = logging.WithObject(logger, ns)
-		if err := c.createNamespace(ctx, clusterName, ns); err != nil && !errors.IsAlreadyExists(err) {
+		if err := c.createNamespace(ctx, clusterName.Path(), ns); err != nil && !errors.IsAlreadyExists(err) {
 			logger.Error(err, "error creating namespace for APIExport secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
 		}
 	}
 }
 
-func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) error {
+func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, apiExportName string) error {
 	secret, err := GenerateIdentitySecret(ctx, c.secretNamespace, apiExportName)
 	if err != nil {
 		return err
@@ -180,24 +183,24 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 
 func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha1.APIExport) error {
 	logger := klog.FromContext(ctx)
-	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
+	shards, err := c.listShards()
 	if err != nil {
-		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
+		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
 	desiredURLs := sets.NewString()
-	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		logger = logging.WithObject(logger, clusterWorkspaceShard)
-		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
+	for _, shard := range shards {
+		logger = logging.WithObject(logger, shard)
+		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(clusterWorkspaceShard.Spec.VirtualWorkspaceURL)
+		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
 			logger.Error(
-				err, "error parsing ClusterWorkspaceShard.Spec.VirtualWorkspaceURL",
-				"VirtualWorkspaceURL", clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
+				err, "error parsing Shard.Spec.VirtualWorkspaceURL",
+				"VirtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL,
 			)
 
 			continue

@@ -23,7 +23,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +41,7 @@ type Resource[Sp any, St any] struct {
 
 // ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe
 type ClusterPatcher[R runtime.Object, P Patcher[R]] interface {
-	Cluster(cluster logicalcluster.Name) P
+	Cluster(cluster logicalcluster.Path) P
 }
 
 // Patcher is just the Patch API with a generic to keep use sites type safe
@@ -67,7 +67,7 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 		}
 
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
-		_, err = patcher.Cluster(clusterName).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+		_, err = patcher.Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s %s|%s: %w", focusType, clusterName, old.Name, err)
 		}

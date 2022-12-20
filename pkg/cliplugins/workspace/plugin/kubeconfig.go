@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 
@@ -39,6 +39,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -132,7 +134,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	var newServerHost string
-	var workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference
+	var workspaceType *tenancyv1beta1.WorkspaceTypeReference
 	switch o.Name {
 	case "-":
 		prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
@@ -193,12 +195,12 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		parentClusterName, hasParent := currentClusterName.Parent()
 		if !hasParent {
-			if currentClusterName == tenancyv1alpha1.RootCluster {
+			if currentClusterName == core.RootCluster.Path() {
 				return fmt.Errorf("current workspace is %q", currentClusterName)
 			}
 			return fmt.Errorf("current workspace %q has no parent", currentClusterName)
 		}
-		u.Path = path.Join(u.Path, parentClusterName.Path())
+		u.Path = path.Join(u.Path, parentClusterName.RequestPath())
 		newServerHost = u.String()
 
 	case "":
@@ -210,7 +212,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		fallthrough
 
 	case "~":
-		homeWorkspace, err := o.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -224,12 +226,10 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return currentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
 	default:
-		cluster := logicalcluster.New(o.Name)
-		if strings.Contains(o.Name, ":") && !cluster.HasPrefix(logicalcluster.New("system")) &&
-			!cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+		cluster := logicalcluster.NewPath(o.Name)
+		if !cluster.IsValid() {
 			return fmt.Errorf("invalid workspace name format: %s", o.Name)
 		}
-
 		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
@@ -239,12 +239,16 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
 
-		if strings.Contains(o.Name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.NewPath("system")) {
+			// e.g. system:something
+			u.Path = path.Join(u.Path, cluster.RequestPath())
+			newServerHost = u.String()
+		} else if strings.Contains(o.Name, ":") {
 			// e.g. root:something:something
 
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 			// not a blocker to enter the workspace. We will do discovery as a final check below
-			parentClusterName, workspaceName := logicalcluster.New(o.Name).Split()
+			parentClusterName, workspaceName := logicalcluster.NewPath(o.Name).Split()
 			if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 				return fmt.Errorf("workspace %q not found", o.Name)
 			}
@@ -264,15 +268,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			//              URL does not match the workspace's shard, and then add redirect support here to
 			//              use the right front-proxy URL in the kubeconfig.
 
-			u.Path = path.Join(u.Path, cluster.Path())
+			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
-		} else if strings.Contains(o.Name, ":") {
-			// e.g. system:something
-			u.Path = path.Join(u.Path, cluster.Path())
-			newServerHost = u.String()
-		} else if o.Name == tenancyv1alpha1.RootCluster.String() {
+		} else if o.Name == core.RootCluster.String() {
 			// root workspace
-			u.Path = path.Join(u.Path, cluster.Path())
+			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
 		} else {
 			// relative logical cluster, get URL from workspace object in current context
@@ -280,11 +280,21 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+			if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 				return fmt.Errorf("workspace %q is not ready", o.Name)
 			}
 
-			newServerHost = ws.Status.URL
+			config, err := o.ClientConfig.ClientConfig()
+			if err != nil {
+				return err
+			}
+			u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+			if err != nil {
+				return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+			}
+
+			u.Path = path.Join(u.Path, currentClusterName.Join(ws.Name).RequestPath())
+			newServerHost = u.String()
 			workspaceType = &ws.Spec.Type
 		}
 	}
@@ -405,7 +415,7 @@ func (o *CurrentWorkspaceOptions) Run(ctx context.Context) error {
 
 type shortWorkspaceOutput bool
 
-func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference) error {
+func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1beta1.WorkspaceTypeReference) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {
@@ -422,7 +432,7 @@ func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWork
 
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
 	if workspaceType != nil {
-		message += fmt.Sprintf(" (type %q)", workspaceType.String())
+		message += fmt.Sprintf(" (type %s)", logicalcluster.NewPath(workspaceType.Path).Join(string(workspaceType.Name)).String())
 	}
 	_, err = fmt.Fprintln(out, message+".")
 	return err
@@ -501,22 +511,22 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster) {
+	if o.IgnoreExisting && o.Type != "" && !logicalcluster.NewPath(o.Type).HasPrefix(core.RootCluster.Path()) {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
-	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
+	var structuredWorkspaceType tenancyv1beta1.WorkspaceTypeReference
 	if o.Type != "" {
 		separatorIndex := strings.LastIndex(o.Type, ":")
 		switch separatorIndex {
 		case -1:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type)),
+			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
+				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
+			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
+				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
 				Path: o.Type[:separatorIndex],
 			}
 		}
@@ -549,9 +559,11 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, ws.Spec.Type)
 	if preExisting {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
-			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceType.String(), ws.Spec.Type.String())
+			wsTypeString := logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
+			structuredWorkspaceTypeString := logicalcluster.NewPath(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
+			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceTypeString, wsTypeString)
 		}
-		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+		if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && o.ReadyWaitTimeout > 0 {
 			if _, err := fmt.Fprintf(o.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
 				return err
 			}
@@ -560,11 +572,11 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 				return err
 			}
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+	} else if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && o.ReadyWaitTimeout > 0 {
 		if _, err := fmt.Fprintf(o.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
 			return err
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+	} else if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 		return fmt.Errorf("%s created but is not ready to use", workspaceReference)
 	}
 
@@ -582,13 +594,13 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	// wait for being ready
-	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
 			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
-			if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
+			if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
 				return true, nil
 			}
 			return false, nil
@@ -601,13 +613,8 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	if o.EnterAfterCreate {
-		u, err := url.Parse(ws.Status.URL)
-		if err != nil {
-			return err
-		}
-
 		useOptions := NewUseWorkspaceOptions(o.IOStreams)
-		useOptions.Name = path.Base(u.Path)
+		useOptions.Name = ws.Name
 		// only for unit test needs
 		if o.modifyConfig != nil {
 			useOptions.modifyConfig = o.modifyConfig
@@ -807,7 +814,7 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Name) error {
+func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Path) error {
 	var b treeprint.Tree
 	if o.Full {
 		b = tree.AddBranch(name.String())

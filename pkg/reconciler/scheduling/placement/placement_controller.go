@@ -24,10 +24,9 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,10 +42,10 @@ import (
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -68,14 +67,19 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
-			key := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(ns)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient: kcpClusterClient,
 
 		namespaceLister: namespaceInformer.Lister(),
 
-		locationLister: locationInformer.Lister(),
+		locationLister:  locationInformer.Lister(),
+		locationIndexer: locationInformer.Informer().GetIndexer(),
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
@@ -86,6 +90,10 @@ func NewController(
 	}); err != nil {
 		return nil, err
 	}
+
+	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+	})
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -146,7 +154,8 @@ type controller struct {
 
 	namespaceLister corev1listers.NamespaceClusterLister
 
-	locationLister schedulingv1alpha1listers.LocationClusterLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
+	locationIndexer cache.Indexer
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
@@ -186,7 +195,11 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 
 	for _, placement := range placements {
 		namespaceKey := key
-		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(placement)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Namespace changed", "Namespace", namespaceKey)
 		c.queue.Add(key)
 	}
@@ -214,7 +227,11 @@ func (c *controller) enqueueLocation(obj interface{}) {
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
 		locationKey := key
-		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(placement)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed", "Location", locationKey)
 		c.queue.Add(key)
 	}
@@ -315,7 +332,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		logger.V(2).Info("patching placement", "patch", string(patchBytes))
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.Cluster(clusterName.Path()).SchedulingV1alpha1().Placements().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

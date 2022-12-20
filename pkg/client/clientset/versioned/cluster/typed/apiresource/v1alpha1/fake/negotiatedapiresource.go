@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type negotiatedAPIResourcesClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *negotiatedAPIResourcesClusterClient) Cluster(cluster logicalcluster.Name) apiresourcev1alpha1client.NegotiatedAPIResourceInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *negotiatedAPIResourcesClusterClient) Cluster(clusterPath logicalcluster.Path) apiresourcev1alpha1client.NegotiatedAPIResourceInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &negotiatedAPIResourcesClient{Fake: c.Fake, Cluster: cluster}
+	return &negotiatedAPIResourcesClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of NegotiatedAPIResources that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *negotiatedAPIResourcesClusterClient) Watch(ctx context.Context, opts me
 
 type negotiatedAPIResourcesClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *negotiatedAPIResourcesClient) Create(ctx context.Context, negotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource, opts metav1.CreateOptions) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(negotiatedAPIResourcesResource, c.Cluster, negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(negotiatedAPIResourcesResource, c.ClusterPath, negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *negotiatedAPIResourcesClient) Create(ctx context.Context, negotiatedAPI
 }
 
 func (c *negotiatedAPIResourcesClient) Update(ctx context.Context, negotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource, opts metav1.UpdateOptions) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(negotiatedAPIResourcesResource, c.Cluster, negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(negotiatedAPIResourcesResource, c.ClusterPath, negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *negotiatedAPIResourcesClient) Update(ctx context.Context, negotiatedAPI
 }
 
 func (c *negotiatedAPIResourcesClient) UpdateStatus(ctx context.Context, negotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource, opts metav1.UpdateOptions) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(negotiatedAPIResourcesResource, c.Cluster, "status", negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(negotiatedAPIResourcesResource, c.ClusterPath, "status", negotiatedAPIResource), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *negotiatedAPIResourcesClient) UpdateStatus(ctx context.Context, negotia
 }
 
 func (c *negotiatedAPIResourcesClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(negotiatedAPIResourcesResource, c.Cluster, name, opts), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(negotiatedAPIResourcesResource, c.ClusterPath, name, opts), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	return err
 }
 
 func (c *negotiatedAPIResourcesClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(negotiatedAPIResourcesResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(negotiatedAPIResourcesResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &apiresourcev1alpha1.NegotiatedAPIResourceList{})
 	return err
 }
 
 func (c *negotiatedAPIResourcesClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(negotiatedAPIResourcesResource, c.Cluster, name), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(negotiatedAPIResourcesResource, c.ClusterPath, name), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *negotiatedAPIResourcesClient) Get(ctx context.Context, name string, opt
 
 // List takes label and field selectors, and returns the list of NegotiatedAPIResources that match those selectors.
 func (c *negotiatedAPIResourcesClient) List(ctx context.Context, opts metav1.ListOptions) (*apiresourcev1alpha1.NegotiatedAPIResourceList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(negotiatedAPIResourcesResource, negotiatedAPIResourcesKind, c.Cluster, opts), &apiresourcev1alpha1.NegotiatedAPIResourceList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(negotiatedAPIResourcesResource, negotiatedAPIResourcesKind, c.ClusterPath, opts), &apiresourcev1alpha1.NegotiatedAPIResourceList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *negotiatedAPIResourcesClient) List(ctx context.Context, opts metav1.Lis
 }
 
 func (c *negotiatedAPIResourcesClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(negotiatedAPIResourcesResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(negotiatedAPIResourcesResource, c.ClusterPath, opts))
 }
 
 func (c *negotiatedAPIResourcesClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(negotiatedAPIResourcesResource, c.Cluster, name, pt, data, subresources...), &apiresourcev1alpha1.NegotiatedAPIResource{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(negotiatedAPIResourcesResource, c.ClusterPath, name, pt, data, subresources...), &apiresourcev1alpha1.NegotiatedAPIResource{})
 	if obj == nil {
 		return nil, err
 	}

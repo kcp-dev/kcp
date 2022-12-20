@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +43,7 @@ const removingGracePeriod = 5 * time.Second
 type placementSchedulingReconciler struct {
 	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
 	enqueueAfter func(*corev1.Namespace, time.Duration)
 
@@ -121,7 +121,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	}
 
 	if len(expectedLabels) > 0 || len(expectedAnnotations) > 0 {
-		ns, err := r.patchNamespaceLabelAnnotation(ctx, clusterName, ns, expectedLabels, expectedAnnotations)
+		ns, err := r.patchNamespaceLabelAnnotation(ctx, clusterName.Path(), ns, expectedLabels, expectedAnnotations)
 		return reconcileStatusContinue, ns, err
 	}
 
@@ -134,7 +134,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	return reconcileStatusContinue, ns, nil
 }
 
-func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace, labels, annotations map[string]interface{}) (*corev1.Namespace, error) {
+func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace, labels, annotations map[string]interface{}) (*corev1.Namespace, error) {
 	logger := klog.FromContext(ctx)
 	patch := map[string]interface{}{}
 	if len(annotations) > 0 {

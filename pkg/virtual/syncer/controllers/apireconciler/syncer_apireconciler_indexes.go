@@ -19,7 +19,7 @@ package apireconciler
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -27,7 +27,7 @@ import (
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
-// indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
+// IndexAPIExportsByAPIResourceSchemas is an index function that maps an APIExport to its spec.latestResourceSchemas.
 func IndexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
@@ -36,7 +36,7 @@ func IndexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil
@@ -48,26 +48,19 @@ func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a SyncTarget, but is %T", obj)
 	}
 
-	return getExportKeys(synctarget), nil
-}
-
-func getExportKeys(synctarget *workloadv1alpha1.SyncTarget) []string {
-	lcluster := logicalcluster.From(synctarget)
+	clusterName := logicalcluster.From(synctarget)
 	if len(synctarget.Spec.SupportedAPIExports) == 0 {
-		return []string{client.ToClusterAwareKey(lcluster, reconcilerapiexport.TemporaryComputeServiceExportName)}
+		return []string{client.ToClusterAwareKey(clusterName.Path(), reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
 	}
 
 	var keys []string
 	for _, export := range synctarget.Spec.SupportedAPIExports {
-		if export.Workspace == nil {
+		if len(export.Export) == 0 {
+			keys = append(keys, client.ToClusterAwareKey(clusterName.Path(), export.Export))
 			continue
 		}
-		if len(export.Workspace.Path) == 0 {
-			keys = append(keys, client.ToClusterAwareKey(lcluster, export.Workspace.ExportName))
-			continue
-		}
-		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Workspace.Path), export.Workspace.ExportName))
+		keys = append(keys, client.ToClusterAwareKey(logicalcluster.Name(export.Path).Path(), export.Export))
 	}
 
-	return keys
+	return keys, nil
 }

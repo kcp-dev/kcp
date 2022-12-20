@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,7 +93,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		// we do this by getting the current locations of the resource and
 		// comparing against the expected locations.
 
-		expectedSyncTargetKeys, err = c.getValidSyncTargetKeysForWorkspace(logicalcluster.From(obj))
+		expectedSyncTargetKeys, err = c.getSyncTargetPlacementAnnotations(logicalcluster.From(obj))
 		if err != nil {
 			logger.Error(err, "error getting valid sync target keys for workspace")
 			return nil
@@ -178,13 +178,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
 	if namespaceName != "" {
-		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 

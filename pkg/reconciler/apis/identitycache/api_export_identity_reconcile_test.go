@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,8 +37,8 @@ func TestReconcile(t *testing.T) {
 		name              string
 		initialApiExports []*apisv1alpha1.APIExport
 		initialConfigMap  *corev1.ConfigMap
-		createConfigMap   func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-		updateConfigMap   func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+		createConfigMap   func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+		updateConfigMap   func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 		validateCalls     func(t *testing.T, ctx callContext)
 	}{
 		{
@@ -47,7 +47,7 @@ func TestReconcile(t *testing.T) {
 				newAPIExport("export-1"),
 				newAPIExport("export-2"),
 			},
-			createConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			createConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 				requiredConfigMap := newEmptyRequiredConfigmap()
 				requiredConfigMap.Data["export-1"] = "export-1-identity"
 				requiredConfigMap.Data["export-2"] = "export-2-identity"
@@ -90,7 +90,7 @@ func TestReconcile(t *testing.T) {
 				requiredConfigMap.Data["export-1"] = "export-1-identity"
 				return requiredConfigMap
 			}(),
-			updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			updateConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 				requiredConfigMap := newEmptyRequiredConfigmap()
 				requiredConfigMap.Data["export-1"] = "export-1-identity"
 				requiredConfigMap.Data["export-2"] = "export-2-identity"
@@ -116,7 +116,7 @@ func TestReconcile(t *testing.T) {
 			calls := callContext{
 				createConfigMap: createConfigMapRecord{
 					delegate: scenario.createConfigMap,
-					defaulted: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+					defaulted: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 						err := fmt.Errorf("unexpected create call for configmap %s|%s/%s", cluster, namespace, configMap.Name)
 						t.Error(err)
 						return nil, err
@@ -132,7 +132,7 @@ func TestReconcile(t *testing.T) {
 				},
 				updateConfigMap: updateConfigMapRecord{
 					delegate: scenario.updateConfigMap,
-					defaulted: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+					defaulted: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 						err := fmt.Errorf("unexpected update call for configmap %s|%s/%s", cluster, namespace, configMap.Name)
 						t.Error(err)
 						return nil, err
@@ -169,10 +169,10 @@ type callContext struct {
 
 type createConfigMapRecord struct {
 	called              bool
-	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 }
 
-func (r *createConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+func (r *createConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	r.called = true
 	delegate := r.delegate
 	if delegate == nil {
@@ -197,10 +197,10 @@ func (r *getConfigMapRecord) call(cluster logicalcluster.Name, namespace, name s
 
 type updateConfigMapRecord struct {
 	called              bool
-	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 }
 
-func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	r.called = true
 	delegate := r.delegate
 	if delegate == nil {
@@ -211,7 +211,7 @@ func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster
 
 type listAPIExportsFromRemoteShardRecord struct {
 	called              bool
-	delegate, defaulted func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	delegate, defaulted func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 }
 
 func (r *listAPIExportsFromRemoteShardRecord) call(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {

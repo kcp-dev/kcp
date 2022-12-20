@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -33,8 +34,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type ClusterAwareSource interface {
@@ -79,15 +82,43 @@ func (c *clusterAwareSource) HasSynced() bool {
 var _ initializers.WantsKcpInformers = &WebhookDispatcher{}
 
 type WebhookDispatcher struct {
-	dispatcher              generic.Dispatcher
-	hookSource              ClusterAwareSource
-	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
-	apiBindingsHasSynced    cache.InformerSynced
 	*admission.Handler
+
+	dispatcher generic.Dispatcher
+	hookSource ClusterAwareSource
+
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+
+	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
+	apiExportIndexer        cache.Indexer
+
+	informersHaveSynced func() bool
+}
+
+func NewWebhookDispatcher() *WebhookDispatcher {
+	d := &WebhookDispatcher{
+		Handler: admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+	}
+
+	d.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+		objs, err := d.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+		if err != nil {
+			return nil, err
+		}
+		if len(objs) == 0 {
+			return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+		}
+		if len(objs) > 1 {
+			return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
+		}
+		return objs[0].(*apisv1alpha1.APIExport), nil
+	}
+
+	return d
 }
 
 func (p *WebhookDispatcher) HasSynced() bool {
-	return p.hookSource.HasSynced() && p.apiBindingsHasSynced()
+	return p.hookSource.HasSynced() && p.informersHaveSynced()
 }
 
 func (p *WebhookDispatcher) SetDispatcher(dispatch generic.Dispatcher) {
@@ -111,7 +142,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	var whAccessor []webhook.WebhookAccessor
 
 	// Determine the type of request, is it api binding or not.
-	if workspace, isAPIBinding, err := p.getAPIBindingWorkspace(attr, lcluster); err != nil {
+	if workspace, isAPIBinding, err := p.getAPIExportCluster(attr, lcluster); err != nil {
 		return err
 	} else if isAPIBinding {
 		whAccessor = p.hookSource.Webhooks(workspace)
@@ -126,25 +157,27 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
+func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
 	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
-		return logicalcluster.New(""), false, err
+		return "", false, err
 	}
 	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
-			// this can never happen by OpenAPI validation
-			if apiBinding.Spec.Reference.Workspace == nil {
-				// this will never happen today. But as soon as we add other reference types (like exports), this log output will remind out of necessary work here.
-				klog.Errorf("APIBinding %s has no referenced workspace", clusterName, apiBinding.Name)
-				continue
-			}
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), true, nil
+				path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+				if path.Empty() {
+					path = clusterName.Path()
+				}
+				export, err := p.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
+				if err != nil {
+					return "", false, err
+				}
+				return logicalcluster.From(export), true, nil
 			}
 		}
 	}
-	return logicalcluster.New(""), false, nil
+	return "", false, nil
 }
 
 func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Name) generic.Source, hasSynced func() bool) {
@@ -160,5 +193,16 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (p *WebhookDispatcher) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
 	p.apiBindingClusterLister = f.Apis().V1alpha1().APIBindings().Lister()
-	p.apiBindingsHasSynced = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
+	p.apiExportIndexer = f.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+
+	synced := func() bool {
+		return f.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+			f.Apis().V1alpha1().APIExports().Informer().HasSynced()
+	}
+	p.SetReadyFunc(synced)
+	p.informersHaveSynced = synced
+
+	indexers.AddIfNotPresentOrDie(f.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }

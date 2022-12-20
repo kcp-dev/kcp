@@ -51,12 +51,12 @@ func TestMetadataMutations(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	workspaceName := framework.NewOrganizationFixture(t, server)
+	clusterName := framework.NewOrganizationFixture(t, server)
 
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
-	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspaceName), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
+	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(clusterName.Path()), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
@@ -78,7 +78,7 @@ func TestMetadataMutations(t *testing.T) {
 	}
 
 	t.Logf("Creating deployment")
-	d, err = kubeClusterClient.Cluster(workspaceName).AppsV1().Deployments("default").Create(ctx, d, metav1.CreateOptions{})
+	d, err = kubeClusterClient.Cluster(clusterName.Path()).AppsV1().Deployments("default").Create(ctx, d, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating deployment")
 
 	originalCreationTimestamp := d.CreationTimestamp
@@ -90,7 +90,7 @@ func TestMetadataMutations(t *testing.T) {
 	require.NoError(t, err, "error creating patch")
 
 	t.Logf("Patching deployment - trying to change creation timestamp")
-	patched, err := kubeClusterClient.Cluster(workspaceName).AppsV1().Deployments("default").Patch(ctx, d.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	patched, err := kubeClusterClient.Cluster(clusterName.Path()).AppsV1().Deployments("default").Patch(ctx, d.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	require.NoError(t, err)
 	t.Logf("Verifying creation timestamp was not modified")
 	require.Equal(t, originalCreationTimestamp, patched.GetCreationTimestamp())

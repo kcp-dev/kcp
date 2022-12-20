@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -35,6 +35,7 @@ import (
 	client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1"
@@ -43,10 +44,11 @@ import (
 )
 
 type ClusterInterface interface {
-	Cluster(logicalcluster.Name) client.Interface
+	Cluster(logicalcluster.Path) client.Interface
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
+	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface
@@ -60,6 +62,7 @@ type ClusterClientset struct {
 	clientCache         kcpclient.Cache[*client.Clientset]
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1ClusterClient
 	apisV1alpha1        *apisv1alpha1.ApisV1alpha1ClusterClient
+	coreV1alpha1        *corev1alpha1.CoreV1alpha1ClusterClient
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1ClusterClient
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1ClusterClient
@@ -83,6 +86,11 @@ func (c *ClusterClientset) ApiresourceV1alpha1() apiresourcev1alpha1.Apiresource
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.
 func (c *ClusterClientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface {
 	return c.apisV1alpha1
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.
+func (c *ClusterClientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface {
+	return c.coreV1alpha1
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
@@ -111,11 +119,11 @@ func (c *ClusterClientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1C
 }
 
 // Cluster scopes this clientset to one cluster.
-func (c *ClusterClientset) Cluster(name logicalcluster.Name) client.Interface {
-	if name == logicalcluster.Wildcard {
+func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(name)
+	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.
@@ -155,7 +163,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
 		NewForConfigAndClient: client.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.New("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
 		return nil, err
 	}
 
@@ -167,6 +175,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		return nil, err
 	}
 	cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.coreV1alpha1, err = corev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

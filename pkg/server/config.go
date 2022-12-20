@@ -25,7 +25,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
@@ -98,8 +98,11 @@ type ExtraConfig struct {
 	RootShardKcpClusterClient           kcpclientset.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
-	BootstrapKcpClusterClient           kcpclientset.ClusterInterface
-	CacheDynamicClient                  kcpdynamic.ClusterInterface
+
+	CacheDynamicClient kcpdynamic.ClusterInterface
+
+	// config from which client can be configured
+	LogicalClusterAdminConfig *rest.Config
 
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
@@ -256,13 +259,28 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		}
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
+
+	informerConfig := rest.CopyConfig(c.identityConfig)
+	informerConfig.UserAgent = "kcp-informers"
+	informerKcpClient, err := kcpclientset.NewForConfig(informerConfig)
+	if err != nil {
+		return nil, err
+	}
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-		c.KcpClusterClient,
+		informerKcpClient,
 		resyncPeriod,
 	)
 	c.DeepSARClient, err = kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
 		return nil, err
+	}
+
+	c.LogicalClusterAdminConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	if len(c.Options.Extra.LogicalClusterAdminKubeconfig) > 0 {
+		c.LogicalClusterAdminConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.LogicalClusterAdminKubeconfig}, nil).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a logical cluster client, err: %w", c.Options.Extra.LogicalClusterAdminKubeconfig, err)
+		}
 	}
 
 	// Setup apiextensions * informers
@@ -291,15 +309,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	}
 	if sets.NewString(opts.Extra.BatteriesIncluded...).Has(batteries.User) {
 		c.userToken = userToken
-	}
-
-	bootstrapKcpConfig := rest.CopyConfig(c.identityConfig)
-	bootstrapKcpConfig.Impersonate.UserName = kcpBootstrapperUserName
-	bootstrapKcpConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
-	bootstrapKcpConfig = rest.AddUserAgent(bootstrapKcpConfig, "kcp-bootstrapper")
-	c.BootstrapKcpClusterClient, err = kcpclientset.NewForConfig(bootstrapKcpConfig)
-	if err != nil {
-		return nil, err
 	}
 
 	bootstrapConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
@@ -333,20 +342,22 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 
 		if opts.HomeWorkspaces.Enabled {
-			apiHandler = WithHomeWorkspaces(
+			apiHandler, err = WithHomeWorkspaces(
 				apiHandler,
 				genericConfig.Authorization.Authorizer,
 				c.KubeClusterClient,
 				c.KcpClusterClient,
-				c.BootstrapKcpClusterClient,
 				c.KubeSharedInformerFactory,
 				c.KcpSharedInformerFactory,
 				c.GenericConfig.ExternalAddress,
 				opts.HomeWorkspaces.CreationDelaySeconds,
-				logicalcluster.New(opts.HomeWorkspaces.HomeRootPrefix),
+				logicalcluster.NewPath(opts.HomeWorkspaces.HomeRootPrefix),
 				opts.HomeWorkspaces.BucketLevels,
 				opts.HomeWorkspaces.BucketSize,
 			)
+			if err != nil {
+				panic(err) // shouldn't happen due to flag validation
+			}
 		}
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
@@ -367,10 +378,10 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
 		}
 
-		apiHandler = WithWorkspaceProjection(apiHandler)
+		apiHandler = WithClusterWorkspaceProjection(apiHandler)
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
-		apiHandler = kcpfilters.WithClusterScope(apiHandler)
+		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = WithUserAgent(apiHandler)
@@ -451,7 +462,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
-		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces().Lister(),
 		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),

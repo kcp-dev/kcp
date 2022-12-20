@@ -19,7 +19,7 @@ package apibindingdeletion
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -94,7 +94,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 
 func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
 	logger := klog.FromContext(ctx)
-	partialList, err := c.listResources(ctx, clusterName, gvr)
+	partialList, err := c.listResources(ctx, clusterName.Path(), gvr)
 	if err != nil {
 		return gvrDeletionMetadata{}, err
 	}
@@ -111,7 +111,7 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 		deletedNamespaces.Insert(item.GetNamespace())
 
 		// CRs always support deletecollection verb
-		if err := c.deleteResources(ctx, clusterName, gvr, item.GetNamespace()); err != nil {
+		if err := c.deleteResources(ctx, clusterName.Path(), gvr, item.GetNamespace()); err != nil {
 			deleteErrors = append(deleteErrors, err)
 			continue
 		}

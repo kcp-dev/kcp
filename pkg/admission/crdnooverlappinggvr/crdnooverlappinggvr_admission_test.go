@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -40,7 +40,7 @@ func TestValidate(t *testing.T) {
 	scenarios := []struct {
 		name           string
 		attr           admission.Attributes
-		clusterName    string
+		clusterName    logicalcluster.Name
 		initialObjects []runtime.Object
 		wantErr        bool
 	}{
@@ -94,7 +94,7 @@ func TestValidate(t *testing.T) {
 			}
 
 			a := &crdNoOverlappingGVRAdmission{Handler: admission.NewHandler(admission.Create, admission.Update), apiBindingClusterLister: apisv1alpha1listers.NewAPIBindingClusterLister(indexer)}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New(scenario.clusterName)})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: scenario.clusterName})
 			if err := a.Validate(ctx, scenario.attr, nil); (err != nil) != scenario.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, scenario.wantErr)
 			}

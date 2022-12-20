@@ -47,11 +47,11 @@ func TestAuditLogs(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	workspaceName := framework.NewOrganizationFixture(t, server)
+	clusterName := framework.NewOrganizationFixture(t, server)
 	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	_, err = workspaceKubeClient.Cluster(workspaceName).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	_, err = workspaceKubeClient.Cluster(clusterName.Path()).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
 	data, err := os.ReadFile("./audit-log")
@@ -62,7 +62,7 @@ func TestAuditLogs(t *testing.T) {
 	err = json.Unmarshal([]byte(lines[0]), &auditEvent)
 	require.NoError(t, err, "Error parsing JSON data")
 
-	workspaceNameSent := workspaceName.String()
+	workspaceNameSent := clusterName.String()
 	workspaceNameRecvd := auditEvent.Annotations["tenancy.kcp.dev/workspace"]
 
 	require.Equal(t, workspaceNameSent, workspaceNameRecvd)

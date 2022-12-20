@@ -52,27 +52,16 @@ func TestAdmission(t *testing.T) {
 		attr admission.Attributes
 		want error
 	}{
-		"ForbiddenRootCW": {
-			attr: createAttr("root", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-			want: field.Invalid(field.NewPath("metadata").Child("name"), "root", "name is reserved"),
-		},
-		"ForbiddenSystemCW": {
-			attr: createAttr("system", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-			want: field.Invalid(field.NewPath("metadata").Child("name"), "system", "name is reserved"),
-		},
-		"ValidCW": {
-			attr: createAttr("cool-cw", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-		},
 		"ForbiddenAnyCWT": {
-			attr: createAttr("any", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("any", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "any", "name is reserved"),
 		},
 		"ForbiddenSystemCWT": {
-			attr: createAttr("system", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("system", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "system", "name is reserved"),
 		},
 		"ValidCWT": {
-			attr: createAttr("cool-cwt", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("cool-cwt", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 		},
 		"NotApplicableResource": {
 			attr: createAttr("root", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "notacworcwt"),

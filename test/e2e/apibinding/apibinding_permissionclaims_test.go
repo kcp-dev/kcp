@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
@@ -55,8 +55,8 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
 
 	cfg := server.BaseConfig(t)
 
@@ -66,11 +66,11 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderWorkspace, kcpClusterClient, "wild.wild.west", "board the wanderer")
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderWorkspace.Path(), kcpClusterClient, "wild.wild.west", "board the wanderer")
 
 	identityHash := ""
 	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err := kcpClusterClient.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		sheriffExport, err := kcpClusterClient.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -88,20 +88,20 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 
 	t.Logf("Found identity hash: %v", identityHash)
-	apifixtures.BindToExport(ctx, t, serviceProviderWorkspace, "wild.wild.west", consumerWorkspace, kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, serviceProviderWorkspace.Path(), "wild.wild.west", consumerWorkspace.Path(), kcpClusterClient)
 
 	t.Logf("set up service provider with permission claims")
 	setUpServiceProviderWithPermissionClaims(ctx, dynamicClusterClient, kcpClusterClient, serviceProviderWorkspace, cfg, t, identityHash)
 
 	t.Logf("set up binding, with invalid accepted claims hash")
-	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClusterClient, cfg, "xxxxxxx")
+	bindConsumerToProvider(ctx, consumerWorkspace.Path(), serviceProviderWorkspace, t, kcpClusterClient, cfg, "xxxxxxx")
 
 	// validate the invalid claims condition occurs
 	t.Logf("validate that the permission claim's conditions are false and invalid claims is the reason")
 
 	framework.Eventually(t, func() (bool, string) {
 		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -120,17 +120,17 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	t.Logf("update to correct hash")
 	// have to use eventually because controllers may be modifying the APIBinding
 	framework.Eventually(t, func() (success bool, reason string) {
-		binding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		binding.Spec.PermissionClaims = getAcceptedPermissionClaims(identityHash)
-		_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
+		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
 		return err == nil, fmt.Sprintf("%v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
 
 	t.Logf("Validate that the permission claims are valid")
 	framework.Eventually(t, func() (bool, string) {
 		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -152,7 +152,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	t.Logf("Validate that the permission claims were all applied")
 	framework.Eventually(t, func() (bool, string) {
 		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -197,8 +197,8 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(serviceProviderWorkspace).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(serviceProviderWorkspace.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace.Path()), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -211,7 +211,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 			PermissionClaims:      makePermissionClaims(identityHash),
 		},
 	}
-	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 
@@ -249,25 +249,27 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 	}
 }
 
-func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWorkspace logicalcluster.Name, t *testing.T, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
-	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
+func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name, t *testing.T, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
+	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerClusterName)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       providerWorkspace.String(),
-					ExportName: "today-cowboys",
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: providerClusterName.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 			PermissionClaims: getAcceptedPermissionClaims(identityHash),
 		},
 	}
 
-	_, err := kcpClusterClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)

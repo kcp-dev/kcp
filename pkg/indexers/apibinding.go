@@ -19,7 +19,7 @@ package indexers
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -100,5 +100,10 @@ func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	return []string{ClusterPathAndAPIExportName(apiBinding.Spec.Reference.Workspace.Path, apiBinding.Spec.Reference.Workspace.ExportName)}, nil
+	path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if path.Empty() {
+		path = logicalcluster.From(apiBinding).Path()
+	}
+
+	return []string{path.Join(apiBinding.Spec.Reference.Export.Name).String()}, nil
 }

@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,7 +83,7 @@ func (b *BindOptions) Validate() error {
 		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
 	}
 
-	if !strings.HasPrefix(b.APIExportRef, "root") || !logicalcluster.New(b.APIExportRef).IsValid() {
+	if !strings.HasPrefix(b.APIExportRef, "root") || !logicalcluster.NewPath(b.APIExportRef).IsValid() {
 		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `root:<ws>:<apiexport>`")
 	}
 
@@ -97,9 +97,9 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	workspacePath, apiExportName := logicalcluster.New(b.APIExportRef).Split()
+	path, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
 
-	// if apibindingName is not provided, default it to <apiExportname>.
+	// if a custom name is not provided, default it to <apiExportname>.
 	apiBindingName := b.APIBindingName
 	if apiBindingName == "" {
 		apiBindingName = apiExportName
@@ -115,10 +115,10 @@ func (b *BindOptions) Run(ctx context.Context) error {
 			Name: apiBindingName,
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       workspacePath.String(),
-					ExportName: apiExportName,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: path.String(),
+					Name: apiExportName,
 				},
 			},
 		},

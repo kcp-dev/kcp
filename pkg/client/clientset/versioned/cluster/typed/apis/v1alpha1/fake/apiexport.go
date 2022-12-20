@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type aPIExportsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIExportsClusterClient) Cluster(cluster logicalcluster.Name) apisv1alpha1client.APIExportInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *aPIExportsClusterClient) Cluster(clusterPath logicalcluster.Path) apisv1alpha1client.APIExportInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &aPIExportsClient{Fake: c.Fake, Cluster: cluster}
+	return &aPIExportsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of APIExports that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *aPIExportsClusterClient) Watch(ctx context.Context, opts metav1.ListOpt
 
 type aPIExportsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *aPIExportsClient) Create(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts metav1.CreateOptions) (*apisv1alpha1.APIExport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIExportsResource, c.Cluster, aPIExport), &apisv1alpha1.APIExport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIExportsResource, c.ClusterPath, aPIExport), &apisv1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *aPIExportsClient) Create(ctx context.Context, aPIExport *apisv1alpha1.A
 }
 
 func (c *aPIExportsClient) Update(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts metav1.UpdateOptions) (*apisv1alpha1.APIExport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIExportsResource, c.Cluster, aPIExport), &apisv1alpha1.APIExport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIExportsResource, c.ClusterPath, aPIExport), &apisv1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *aPIExportsClient) Update(ctx context.Context, aPIExport *apisv1alpha1.A
 }
 
 func (c *aPIExportsClient) UpdateStatus(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts metav1.UpdateOptions) (*apisv1alpha1.APIExport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIExportsResource, c.Cluster, "status", aPIExport), &apisv1alpha1.APIExport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIExportsResource, c.ClusterPath, "status", aPIExport), &apisv1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *aPIExportsClient) UpdateStatus(ctx context.Context, aPIExport *apisv1al
 }
 
 func (c *aPIExportsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIExportsResource, c.Cluster, name, opts), &apisv1alpha1.APIExport{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIExportsResource, c.ClusterPath, name, opts), &apisv1alpha1.APIExport{})
 	return err
 }
 
 func (c *aPIExportsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(aPIExportsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(aPIExportsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &apisv1alpha1.APIExportList{})
 	return err
 }
 
 func (c *aPIExportsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*apisv1alpha1.APIExport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIExportsResource, c.Cluster, name), &apisv1alpha1.APIExport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIExportsResource, c.ClusterPath, name), &apisv1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *aPIExportsClient) Get(ctx context.Context, name string, options metav1.
 
 // List takes label and field selectors, and returns the list of APIExports that match those selectors.
 func (c *aPIExportsClient) List(ctx context.Context, opts metav1.ListOptions) (*apisv1alpha1.APIExportList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIExportsResource, aPIExportsKind, c.Cluster, opts), &apisv1alpha1.APIExportList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIExportsResource, aPIExportsKind, c.ClusterPath, opts), &apisv1alpha1.APIExportList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *aPIExportsClient) List(ctx context.Context, opts metav1.ListOptions) (*
 }
 
 func (c *aPIExportsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIExportsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIExportsResource, c.ClusterPath, opts))
 }
 
 func (c *aPIExportsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apisv1alpha1.APIExport, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIExportsResource, c.Cluster, name, pt, data, subresources...), &apisv1alpha1.APIExport{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIExportsResource, c.ClusterPath, name, pt, data, subresources...), &apisv1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}

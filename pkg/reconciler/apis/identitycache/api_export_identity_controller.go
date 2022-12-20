@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -65,17 +65,17 @@ func NewApiExportIdentityProviderController(
 
 	c := &controller{
 		queue: queue,
-		createConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+		createConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		},
-		getConfigMap: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
-			return configMapInformer.Lister().Cluster(cluster).ConfigMaps(namespace).Get(name)
+		getConfigMap: func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+			return configMapInformer.Lister().Cluster(clusterName).ConfigMaps(namespace).Get(name)
 		},
-		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
-		listAPIExportsFromRemoteShard: func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return remoteShardApiExportInformer.Lister().Cluster(cluster).List(labels.Everything())
+		listAPIExportsFromRemoteShard: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+			return remoteShardApiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 	}
 
@@ -86,12 +86,13 @@ func NewApiExportIdentityProviderController(
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			return clusterName == tenancyv1alpha1.RootCluster
+			clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
+			return clusterName == core.RootCluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.queue.Add(workKey) },
@@ -107,11 +108,12 @@ func NewApiExportIdentityProviderController(
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
+			clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
 			if clusterName != configshard.SystemShardCluster {
 				return false
 			}
@@ -171,8 +173,8 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 type controller struct {
 	queue                         workqueue.RateLimitingInterface
-	createConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	getConfigMap                  func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
-	updateConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	listAPIExportsFromRemoteShard func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	createConfigMap               func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	getConfigMap                  func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+	updateConfigMap               func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	listAPIExportsFromRemoteShard func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 }

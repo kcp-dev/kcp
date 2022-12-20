@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,13 +38,13 @@ import (
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
 
 type DeploymentMutator struct {
-	upstreamURL                  *url.URL
-	listSecrets                  ListSecretFunc
-	serviceLister                listerscorev1.ServiceLister
-	syncTargetLogicalClusterName logicalcluster.Name
-	syncTargetUID                types.UID
-	syncTargetName               string
-	dnsNamespace                 string
+	upstreamURL           *url.URL
+	listSecrets           ListSecretFunc
+	serviceLister         listerscorev1.ServiceLister
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetName        string
+	dnsNamespace          string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -56,17 +56,17 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 }
 
 func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
-	syncTargetLogicalClusterName logicalcluster.Name,
+	syncTargetClusterName logicalcluster.Name,
 	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
 
 	return &DeploymentMutator{
-		upstreamURL:                  upstreamURL,
-		listSecrets:                  secretLister,
-		serviceLister:                serviceLister,
-		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		syncTargetUID:                syncTargetUID,
-		syncTargetName:               syncTargetName,
-		dnsNamespace:                 dnsNamespace,
+		upstreamURL:           upstreamURL,
+		listSecrets:           secretLister,
+		serviceLister:         serviceLister,
+		syncTargetClusterName: syncTargetClusterName,
+		syncTargetUID:         syncTargetUID,
+		syncTargetName:        syncTargetName,
+		dnsNamespace:          dnsNamespace,
 	}
 }
 

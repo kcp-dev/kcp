@@ -19,7 +19,7 @@ package synctargetexports
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,37 +30,38 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
 // apiCompatibleReconciler sets state for each synced resource based on resource schema and apiimports.
 // TODO(qiujian06) this should be done in syncer when resource schema(or crd) is exposed by syncer virtual workspace.
 type apiCompatibleReconciler struct {
-	getAPIExport           func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport           func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getResourceSchema      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	listAPIResourceImports func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error)
 }
 
 func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
-	exportKeys := getExportKeys(syncTarget)
-
 	var errs []error
 	schemaMap := map[schema.GroupVersionResource]*apiextensionsv1.JSONSchemaProps{}
 
 	// Get json schema from all related resource schemas
-	for _, exportKey := range exportKeys {
-		exportCluster, name := client.SplitClusterAwareKey(exportKey)
-		export, err := e.getAPIExport(exportCluster, name)
+	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		path := logicalcluster.NewPath(exportRef.Path)
+		if path.Empty() {
+			path = logicalcluster.From(syncTarget).Path()
+		}
+		export, err := e.getAPIExport(path, exportRef.Export)
 		if apierrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		for _, schemaName := range export.Spec.LatestResourceSchemas {
-			resourceSchema, err := e.getResourceSchema(exportCluster, schemaName)
+			resourceSchema, err := e.getResourceSchema(logicalcluster.From(export), schemaName)
 			if apierrors.IsNotFound(err) {
 				continue
 			}

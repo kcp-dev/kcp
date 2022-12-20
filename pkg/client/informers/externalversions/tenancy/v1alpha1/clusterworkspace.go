@@ -25,9 +25,9 @@ import (
 	"context"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/third_party/informers"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,10 +109,10 @@ type ClusterWorkspaceInformer interface {
 	Lister() tenancyv1alpha1listers.ClusterWorkspaceLister
 }
 
-func (f *clusterWorkspaceClusterInformer) Cluster(cluster logicalcluster.Name) ClusterWorkspaceInformer {
+func (f *clusterWorkspaceClusterInformer) Cluster(clusterName logicalcluster.Name) ClusterWorkspaceInformer {
 	return &clusterWorkspaceInformer{
-		informer: f.Informer().Cluster(cluster),
-		lister:   f.Lister().Cluster(cluster),
+		informer: f.Informer().Cluster(clusterName),
+		lister:   f.Lister().Cluster(clusterName),
 	}
 }
 

@@ -22,7 +22,7 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -40,24 +40,29 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
-// SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
+// SystemCRDClusterName is the logical cluster we install system CRDs into for now. These are needed
 // to start wildcard informers until a "real" workspace gets them installed.
-var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
+var SystemCRDClusterName = logicalcluster.Name("system:system-crds")
 
 type apiBindingAwareCRDClusterLister struct {
-	kcpClusterClient     kcpclientset.ClusterInterface
-	crdLister            kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
-	crdIndexer           cache.Indexer
-	workspaceLister      tenancyv1alpha1listers.ClusterWorkspaceClusterLister
-	apiBindingLister     apisv1alpha1listers.APIBindingClusterLister
-	apiBindingIndexer    cache.Indexer
-	apiExportIndexer     cache.Indexer
+	kcpClusterClient kcpclientset.ClusterInterface
+
+	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
+	crdIndexer cache.Indexer
+
+	workspaceLister tenancyv1beta1listers.WorkspaceClusterLister
+
+	apiBindingIndexer cache.Indexer
+	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
+
+	apiExportIndexer cache.Indexer
+
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
@@ -95,7 +100,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
-	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDLogicalCluster).List(labels.Everything())
+	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDClusterName).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
@@ -114,10 +119,10 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        boundResource.Schema.UID,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: apibinding.ShadowWorkspaceName.String()},
+					Annotations: map[string]string{logicalcluster.AnnotationKey: apibinding.SystemBoundCRDSClusterName.String()},
 				},
 			})
-			crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundResource.Schema.UID)
+			crd, err := c.crdLister.Cluster(apibinding.SystemBoundCRDSClusterName).Get(boundResource.Schema.UID)
 			if err != nil {
 				logger.Error(err, "error getting bound CRD")
 				continue
@@ -145,7 +150,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		}
 	}
 
-	if clusterName != SystemCRDLogicalCluster {
+	if clusterName != SystemCRDClusterName {
 		crds, err := c.crdLister.Cluster(clusterName).List(labels.Everything())
 		if err != nil {
 			return nil, err
@@ -225,13 +230,13 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster
 
 		identity := IdentityFromContext(ctx)
-		if clusterName == logicalcluster.Wildcard && identity != "" {
+		if clusterName == "*" && identity != "" {
 			// Priority 2: APIBinding CRD
 			crd, err = c.getForIdentityWildcard(name, identity)
-		} else if clusterName == logicalcluster.Wildcard && partialMetadataRequest {
+		} else if clusterName == "*" && partialMetadataRequest {
 			// Priority 3: partial metadata wildcard request
 			crd, err = c.getForWildcardPartialMetadata(name)
-		} else if clusterName != logicalcluster.Wildcard {
+		} else if clusterName != "*" {
 			// Priority 4: normal CRD request
 			crd, err = c.get(clusterName, name, identity)
 		} else {
@@ -247,7 +252,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		crd = shallowCopyCRDAndDeepCopyAnnotations(crd)
 		addPartialMetadataCRDAnnotation(crd)
 
-		if clusterName == logicalcluster.Wildcard {
+		if clusterName == "*" {
 			crd.UID = types.UID(name + ".wildcard.partial-metadata")
 		}
 	}
@@ -333,7 +338,7 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string)
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundCRDName)
+	crd, err := c.crdLister.Cluster(apibinding.SystemBoundCRDSClusterName).Get(boundCRDName)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +366,7 @@ func (c *apiBindingAwareCRDLister) getForWildcardPartialMetadata(name string) (*
 }
 
 func (c *apiBindingAwareCRDLister) getSystemCRD(_ logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	return c.crdLister.Cluster(SystemCRDLogicalCluster).Get(name)
+	return c.crdLister.Cluster(SystemCRDClusterName).Get(name)
 }
 
 func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -382,7 +387,7 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 			matchingIdentity := identity == "" || boundResource.Schema.IdentityHash == identity
 
 			if boundResource.Group == group && boundResource.Resource == resource && matchingIdentity {
-				crd, err = c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundResource.Schema.UID)
+				crd, err = c.crdLister.Cluster(apibinding.SystemBoundCRDSClusterName).Get(boundResource.Schema.UID)
 				if err != nil && apierrors.IsNotFound(err) {
 					// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
 					// the CRD doesn't exist for some reason.
