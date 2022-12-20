@@ -17,6 +17,19 @@ limitations under the License.
 package deletion
 
 import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcpfakemetadata "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/metadata/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -30,13 +43,13 @@ func init() {
 }
 
 // TODO:(p0lyn0mial, sttts) rework this test to use Workspace
-/*func TestWorkspaceTerminating(t *testing.T) {
+func TestWorkspaceTerminating(t *testing.T) {
 	now := metav1.Now()
-	ws := &tenancyv1alpha1.ClusterWorkspace{
+	ws := &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test",
 			DeletionTimestamp: &now,
-			Finalizers:        []string{WorkspaceFinalizer},
+			Finalizers:        []string{LogicalClusterDeletionFinalizer},
 			Annotations:       map[string]string{logicalcluster.AnnotationKey: "root"},
 		},
 	}
@@ -61,12 +74,8 @@ func init() {
 			expectErrorOnDelete: fmt.Errorf("test error"),
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
-					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-					Status: v1.ConditionFalse,
-				},
-				{
 					Type:   tenancyv1alpha1.WorkspaceContentDeleted,
-					Status: v1.ConditionTrue,
+					Status: v1.ConditionFalse,
 				},
 			},
 		},
@@ -81,10 +90,6 @@ func init() {
 				{"customresourcedefinitions", "list"},
 			},
 			expectConditions: conditionsv1alpha1.Conditions{
-				{
-					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-					Status: v1.ConditionTrue,
-				},
 				{
 					Type:   tenancyv1alpha1.WorkspaceContentDeleted,
 					Status: v1.ConditionTrue,
@@ -104,10 +109,6 @@ func init() {
 			expectErrorOnDelete: &ResourcesRemainingError{5, "Some resources are remaining: customresourcedefinitions.apiextensions.k8s.io has 2 resource instances"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
-					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-					Status: v1.ConditionTrue,
-				},
-				{
 					Type:   tenancyv1alpha1.WorkspaceContentDeleted,
 					Status: v1.ConditionFalse,
 				},
@@ -117,7 +118,7 @@ func init() {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error) {
+			fn := func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error) {
 				return resources, tt.gvrError
 			}
 			mockMetadataClient := kcpfakemetadata.NewSimpleMetadataClient(scheme, tt.existingObject...)
@@ -177,7 +178,7 @@ func newPartialObject(apiversion, kind, name, namespace string) *metav1.PartialO
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
-			Annotations: map[string]string{logicalcluster.AnnotationKey: "root:test"},
+			Annotations: map[string]string{logicalcluster.AnnotationKey: "root"},
 		},
 	}
 }
@@ -227,4 +228,3 @@ func matchErrors(e1, e2 error) bool {
 	}
 	return false
 }
-*/
