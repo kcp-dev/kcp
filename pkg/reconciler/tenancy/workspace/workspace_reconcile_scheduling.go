@@ -104,6 +104,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, reason)
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
+			logger.V(1).Info("Chose shard", "shard", shardName)
 			shardNameHash = ByBase36Sha224NameValue(shardName)
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
