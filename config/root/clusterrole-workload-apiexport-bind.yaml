@@ -3,9 +3,9 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:workload:bind
 rules:
-- apiGroups: ["apis.kcp.dev"]
+- apiGroups: ["apis.kcp.io"]
   resources:
   - "apiexports"
   resourceNames:
-  - "workload.kcp.dev"
+  - "workload.kcp.io"
   verbs: ["bind"]

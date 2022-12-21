@@ -51,10 +51,10 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
-					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
-					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
+					"tenancy.kcp.io/phase": "Ready",
+					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -72,7 +72,7 @@ func TestReconcileMetadata(t *testing.T) {
 			expected: metav1.ObjectMeta{
 				DeletionTimestamp: &metav1.Time{Time: date},
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Deleting",
+					"tenancy.kcp.io/phase": "Deleting",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -82,9 +82,9 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
-						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"tenancy.kcp.io/phase": "Ready",
+						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -96,10 +96,10 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
-					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
-					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
+					"tenancy.kcp.io/phase": "Ready",
+					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -109,9 +109,9 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
-						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"tenancy.kcp.io/phase": "Ready",
+						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -123,8 +123,8 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
-					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"tenancy.kcp.io/phase": "Ready",
+					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -134,10 +134,10 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
-						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
-						"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
+						"tenancy.kcp.io/phase": "Ready",
+						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -149,10 +149,10 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
-					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
-					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
-					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
+					"tenancy.kcp.io/phase": "Ready",
+					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 				},
 			},
 			wantStatus: reconcileStatusContinue,
@@ -162,11 +162,11 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
+						"tenancy.kcp.io/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                                  "b",
-						"experimental.tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
+						"a":                                 "b",
+						"experimental.tenancy.kcp.io/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -175,11 +175,11 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
+					"tenancy.kcp.io/phase": "Ready",
 				},
 				Annotations: map[string]string{
-					"a":                                  "b",
-					"experimental.tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+					"a":                                 "b",
+					"experimental.tenancy.kcp.io/owner": `{"username":"user-1"}`,
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -189,11 +189,11 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
+						"tenancy.kcp.io/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                                  "b",
-						"experimental.tenancy.kcp.dev/owner": `{"username":}`,
+						"a":                                 "b",
+						"experimental.tenancy.kcp.io/owner": `{"username":}`,
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -202,7 +202,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
+					"tenancy.kcp.io/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a": "b",

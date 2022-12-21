@@ -56,7 +56,7 @@ func WithShardNameFromContextRoundTripper(cfg *rest.Config) *rest.Config {
 // It changes the URL path to target a shard from the context.
 //
 // For example given "amber" shard name in the context it will change
-// apis/apis.kcp.dev/v1alpha1/apiexports to /shards/amber/apis/apis.kcp.dev/v1alpha1/apiexports
+// apis/apis.kcp.io/v1alpha1/apiexports to /shards/amber/apis/apis.kcp.io/v1alpha1/apiexports
 type ShardRoundTripper struct {
 	delegate http.RoundTripper
 }

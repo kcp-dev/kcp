@@ -81,11 +81,11 @@ No resources found
 [3J[H[2J☸️ $ kubectl config use-context admin
 Switched to context "admin".
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/config
-customresourcedefinition.apiextensions.k8s.io/apiresourceimports.apiresource.kcp.dev created
-customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource.kcp.dev created
-customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.dev created
+customresourcedefinition.apiextensions.k8s.io/apiresourceimports.apiresource.kcp.io created
+customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource.kcp.io created
+customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.io created
 ☸️ $ head -n 15 ../contrib/demo/clusters/kind/us-west1.yaml
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: us-west1
@@ -101,9 +101,9 @@ spec:
     - context:
         cluster: kind-us-west1
 ☸️ $ kubectl apply -f ../contrib/demo/clusters/kind/us-west1.yaml
-workloadcluster.workload.kcp.dev/us-west1 created
+workloadcluster.workload.kcp.io/us-west1 created
 ☸️ $ head -n 15 ../contrib/demo/clusters/kind/us-east1.yaml
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: us-east1
@@ -119,11 +119,11 @@ spec:
     - context:
         cluster: kind-us-east1
 ☸️ $ kubectl apply -f ../contrib/demo/clusters/kind/us-east1.yaml
-cluster.workload.kcp.dev/us-east1 created
+cluster.workload.kcp.io/us-east1 created
 ☸️ $ kubectl wait cluster/us-west1 --for condition=Ready --timeout=60s
-workloadcluster.workload.kcp.dev/us-west1 condition met
+workloadcluster.workload.kcp.io/us-west1 condition met
 ☸️ $ kubectl wait cluster/us-east1 --for condition=Ready --timeout=60s
-workloadcluster.workload.kcp.dev/us-east1 condition met
+workloadcluster.workload.kcp.io/us-east1 condition met
 ☸️ $ kubectl api-resources
 NAME                          SHORTNAMES   APIVERSION                              NAMESPACED   KIND
 configmaps                    cm           v1                                      true         ConfigMap
@@ -135,8 +135,8 @@ secrets                                    v1                                   
 serviceaccounts               sa           v1                                      true         ServiceAccount
 customresourcedefinitions     crd,crds     apiextensions.k8s.io/v1                 false        CustomResourceDefinition
 apiservices                                apiregistration.k8s.io/v1               false        APIService
-apiresourceimports                         apiresource.kcp.dev/v1alpha1            false        APIResourceImport
-negotiatedapiresources                     apiresource.kcp.dev/v1alpha1            false        NegotiatedAPIResource
+apiresourceimports                         apiresource.kcp.io/v1alpha1            false        APIResourceImport
+negotiatedapiresources                     apiresource.kcp.io/v1alpha1            false        NegotiatedAPIResource
 deployments                   deploy       apps/v1                                 true         Deployment
 tokenreviews                               authentication.k8s.io/v1                false        TokenReview
 localsubjectaccessreviews                  authorization.k8s.io/v1                 true         LocalSubjectAccessReview
@@ -144,7 +144,7 @@ selfsubjectaccessreviews                   authorization.k8s.io/v1              
 selfsubjectrulesreviews                    authorization.k8s.io/v1                 false        SelfSubjectRulesReview
 subjectaccessreviews                       authorization.k8s.io/v1                 false        SubjectAccessReview
 certificatesigningrequests    csr          certificates.k8s.io/v1                  false        CertificateSigningRequest
-clusters                                   workload.kcp.dev/v1alpha1               false        SyncTarget
+clusters                                   workload.kcp.io/v1alpha1               false        SyncTarget
 leases                                     coordination.k8s.io/v1                  true         Lease
 domainnames                                discountdomainnames.biz/v1alpha1        false        DomainName
 events                        ev           events.k8s.io/v1                        true         Event

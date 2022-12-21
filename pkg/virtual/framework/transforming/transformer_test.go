@@ -270,7 +270,7 @@ func (rb resourceBuilder) cluster(cluster string) resourceBuilder {
 			metadata["annotations"] = map[string]interface{}{}
 
 		}
-		metadata["annotations"].(map[string]interface{})["kcp.dev/cluster"] = cluster
+		metadata["annotations"].(map[string]interface{})["kcp.io/cluster"] = cluster
 		return r
 	}
 }

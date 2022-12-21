@@ -235,10 +235,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 				// controller doesn't delay the syncing before setting the transformation annotations.
 				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
 				// seem like deployment replicas would have been spread, though in fact it is not.
-				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.io/"+eastSyncer.ToSyncTargetKey()]; !exists {
 					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the east syncTarget", workspace.clusterName, "test")
 				}
-				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.io/"+westSyncer.ToSyncTargetKey()]; !exists {
 					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the west syncTarget", workspace.clusterName, "test")
 				}
 
@@ -246,10 +246,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 				// controller doesn't delay the syncing before setting the transformation annotations.
 				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
 				// seem like deployment replicas would have been spread, though in fact it is not.
-				if _, exists := deployment.GetAnnotations()["diff.syncer.internal.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
+				if _, exists := deployment.GetAnnotations()["diff.syncer.internal.kcp.io/"+eastSyncer.ToSyncTargetKey()]; !exists {
 					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the east syncer", workspace.clusterName, "test")
 				}
-				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.io/"+westSyncer.ToSyncTargetKey()]; !exists {
 					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the west syncer", workspace.clusterName, "test")
 				}
 

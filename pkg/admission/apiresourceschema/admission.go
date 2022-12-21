@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	PluginName = "tenancy.kcp.dev/APIResourceSchema"
+	PluginName = "tenancy.kcp.io/APIResourceSchema"
 )
 
 func Register(plugins *admission.Plugins) {

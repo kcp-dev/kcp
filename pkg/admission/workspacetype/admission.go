@@ -35,7 +35,7 @@ import (
 //  - "organization" type is only created in root workspace.
 
 const (
-	PluginName = "tenancy.kcp.dev/WorkspaceType"
+	PluginName = "tenancy.kcp.io/WorkspaceType"
 )
 
 func Register(plugins *admission.Plugins) {

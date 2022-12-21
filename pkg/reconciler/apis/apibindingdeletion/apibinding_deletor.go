@@ -59,7 +59,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 				Version:  version,
 			}
 
-			// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
+			// Don't try to delete projected resources such as tenancy.kcp.io v1beta1 Workspaces - these are virtual
 			// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
 			// data (e.g. ClusterWorkspaces) are deleted.
 			if projection.Includes(gvr) {

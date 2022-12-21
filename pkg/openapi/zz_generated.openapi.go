@@ -1612,7 +1612,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					},
 					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.dev:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated` and `apis.kcp.dev:binding:a-team`.",
+							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated` and `apis.kcp.io:binding:a-team`.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"),
 						},
 					},
@@ -2196,7 +2196,7 @@ func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocalAPIExportPolicy is a maximal permission policy that checks RBAC in the workspace of the API Export.\n\nIn order to avoid conflicts the user and group name will be prefixed with \"apis.kcp.dev:binding:\".",
+				Description: "LocalAPIExportPolicy is a maximal permission policy that checks RBAC in the workspace of the API Export.\n\nIn order to avoid conflicts the user and group name will be prefixed with \"apis.kcp.io:binding:\".",
 				Type:        []string{"object"},
 			},
 		},
@@ -2487,7 +2487,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 					},
 					"owner": {
 						SchemaProps: spec.SchemaProps{
-							Description: "owner is a reference to a resource controlling the life-cycle of this logical cluster. On deletion of the LogicalCluster, the finalizer core.kcp.dev/logicalcluster is removed from the owner.\n\nWhen this object is deleted, but the owner is not deleted, the owner is deleted too.",
+							Description: "owner is a reference to a resource controlling the life-cycle of this logical cluster. On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is removed from the owner.\n\nWhen this object is deleted, but the owner is not deleted, the owner is deleted too.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterOwner"),
 						},
 					},
@@ -3049,7 +3049,7 @@ func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transferred to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
+				Description: "Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.io/placement\", the namespace will pick one placement, and this placement is transferred to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

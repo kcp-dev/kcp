@@ -42,7 +42,7 @@ type (
 )
 
 const (
-	workspaceAnnotation = "tenancy.kcp.dev/workspace"
+	workspaceAnnotation = "tenancy.kcp.io/workspace"
 
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota

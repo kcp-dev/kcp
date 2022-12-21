@@ -74,7 +74,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 			Kind:       "APIResourceList",
 			APIVersion: "v1",
 		},
-		GroupVersion: "core.kcp.dev/v1alpha1",
+		GroupVersion: "core.kcp.io/v1alpha1",
 		APIResources: []metav1.APIResource{
 			{
 				Kind:               "LogicalCluster",
@@ -82,7 +82,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 				SingularName:       "logicalcluster",
 				Categories:         []string{"kcp"},
 				Verbs:              metav1.Verbs{"get", "list", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash("", "core.kcp.dev", "v1alpha1", "LogicalCluster"),
+				StorageVersionHash: discovery.StorageVersionHash("", "core.kcp.io", "v1alpha1", "LogicalCluster"),
 			},
 			{
 				Kind: "LogicalCluster",
@@ -115,7 +115,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	framework.NewWorkspaceFixture(t, source, clusterName.Path())
 
 	testLabelSelector := map[string]string{
-		"internal.kcp.dev/e2e-test": t.Name(),
+		"internal.kcp.io/e2e-test": t.Name(),
 	}
 
 	t.Log("Create workspace types that add initializers")
@@ -302,7 +302,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 					Verbs:         []string{"initialize"},
 					Resources:     []string{"workspacetypes"},
 					ResourceNames: []string{cwt.Name},
-					APIGroups:     []string{"tenancy.kcp.dev"},
+					APIGroups:     []string{"tenancy.kcp.io"},
 				},
 			},
 		}, metav1.CreateOptions{})
@@ -435,7 +435,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}
 
 		labelSelector := map[string]string{
-			"internal.kcp.dev/test-initializer": initializer,
+			"internal.kcp.io/test-initializer": initializer,
 		}
 		configMaps, err := coreClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)

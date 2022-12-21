@@ -91,7 +91,7 @@ func TestMultiPlacement(t *testing.T) {
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},
@@ -110,7 +110,7 @@ func TestMultiPlacement(t *testing.T) {
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},
@@ -151,7 +151,7 @@ func TestMultiPlacement(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": firstSyncTargetName,
+				"test.workload.kcp.io": firstSyncTargetName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -186,7 +186,7 @@ func TestMultiPlacement(t *testing.T) {
 	t.Logf("Wait for the service to be sync to the downstream cluster")
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err := firstSyncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + firstSyncTargetName,
 		})
 
 		if err != nil {
@@ -201,7 +201,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err := secondSyncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + firstSyncTargetName,
 		})
 
 		if err != nil {

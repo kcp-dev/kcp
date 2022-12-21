@@ -37,7 +37,7 @@ import (
 const (
 	// RequiredGroupsAnnotationKey is a comma-separated list (OR'ed) of semicolon separated
 	// groups (AND'ed) that a user must be a member of to be able to access the workspace.
-	RequiredGroupsAnnotationKey = "authorization.kcp.dev/required-groups"
+	RequiredGroupsAnnotationKey = "authorization.kcp.io/required-groups"
 )
 
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored

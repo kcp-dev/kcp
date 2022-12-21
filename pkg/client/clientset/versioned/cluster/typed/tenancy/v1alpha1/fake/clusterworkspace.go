@@ -38,8 +38,8 @@ import (
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
-var clusterWorkspacesResource = schema.GroupVersionResource{Group: "tenancy.kcp.dev", Version: "v1alpha1", Resource: "clusterworkspaces"}
-var clusterWorkspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.dev", Version: "v1alpha1", Kind: "ClusterWorkspace"}
+var clusterWorkspacesResource = schema.GroupVersionResource{Group: "tenancy.kcp.io", Version: "v1alpha1", Resource: "clusterworkspaces"}
+var clusterWorkspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.io", Version: "v1alpha1", Kind: "ClusterWorkspace"}
 
 type clusterWorkspacesClusterClient struct {
 	*kcptesting.Fake

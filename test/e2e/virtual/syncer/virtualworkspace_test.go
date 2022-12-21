@@ -406,7 +406,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						Rules: []rbacv1.PolicyRule{
 							{
 								Verbs:         []string{"sync"},
-								APIGroups:     []string{"workload.kcp.dev"},
+								APIGroups:     []string{"workload.kcp.io"},
 								Resources:     []string{"synctargets"},
 								ResourceNames: []string{"wildwest"},
 							},
@@ -795,7 +795,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 						Resource: schedulingv1alpha1.GroupVersionResource{
-							Group:    "workload.kcp.dev",
+							Group:    "workload.kcp.io",
 							Version:  "v1alpha1",
 							Resource: "synctargets",
 						},
@@ -817,7 +817,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 						Resource: schedulingv1alpha1.GroupVersionResource{
-							Group:    "workload.kcp.dev",
+							Group:    "workload.kcp.io",
 							Version:  "v1alpha1",
 							Resource: "synctargets",
 						},
@@ -1033,7 +1033,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 						Resource: schedulingv1alpha1.GroupVersionResource{
-							Group:    "workload.kcp.dev",
+							Group:    "workload.kcp.io",
 							Version:  "v1alpha1",
 							Resource: "synctargets",
 						},
@@ -1055,7 +1055,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							},
 						},
 						Resource: schedulingv1alpha1.GroupVersionResource{
-							Group:    "workload.kcp.dev",
+							Group:    "workload.kcp.io",
 							Version:  "v1alpha1",
 							Resource: "synctargets",
 						},
@@ -1327,7 +1327,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 						Annotations: map[string]string{
-							"experimental.spec-diff.workload.kcp.dev/" + syncTargetKey: `[{ "op": "replace", "path": "/intent", "value": "should catch joe and averell" }]`,
+							"experimental.spec-diff.workload.kcp.io/" + syncTargetKey: `[{ "op": "replace", "path": "/intent", "value": "should catch joe and averell" }]`,
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{
@@ -1429,7 +1429,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "luckyluke",
 						Annotations: map[string]string{
-							"experimental.summarizing.workload.kcp.dev": `[{"fieldPath": "status", "promoteToUpstream": false}]`,
+							"experimental.summarizing.workload.kcp.io": `[{"fieldPath": "status", "promoteToUpstream": false}]`,
 						},
 					},
 					Spec: wildwestv1alpha1.CowboySpec{
@@ -1568,7 +1568,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1610,7 +1610,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1655,10 +1655,10 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 						Annotations: map[string]string{
-							"internal.workload.kcp.dev/upsyncdiff" + syncTargetKey: "[{\"op\":\"replace\",\"path\":\"/spec/capacity/storage\",\"value\":\"2Gi\"}]",
+							"internal.workload.kcp.io/upsyncdiff" + syncTargetKey: "[{\"op\":\"replace\",\"path\":\"/spec/capacity/storage\",\"value\":\"2Gi\"}]",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1699,7 +1699,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "notupsync",
+							"state.workload.kcp.io/" + syncTargetKey: "notupsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1734,7 +1734,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1785,7 +1785,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
@@ -1811,7 +1811,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				// Changing the label to something else, should fail.
-				pv.Labels["state.workload.kcp.dev/"+syncTargetKey] = "notupsync"
+				pv.Labels["state.workload.kcp.io/"+syncTargetKey] = "notupsync"
 				pv.Spec.PersistentVolumeSource.HostPath.Path = "/tmp/data/changed"
 
 				logWithTimestamp(t, "Updating PV test-pv through upsyncer virtual workspace...")
@@ -1839,7 +1839,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-pv",
 						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+							"state.workload.kcp.io/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{

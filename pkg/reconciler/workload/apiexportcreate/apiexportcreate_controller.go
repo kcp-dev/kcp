@@ -262,7 +262,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			},
 			Spec: schedulingv1alpha1.LocationSpec{
 				Resource: schedulingv1alpha1.GroupVersionResource{
-					Group:    "workload.kcp.dev",
+					Group:    "workload.kcp.io",
 					Version:  "v1alpha1",
 					Resource: "synctargets",
 				},

@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	PluginName = "tenancy.kcp.dev/WorkspaceTypeExists"
+	PluginName = "tenancy.kcp.io/WorkspaceTypeExists"
 )
 
 func Register(plugins *admission.Plugins) {

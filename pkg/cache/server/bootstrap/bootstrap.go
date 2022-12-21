@@ -44,9 +44,9 @@ const SystemCacheServerShard = "system:cache:server"
 func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface) error {
 	crds := []*apiextensionsv1.CustomResourceDefinition{}
 	for _, gr := range []struct{ group, resource string }{
-		{"apis.kcp.dev", "apiresourceschemas"},
-		{"apis.kcp.dev", "apiexports"},
-		{"core.kcp.dev", "shards"},
+		{"apis.kcp.io", "apiresourceschemas"},
+		{"apis.kcp.io", "apiexports"},
+		{"core.kcp.io", "shards"},
 	} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		if err := configcrds.Unmarshal(fmt.Sprintf("%s_%s.yaml", gr.group, gr.resource), crd); err != nil {

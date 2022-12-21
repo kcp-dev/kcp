@@ -132,7 +132,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": syncTargetName,
+				"test.workload.kcp.io": syncTargetName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -149,7 +149,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	t.Logf("Wait for the service to be synced to the downstream cluster")
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err := syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + syncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + syncTargetName,
 		})
 
 		if err != nil {
@@ -178,7 +178,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": syncTargetName,
+				"test.workload.kcp.io": syncTargetName,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -206,7 +206,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	t.Logf("Wait for the deployment to be synced to the downstream cluster")
 	framework.Eventually(t, func() (bool, string) {
 		downstreamDeployments, err := syncerFixture.DownstreamKubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + syncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + syncTargetName,
 		})
 
 		if err != nil {

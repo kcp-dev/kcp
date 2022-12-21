@@ -2,8 +2,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   annotations:
-    bootstrap.kcp.dev/create-only: "true"
-    bootstrap.kcp.dev/battery: root-compute-workspace
+    bootstrap.kcp.io/create-only: "true"
+    bootstrap.kcp.io/battery: root-compute-workspace
   name: compute:authenticated:apiexport:kubernetes:maximal-permission-policy
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -12,4 +12,4 @@ roleRef:
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: Group
-  name: apis.kcp.dev:binding:system:authenticated
+  name: apis.kcp.io:binding:system:authenticated

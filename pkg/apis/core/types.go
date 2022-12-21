@@ -25,7 +25,7 @@ const (
 	// put on objects that are referenced by path by other objects.
 	//
 	// If this annotation exists, the system will maintain the annotation value.
-	LogicalClusterPathAnnotationKey = "kcp.dev/path"
+	LogicalClusterPathAnnotationKey = "kcp.io/path"
 )
 
 // RootCluster is the root of ClusterWorkspace based logical clusters.

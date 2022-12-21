@@ -339,7 +339,7 @@ func (o *BindComputeOptions) applyPlacement(ctx context.Context, client kcpclien
 			LocationSelectors: o.locationSelectors,
 			LocationWorkspace: o.LocationWorkspace.String(),
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},

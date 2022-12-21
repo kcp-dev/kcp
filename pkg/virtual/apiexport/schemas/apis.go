@@ -33,7 +33,7 @@ func init() {
 	for _, resource := range []string{"apibindings", "apiresourceschemas", "apiexports"} {
 		// get APIBindings resource schema
 		crd := apiextensionsv1.CustomResourceDefinition{}
-		if err := configcrds.Unmarshal(fmt.Sprintf("apis.kcp.dev_%s.yaml", resource), &crd); err != nil {
+		if err := configcrds.Unmarshal(fmt.Sprintf("apis.kcp.io_%s.yaml", resource), &crd); err != nil {
 			panic(fmt.Sprintf("failed to unmarshal apibindings resource: %v", err))
 		}
 		schema, err := apisv1alpha1.CRDToAPIResourceSchema(&crd, "crd")

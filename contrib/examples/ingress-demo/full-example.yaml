@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    workloads.kcp.dev/cluster: ""
+    workloads.kcp.io/cluster: ""
   name: httpecho
 spec:
   replicas: 1
@@ -27,7 +27,7 @@ kind: Service
 metadata:
   name: httpecho
   labels:
-    workloads.kcp.dev/cluster: ""
+    workloads.kcp.io/cluster: ""
 spec:
   ports:
     - name: http-port

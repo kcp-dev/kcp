@@ -36,9 +36,9 @@ type FakeShards struct {
 	Fake *FakeCoreV1alpha1
 }
 
-var shardsResource = schema.GroupVersionResource{Group: "core.kcp.dev", Version: "v1alpha1", Resource: "shards"}
+var shardsResource = schema.GroupVersionResource{Group: "core.kcp.io", Version: "v1alpha1", Resource: "shards"}
 
-var shardsKind = schema.GroupVersionKind{Group: "core.kcp.dev", Version: "v1alpha1", Kind: "Shard"}
+var shardsKind = schema.GroupVersionKind{Group: "core.kcp.io", Version: "v1alpha1", Kind: "Shard"}
 
 // Get takes name of the shard, and returns the corresponding shard object, and an error if there is any.
 func (c *FakeShards) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Shard, err error) {

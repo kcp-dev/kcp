@@ -77,7 +77,7 @@ func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func
 		}
 
 		identities := map[schema.GroupResource]string{
-			{Group: "tenancy.kcp.dev", Resource: "clusterworkspaces"}: identity,
+			{Group: "tenancy.kcp.io", Resource: "clusterworkspaces"}: identity,
 		}
 
 		return registry.ProvideReadOnlyRestStorage(

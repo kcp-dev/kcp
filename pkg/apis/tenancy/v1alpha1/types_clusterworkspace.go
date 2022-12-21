@@ -168,7 +168,7 @@ type ClusterWorkspaceStatus struct {
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
-const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.dev/owner"
+const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
 // historical information.

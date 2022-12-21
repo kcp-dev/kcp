@@ -1,6 +1,6 @@
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.certificaterequests.cert-manager.io
@@ -198,7 +198,7 @@ spec:
     storage: true
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.certificates.cert-manager.io
@@ -560,7 +560,7 @@ spec:
     storage: true
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.challenges.acme.cert-manager.io
@@ -1557,7 +1557,7 @@ spec:
       status: {}
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.clusterissuers.cert-manager.io
@@ -2766,7 +2766,7 @@ spec:
     storage: true
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.issuers.cert-manager.io
@@ -3975,7 +3975,7 @@ spec:
     storage: true
 ---
 # Source: cert-manager/templates/templates.out
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   name: today.orders.acme.cert-manager.io

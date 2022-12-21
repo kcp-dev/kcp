@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/APIBinding"
+	PluginName = "apis.kcp.io/APIBinding"
 )
 
 func Register(plugins *admission.Plugins) {

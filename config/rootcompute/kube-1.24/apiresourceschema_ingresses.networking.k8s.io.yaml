@@ -1,10 +1,10 @@
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kcp-dev/kubernetes/pull/4
-    bootstrap.kcp.dev/create-only: "true"
-    bootstrap.kcp.dev/battery: root-compute-workspace
+    bootstrap.kcp.io/create-only: "true"
+    bootstrap.kcp.io/battery: root-compute-workspace
   name: v124.ingresses.networking.k8s.io
 spec:
   group: networking.k8s.io

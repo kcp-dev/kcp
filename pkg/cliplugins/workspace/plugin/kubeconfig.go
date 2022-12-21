@@ -49,8 +49,8 @@ import (
 )
 
 const (
-	kcpPreviousWorkspaceContextKey string = "workspace.kcp.dev/previous"
-	kcpCurrentWorkspaceContextKey  string = "workspace.kcp.dev/current"
+	kcpPreviousWorkspaceContextKey string = "workspace.kcp.io/previous"
+	kcpCurrentWorkspaceContextKey  string = "workspace.kcp.io/current"
 )
 
 // UseWorkspaceOptions contains options for manipulating or showing the current workspace.

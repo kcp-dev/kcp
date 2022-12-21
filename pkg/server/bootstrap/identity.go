@@ -47,15 +47,15 @@ import (
 var (
 	// KcpRootGroupExportNames lists the APIExports in the root workspace for standard kcp groups
 	KcpRootGroupExportNames = map[string]string{
-		"tenancy.kcp.dev":     "tenancy.kcp.dev",
-		"scheduling.kcp.dev":  "scheduling.kcp.dev",
-		"workload.kcp.dev":    "workload.kcp.dev",
-		"apiresource.kcp.dev": "apiresource.kcp.dev",
+		"tenancy.kcp.io":     "tenancy.kcp.io",
+		"scheduling.kcp.io":  "scheduling.kcp.io",
+		"workload.kcp.io":    "workload.kcp.io",
+		"apiresource.kcp.io": "apiresource.kcp.io",
 	}
 
 	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources
 	KcpRootGroupResourceExportNames = map[schema.GroupResource]string{
-		{Group: "core.kcp.dev", Resource: "shards"}: "shards.core.kcp.dev",
+		{Group: "core.kcp.io", Resource: "shards"}: "shards.core.kcp.io",
 	}
 )
 
@@ -260,13 +260,13 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 
 // decorateWildcardPathsWithResourceIdentities adds per-API-group identity to wildcard URL paths, e.g.
 //
-//	/clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces/root
+//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces/root
 //
 // becomes
 //
-//	/clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces:<identity>/root
+//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces:<identity>/root
 func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities) (string, error) {
-	// Check for: /clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces/root
+	// Check for: /clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces/root
 	if !strings.HasPrefix(urlPath, "/clusters/*/apis/") {
 		return urlPath, nil
 	}

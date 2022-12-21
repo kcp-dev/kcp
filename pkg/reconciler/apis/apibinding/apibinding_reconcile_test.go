@@ -74,8 +74,8 @@ var (
 	rebinding = binding.DeepCopy().
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
-				WithGroupResource("kcp.dev", "widgets").
-				WithSchema("today.widgets.kcp.dev", "todaywidgetsuid").
+				WithGroupResource("kcp.io", "widgets").
+				WithSchema("today.widgets.kcp.io", "todaywidgetsuid").
 				WithStorageVersions("v0", "v1").
 				BoundAPIResource,
 		)
@@ -101,8 +101,8 @@ var (
 			WithExportReference(logicalcluster.NewPath("org:some-workspace"), "conflict").
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
-				WithGroupResource("kcp.dev", "widgets").
-				WithSchema("another.widgets.kcp.dev", "anotherwidgetsuid").
+				WithGroupResource("kcp.io", "widgets").
+				WithSchema("another.widgets.kcp.io", "anotherwidgetsuid").
 				BoundAPIResource,
 		)
 
@@ -111,11 +111,11 @@ var (
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: "org-some-workspace",
 			},
-			Name: "today.widgets.kcp.dev",
+			Name: "today.widgets.kcp.io",
 			UID:  "todaywidgetsuid",
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
-			Group: "kcp.dev",
+			Group: "kcp.io",
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "widgets",
 				Singular: "widget",
@@ -138,11 +138,11 @@ var (
 
 	someOtherWidgetsAPIResourceSchema = &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "another.widgets.kcp.dev",
+			Name: "another.widgets.kcp.io",
 			UID:  "anotherwidgetsuid",
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
-			Group: "kcp.dev",
+			Group: "kcp.io",
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "widgets",
 				Singular: "widget",
@@ -322,10 +322,10 @@ func TestReconcileBinding(t *testing.T) {
 			wantBoundAPIExport: true,
 			wantBoundResources: []apisv1alpha1.BoundAPIResource{
 				{
-					Group:    "kcp.dev",
+					Group:    "kcp.io",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name:         "today.widgets.kcp.dev",
+						Name:         "today.widgets.kcp.io",
 						UID:          "todaywidgetsuid",
 						IdentityHash: "hash1",
 					},
@@ -346,10 +346,10 @@ func TestReconcileBinding(t *testing.T) {
 			wantBoundAPIExport: true,
 			wantBoundResources: []apisv1alpha1.BoundAPIResource{
 				{
-					Group:    "kcp.dev",
+					Group:    "kcp.io",
 					Resource: "widgets",
 					Schema: apisv1alpha1.BoundAPIResourceSchema{
-						Name:         "today.widgets.kcp.dev",
+						Name:         "today.widgets.kcp.io",
 						UID:          "todaywidgetsuid",
 						IdentityHash: "hash1",
 					},
@@ -374,7 +374,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "some-export",
 					},
 					Spec: apisv1alpha1.APIExportSpec{
-						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
+						LatestResourceSchemas: []string{"today.widgets.kcp.io"},
 					},
 					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash1"},
 				},
@@ -386,7 +386,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "conflict",
 					},
 					Spec: apisv1alpha1.APIExportSpec{
-						LatestResourceSchemas: []string{"another.widgets.kcp.dev"},
+						LatestResourceSchemas: []string{"another.widgets.kcp.io"},
 					},
 					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash2"},
 				},
@@ -410,7 +410,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "some-export",
 					},
 					Spec: apisv1alpha1.APIExportSpec{
-						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
+						LatestResourceSchemas: []string{"today.widgets.kcp.io"},
 					},
 				},
 			}
@@ -433,8 +433,8 @@ func TestReconcileBinding(t *testing.T) {
 						},
 					},
 				},
-				"today.widgets.kcp.dev":   todayWidgetsAPIResourceSchema,
-				"another.widgets.kcp.dev": someOtherWidgetsAPIResourceSchema,
+				"today.widgets.kcp.io":   todayWidgetsAPIResourceSchema,
+				"another.widgets.kcp.io": someOtherWidgetsAPIResourceSchema,
 			}
 
 			c := &controller{
@@ -473,7 +473,7 @@ func TestReconcileBinding(t *testing.T) {
 					}
 
 					if name == "anotherwidgetsuid" {
-						crd.Spec.Group = "kcp.dev"
+						crd.Spec.Group = "kcp.io"
 						crd.Spec.Names = apiextensionsv1.CustomResourceDefinitionNames{
 							Plural: "widgets",
 						}

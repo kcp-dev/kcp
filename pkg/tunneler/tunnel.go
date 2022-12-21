@@ -111,8 +111,8 @@ func SyncerTunnelURL(host, ws, target string) (string, error) {
 
 // HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
 //
-// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.dev/v1alpha1/synctargets/<name>/connect establish reverse connections and queue them so it can be consumed by the dialer
-// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.dev/v1alpha1/synctargets/<name>/proxy/{path} proxies the {path} through the reverse connection identified by the cluster and syncer name
+// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/connect establish reverse connections and queue them so it can be consumed by the dialer
+// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/proxy/{path} proxies the {path} through the reverse connection identified by the cluster and syncer name
 func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 	pool := newTunnelPool()
 	return func(w http.ResponseWriter, r *http.Request) {

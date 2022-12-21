@@ -36,9 +36,9 @@ type FakeLocations struct {
 	Fake *FakeSchedulingV1alpha1
 }
 
-var locationsResource = schema.GroupVersionResource{Group: "scheduling.kcp.dev", Version: "v1alpha1", Resource: "locations"}
+var locationsResource = schema.GroupVersionResource{Group: "scheduling.kcp.io", Version: "v1alpha1", Resource: "locations"}
 
-var locationsKind = schema.GroupVersionKind{Group: "scheduling.kcp.dev", Version: "v1alpha1", Kind: "Location"}
+var locationsKind = schema.GroupVersionKind{Group: "scheduling.kcp.io", Version: "v1alpha1", Kind: "Location"}
 
 // Get takes name of the location, and returns the corresponding location object, and an error if there is any.
 func (c *FakeLocations) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Location, err error) {

@@ -305,11 +305,11 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 		},
 		{
 			name:                    "annotations on local diff and cached has a shard name",
-			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"a": "b", "kcp.dev/shard": "amber"}},
+			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"a": "b", "kcp.io/shard": "amber"}},
 			localObjectMeta:         metav1.ObjectMeta{ResourceVersion: "2", Annotations: map[string]string{"a": "b", "foo": "bar"}},
 			expectObjectMetaChanged: true,
 			validateCacheObjectMeta: func(ts *testing.T, cacheObjectMeta, localObjectMeta metav1.ObjectMeta) {
-				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"a": "b", "kcp.dev/shard": "amber", "foo": "bar"}}
+				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"a": "b", "kcp.io/shard": "amber", "foo": "bar"}}
 				if !reflect.DeepEqual(cacheObjectMeta, expectedCacheObjectMeta) {
 					ts.Errorf("received metadata differs from the expected one :\n%s", cmp.Diff(cacheObjectMeta, expectedCacheObjectMeta))
 				}
@@ -322,11 +322,11 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 		},
 		{
 			name:                    "no annotations on local, shard name is preserved on cached",
-			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.dev/shard": "amber"}},
+			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.io/shard": "amber"}},
 			localObjectMeta:         metav1.ObjectMeta{},
 			expectObjectMetaChanged: true,
 			validateCacheObjectMeta: func(ts *testing.T, cacheObjectMeta, localObjectMeta metav1.ObjectMeta) {
-				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.dev/shard": "amber"}}
+				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.io/shard": "amber"}}
 				if !reflect.DeepEqual(cacheObjectMeta, expectedCacheObjectMeta) {
 					ts.Errorf("received metadata differs from the expected one :\n%s", cmp.Diff(cacheObjectMeta, expectedCacheObjectMeta))
 				}
@@ -339,11 +339,11 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 		},
 		{
 			name:                    "an arbitrary field on meta",
-			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.dev/shard": "amber"}},
+			cacheObjectMeta:         metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.io/shard": "amber"}},
 			localObjectMeta:         metav1.ObjectMeta{Finalizers: []string{"f1"}},
 			expectObjectMetaChanged: true,
 			validateCacheObjectMeta: func(ts *testing.T, cacheObjectMeta, localObjectMeta metav1.ObjectMeta) {
-				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.dev/shard": "amber"}, Finalizers: []string{"f1"}}
+				expectedCacheObjectMeta := metav1.ObjectMeta{ResourceVersion: "1", Annotations: map[string]string{"kcp.io/shard": "amber"}, Finalizers: []string{"f1"}}
 				if !reflect.DeepEqual(cacheObjectMeta, expectedCacheObjectMeta) {
 					ts.Errorf("received metadata differs from the expected one :\n%s", cmp.Diff(cacheObjectMeta, expectedCacheObjectMeta))
 				}

@@ -1,9 +1,9 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
+apiVersion: tenancy.kcp.io/v1alpha1
 kind: WorkspaceType
 metadata:
   name: root
   annotations:
-    bootstrap.kcp.dev/create-only: "true"
+    bootstrap.kcp.io/create-only: "true"
 spec:
 {{- $bat := index .Batteries "cluster-workspace-types" -}}
 {{ if eq $bat true }}

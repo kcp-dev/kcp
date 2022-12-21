@@ -25,7 +25,7 @@ const (
 	ResourceStatePending ResourceState = ""
 	// ResourceStateSync is the state of a resource when it is synced to the sync target.
 	// This includes the deletion process until the resource is deleted downstream and the
-	// syncer removes the state.workload.kcp.dev/<sync-target-name> label.
+	// syncer removes the state.workload.kcp.io/<sync-target-name> label.
 	ResourceStateSync ResourceState = "Sync"
 	// ResourceStateUpsync is the state of a resource when it is synced up from the sync target.
 	// Compared to Sync state, this state is exclusive, meaning that only one sync target can
@@ -37,7 +37,7 @@ const (
 const (
 	// InternalClusterDeletionTimestampAnnotationPrefix is the prefix of the annotation
 	//
-	//   deletion.internal.workload.kcp.dev/<sync-target-name>
+	//   deletion.internal.workload.kcp.io/<sync-target-name>
 	//
 	// on upstream resources storing the timestamp when the sync target resource
 	// state was changed to "Delete". The syncer will see this timestamp as the deletion
@@ -46,11 +46,11 @@ const (
 	// The format is RFC3339.
 	//
 	// TODO(sttts): use sync-target-uid instead of sync-target-name
-	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workload.kcp.dev/"
+	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workload.kcp.io/"
 
 	// ClusterFinalizerAnnotationPrefix is the prefix of the annotation
 	//
-	//   finalizers.workload.kcp.dev/<sync-target-name>
+	//   finalizers.workload.kcp.io/<sync-target-name>
 	//
 	// on upstream resources storing a comma-separated list of finalizer names that are set on
 	// the sync target resource in the view of the syncer. This blocks the deletion of the
@@ -58,11 +58,11 @@ const (
 	// create back-pressure on the resource.
 	//
 	// TODO(sttts): use sync-target-uid instead of sync-target-name
-	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.dev/"
+	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.io/"
 
 	// ClusterResourceStateLabelPrefix is the prefix of the label
 	//
-	//   state.workload.kcp.dev/<sync-target-name>
+	//   state.workload.kcp.io/<sync-target-name>
 	//
 	// on upstream resources storing the state of the sync target syncer state machine.
 	// The workload controllers will set this label and the syncer will react and drive the
@@ -74,42 +74,42 @@ const (
 	//       start the sync process.
 	// - "Sync": the object is assigned and the syncer will start the sync process.
 	//
-	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.dev/<sync-target-name>
+	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.io/<sync-target-name>
 	// will signal the start of the deletion process of the object. During the deletion process
 	// the object will stay in "Sync" state. The syncer will block deletion while
-	// finalizers.workload.kcp.dev/<sync-target-name> exists and is non-empty, and it
-	// will eventually remove state.workload.kcp.dev/<sync-target-name> after
+	// finalizers.workload.kcp.io/<sync-target-name> exists and is non-empty, and it
+	// will eventually remove state.workload.kcp.io/<sync-target-name> after
 	// the object has been deleted downstream.
 	//
 	// The workload controllers will consider the object deleted from the sync target when
 	// the label is removed. They then set the placement state to "Unbound".
-	ClusterResourceStateLabelPrefix = "state.workload.kcp.dev/"
+	ClusterResourceStateLabelPrefix = "state.workload.kcp.io/"
 
 	// InternalSyncerViewAnnotationPrefix is the prefix of the annotation
 	//
-	//   diff.syncer.internal.kcp.dev/<sync-target-key>
+	//   diff.syncer.internal.kcp.io/<sync-target-key>
 	//
 	// on upstream resources storing the value of fields as they have been reported by the Syncer for the given SyncTarget,
 	// so possibly different from the field value in the upstream resource itself, and overriding it for the given SyncTarget.
 	//
 	// The format is a Json object, whose keys are fields identifiers (for example "status" or "spec.clusterIP"),
 	// and values are overriding field values.
-	InternalSyncerViewAnnotationPrefix = "diff.syncer.internal.kcp.dev/"
+	InternalSyncerViewAnnotationPrefix = "diff.syncer.internal.kcp.io/"
 
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.status.workload.kcp.dev/<sync-target-name>
+	//   experimental.status.workload.kcp.io/<sync-target-name>
 	//
 	// on upstream resources storing the status of the downstream resource per sync target.
 	// Note that this is experimental and will disappear in the future without prior notice. It
 	// is used temporarily in the case that a resource is scheduled to multiple sync targets.
 	//
 	// The format is JSON.
-	InternalClusterStatusAnnotationPrefix = "experimental.status.workload.kcp.dev/"
+	InternalClusterStatusAnnotationPrefix = "experimental.status.workload.kcp.io/"
 
 	// ClusterSpecDiffAnnotationPrefix is the prefix of the annotation
 	//
-	//   experimental.spec-diff.workload.kcp.dev/<sync-target-name>
+	//   experimental.spec-diff.workload.kcp.io/<sync-target-name>
 	//
 	// on upstream resources storing the desired spec diffs to be applied to the resource when syncing
 	// down to the <sync-target-name>. This feature requires the "Advanced Scheduling" feature gate
@@ -119,11 +119,11 @@ const (
 	// resource's Spec field.
 	//
 	// The format for the value of this annotation is: JSON Patch (https://tools.ietf.org/html/rfc6902).
-	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
+	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.io/"
 
 	// ExperimentalSummarizingRulesAnnotation
 	//
-	//   experimental.summarizing.workload.kcp.dev
+	//   experimental.summarizing.workload.kcp.io
 	//
 	// on upstream resources storing the JSON-encoded summarizing rules for this instance of the resource.
 	// The drives what fields should be overridden in the syncer view, and available for summarizing,
@@ -138,27 +138,27 @@ const (
 	//   - fieldPath: defines that path (dot-separated) of a field that should be summarized
 	//   - promoteToUpstream: defines whether this field should be promoted to upstream when the
 	//     resource is scheduled to only one SyncTarget.
-	ExperimentalSummarizingRulesAnnotation = "experimental.summarizing.workload.kcp.dev"
+	ExperimentalSummarizingRulesAnnotation = "experimental.summarizing.workload.kcp.io"
 
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
-	// instead of state.workload.kcp.dev/<sync-target-name> which is used upstream.
-	InternalDownstreamClusterLabel = "internal.workload.kcp.dev/cluster"
+	// instead of state.workload.kcp.io/<sync-target-name> which is used upstream.
+	InternalDownstreamClusterLabel = "internal.workload.kcp.io/cluster"
 
 	// AnnotationSkipDefaultObjectCreation is the annotation key for an apiexport or apibinding indicating the other default resources
 	// has been created already. If the created default resource is deleted, it will not be recreated.
-	AnnotationSkipDefaultObjectCreation = "workload.kcp.dev/skip-default-object-creation"
+	AnnotationSkipDefaultObjectCreation = "workload.kcp.io/skip-default-object-creation"
 
 	// InternalSyncTargetPlacementAnnotationKey is an internal annotation key on placement API to mark the synctarget scheduled
 	// from this placement. The value is a hash of the SyncTarget cluster name + SyncTarget name, generated with the ToSyncTargetKey(..) helper func.
-	InternalSyncTargetPlacementAnnotationKey = "internal.workload.kcp.dev/synctarget"
+	InternalSyncTargetPlacementAnnotationKey = "internal.workload.kcp.io/synctarget"
 
 	// InternalSyncTargetKeyLabel is an internal label set on a SyncTarget resource that contains the full hash of the SyncTargetKey, generated with the ToSyncTargetKey(..)
 	// helper func, this label is used for reverse lookups of a syncTargetKey to SyncTarget.
-	InternalSyncTargetKeyLabel = "internal.workload.kcp.dev/key"
+	InternalSyncTargetKeyLabel = "internal.workload.kcp.io/key"
 
 	// ComputeAPIExportAnnotationKey is an annotation key set on an APIExport when it will be used for compute,
 	// and its APIs are expected to be synced to a SyncTarget by the Syncer. The annotation will be continuously
 	// synced from the APIExport to all the APIBindings bound to this APIExport. The workload scheduler will
 	// check all the APIBindings with this annotation for scheduling purpose.
-	ComputeAPIExportAnnotationKey = "extra.apis.kcp.dev/compute.workload.kcp.dev"
+	ComputeAPIExportAnnotationKey = "extra.apis.kcp.io/compute.workload.kcp.io"
 )

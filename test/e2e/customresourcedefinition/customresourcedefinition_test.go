@@ -61,7 +61,7 @@ func TestCustomResourceCreation(t *testing.T) {
 		t.Errorf("Expected an error due to reserved annotation")
 	}
 
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace.Path()), mapper, nil, "apis.kcp.dev_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace.Path()), mapper, nil, "apis.kcp.io_cowboys.yaml", testFiles)
 	if err == nil {
 		t.Errorf("Expected an error due to reserved group")
 	}

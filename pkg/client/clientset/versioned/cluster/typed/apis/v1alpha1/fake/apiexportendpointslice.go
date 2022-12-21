@@ -38,8 +38,8 @@ import (
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
-var aPIExportEndpointSlicesResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexportendpointslices"}
-var aPIExportEndpointSlicesKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIExportEndpointSlice"}
+var aPIExportEndpointSlicesResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiexportendpointslices"}
+var aPIExportEndpointSlicesKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIExportEndpointSlice"}
 
 type aPIExportEndpointSlicesClusterClient struct {
 	*kcptesting.Fake

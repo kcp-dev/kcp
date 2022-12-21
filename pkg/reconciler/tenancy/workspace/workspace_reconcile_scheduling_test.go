@@ -71,9 +71,9 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
-				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
-				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
-				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.dev/logicalcluster")
+				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
+				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(ws, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(ws, initialWS)))
 				}
@@ -111,7 +111,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
 				return thisWS
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
@@ -141,7 +141,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
 				thisWS.Spec.Owner.UID = "wrong-uid"
 				return thisWS
 			}()},
@@ -150,7 +150,7 @@ func TestReconcileScheduling(t *testing.T) {
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				delete(initialWS.Annotations, "internal.tenancy.kcp.dev/cluster")
+				delete(initialWS.Annotations, "internal.tenancy.kcp.io/cluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
@@ -164,12 +164,12 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKubeClientObjects: []runtime.Object{func() runtime.Object {
 				crb := wellKnownCRBForThisWS()
-				crb.Annotations["kcp.dev/cluster"] = "root-foo"
+				crb.Annotations["kcp.io/cluster"] = "root-foo"
 				return crb
 			}()},
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
 				return thisWS
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
@@ -227,9 +227,9 @@ func TestReconcileScheduling(t *testing.T) {
 				return s
 			}()},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
-				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
-				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "29hdqnv7"
-				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.dev/logicalcluster")
+				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
+				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
@@ -327,7 +327,7 @@ func workspace(name string) *tenancyv1beta1.Workspace {
 	return &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Annotations: map[string]string{"kcp.dev/cluster": "root"},
+			Annotations: map[string]string{"kcp.io/cluster": "root"},
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
 			Location: &tenancyv1beta1.WorkspaceLocation{},
@@ -341,10 +341,10 @@ func workspace(name string) *tenancyv1beta1.Workspace {
 func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
 	ws := workspace("foo")
 	// since this is part two we can assume the following fields are assigned
-	ws.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
-	ws.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
-	ws.Annotations["experimental.tenancy.kcp.dev/owner"] = `{"username":"kcp-admin"}`
-	ws.Finalizers = append(ws.Finalizers, "core.kcp.dev/logicalcluster")
+	ws.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+	ws.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
+	ws.Annotations["experimental.tenancy.kcp.io/owner"] = `{"username":"kcp-admin"}`
+	ws.Finalizers = append(ws.Finalizers, "core.kcp.io/logicalcluster")
 	// type info is assigned by an admission plugin
 	ws.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
 		Name: "universal",
@@ -421,7 +421,7 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			// the shard annotation, which is still present on an update
 			// in real world we wouldn't be seeing this annotation
 			// since it is assigned by the kcp server
-			delete(actualObj.Annotations, "kcp.dev/cluster")
+			delete(actualObj.Annotations, "kcp.io/cluster")
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
@@ -456,8 +456,8 @@ func workspaceType(name string) *tenancyv1alpha1.WorkspaceType {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				"kcp.dev/cluster": "root",
-				"kcp.dev/path":    "root",
+				"kcp.io/cluster": "root",
+				"kcp.io/path":    "root",
 			},
 		},
 	}
@@ -482,7 +482,7 @@ func wellKnownWorkspaceTypes() []*tenancyv1alpha1.WorkspaceType {
 	}
 	type2.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
 		{
-			Path:   "tenancy.kcp.dev",
+			Path:   "tenancy.kcp.io",
 			Export: "root",
 		},
 	}

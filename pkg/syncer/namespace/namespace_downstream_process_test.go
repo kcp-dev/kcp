@@ -90,9 +90,9 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			defer cancel()
 
 			downstreamNamespace := namespace(logicalcluster.NewPath(""), "kcp-33jbiactwhg0", map[string]string{
-				"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
+				"internal.workload.kcp.io/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 			}, map[string]string{
-				"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+				"kcp.io/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 			})
 			syncTargetClusterName := logicalcluster.Name("root:org:ws")
 			syncTargetName := "us-west1"

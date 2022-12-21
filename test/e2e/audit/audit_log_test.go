@@ -63,7 +63,7 @@ func TestAuditLogs(t *testing.T) {
 	require.NoError(t, err, "Error parsing JSON data")
 
 	workspaceNameSent := clusterName.String()
-	workspaceNameRecvd := auditEvent.Annotations["tenancy.kcp.dev/workspace"]
+	workspaceNameRecvd := auditEvent.Annotations["tenancy.kcp.io/workspace"]
 
 	require.Equal(t, workspaceNameSent, workspaceNameRecvd)
 

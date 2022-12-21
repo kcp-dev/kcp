@@ -1,0 +1,240 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v221219-c92ed8152.clusterworkspaces.tenancy.kcp.io
+spec:
+  group: tenancy.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: ClusterWorkspace
+    listKind: ClusterWorkspaceList
+    plural: clusterworkspaces
+    singular: clusterworkspace
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: The current phase (e.g. Scheduling, Initializing, Ready)
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Type of the workspace
+      jsonPath: .spec.type.name
+      name: Type
+      type: string
+    - description: URL to access the workspace
+      jsonPath: .status.baseURL
+      name: URL
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      description: "ClusterWorkspace defines a Kubernetes-cluster-like endpoint that
+        holds a default set of resources and exhibits standard Kubernetes API semantics
+        of CRUD operations. It represents the full life-cycle of the persisted data
+        in this workspace in a KCP installation. \n ClusterWorkspace is a concrete
+        type that implements a workspace."
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
+          properties:
+            readOnly:
+              type: boolean
+            shard:
+              description: "shard constraints onto which shards this cluster workspace
+                can be scheduled to. if the constraint is not fulfilled by the current
+                location stored in the status, movement will be attempted. \n Either
+                shard name or shard selector must be specified. \n If the no shard
+                constraints are specified, an arbitrary shard is chosen."
+              properties:
+                name:
+                  description: name is the name of Shard.
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+                selector:
+                  description: selector is a label selector that filters shard scheduling
+                    targets.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+              type: object
+            type:
+              description: "type defines properties of the workspace both on creation
+                (e.g. initial resources and initially installed APIs) and during runtime
+                (e.g. permissions). If no type is provided, the default type for the
+                workspace in which this workspace is nesting will be used. \n The
+                type is a reference to a WorkspaceType in the listed workspace, but
+                lower-cased. The WorkspaceType existence is validated at admission
+                during creation. The type is immutable after creation. The use of
+                a type is gated via the RBAC workspacetypes/use resource permission."
+              properties:
+                name:
+                  description: name is the name of the WorkspaceType
+                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
+                  type: string
+                path:
+                  description: path is an absolute reference to the workspace that
+                    owns this type, e.g. root:org:ws.
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+          type: object
+        status:
+          description: ClusterWorkspaceStatus communicates the observed state of the
+            ClusterWorkspace.
+          properties:
+            baseURL:
+              description: 'Base URL where this ClusterWorkspace can be targeted.
+                This will generally be of the form: https://<workspace shard server>/cluster/<workspace
+                name>. But a workspace could also be targetable by a unique hostname
+                in the future.'
+              type: string
+            cluster:
+              description: cluster is the name of the logical cluster this workspace
+                is stored under.
+              type: string
+              x-kubernetes-validations:
+              - message: cluster is immutable
+                rule: self == oldSelf
+            conditions:
+              description: Current processing state of the ClusterWorkspace.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status
+                      to another. This should be when the underlying condition changed.
+                      If that is not known, then using the time when the API field
+                      changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition. This field may be empty.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition in
+                      CamelCase. The specific API may choose whether or not this field
+                      is considered a guaranteed API. This field may not be empty.
+                    type: string
+                  severity:
+                    description: Severity provides an explicit classification of Reason
+                      code, so the users or machines can immediately understand the
+                      current situation and act accordingly. The Severity field MUST
+                      be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources
+                      like Available, but because arbitrary conditions can be useful
+                      (see .node.status.conditions), the ability to deconflict is
+                      important.
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
+            initializers:
+              description: "initializers are set on creation by the system and must
+                be cleared by a controller before the workspace can be used. The workspace
+                will stay in the phase \"Initializing\" state until all initializers
+                are cleared. \n A cluster workspace in \"Initializing\" state are
+                gated via the RBAC clusterworkspaces/initialize resource permission."
+              items:
+                description: LogicalClusterInitializer is a unique string corresponding
+                  to a logical cluster initialization controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
+            location:
+              description: Contains workspace placement information.
+              properties:
+                current:
+                  description: Current workspace placement (shard).
+                  type: string
+                target:
+                  description: Target workspace placement (shard).
+                  enum:
+                  - ""
+                  type: string
+              type: object
+            phase:
+              default: Scheduling
+              description: Phase of the workspace (Scheduling / Initializing / Ready)
+              enum:
+              - Scheduling
+              - Initializing
+              - Ready
+              type: string
+          type: object
+          x-kubernetes-validations:
+          - message: status.cluster is immutable
+            rule: '!has(oldSelf.cluster) || has(self.cluster)'
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

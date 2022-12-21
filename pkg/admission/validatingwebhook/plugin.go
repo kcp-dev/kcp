@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/ValidatingWebhook"
+	PluginName = "apis.kcp.io/ValidatingWebhook"
 )
 
 type Plugin struct {

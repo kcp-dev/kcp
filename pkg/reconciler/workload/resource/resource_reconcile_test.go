@@ -63,92 +63,92 @@ func TestComputePlacement(t *testing.T) {
 		},
 		{name: "pending namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "",
+				"state.workload.kcp.io/cluster-1": "",
 			}),
 			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "invalid state value on namespace",
 			ns: namespace(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Foo",
+				"state.workload.kcp.io/cluster-1": "Foo",
 			}),
 			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "syncing namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}),
 			obj: object(nil, nil, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			},
 		},
 		{name: "syncing but deleting namespace, unscheduled object, don't schedule the object at all",
 			ns: namespace(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}),
 			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "new location on namespace",
 			ns: namespace(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
 			}),
 			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
 			},
 		},
 		{name: "new deletion on namespace",
 			ns: namespace(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-4": "Sync",
+				"state.workload.kcp.io/cluster-4": "Sync",
 			}),
 			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-4": "Sync",
+				"state.workload.kcp.io/cluster-4": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch: nil,
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
 			},
 		},
 		{name: "existing deletion on namespace and object",
 			ns: namespace(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, nil, nil, "ns"),
 		},
 		{name: "hard delete after namespace is not scheduled",
 			ns: namespace(nil, nil),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync", // removed hard because namespace is not scheduled
+				"state.workload.kcp.io/cluster-3": "Sync", // removed hard because namespace is not scheduled
 			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-3": nil,
+				"state.workload.kcp.io/cluster-3": nil,
 			},
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-3": nil,
+				"deletion.internal.workload.kcp.io/cluster-3": nil,
 			},
 		},
 		{name: "no hard delete after namespace is not scheduled due to the resource having a cluster finalizer, expect no patches",
 			ns: namespace(nil, nil),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
-				"finalizers.workload.kcp.dev/cluster-3":        "external-coordinator",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
+				"finalizers.workload.kcp.io/cluster-3":        "external-coordinator",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch:      nil,
 			wantAnnotationPatch: nil,
@@ -156,11 +156,11 @@ func TestComputePlacement(t *testing.T) {
 		{name: "no hard delete after namespace is not scheduled due to the resource having a syncer finalizer, expect no patches",
 			ns: namespace(nil, nil),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, []string{
-				"workload.kcp.dev/syncer-cluster-3",
+				"workload.kcp.io/syncer-cluster-3",
 			}, nil, "ns"),
 			wantLabelPatch:      nil,
 			wantAnnotationPatch: nil,
@@ -168,75 +168,75 @@ func TestComputePlacement(t *testing.T) {
 		{name: "existing deletion on object, hard delete of namespace",
 			ns: namespace(nil, nil),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-3": nil,
+				"state.workload.kcp.io/cluster-3": nil,
 			},
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-3": nil,
+				"deletion.internal.workload.kcp.io/cluster-3": nil,
 			},
 		},
 		{name: "existing deletion on object, rescheduled namespace",
 			ns: namespace(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, nil, nil, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-3": nil,
+				"deletion.internal.workload.kcp.io/cluster-3": nil,
 			},
 		},
 		{name: "multiple locations, added and removed on namespace and object",
 			ns: namespace(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-4": "Sync", // deleting
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-4": "Sync", // deleting
 			}),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync", // removed hard
-				"state.workload.kcp.dev/cluster-4": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync", // removed hard
+				"state.workload.kcp.io/cluster-4": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-3": nil,
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-3": nil,
 			},
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
-				"deletion.internal.workload.kcp.dev/cluster-3": nil,
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-3": nil,
 			},
 		},
 		{name: "multiple locations, added and removed on namespace and object, object has a cluster finalizer on cluster-3, expect no changes for that cluster",
 			ns: namespace(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-4": "Sync", // deleting
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-4": "Sync", // deleting
 			}),
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
-				"finalizers.workload.kcp.dev/cluster-3":        "external-coordinator",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00-05:00",
+				"finalizers.workload.kcp.io/cluster-3":        "external-coordinator",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync",
-				"state.workload.kcp.dev/cluster-4": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-4": "Sync",
 			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			},
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
+				"deletion.internal.workload.kcp.io/cluster-4": "2002-10-02T10:00:00-05:00",
 			},
 		},
 	}
@@ -263,45 +263,45 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 	}{
 		{name: "Object is marked for deletion and has one location",
 			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
 			},
 		}, {name: "Object is marked for deletion and has multiple locations",
 			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00Z",
 			},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, no change",
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, but with different time value, no update",
 			obj: object(map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2000-01-01 10:00:00 +0000 UTC",
+				"deletion.internal.workload.kcp.io/cluster-1": "2000-01-01 10:00:00 +0000 UTC",
 			}, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one pending location, the deletionTimestamp of that location should be set",
 			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "",
+				"state.workload.kcp.io/cluster-1": "",
 			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
 			},
 		},
 		{name: "Object is marked for deletion and has no locations",
@@ -333,40 +333,40 @@ func TestGetLocations(t *testing.T) {
 		},
 		{name: "One location",
 			labels: map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
 			},
 			skipPending: false,
 			wantKeys:    []string{"cluster-1"},
 		},
 		{name: "Multiple locations",
 			labels: map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
 			},
 			skipPending: false,
 			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3"},
 		},
 		{name: "Multiple locations, some pending, skipPending false",
 			labels: map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync",
-				"state.workload.kcp.dev/cluster-4": "",
-				"state.workload.kcp.dev/cluster-5": "",
-				"state.workload.kcp.dev/cluster-6": "",
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-4": "",
+				"state.workload.kcp.io/cluster-5": "",
+				"state.workload.kcp.io/cluster-6": "",
 			},
 			skipPending: false,
 			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3", "cluster-4", "cluster-5", "cluster-6"},
 		},
 		{name: "Multiple locations, some pending, skipPending true",
 			labels: map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-				"state.workload.kcp.dev/cluster-2": "Sync",
-				"state.workload.kcp.dev/cluster-3": "Sync",
-				"state.workload.kcp.dev/cluster-4": "",
-				"state.workload.kcp.dev/cluster-5": "",
-				"state.workload.kcp.dev/cluster-6": "",
+				"state.workload.kcp.io/cluster-1": "Sync",
+				"state.workload.kcp.io/cluster-2": "Sync",
+				"state.workload.kcp.io/cluster-3": "Sync",
+				"state.workload.kcp.io/cluster-4": "",
+				"state.workload.kcp.io/cluster-5": "",
+				"state.workload.kcp.io/cluster-6": "",
 			},
 			skipPending: true,
 			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3"},
@@ -393,7 +393,7 @@ func TestGetDeletingLocations(t *testing.T) {
 		},
 		{name: "One location",
 			annotations: map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
 			},
 			wantKeys: map[string]string{
 				"cluster-1": "2002-10-02T10:00:00Z",
@@ -401,9 +401,9 @@ func TestGetDeletingLocations(t *testing.T) {
 		},
 		{name: "Multiple locations",
 			annotations: map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00Z",
 			},
 			wantKeys: map[string]string{
 				"cluster-1": "2002-10-02T10:00:00Z",
@@ -413,10 +413,10 @@ func TestGetDeletingLocations(t *testing.T) {
 		},
 		{name: "Multiple locations, other annotations",
 			annotations: map[string]string{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
-				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
-				"this.is.not.a.deletion/annotation":            "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.io/cluster-3": "2002-10-02T10:00:00Z",
+				"this.is.not.a.deletion/annotation":           "2002-10-02T10:00:00Z",
 			},
 			wantKeys: map[string]string{
 				"cluster-1": "2002-10-02T10:00:00Z",

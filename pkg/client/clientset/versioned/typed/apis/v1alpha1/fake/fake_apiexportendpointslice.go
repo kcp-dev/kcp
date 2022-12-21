@@ -36,9 +36,9 @@ type FakeAPIExportEndpointSlices struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apiexportendpointslicesResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexportendpointslices"}
+var apiexportendpointslicesResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiexportendpointslices"}
 
-var apiexportendpointslicesKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIExportEndpointSlice"}
+var apiexportendpointslicesKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIExportEndpointSlice"}
 
 // Get takes name of the aPIExportEndpointSlice, and returns the corresponding aPIExportEndpointSlice object, and an error if there is any.
 func (c *FakeAPIExportEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {

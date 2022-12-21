@@ -60,15 +60,15 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: intPtr(7),
 				},
 			},
-			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.dev/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 4 }]","experimental.spec-diff.workload.kcp.dev/syncTarget2":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 3 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
+			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.io/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 4 }]","experimental.spec-diff.workload.kcp.io/syncTarget2":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 3 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
 		},
 		"remove obsolete spec-diff annotation": {
 			input: &appsv1.Deployment{
@@ -77,18 +77,18 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
 					},
 					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": "[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 3 }]",
-						"experimental.spec-diff.workload.kcp.dev/syncTarget2": "[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 4 }]",
+						"experimental.spec-diff.workload.kcp.io/syncTarget1": "[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 3 }]",
+						"experimental.spec-diff.workload.kcp.io/syncTarget2": "[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 4 }]",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: intPtr(7),
 				},
 			},
-			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.dev/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 7 }]","experimental.spec-diff.workload.kcp.dev/syncTarget2":null},"resourceVersion":"resourceVersion","uid":"uid"}}`,
+			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.io/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 7 }]","experimental.spec-diff.workload.kcp.io/syncTarget2":null},"resourceVersion":"resourceVersion","uid":"uid"}}`,
 		},
 		"don't take empty labels into account": {
 			input: &appsv1.Deployment{
@@ -97,15 +97,15 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: intPtr(7),
 				},
 			},
-			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.dev/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 7 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
+			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.io/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 7 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
 		},
 		"Invalid deletion annotation": {
 			input: &appsv1.Deployment{
@@ -114,11 +114,11 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
 					},
 					Annotations: map[string]string{
-						"deletion.internal.workload.kcp.dev/syncTarget2": "wrong format",
+						"deletion.internal.workload.kcp.io/syncTarget2": "wrong format",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -173,12 +173,12 @@ func TestSyncerViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
+						"diff.syncer.internal.kcp.io/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
+						"diff.syncer.internal.kcp.io/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
 					},
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -194,14 +194,14 @@ func TestSyncerViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
-						"diff.syncer.internal.kcp.dev/syncTarget3": `{ "status": {}}`,
+						"diff.syncer.internal.kcp.io/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
+						"diff.syncer.internal.kcp.io/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
+						"diff.syncer.internal.kcp.io/syncTarget3": `{ "status": {}}`,
 					},
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
-						"state.workload.kcp.dev/syncTarget3": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget3": "Sync",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -217,12 +217,12 @@ func TestSyncerViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "conditions": [ { "type": "Available", "status": "True" }, {"type": "ReplicaFailure", "status": "Unknown" }, { "type": "Progressing", "status": "False" } ] } }`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "conditions": [ { "type": "ReplicaFailure", "status": "False" }, { "type": "Progressing", "status": "True" } ] } }`,
+						"diff.syncer.internal.kcp.io/syncTarget1": `{ "status": { "conditions": [ { "type": "Available", "status": "True" }, {"type": "ReplicaFailure", "status": "Unknown" }, { "type": "Progressing", "status": "False" } ] } }`,
+						"diff.syncer.internal.kcp.io/syncTarget2": `{ "status": { "conditions": [ { "type": "ReplicaFailure", "status": "False" }, { "type": "Progressing", "status": "True" } ] } }`,
 					},
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -238,12 +238,12 @@ func TestSyncerViewReconciler(t *testing.T) {
 					UID:             types.UID("uid"),
 					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `invalid json`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
+						"diff.syncer.internal.kcp.io/syncTarget1": `invalid json`,
+						"diff.syncer.internal.kcp.io/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
 					},
 					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
+						"state.workload.kcp.io/syncTarget1": "Sync",
+						"state.workload.kcp.io/syncTarget2": "Sync",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -294,14 +294,14 @@ func TestDeploymentContentsEqual(t *testing.T) {
 			old: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": "value 1",
+						"experimental.spec-diff.workload.kcp.io/syncTarget1": "value 1",
 					},
 				},
 			},
 			new: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": "value 2",
+						"experimental.spec-diff.workload.kcp.io/syncTarget1": "value 2",
 					},
 				},
 			},
@@ -311,14 +311,14 @@ func TestDeploymentContentsEqual(t *testing.T) {
 			old: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": "value 1",
+						"experimental.spec-diff.workload.kcp.io/syncTarget1": "value 1",
 					},
 				},
 			},
 			new: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": "value 2",
+						"experimental.spec-diff.workload.kcp.io/syncTarget1": "value 2",
 						"anotherone": "othervalue",
 					},
 				},

@@ -406,22 +406,22 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyDiscovery := func(clusterName logicalcluster.Path, exportName string) {
 		t.Helper()
 
-		t.Logf("Verifying APIExport %s|%s discovery has apis.kcp.dev", clusterName, exportName)
+		t.Logf("Verifying APIExport %s|%s discovery has apis.kcp.io", clusterName, exportName)
 		discoveryClient := discoveryClusterClient.Cluster(clusterName)
 		framework.Eventually(t, func() (bool, string) {
 			groups, err := discoveryClient.ServerGroups()
 			require.NoError(t, err, "error getting discovery server groups for %s|%s", clusterName, exportName)
 
 			return groupExists(groups, apis.GroupName), fmt.Sprintf("%#v", groups)
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.dev group for export %s|%s", clusterName, exportName)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.io group for export %s|%s", clusterName, exportName)
 
 		t.Logf("Verifying APIExport %s discovery has apibindings", exportName)
 		framework.Eventually(t, func() (bool, string) {
 			resources, err := discoveryClient.ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
-			require.NoError(t, err, "error getting discovery server resources for apis.kcp.dev for %s|%s", clusterName, exportName)
+			require.NoError(t, err, "error getting discovery server resources for apis.kcp.io for %s|%s", clusterName, exportName)
 
 			return resourceExists(resources, "apibindings"), fmt.Sprintf("%#v", resources)
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.dev group for export %s|%s", clusterName, exportName)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.io group for export %s|%s", clusterName, exportName)
 	}
 
 	verifyDiscovery(clusterName1.Path(), "export1")
@@ -486,7 +486,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	export1.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{
-				Group:    "apis.kcp.dev",
+				Group:    "apis.kcp.io",
 				Resource: "apibindings",
 			},
 			All: true,
@@ -891,7 +891,7 @@ func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		require.NoError(t, err)
 		// ignore kcp resources
-		if strings.HasSuffix(gv.Group, ".kcp.dev") {
+		if strings.HasSuffix(gv.Group, ".kcp.io") {
 			continue
 		}
 		// ignore authn/authz non-crud apis
@@ -980,7 +980,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.dev", Resource: "apibindings"},
+			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
 			All:           true,
 		},
 		{

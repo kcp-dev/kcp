@@ -69,9 +69,9 @@ pe "kubectl config use-context admin"
 
 pe "kubectl apply -f ${KCP_DIR}/config"
 
-kubectl wait crd/workloadclusters.workload.kcp.dev --for condition=established &>/dev/null
-kubectl wait crd/negotiatedapiresources.apiresource.kcp.dev --for condition=established &>/dev/null
-kubectl wait crd/apiresourceimports.apiresource.kcp.dev --for condition=established &>/dev/null
+kubectl wait crd/workloadclusters.workload.kcp.io --for condition=established &>/dev/null
+kubectl wait crd/negotiatedapiresources.apiresource.kcp.io --for condition=established &>/dev/null
+kubectl wait crd/apiresourceimports.apiresource.kcp.io --for condition=established &>/dev/null
 
 pe "head -n 15 ${CLUSTERS_DIR}/us-west1.yaml"
 pe "kubectl apply -f ${CLUSTERS_DIR}/us-west1.yaml"

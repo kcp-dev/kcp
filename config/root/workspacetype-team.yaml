@@ -1,9 +1,9 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
+apiVersion: tenancy.kcp.io/v1alpha1
 kind: WorkspaceType
 metadata:
   name: team
   annotations:
-    bootstrap.kcp.dev/battery: cluster-workspace-types
+    bootstrap.kcp.io/battery: cluster-workspace-types
 spec:
   extend:
     with:

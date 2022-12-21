@@ -38,8 +38,8 @@ import (
 	topologyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 )
 
-var partitionSetsResource = schema.GroupVersionResource{Group: "topology.kcp.dev", Version: "v1alpha1", Resource: "partitionsets"}
-var partitionSetsKind = schema.GroupVersionKind{Group: "topology.kcp.dev", Version: "v1alpha1", Kind: "PartitionSet"}
+var partitionSetsResource = schema.GroupVersionResource{Group: "topology.kcp.io", Version: "v1alpha1", Resource: "partitionsets"}
+var partitionSetsKind = schema.GroupVersionKind{Group: "topology.kcp.io", Version: "v1alpha1", Kind: "PartitionSet"}
 
 type partitionSetsClusterClient struct {
 	*kcptesting.Fake

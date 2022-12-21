@@ -38,8 +38,8 @@ import (
 	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 )
 
-var shardsResource = schema.GroupVersionResource{Group: "core.kcp.dev", Version: "v1alpha1", Resource: "shards"}
-var shardsKind = schema.GroupVersionKind{Group: "core.kcp.dev", Version: "v1alpha1", Kind: "Shard"}
+var shardsResource = schema.GroupVersionResource{Group: "core.kcp.io", Version: "v1alpha1", Resource: "shards"}
+var shardsKind = schema.GroupVersionKind{Group: "core.kcp.io", Version: "v1alpha1", Kind: "Shard"}
 
 type shardsClusterClient struct {
 	*kcptesting.Fake

@@ -101,10 +101,10 @@ func TestPlacementUpdate(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"test.workload.kcp.dev": firstSyncTargetName,
+				"test.workload.kcp.io": firstSyncTargetName,
 			},
 			Annotations: map[string]string{
-				"finalizers.workload.kcp.dev/" + firstSyncTargetKey: "wait-a-bit",
+				"finalizers.workload.kcp.io/" + firstSyncTargetKey: "wait-a-bit",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -132,7 +132,7 @@ func TestPlacementUpdate(t *testing.T) {
 	var downstreamServices *corev1.ServiceList
 	framework.Eventually(t, func() (bool, string) {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + firstSyncTargetName,
 		})
 
 		if err != nil {
@@ -197,13 +197,13 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Remove the soft finalizer on the service")
 	_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("default").Patch(ctx, "first", types.MergePatchType,
-		[]byte("{\"metadata\":{\"annotations\":{\"finalizers.workload.kcp.dev/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
+		[]byte("{\"metadata\":{\"annotations\":{\"finalizers.workload.kcp.io/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for the service to be removed in the downstream cluster")
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + firstSyncTargetName,
 		})
 		if errors.IsNotFound(err) {
 			return false
@@ -255,7 +255,7 @@ func TestPlacementUpdate(t *testing.T) {
 			LocationSelectors: []metav1.LabelSelector{{}},
 			NamespaceSelector: &metav1.LabelSelector{},
 			LocationResource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},
@@ -298,7 +298,7 @@ func TestPlacementUpdate(t *testing.T) {
 	t.Logf("Wait for the service to be sync to the downstream cluster")
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "test.workload.kcp.dev=" + firstSyncTargetName,
+			LabelSelector: "test.workload.kcp.io=" + firstSyncTargetName,
 		})
 		if errors.IsNotFound(err) {
 			return false

@@ -36,9 +36,9 @@ type FakeNegotiatedAPIResources struct {
 	Fake *FakeApiresourceV1alpha1
 }
 
-var negotiatedapiresourcesResource = schema.GroupVersionResource{Group: "apiresource.kcp.dev", Version: "v1alpha1", Resource: "negotiatedapiresources"}
+var negotiatedapiresourcesResource = schema.GroupVersionResource{Group: "apiresource.kcp.io", Version: "v1alpha1", Resource: "negotiatedapiresources"}
 
-var negotiatedapiresourcesKind = schema.GroupVersionKind{Group: "apiresource.kcp.dev", Version: "v1alpha1", Kind: "NegotiatedAPIResource"}
+var negotiatedapiresourcesKind = schema.GroupVersionKind{Group: "apiresource.kcp.io", Version: "v1alpha1", Kind: "NegotiatedAPIResource"}
 
 // Get takes name of the negotiatedAPIResource, and returns the corresponding negotiatedAPIResource object, and an error if there is any.
 func (c *FakeNegotiatedAPIResources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.NegotiatedAPIResource, err error) {

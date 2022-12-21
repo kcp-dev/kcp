@@ -40,7 +40,7 @@ import (
 )
 
 // placementSchedulingReconciler schedules placments according to the selected locations.
-// It considers only valid SyncTargets and updates the internal.workload.kcp.dev/synctarget
+// It considers only valid SyncTargets and updates the internal.workload.kcp.io/synctarget
 // annotation with the selected one on the placement object.
 type placementSchedulingReconciler struct {
 	listSyncTarget          func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)

@@ -17,5 +17,5 @@ limitations under the License.
 package tenancy
 
 const (
-	GroupName = "tenancy.kcp.dev"
+	GroupName = "tenancy.kcp.io"
 )

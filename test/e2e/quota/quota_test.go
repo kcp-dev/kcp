@@ -368,13 +368,13 @@ func TestClusterScopedQuota(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: quotaName,
 				Annotations: map[string]string{
-					"experimental.quota.kcp.dev/cluster-scoped": "true",
+					"experimental.quota.kcp.io/cluster-scoped": "true",
 				},
 			},
 			Spec: corev1.ResourceQuotaSpec{
 				Hard: map[corev1.ResourceName]resource.Quantity{
-					"count/configmaps":                 resource.MustParse("3"),
-					"count/workspaces.tenancy.kcp.dev": resource.MustParse("2"),
+					"count/configmaps":                resource.MustParse("3"),
+					"count/workspaces.tenancy.kcp.io": resource.MustParse("2"),
 				},
 			},
 		}
@@ -397,12 +397,12 @@ func TestClusterScopedQuota(t *testing.T) {
 				return false, fmt.Sprintf("waiting for %q count/configmaps %s to be 2", ws, used.String())
 			}
 
-			used, ok = quota.Status.Used["count/workspaces.tenancy.kcp.dev"]
+			used, ok = quota.Status.Used["count/workspaces.tenancy.kcp.io"]
 			if !ok {
-				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.dev to show up in used", ws)
+				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.io to show up in used", ws)
 			}
 			if !used.Equal(resource.MustParse("1")) {
-				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.dev %s to be 1", ws, used.String())
+				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.io %s to be 1", ws, used.String())
 			}
 
 			return true, ""

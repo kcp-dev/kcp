@@ -23,10 +23,10 @@ import (
 const (
 	// LocationLabelsStringAnnotationKey is the label key for the label holding a string
 	// representation of the location labels in order to use them in a table column in the CLI.
-	LocationLabelsStringAnnotationKey = "scheduling.kcp.dev/labels"
+	LocationLabelsStringAnnotationKey = "scheduling.kcp.io/labels"
 
 	// PlacementAnnotationKey is the label key for the label holding a PlacementAnnotation struct.
-	PlacementAnnotationKey = "scheduling.kcp.dev/placement"
+	PlacementAnnotationKey = "scheduling.kcp.io/placement"
 )
 
 // Location represents a set of instances of a scheduling resource type acting a target
@@ -92,7 +92,7 @@ type GroupVersionResource struct {
 	// group is the name of an API group.
 	//
 	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
-	// +kubebuilder:validation:Enum="workload.kcp.dev"
+	// +kubebuilder:validation:Enum="workload.kcp.io"
 	// +optional
 	Group string `json:"group,omitempty"`
 

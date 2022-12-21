@@ -25,7 +25,7 @@ import (
 const (
 	// InternalAPIBindingExportLabelKey is the label key on an APIBinding with the
 	// base62(sha224(<clusterName>:<exportName>)) as value to filter bindings by export.
-	InternalAPIBindingExportLabelKey = "internal.apis.kcp.dev/export"
+	InternalAPIBindingExportLabelKey = "internal.apis.kcp.io/export"
 )
 
 // APIBinding enables a set of resources and their behaviour through an external
@@ -224,17 +224,17 @@ const (
 // These are annotations for bound CRDs
 const (
 	// AnnotationBoundCRDKey is the annotation key that indicates a CRD is for an APIExport (a "bound CRD").
-	AnnotationBoundCRDKey = "apis.kcp.dev/bound-crd"
+	AnnotationBoundCRDKey = "apis.kcp.io/bound-crd"
 	// AnnotationSchemaClusterKey is the annotation key for a bound CRD indicating the cluster name of the
 	// APIResourceSchema for the CRD.
-	AnnotationSchemaClusterKey = "apis.kcp.dev/schema-cluster"
+	AnnotationSchemaClusterKey = "apis.kcp.io/schema-cluster"
 	// AnnotationSchemaNameKey is the annotation key for a bound CRD indicating the name of the APIResourceSchema for
 	// the CRD.
-	AnnotationSchemaNameKey = "apis.kcp.dev/schema-name"
+	AnnotationSchemaNameKey = "apis.kcp.io/schema-name"
 	// AnnotationAPIIdentityKey is the annotation key for a bound CRD indicating the identity hash of the APIExport
 	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
 	// CRs for the CRD.
-	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
+	AnnotationAPIIdentityKey = "apis.kcp.io/identity"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..

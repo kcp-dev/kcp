@@ -22,9 +22,9 @@ c "First create a workspace for this demo."
 pe "kubectl kcp workspace create cordon-evict-demo --use"
 
 c "Let's register our kind cluster us-east1 with kcp, as unschedulable"
-pe "kubectl apply -f ${KCP_DIR}/config/crds/workload.kcp.dev_workloadclusters.yaml"
+pe "kubectl apply -f ${KCP_DIR}/config/crds/workload.kcp.io_workloadclusters.yaml"
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: kind-us-east1

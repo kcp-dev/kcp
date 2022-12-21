@@ -309,7 +309,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
-			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
+			expectedErrors: []string{"metadata.labels[internal.apis.kcp.io/export]: Invalid value: \"\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
 		},
 		{
 			name: "Update: fails when export label is wrong",
@@ -320,7 +320,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
-			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"3O8yqCs4In4wWBmfjGQsNlMZi9SOHb8n1xCt1o\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
+			expectedErrors: []string{"metadata.labels[internal.apis.kcp.io/export]: Invalid value: \"3O8yqCs4In4wWBmfjGQsNlMZi9SOHb8n1xCt1o\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
 		},
 		{
 			name: "Update: complete workspace reference fails with no authorization decision",

@@ -17,5 +17,5 @@ limitations under the License.
 package core
 
 const (
-	GroupName = "core.kcp.dev"
+	GroupName = "core.kcp.io"
 )

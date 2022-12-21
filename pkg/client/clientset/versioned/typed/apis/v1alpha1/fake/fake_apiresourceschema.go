@@ -36,9 +36,9 @@ type FakeAPIResourceSchemas struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apiresourceschemasResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiresourceschemas"}
+var apiresourceschemasResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiresourceschemas"}
 
-var apiresourceschemasKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIResourceSchema"}
+var apiresourceschemasKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIResourceSchema"}
 
 // Get takes name of the aPIResourceSchema, and returns the corresponding aPIResourceSchema object, and an error if there is any.
 func (c *FakeAPIResourceSchemas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceSchema, err error) {

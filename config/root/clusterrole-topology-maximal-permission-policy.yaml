@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:topology:maximal-permission-policy
 rules:
-- apiGroups: ["topology.kcp.dev"]
+- apiGroups: ["topology.kcp.io"]
   verbs: ["*"]
   resources:
   - partitions

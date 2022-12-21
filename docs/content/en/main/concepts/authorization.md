@@ -108,7 +108,7 @@ A service-account defined in a differant workspace is NOT given access to it.
 
 ### Required Groups Authorizer
 
-A `authorization.kcp.dev/required-groups` annotation can be added to a LogicalCluster 
+A `authorization.kcp.io/required-groups` annotation can be added to a LogicalCluster 
 to specify additional groups that are required to access a workspace for a user to be member of. 
 The syntax is a disjunction (separator `,`) of conjunctions (separator `;`).
 
@@ -134,7 +134,7 @@ Currently, the "local policy" maximum permission policy type is supported.
 
 The local maximum permission policy delegates the decision to the RBAC of the related API export.
 To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
-every name and group is prefixed with `apis.kcp.dev:binding:`.
+every name and group is prefixed with `apis.kcp.io:binding:`.
 
 Example:
 
@@ -142,13 +142,13 @@ Given an API binding for type `foo` declared in workspace `consumer` that refers
 and a user `user-1` having the group `group-1` requesting a `create` of `foo` in the `default` namespace in the `consumer` workspace,
 this authorizer verifies that `user-1` is allowed to execute this request by delegating to `provider`'s RBAC using prefixed attributes.
 
-Here, this authorizer prepends the `apis.kcp.dev:binding:` prefix to the username and all groups the user belongs to.
+Here, this authorizer prepends the `apis.kcp.io:binding:` prefix to the username and all groups the user belongs to.
 Using prefixed attributes prevents RBAC collisions i.e. if `user-1` is granted to execute requests within the `provider` workspace directly.
 
 For the given example RBAC request looks as follows:
 
-- Username: `apis.kcp.dev:binding:user-1`
-- Group: `apis.kcp.dev:binding:group-1`
+- Username: `apis.kcp.io:binding:user-1`
+- Group: `apis.kcp.io:binding:group-1`
 - Resource: `foo`
 - Namespace: `default`
 - Workspace: `provider`
@@ -178,7 +178,7 @@ metadata:
   clusterName: provider
 subjects:
 - kind: User
-  name: apis.kcp.dev:binding:user-1
+  name: apis.kcp.io:binding:user-1
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

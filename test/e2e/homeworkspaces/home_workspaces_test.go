@@ -76,7 +76,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				t.Logf("Get ~ Home workspace URL for user-2")
 
 				_, err = kcpUser2Client.Cluster(core.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
-				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "user-2 should not be allowed to get his home workspace even before it exists")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.io "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.io" at the cluster scope: workspace access not permitted`, "user-2 should not be allowed to get his home workspace even before it exists")
 			},
 		},
 	}

@@ -4,7 +4,7 @@ kind: ClusterRole
 metadata:
   name: org-demo-member
 rules:
-- apiGroups: ["tenancy.kcp.dev"]
+- apiGroups: ["tenancy.kcp.io"]
   resources: ["workspaces/content"]
   resourceNames: ["demo"]
   verbs: ["access"]

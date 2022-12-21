@@ -36,9 +36,9 @@ type FakeWorkspaces struct {
 	Fake *FakeTenancyV1beta1
 }
 
-var workspacesResource = schema.GroupVersionResource{Group: "tenancy.kcp.dev", Version: "v1beta1", Resource: "workspaces"}
+var workspacesResource = schema.GroupVersionResource{Group: "tenancy.kcp.io", Version: "v1beta1", Resource: "workspaces"}
 
-var workspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.dev", Version: "v1beta1", Kind: "Workspace"}
+var workspacesKind = schema.GroupVersionKind{Group: "tenancy.kcp.io", Version: "v1beta1", Kind: "Workspace"}
 
 // Get takes name of the workspace, and returns the corresponding workspace object, and an error if there is any.
 func (c *FakeWorkspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.Workspace, err error) {

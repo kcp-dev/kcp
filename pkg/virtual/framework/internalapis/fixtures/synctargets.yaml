@@ -1,8 +1,8 @@
 metadata:
   creationTimestamp: null
-  name: internal.synctargets.workload.kcp.dev
+  name: internal.synctargets.workload.kcp.io
 spec:
-  group: workload.kcp.dev
+  group: workload.kcp.io
   names:
     kind: SyncTarget
     plural: synctargets

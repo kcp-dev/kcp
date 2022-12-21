@@ -61,7 +61,7 @@ import (
 const (
 	// LogicalClusterDeletionFinalizer is the name of the finalizer on LogicalClusters that
 	// delay deletion until all content is removed.
-	LogicalClusterDeletionFinalizer = "core.kcp.dev/logicalcluster-deletion"
+	LogicalClusterDeletionFinalizer = "core.kcp.io/logicalcluster-deletion"
 )
 
 // WorkspaceResourcesDeleterInterface is the interface to delete a logical cluster with all resources in it.
@@ -364,7 +364,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterroles"},
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterrolebindings"},
 
-		// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
+		// Don't try to delete projected resources such as tenancy.kcp.io v1beta1 Workspaces - these are virtual
 		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
 		// data (e.g. ClusterWorkspaces) are deleted.
 		isNotVirtualResource{},

@@ -84,7 +84,7 @@ func TestClusterController(t *testing.T) {
 							Name:      "timothy",
 							Namespace: testNamespace,
 							Labels: map[string]string{
-								"state.workload.kcp.dev/" + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
+								"state.workload.kcp.io/" + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
 							},
 						},
 						Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},

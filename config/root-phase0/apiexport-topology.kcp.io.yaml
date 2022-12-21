@@ -1,0 +1,10 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: topology.kcp.io
+spec:
+  latestResourceSchemas:
+  - v221115-9b370eb8.partitions.topology.kcp.io
+  - v221118-9364e75c.partitionsets.topology.kcp.io
+status: {}

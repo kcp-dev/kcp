@@ -15,6 +15,6 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package,register
-// +groupName=apiresource.kcp.dev
+// +groupName=apiresource.kcp.io
 // +k8s:openapi-gen=true
 package v1alpha1

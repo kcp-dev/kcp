@@ -28,7 +28,7 @@ import (
 )
 
 // PluginName is the name used to identify this admission webhook.
-const PluginName = "apis.kcp.dev/ReservedNames"
+const PluginName = "apis.kcp.io/ReservedNames"
 
 // Register registers the reserved name admission webhook.
 func Register(plugins *admission.Plugins) {

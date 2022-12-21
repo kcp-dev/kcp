@@ -38,8 +38,8 @@ import (
 	workloadv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
-var syncTargetsResource = schema.GroupVersionResource{Group: "workload.kcp.dev", Version: "v1alpha1", Resource: "synctargets"}
-var syncTargetsKind = schema.GroupVersionKind{Group: "workload.kcp.dev", Version: "v1alpha1", Kind: "SyncTarget"}
+var syncTargetsResource = schema.GroupVersionResource{Group: "workload.kcp.io", Version: "v1alpha1", Resource: "synctargets"}
+var syncTargetsKind = schema.GroupVersionKind{Group: "workload.kcp.io", Version: "v1alpha1", Kind: "SyncTarget"}
 
 type syncTargetsClusterClient struct {
 	*kcptesting.Fake

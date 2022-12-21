@@ -141,7 +141,7 @@ func TestValidate(t *testing.T) {
 			attr: createAttr(
 				newAPIBinding().APIBinding,
 			),
-			expectedErrors: []string{"finalizer apis.kcp.dev/apibinding-finalizer is required"},
+			expectedErrors: []string{"finalizer apis.kcp.io/apibinding-finalizer is required"},
 		},
 		{
 			name: "Create: passes with finalizer",
@@ -165,7 +165,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withDeletionTimestamp(time.Now()).APIBinding,
 				newAPIBinding().withFinalizer(apibindingdeletion.APIBindingFinalizer).APIBinding,
 			),
-			expectedErrors: []string{"removing the finalizer apis.kcp.dev/apibinding-finalizer is forbidden"},
+			expectedErrors: []string{"removing the finalizer apis.kcp.io/apibinding-finalizer is forbidden"},
 		},
 	}
 

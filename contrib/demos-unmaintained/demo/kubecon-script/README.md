@@ -27,7 +27,7 @@ To be able to connect multiple "physical" clusters, we define a `Cluster` CRD ty
 This effectively includes a kubeconfig to locate and authenticate with the cluster.
 
 ```yaml
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: my-cluster
@@ -111,7 +111,7 @@ For all types the Syncer knows about, it will watch for creations/updates/deleti
 ```
 metadata:
   labels:
-    workloads.kcp.dev/cluster: my-cluster
+    workloads.kcp.io/cluster: my-cluster
 ```
 
 This label identifies an object as being intended for the cluster `my-cluster`.

@@ -51,7 +51,7 @@ const (
 //
 // The replicated object will be placed under the same cluster as the original object.
 // In addition to that, all replicated objects will be placed under the shard taken from the shardName argument.
-// For example: shards/{shardName}/clusters/{clusterName}/apis/apis.kcp.dev/v1alpha1/apiexports
+// For example: shards/{shardName}/clusters/{clusterName}/apis/apis.kcp.io/v1alpha1/apiexports
 func NewController(
 	shardName string,
 	dynamicCacheClient kcpdynamic.ClusterInterface,

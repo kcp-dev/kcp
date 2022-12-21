@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/PermissionClaims"
+	PluginName = "apis.kcp.io/PermissionClaims"
 )
 
 func Register(plugins *admission.Plugins) {

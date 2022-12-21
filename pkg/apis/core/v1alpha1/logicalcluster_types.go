@@ -54,7 +54,7 @@ const (
 
 	// LogicalClusterFinalizer attached to the owner of thw LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources
-	LogicalClusterFinalizer = "core.kcp.dev/logicalcluster"
+	LogicalClusterFinalizer = "core.kcp.io/logicalcluster"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
@@ -84,7 +84,7 @@ type LogicalClusterSpec struct {
 	DirectlyDeletable bool `json:"directlyDeletable,omitempty"`
 
 	// owner is a reference to a resource controlling the life-cycle of this logical cluster.
-	// On deletion of the LogicalCluster, the finalizer core.kcp.dev/logicalcluster is
+	// On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is
 	// removed from the owner.
 	//
 	// When this object is deleted, but the owner is not deleted, the owner is deleted
