@@ -89,7 +89,8 @@ LDFLAGS := \
 	-X k8s.io/component-base/version.gitVersion=${GIT_VERSION} \
 	-X k8s.io/component-base/version.gitMajor=${KUBE_MAJOR_VERSION} \
 	-X k8s.io/component-base/version.gitMinor=${KUBE_MINOR_VERSION} \
-	-X k8s.io/component-base/version.buildDate=${BUILD_DATE}
+	-X k8s.io/component-base/version.buildDate=${BUILD_DATE} \
+	-extldflags '-static'
 all: build
 .PHONY: all
 
@@ -102,10 +103,9 @@ require-%:
 
 build: WHAT ?= ./cmd/... ./tmc/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
-	GOOS=$(OS) GOARCH=$(ARCH) go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 	ln -sf kubectl-workspace bin/kubectl-workspaces
 	ln -sf kubectl-workspace bin/kubectl-ws
-
 .PHONY: build
 
 .PHONY: build-all
