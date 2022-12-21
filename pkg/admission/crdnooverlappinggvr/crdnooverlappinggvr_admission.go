@@ -83,7 +83,7 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Name
 	// ignore CRDs targeting system and non-root workspaces
-	if clusterName == apibinding.SystemBoundCRDSClusterName || clusterName == "system:admin" {
+	if clusterName == apibinding.SystemBoundCRDsClusterName || clusterName == "system:admin" {
 		return nil
 	}
 

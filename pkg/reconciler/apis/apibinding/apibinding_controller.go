@@ -59,7 +59,7 @@ const (
 )
 
 var (
-	SystemBoundCRDSClusterName = logicalcluster.Name("system:bound-crds")
+	SystemBoundCRDsClusterName = logicalcluster.Name("system:bound-crds")
 )
 
 // NewController returns a new controller for APIBindings.
@@ -173,7 +173,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == SystemBoundCRDSClusterName
+			return logicalcluster.From(crd) == SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },

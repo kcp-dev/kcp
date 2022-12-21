@@ -266,7 +266,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// Try to get the bound CRD
-		existingCRD, err := r.getCRD(SystemBoundCRDSClusterName, boundCRDName(schema))
+		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(schema))
 		if err != nil && !apierrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				apiBinding,
@@ -278,7 +278,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				SystemBoundCRDSClusterName, boundCRDName(schema),
+				SystemBoundCRDsClusterName, boundCRDName(schema),
 				bindingClusterName, apiBinding.Name,
 				apiExportPath, apiExport.Name,
 				apiExportPath, schemaName,
@@ -326,7 +326,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			// Create bound CRD
 			logger.V(2).Info("creating CRD")
-			if _, err := r.createCRD(ctx, SystemBoundCRDSClusterName.Path(), crd); err != nil {
+			if _, err := r.createCRD(ctx, SystemBoundCRDsClusterName.Path(), crd); err != nil {
 				schemaClusterName := logicalcluster.From(schema)
 				if apierrors.IsInvalid(err) {
 					status := apierrors.APIStatus(nil)
@@ -464,7 +464,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 		ObjectMeta: metav1.ObjectMeta{
 			Name: boundCRDName(schema),
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey:            SystemBoundCRDSClusterName.String(),
+				logicalcluster.AnnotationKey:            SystemBoundCRDsClusterName.String(),
 				apisv1alpha1.AnnotationBoundCRDKey:      "",
 				apisv1alpha1.AnnotationSchemaClusterKey: logicalcluster.From(schema).String(),
 				apisv1alpha1.AnnotationSchemaNameKey:    schema.Name,
