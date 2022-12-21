@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
@@ -475,11 +474,11 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	virtualWorkspaceRawConfig.Contexts["upsyncer"].Cluster = "upsyncer"
 	syncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "syncer", nil, nil).ClientConfig()
 	require.NoError(t, err)
-	syncerVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(syncerVWConfig), t.Name()))
+	syncerVWConfig = rest.AddUserAgent(rest.CopyConfig(syncerVWConfig), t.Name())
 	require.NoError(t, err)
 	upsyncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "upsyncer", nil, nil).ClientConfig()
 	require.NoError(t, err)
-	upsyncerVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(upsyncerVWConfig), t.Name()))
+	upsyncerVWConfig = rest.AddUserAgent(rest.CopyConfig(upsyncerVWConfig), t.Name())
 	require.NoError(t, err)
 
 	startedSyncer := &StartedSyncerFixture{
