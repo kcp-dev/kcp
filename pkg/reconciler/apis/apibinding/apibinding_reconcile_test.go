@@ -72,7 +72,7 @@ var (
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
 	rebinding = binding.DeepCopy().
-		WithBoundResources(
+			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.io", "widgets").
 				WithSchema("today.widgets.kcp.io", "todaywidgetsuid").
@@ -96,10 +96,10 @@ var (
 		)
 
 	conflicting = unbound.DeepCopy().
-		WithName("conflicting").
-		WithPhase(apisv1alpha1.APIBindingPhaseBound).
-		WithExportReference(logicalcluster.NewPath("org:some-workspace"), "conflict").
-		WithBoundResources(
+			WithName("conflicting").
+			WithPhase(apisv1alpha1.APIBindingPhaseBound).
+			WithExportReference(logicalcluster.NewPath("org:some-workspace"), "conflict").
+			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.io", "widgets").
 				WithSchema("another.widgets.kcp.io", "anotherwidgetsuid").

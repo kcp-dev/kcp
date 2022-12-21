@@ -103,7 +103,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 }
 
 // testShardNamesAssigned checks if a shard name is provided in the "kcp.io/shard" annotation and
-// if a cluster name is stored at "kcp.dev/cluster" annotation
+// if a cluster name is stored at "kcp.io/cluster" annotation
 func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
@@ -116,8 +116,8 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 		if cachedComicDB.Annotations["kcp.io/shard"] != "amber" {
 			t.Fatalf("unexpected shard name %v assigned to cached amber|%s/%s (shard|cluster/name) , expected %s", cachedComicDB.Annotations["kcp.io/shard"], cluster, cachedComicDB.Name, "amber")
 		}
-		if cachedComicDB.Annotations["kcp.dev/cluster"] != cluster.String() {
-			t.Fatalf("unexpected cluster name %v assigned to cached amber|%s/%s (shard|cluster/name), expected %s", cachedComicDB.Annotations["kcp.dev/cluster"], cluster, cachedComicDB.Name, cluster.String())
+		if cachedComicDB.Annotations["kcp.io/cluster"] != cluster.String() {
+			t.Fatalf("unexpected cluster name %v assigned to cached amber|%s/%s (shard|cluster/name), expected %s", cachedComicDB.Annotations["kcp.io/cluster"], cluster, cachedComicDB.Name, cluster.String())
 		}
 	}
 
@@ -151,7 +151,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 		require.NoError(t, json.Unmarshal(cachedMangoDBJson, cachedMangoDB))
 
 		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
-		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
+		mangoDB.Annotations["kcp.io/cluster"] = cluster.String()
 		if !cmp.Equal(cachedMangoDB, &mangoDB) {
 			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
 		}
@@ -201,7 +201,7 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		mangoDB.Generation = cachedMangoDB.Generation
 		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
 		mangoDB.CreationTimestamp = cachedMangoDB.CreationTimestamp
-		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
+		mangoDB.Annotations["kcp.io/cluster"] = cluster.String()
 		mangoDB.Annotations["kcp.io/shard"] = "amber"
 		if !cmp.Equal(cachedMangoDB, &mangoDB) {
 			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
