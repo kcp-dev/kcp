@@ -331,17 +331,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 }
 
 func (h *homeWorkspaceHandler) getWorkspaceType(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-	objs, err := h.workspaceTypeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-	if err != nil {
-		return nil, err
-	}
-	if len(objs) == 0 {
-		return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("workspacetypes"), path.Join(name).String())
-	}
-	if len(objs) > 1 {
-		return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-	}
-	return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+	return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), h.workspaceTypeIndexer, path, name)
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {

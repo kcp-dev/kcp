@@ -22,8 +22,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/apis/core"
@@ -123,4 +125,20 @@ func ByIndex[T runtime.Object](indexer cache.Indexer, indexName, indexValue stri
 	}
 
 	return ret, nil
+}
+
+// ByPathAndName returns the instance of T from the indexer with the matching path and name. Path may be a canonical path
+// or a cluster name. Note: this depends on the presence of the optional "kcp.dev/path" annotation.
+func ByPathAndName[T runtime.Object](groupResource schema.GroupResource, indexer cache.Indexer, path logicalcluster.Path, name string) (ret T, err error) {
+	objs, err := indexer.ByIndex(ByLogicalClusterPathAndName, path.Join(name).String())
+	if err != nil {
+		return ret, err
+	}
+	if len(objs) == 0 {
+		return ret, apierrors.NewNotFound(groupResource, path.Join(name).String())
+	}
+	if len(objs) > 1 {
+		return ret, fmt.Errorf("multiple %s found for %s", groupResource, path.Join(name).String())
+	}
+	return objs[0].(T), nil
 }

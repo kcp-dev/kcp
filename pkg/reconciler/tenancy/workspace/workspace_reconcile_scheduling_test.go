@@ -242,27 +242,17 @@ func TestReconcileScheduling(t *testing.T) {
 			fakeKubeClient := kcpfakekubeclient.NewSimpleClientset(scenario.initialKubeClientObjects...)
 			fakeKcpClient := kcpfakeclient.NewSimpleClientset(scenario.initialKcpClientObjects...)
 
-			workspacetypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			indexers.AddIfNotPresentOrDie(workspacetypeIndexer, cache.Indexers{
+			workspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+			indexers.AddIfNotPresentOrDie(workspaceTypeIndexer, cache.Indexers{
 				indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 			})
 			for _, obj := range scenario.initialWorkspaceTypes {
-				if err := workspacetypeIndexer.Add(obj); err != nil {
+				if err := workspaceTypeIndexer.Add(obj); err != nil {
 					t.Error(err)
 				}
 			}
 			getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-				objs, err := workspacetypeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-				if err != nil {
-					return nil, err
-				}
-				if len(objs) == 0 {
-					return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
-				}
-				if len(objs) > 1 {
-					return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-				}
-				return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+				return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeIndexer, path, name)
 			}
 
 			target := schedulingReconciler{

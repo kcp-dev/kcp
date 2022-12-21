@@ -18,7 +18,6 @@ package placement
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -79,17 +78,7 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) getLocation(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
-	objs, err := c.locationIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-	if err != nil {
-		return nil, err
-	}
-	if len(objs) == 0 {
-		return nil, fmt.Errorf("no Location found for %s", path.Join(name).String())
-	}
-	if len(objs) > 1 {
-		return nil, fmt.Errorf("multiple Locations found for %s", path.Join(name).String())
-	}
-	return objs[0].(*schedulingv1alpha1.Location), nil
+	return indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), c.locationIndexer, path, name)
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {

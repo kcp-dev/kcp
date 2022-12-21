@@ -59,13 +59,7 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				objs, err := p.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-				if err != nil {
-					return nil, fmt.Errorf("failed to look up APIExport: %w", err)
-				} else if len(objs) == 0 {
-					return nil, fmt.Errorf("referenced APIExport %s not found", path.Join(name).String())
-				}
-				return objs[0].(*apisv1alpha1.APIExport), nil
+				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.apiExportIndexer, path, name)
 			}
 
 			return p, nil

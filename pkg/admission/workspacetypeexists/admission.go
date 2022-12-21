@@ -60,17 +60,7 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			plugin.getType = func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-				objs, err := plugin.typeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-				if err != nil {
-					return nil, err
-				}
-				if len(objs) == 0 {
-					return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("workspacetypes"), path.Join(name).String())
-				}
-				if len(objs) > 1 {
-					return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-				}
-				return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+				return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), plugin.typeIndexer, path, name)
 			}
 			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(plugin.getType)
 

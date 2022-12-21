@@ -106,23 +106,18 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			objs, err := apiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-			if err != nil {
+			// Try local informer first
+			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
+			if err == nil {
+				// Quick happy path - found it locally
+				return export, nil
+			}
+			if !apierrors.IsNotFound(err) {
+				// Unrecoverable error
 				return nil, err
 			}
-			if len(objs) == 0 {
-				objs, err = temporaryRemoteShardApiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-				if err != nil {
-					return nil, err
-				}
-			}
-			if len(objs) == 0 {
-				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
-			}
-			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
-			}
-			return objs[0].(*apisv1alpha1.APIExport), nil
+			// Didn't find it locally - try remote
+			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), temporaryRemoteShardApiExportInformer.Informer().GetIndexer(), path, name)
 		},
 		apiExportsIndexer:                     apiExportInformer.Informer().GetIndexer(),
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
