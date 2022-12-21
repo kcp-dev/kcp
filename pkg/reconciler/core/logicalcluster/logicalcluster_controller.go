@@ -87,7 +87,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
