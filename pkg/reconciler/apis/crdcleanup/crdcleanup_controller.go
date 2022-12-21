@@ -66,7 +66,7 @@ func NewController(
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
 		},
 		deleteCRD: func(ctx context.Context, name string) error {
-			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDSClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
+			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
 		},
 	}
 
@@ -84,7 +84,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == apibinding.SystemBoundCRDSClusterName
+			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -165,7 +165,7 @@ func (c *controller) enqueueFromAPIBinding(oldObj, newObj interface{}) {
 	}
 
 	for uid := range uidSet {
-		key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDSClusterName.String(), "", uid)
+		key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDsClusterName.String(), "", uid)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing CRD via APIBinding")
 		c.queue.Add(key)
 	}

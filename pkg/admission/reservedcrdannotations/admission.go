@@ -73,7 +73,7 @@ func (o *reservedCRDAnnotations) Validate(ctx context.Context, a admission.Attri
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove when ClusterFromfrom returns a tenancy.Name
-	if clusterName == apibinding.SystemBoundCRDSClusterName {
+	if clusterName == apibinding.SystemBoundCRDsClusterName {
 		return nil
 	}
 
