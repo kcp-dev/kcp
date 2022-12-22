@@ -54,7 +54,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			syncTargetExists:    true,
 			podIsUpsynced:       true,
 			synctargetWorkspace: "cluster1",
-			expectedPath:        "/clusters/cluster1/syncer-tunnels/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-xwdjipyflk7g/pods/foo/exec",
+			expectedPath:        "/clusters/cluster1/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-xwdjipyflk7g/pods/foo/exec",
 		},
 		"valid request with existing pod and synctarget, pod and synctarget on different workspaces": {
 			subresource:         "exec",
@@ -63,7 +63,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			podIsUpsynced:       true,
 			syncTargetExists:    true,
 			synctargetWorkspace: "cluster2",
-			expectedPath:        "/clusters/cluster2/syncer-tunnels/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-1kdcree89tsy/pods/foo/exec",
+			expectedPath:        "/clusters/cluster2/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-1kdcree89tsy/pods/foo/exec",
 		},
 		"non existing pod": {
 			subresource:   "exec",

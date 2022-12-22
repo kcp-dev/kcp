@@ -150,7 +150,7 @@ func (ln *Listener) sendMessage(m controlMsg) {
 }
 
 func (ln *Listener) dial() (net.Conn, error) {
-	connect := ln.url + "/" + CmdTunnelConnect
+	connect := ln.url + "/" + cmdTunnelConnect
 	pr, pw := io.Pipe()
 	req, err := http.NewRequest(http.MethodGet, connect, pr) //nolint:noctx
 	if err != nil {

@@ -36,10 +36,8 @@ import (
 )
 
 const (
-	// DefaultTunnelPathPrefix is the default path prefix for the tunnel service
-	DefaultTunnelPathPrefix = "/services/syncer-tunnels/clusters"
-	CmdTunnelConnect        = "connect"
-	CmdTunnelProxy          = "proxy"
+	cmdTunnelConnect = "connect"
+	CmdTunnelProxy   = "proxy"
 )
 
 type controlMsg struct {
@@ -102,7 +100,7 @@ func SyncerTunnelProxyPath(syncTargetWorkspaceName logicalcluster.Name, syncTarg
 	if syncTargetWorkspaceName.String() == "" || syncTargetName == "" || downstreamNamespaceName == "" || podName == "" || subresource == "" {
 		return url.URL{}, fmt.Errorf("invalid tunnel path: workspaceName=%q, syncTargetName=%q, downstreamNamespaceName=%q, podName=%q, subresource=%q", syncTargetWorkspaceName.String(), syncTargetName, downstreamNamespaceName, podName, subresource)
 	}
-	proxyPath := DefaultTunnelPathPrefix + fmt.Sprintf("/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
+	proxyPath := fmt.Sprintf("/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
 	if arguments != "" {
 		proxyPath += "?" + arguments
 	}
@@ -123,50 +121,55 @@ func SyncerTunnelURL(host, ws, target string) (string, error) {
 		return "", fmt.Errorf("wrong url format, expected https://host<:port>/<path>: %w", err)
 	}
 	host = strings.Trim(host, "/")
-	return host + DefaultTunnelPathPrefix + "/" + ws + "/apis/" + workloadv1alpha1.SchemeGroupVersion.String() + "/synctargets/" + target, nil
+	return host + "/clusters/" + ws + "/apis/" + workloadv1alpha1.SchemeGroupVersion.String() + "/synctargets/" + target, nil
 }
 
-// WithSyncerTunnel adds an HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
+// WithSyncerTunnel adds an HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths exposing two synctarget subresources:
 //
-// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/connect establish reverse connections and queue them so it can be consumed by the dialer
-// https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/proxy/{path} proxies the {path} through the reverse connection identified by the cluster and syncer name
+// https://host/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/connect establish reverse connections and queue them so it can be consumed by the dialer
+// https://host/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/proxy/{path} proxies the {path} through the reverse connection identified by the cluster and syncer name
 func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 	pool := newTunnelPool()
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := klog.FromContext(r.Context())
 
-		// fall through, syncer tunnels URL start by /services/tunnels
-		if !strings.HasPrefix(r.URL.Path, DefaultTunnelPathPrefix) {
+		// fall through, syncer tunnels URL should contain the synctarget gvr.
+		if !strings.Contains(r.RequestURI, "workload.kcp.io/v1alpha1/synctargets") {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+
+		// Expect at least one of the subresources to be in the request.
+		if !strings.Contains(r.RequestURI, "/proxy/") && !strings.Contains(r.RequestURI, "/connect") {
 			apiHandler.ServeHTTP(w, r)
 			return
 		}
 
 		// route the request
-		p := strings.TrimPrefix(r.URL.Path, DefaultTunnelPathPrefix)
-		path := strings.Split(strings.Trim(p, "/"), "/")
+		path := strings.Split(r.RequestURI, "/")
 		if len(path) < 7 {
 			http.Error(w, "invalid path", http.StatusInternalServerError)
 			return
 		}
 
 		gv := workloadv1alpha1.SchemeGroupVersion
-		if path[1] != "apis" ||
-			path[2] != gv.Group ||
-			path[3] != gv.Version ||
-			path[4] != "synctargets" {
+		if path[3] != "apis" ||
+			path[4] != gv.Group ||
+			path[5] != gv.Version ||
+			path[6] != "synctargets" {
 			http.Error(w, "invalid path", http.StatusInternalServerError)
 			return
 		}
 
-		clusterName := logicalcluster.Name(path[0])
-		syncerName := path[5]
-		command := path[6]
+		clusterName := logicalcluster.Name(path[2])
+		syncerName := path[7]
+		command := path[8]
 
 		logger = logger.WithValues("cluster", clusterName, "syncerName", syncerName, "command", command)
 		logger.V(5).Info("tunneler connection received")
 		switch command {
-		case CmdTunnelConnect:
-			if len(path) != 7 {
+		case cmdTunnelConnect:
+			if len(path) != 9 {
 				http.Error(w, "syncer tunnels: invalid path for connect command", http.StatusInternalServerError)
 				return
 			}
@@ -198,6 +201,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 				logger.V(5).Info("stopped tunnel control connection")
 				return
 			}
+			logger.Info("Creating tunnel connection", "clustername", clusterName, "syncername", syncerName)
 			// create a reverse connection
 			logger.V(5).Info("tunnel connection started")
 			select {
@@ -238,10 +242,11 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 			proxy.Director = func(req *http.Request) {
 				// strip the non-proxied path
 				proxypath := "/"
-				if len(path) > 7 {
-					proxypath += strings.Join(path[7:], "/")
+				if len(path) > 8 {
+					proxypath += strings.Join(path[9:], "/")
 				}
 				req.URL.Path = proxypath
+				logger.Info("proxying path", "path", r.URL.Path)
 				// TODO: strip authorization header?????
 				req.Header.Del("Authorization")
 				director(req)

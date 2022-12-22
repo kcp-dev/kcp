@@ -236,7 +236,7 @@ func syncerTunnelProxyPath(syncTargetWorkspaceName logicalcluster.Name, syncTarg
 		return url.URL{}, fmt.Errorf("invalid tunnel path: workspaceName=%q, syncTargetName=%q, downstreamNamespaceName=%q, podName=%q, subresource=%q", syncTargetWorkspaceName.String(), syncTargetName, downstreamNamespaceName, podName, subresource)
 	}
 
-	proxyPath := fmt.Sprintf("/clusters/%s/syncer-tunnels/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, tunneler.CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
+	proxyPath := fmt.Sprintf("/clusters/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, tunneler.CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
 	parse, err := url.Parse(proxyPath)
 	if err != nil {
 		return url.URL{}, err

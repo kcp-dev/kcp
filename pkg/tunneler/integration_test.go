@@ -38,8 +38,7 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 
 	// public server
 	mux := http.NewServeMux()
-	pool := NewTunnelPool()
-	apiHandler := WithSyncerTunnel(pool, mux)
+	apiHandler := WithSyncerTunnel(mux)
 	publicServer := httptest.NewUnstartedServer(apiHandler)
 	publicServer.EnableHTTP2 = true
 	publicServer.StartTLS()
@@ -134,9 +133,8 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	defer backend.Close()
 
 	// public server
-	pool := NewTunnelPool()
 	mux := http.NewServeMux()
-	apiHandler := WithSyncerTunnel(pool, mux)
+	apiHandler := WithSyncerTunnel(mux)
 	publicServer := httptest.NewUnstartedServer(apiHandler)
 	publicServer.EnableHTTP2 = true
 	publicServer.StartTLS()

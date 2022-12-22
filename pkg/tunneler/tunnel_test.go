@@ -34,13 +34,13 @@ func TestSyncerTunnelURL(t *testing.T) {
 			host:      "https://example.com",
 			workspace: "root:testing:testing",
 			target:    "cluster1",
-			expected:  "https://example.com/services/syncer-tunnels/clusters/root:testing:testing/apis/workload.kcp.dev/v1alpha1/synctargets/cluster1",
+			expected:  "https://example.com/clusters/root:testing:testing/apis/workload.kcp.io/v1alpha1/synctargets/cluster1",
 		},
 		"valid host, with ports": {
 			host:      "https://example.com:443",
 			workspace: "root:testing:testing",
 			target:    "cluster1",
-			expected:  "https://example.com:443/services/syncer-tunnels/clusters/root:testing:testing/apis/workload.kcp.dev/v1alpha1/synctargets/cluster1",
+			expected:  "https://example.com:443/clusters/root:testing:testing/apis/workload.kcp.io/v1alpha1/synctargets/cluster1",
 		},
 		"invalid host": {
 			host:        "example.com:443:443",
