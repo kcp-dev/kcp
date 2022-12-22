@@ -56,7 +56,6 @@ COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
 COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
 COPY --from=builder workspace/bin/kubectl /usr/local/bin/
-RUN ln -s /usr/local/bin/kubectl-workspace /usr/local/bin/kubectl-workspaces && ln -s /usr/local/bin/kubectl-workspace /usr/local/bin/kubectl-ws
 ENV KUBECONFIG=/etc/kcp/config/admin.kubeconfig
 # Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
 RUN mkdir -p /data && \
