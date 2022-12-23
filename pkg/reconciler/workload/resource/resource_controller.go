@@ -97,8 +97,11 @@ func NewController(
 
 		getSyncTargetFromKey: func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error) {
 			syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return nil, false, err
+			}
+			if errors.IsNotFound(err) {
+				return nil, false, nil
 			}
 			// This shouldn't happen, more than one SyncTarget with the same key means a hash collision.
 			if len(syncTargets) > 1 {
