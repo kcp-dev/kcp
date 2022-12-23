@@ -275,7 +275,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		}
 
 		for _, alias := range wtAliases {
-			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.deepSARClient)
+			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.deepSARClient, delegated.Options{})
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to workspace type %q", ws.Spec.Type))
 			}

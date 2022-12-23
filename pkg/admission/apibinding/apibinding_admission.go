@@ -266,7 +266,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 
 func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.Name, apiExportName string) error {
 	logger := klog.FromContext(ctx)
-	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient)
+	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient, delegated.Options{})
 	if err != nil {
 		// Logging a more specific error for the operator
 		logger.Error(err, "error creating authorizer from delegating authorizer config")

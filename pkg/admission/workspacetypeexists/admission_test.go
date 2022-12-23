@@ -43,6 +43,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -445,7 +446,7 @@ func TestValidate(t *testing.T) {
 				Handler:              admission.NewHandler(admission.Create, admission.Update),
 				getType:              getType(tt.types),
 				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,

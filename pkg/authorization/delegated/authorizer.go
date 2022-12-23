@@ -28,15 +28,37 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface) (authorizer.Authorizer, error)
+type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface, opts Options) (authorizer.Authorizer, error)
+
+// Options provides options to customize the
+// created DelegatedAuthorizer.
+type Options struct {
+	// AllowCacheTTL is the length of time that a successful authorization response will be cached
+	AllowCacheTTL time.Duration
+
+	// DenyCacheTTL is the length of time that an unsuccessful authorization response will be cached.
+	// You generally want more responsive, "deny, try again" flows.
+	DenyCacheTTL time.Duration
+}
+
+func (d *Options) defaults() {
+	if d.AllowCacheTTL == 0 {
+		d.AllowCacheTTL = 5 * time.Minute
+	}
+	if d.DenyCacheTTL == 0 {
+		d.AllowCacheTTL = 30 * time.Second
+	}
+}
 
 // NewDelegatedAuthorizer returns a new authorizer for use in e.g. admission plugins that delegates
 // to the kube API server via SubjectAccessReview.
-func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface) (authorizer.Authorizer, error) {
+func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface, opts Options) (authorizer.Authorizer, error) {
+	opts.defaults()
+
 	delegatingAuthorizerConfig := &authorizerfactory.DelegatingAuthorizerConfig{
 		SubjectAccessReviewClient: client.Cluster(clusterName.Path()).AuthorizationV1(),
-		AllowCacheTTL:             5 * time.Minute,
-		DenyCacheTTL:              30 * time.Second,
+		AllowCacheTTL:             opts.AllowCacheTTL,
+		DenyCacheTTL:              opts.DenyCacheTTL,
 		WebhookRetryBackoff:       options.DefaultAuthWebhookRetryBackoff(),
 	}
 

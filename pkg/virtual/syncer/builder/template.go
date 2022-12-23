@@ -186,7 +186,7 @@ func (t *template) authorize(ctx context.Context, a authorizer.Attributes) (auth
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, t.kubeClusterClient)
+	authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, t.kubeClusterClient, delegated.Options{})
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "Error", err
 	}
