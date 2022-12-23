@@ -360,7 +360,10 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			}
 		}
 
+		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
+		genericConfig.Authorization.Authorizer = authorization.EnableAuditLogging(genericConfig.Authorization.Authorizer)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
+		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
