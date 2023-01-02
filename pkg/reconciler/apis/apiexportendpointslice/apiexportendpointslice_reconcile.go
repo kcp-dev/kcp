@@ -97,24 +97,24 @@ func (c *controller) updateEndpoints(ctx context.Context,
 	apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice,
 	apiExport *apisv1alpha1.APIExport) error {
 	logger := klog.FromContext(ctx)
-	clusterWorkspaceShards, err := c.listShards()
+	shards, err := c.listShards()
 	if err != nil {
-		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
+		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
 	desiredURLs := sets.NewString()
-	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		logger = logging.WithObject(logger, clusterWorkspaceShard)
-		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
+	for _, shard := range shards {
+		logger = logging.WithObject(logger, shard)
+		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(clusterWorkspaceShard.Spec.VirtualWorkspaceURL)
+		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
 			logger.Error(
-				err, "error parsing clusterWorkspaceShard.spec.virtualWorkspaceURL",
-				"VirtualWorkspaceURL", clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
+				err, "error parsing shard.spec.virtualWorkspaceURL",
+				"VirtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL,
 			)
 
 			continue
