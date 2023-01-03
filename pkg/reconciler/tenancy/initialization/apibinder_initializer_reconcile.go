@@ -42,8 +42,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) error {
-	annotationValue, found := this.Annotations[v1beta1.LogicalClusterTypeAnnotationKey]
+func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
+	annotationValue, found := logicalCluster.Annotations[v1beta1.LogicalClusterTypeAnnotationKey]
 	if !found {
 		return nil
 	}
@@ -57,7 +57,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 	)
 
 	var errors []error
-	clusterName := logicalcluster.From(this)
+	clusterName := logicalcluster.From(logicalCluster)
 	logger.V(2).Info("initializing APIBindings for workspace")
 
 	// Start with the WorkspaceType specified by the ClusterWorkspace
@@ -66,7 +66,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		logger.Error(err, "error getting WorkspaceType")
 
 		conditions.MarkFalse(
-			this,
+			logicalCluster,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -84,7 +84,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		logger.Error(err, "error resolving transitive types")
 
 		conditions.MarkFalse(
-			this,
+			logicalCluster,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -196,7 +196,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		logger.Error(utilerrors.NewAggregate(errors), "error initializing APIBindings")
 
 		conditions.MarkFalse(
-			this,
+			logicalCluster,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedAPIBindingErrors,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -235,7 +235,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		sort.Strings(incomplete)
 
 		conditions.MarkFalse(
-			this,
+			logicalCluster,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWaitingOnAPIBindings,
 			conditionsv1alpha1.ConditionSeverityInfo,
@@ -245,7 +245,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		return nil
 	}
 
-	this.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, this.Status.Initializers)
+	logicalCluster.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, logicalCluster.Status.Initializers)
 
 	return nil
 }

@@ -29,7 +29,7 @@ type urlReconciler struct {
 	shardExternalURL func() string
 }
 
-func (r *urlReconciler) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
-	this.Status.URL = strings.TrimSuffix(r.shardExternalURL(), "/") + logicalcluster.From(this).Path().RequestPath()
+func (r *urlReconciler) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
+	logicalCluster.Status.URL = strings.TrimSuffix(r.shardExternalURL(), "/") + logicalcluster.From(logicalCluster).Path().RequestPath()
 	return reconcileStatusContinue, nil
 }

@@ -134,8 +134,8 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	}
 }
 
-func (c *State) UpsertLogicalCluster(shard string, this *corev1alpha1.LogicalCluster) {
-	clusterName := logicalcluster.From(this)
+func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
+	clusterName := logicalcluster.From(logicalCluster)
 
 	c.lock.RLock()
 	got := c.clusterShards[clusterName]
@@ -148,8 +148,8 @@ func (c *State) UpsertLogicalCluster(shard string, this *corev1alpha1.LogicalClu
 	}
 }
 
-func (c *State) DeleteLogicalCluster(shard string, this *corev1alpha1.LogicalCluster) {
-	clusterName := logicalcluster.From(this)
+func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
+	clusterName := logicalcluster.From(logicalCluster)
 
 	c.lock.RLock()
 	got := c.clusterShards[clusterName]

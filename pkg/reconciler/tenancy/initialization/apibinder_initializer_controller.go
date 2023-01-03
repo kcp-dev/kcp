@@ -179,7 +179,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	logger = logging.WithObject(logger, apiBinding)
 
 	clusterName := logicalcluster.From(apiBinding)
-	this, err := b.getLogicalCluster(clusterName)
+	logicalCluster, err := b.getLogicalCluster(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// The workspace was deleted or is no longer initializing, so we can safely ignore this event.
@@ -189,7 +189,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 		return // nothing we can do here
 	}
 
-	b.enqueueLogicalCluster(this, logger)
+	b.enqueueLogicalCluster(logicalCluster, logger)
 }
 
 // enqueueWorkspaceTypes enqueues all clusterworkspaces (which are only those that are initializing, because of

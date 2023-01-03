@@ -49,7 +49,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 	case corev1alpha1.LogicalClusterPhaseInitializing:
 		logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
-		this, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+		logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
 		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsNotFound(err) {
@@ -58,10 +58,10 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 			return reconcileStatusContinue, nil
 		}
 
-		workspace.Status.Initializers = this.Status.Initializers
+		workspace.Status.Initializers = logicalCluster.Status.Initializers
 
 		if initializers := workspace.Status.Initializers; len(initializers) > 0 {
-			after := time.Since(this.CreationTimestamp.Time) / 5
+			after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
 			if max := time.Minute * 10; after > max {
 				after = max
 			}
@@ -79,7 +79,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 		if !workspace.DeletionTimestamp.IsZero() {
 			logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
-			this, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+			logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
 			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStopAndRequeue, err
 			} else if apierrors.IsNotFound(err) {
@@ -89,11 +89,11 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 			}
 
 			if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
-				after := time.Since(this.CreationTimestamp.Time) / 5
+				after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
 				if max := time.Minute * 10; after > max {
 					after = max
 				}
-				cond := conditions.Get(this, tenancyv1alpha1.WorkspaceContentDeleted)
+				cond := conditions.Get(logicalCluster, tenancyv1alpha1.WorkspaceContentDeleted)
 				if cond != nil {
 					conditions.Set(workspace, cond)
 					logger.V(3).Info("LogicalCluster is still deleting, requeueing", "reason", cond.Reason, "message", cond.Message, "after", after)

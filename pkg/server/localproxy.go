@@ -72,19 +72,19 @@ func WithLocalProxy(
 
 	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			this := obj.(*corev1alpha1.LogicalCluster)
-			indexState.UpsertLogicalCluster(shardName, this)
+			logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+			indexState.UpsertLogicalCluster(shardName, logicalCluster)
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			this := obj.(*corev1alpha1.LogicalCluster)
-			indexState.UpsertLogicalCluster(shardName, this)
+			logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+			indexState.UpsertLogicalCluster(shardName, logicalCluster)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			this := obj.(*corev1alpha1.LogicalCluster)
-			indexState.DeleteLogicalCluster(shardName, this)
+			logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+			indexState.DeleteLogicalCluster(shardName, logicalCluster)
 		},
 	})
 
