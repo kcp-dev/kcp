@@ -101,13 +101,13 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	this, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+	logicalCluster, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 	}
-	thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
+	thisPath := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
 	if thisPath == "" {
-		thisPath = logicalcluster.From(this).Path().String()
+		thisPath = logicalcluster.From(logicalCluster).Path().String()
 	}
 
 	if thisPath != "" && value != thisPath {
@@ -142,13 +142,13 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 
 	value, found := u.GetAnnotations()[core.LogicalClusterPathAnnotationKey]
 	if pathAnnotationResources.Has(a.GetResource().GroupResource().String()) || found {
-		this, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+		logicalCluster, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 		}
-		thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
+		thisPath := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
 		if thisPath == "" {
-			thisPath = logicalcluster.From(this).Path().String()
+			thisPath = logicalcluster.From(logicalCluster).Path().String()
 		}
 
 		if value != thisPath {

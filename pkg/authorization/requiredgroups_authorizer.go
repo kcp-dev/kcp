@@ -87,7 +87,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 
 	case isUser:
 		// get logical cluster with required group annotation
-		this, err := a.getLogicalCluster(cluster.Name)
+		logicalCluster, err := a.getLogicalCluster(cluster.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return authorizer.DecisionNoOpinion, "logical cluster not found", nil
@@ -96,7 +96,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		}
 
 		// check required groups
-		value, found := this.Annotations[RequiredGroupsAnnotationKey]
+		value, found := logicalCluster.Annotations[RequiredGroupsAnnotationKey]
 		if !found {
 			return DelegateAuthorization("logical cluster does not require groups", a.delegate).Authorize(ctx, attr)
 		}
@@ -104,11 +104,11 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		for _, set := range disjunctiveClauses {
 			groups := strings.Split(set, ",")
 			if sets.NewString(attr.GetUser().GetGroups()...).HasAll(groups...) {
-				return DelegateAuthorization(fmt.Sprintf("user is member of required groups: %s", this.Annotations[RequiredGroupsAnnotationKey]), a.delegate).Authorize(ctx, attr)
+				return DelegateAuthorization(fmt.Sprintf("user is member of required groups: %s", logicalCluster.Annotations[RequiredGroupsAnnotationKey]), a.delegate).Authorize(ctx, attr)
 			}
 		}
 
-		return authorizer.DecisionDeny, fmt.Sprintf("user is not a member of required groups: %s", this.Annotations[RequiredGroupsAnnotationKey]), nil
+		return authorizer.DecisionDeny, fmt.Sprintf("user is not a member of required groups: %s", logicalCluster.Annotations[RequiredGroupsAnnotationKey]), nil
 	}
 
 	return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil

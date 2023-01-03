@@ -109,11 +109,11 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 
 		// copy required groups from LogicalCluster to new child-Worksapce
 		if _, found := cw.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemPrivileged {
-			this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+			logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
-			if thisValue, found := this.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
+			if thisValue, found := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
 				if cw.Annotations == nil {
 					cw.Annotations = map[string]string{}
 				}
@@ -200,11 +200,11 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 
 		// check that required groups match with LogicalCluster
 		if !isSystemPrivileged {
-			this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+			logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
-			expected := this.Annotations[authorization.RequiredGroupsAnnotationKey]
+			expected := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]
 			if cw.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
 				return admission.NewForbidden(a, fmt.Errorf("missing required groups annotation %s=%s", authorization.RequiredGroupsAnnotationKey, expected))
 			}

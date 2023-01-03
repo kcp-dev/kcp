@@ -248,7 +248,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 			canonicalPath = logicalcluster.NewPath(parent.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
 		}
 	}
-	this := &corev1alpha1.LogicalCluster{
+	logicalCluster := &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
@@ -268,15 +268,15 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 		},
 	}
 	if owner, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
-		this.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = owner
+		logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = owner
 	}
 	if groups, found := workspace.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
-		this.Annotations[authorization.RequiredGroupsAnnotationKey] = groups
+		logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey] = groups
 	}
 
 	// add initializers
 	var err error
-	this.Spec.Initializers, err = LogicalClustersInitializers(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	logicalCluster.Spec.Initializers, err = LogicalClustersInitializers(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
 	}
@@ -285,14 +285,14 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	if err != nil {
 		return err
 	}
-	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Create(ctx, this, metav1.CreateOptions{})
+	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Create(ctx, logicalCluster, metav1.CreateOptions{})
 
 	if apierrors.IsAlreadyExists(err) {
 		existing, getErr := logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		if getErr != nil {
 			return getErr
 		}
-		if equality.Semantic.DeepEqual(existing.Spec.Owner, this.Spec.Owner) {
+		if equality.Semantic.DeepEqual(existing.Spec.Owner, logicalCluster.Spec.Owner) {
 			return nil
 		}
 	}
@@ -337,12 +337,12 @@ func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, sh
 	if err != nil {
 		return err
 	}
-	this, err := logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+	logicalCluster, err := logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	this.Status.Phase = phase
-	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+	logicalCluster.Status.Phase = phase
+	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 	return err
 }
 

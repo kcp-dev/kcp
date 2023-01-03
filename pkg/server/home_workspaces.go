@@ -203,7 +203,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	homeClusterName := indexrewriters.HomeClusterName(effectiveUser.GetName())
-	this, err := h.logicalClusterLister.Cluster(homeClusterName).Get(corev1alpha1.LogicalClusterName)
+	logicalCluster, err := h.logicalClusterLister.Cluster(homeClusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
@@ -235,7 +235,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		this = &corev1alpha1.LogicalCluster{
+		logicalCluster = &corev1alpha1.LogicalCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: corev1alpha1.LogicalClusterName,
 				Annotations: map[string]string{
@@ -244,14 +244,14 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				},
 			},
 		}
-		this.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, core.RootCluster.Path(), "home")
+		logicalCluster.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, core.RootCluster.Path(), "home")
 		if err != nil {
 			responsewriters.InternalError(rw, req, err)
 			return
 		}
 
 		logger.Info("Creating home LogicalCluster", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
-		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().Create(ctx, this, metav1.CreateOptions{})
+		logicalCluster, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().Create(ctx, logicalCluster, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			responsewriters.InternalError(rw, req, err)
 			return
@@ -261,7 +261,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	// here we have a LogicalCluster. Create ClusterRoleBinding. Again: if this is pre-existing
 	// and it is not belonging to the current user, the user will get a 403 through normal authorization.
 
-	if this.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
+	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		logger.Info("Creating home ClusterRoleBinding", "cluster", homeClusterName.String(), "user", effectiveUser.GetName(), "name", "workspace-admin")
 		_, err := h.kubeClusterClient.Cluster(homeClusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -286,9 +286,9 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 
 		// move to Initializing state
-		this = this.DeepCopy()
-		this.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
-		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+		logicalCluster = logicalCluster.DeepCopy()
+		logicalCluster.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
+		logicalCluster, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
 				rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
@@ -300,8 +300,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	if this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing {
-		if time.Since(this.CreationTimestamp.Time) > h.creationTimeout {
+	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing {
+		if time.Since(logicalCluster.CreationTimestamp.Time) > h.creationTimeout {
 			responsewriters.InternalError(rw, req, fmt.Errorf("home workspace creation timeout"))
 			return
 		}
@@ -315,16 +315,16 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	homeWorkspace := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              this.Name,
-			CreationTimestamp: this.CreationTimestamp,
+			Name:              logicalCluster.Name,
+			CreationTimestamp: logicalCluster.CreationTimestamp,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{},
 		Status: tenancyv1beta1.WorkspaceStatus{
-			URL:          this.Status.URL,
-			Cluster:      logicalcluster.From(this).String(),
-			Phase:        this.Status.Phase,
-			Conditions:   this.Status.Conditions,
-			Initializers: this.Status.Initializers,
+			URL:          logicalCluster.Status.URL,
+			Cluster:      logicalcluster.From(logicalCluster).String(),
+			Phase:        logicalCluster.Status.Phase,
+			Conditions:   logicalCluster.Status.Conditions,
+			Initializers: logicalCluster.Status.Initializers,
 		},
 	}
 	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)

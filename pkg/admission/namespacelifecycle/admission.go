@@ -112,14 +112,14 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 		return apierrors.NewInternalError(err)
 	}
 
-	this, err := l.getLogicalCluster(clusterName)
+	logicalCluster, err := l.getLogicalCluster(clusterName)
 	// The shard hosting the workspace could be down,
 	// just return error from legacy namespace lifecycle admission in this case
 	if err != nil && !apierrors.IsNotFound(err) {
 		return admissionErr
 	}
 
-	if this.DeletionTimestamp.IsZero() {
+	if logicalCluster.DeletionTimestamp.IsZero() {
 		return admissionErr
 	}
 

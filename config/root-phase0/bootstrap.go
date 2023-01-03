@@ -52,14 +52,14 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 	// set LogicalCluster to Initializing
 	return wait.PollImmediateUntilWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (done bool, err error) {
 		logger := klog.FromContext(ctx).WithValues("bootstrapping", "root-phase0")
-		this, err := kcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		logicalCluster, err := kcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		if err != nil {
 			logger.Error(err, "failed to get this workspace in root")
 			return false, nil
 		}
-		if this.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
-			this.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
-			_, err = kcpClient.CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+		if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
+			logicalCluster.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
+			_, err = kcpClient.CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update LogicalCluster root:cluster")
 				return false, nil

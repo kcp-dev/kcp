@@ -432,9 +432,9 @@ func (l fakeLogicalClusterClusterLister) List(selector labels.Selector) (ret []*
 
 func (l fakeLogicalClusterClusterLister) Cluster(cluster logicalcluster.Name) corev1alpha1listers.LogicalClusterLister {
 	var perCluster []*corev1alpha1.LogicalCluster
-	for _, this := range l {
-		if logicalcluster.From(this) == cluster {
-			perCluster = append(perCluster, this)
+	for _, logicalCluster := range l {
+		if logicalcluster.From(logicalCluster) == cluster {
+			perCluster = append(perCluster, logicalCluster)
 		}
 	}
 	return fakeLogicalClusterLister(perCluster)

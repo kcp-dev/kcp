@@ -85,8 +85,8 @@ func (o *plugin) Admit(ctx context.Context, a admission.Attributes, _ admission.
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
-		this := &corev1alpha1.LogicalCluster{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, this); err != nil {
+		logicalCluster := &corev1alpha1.LogicalCluster{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, logicalCluster); err != nil {
 			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
@@ -103,14 +103,14 @@ func (o *plugin) Admit(ctx context.Context, a admission.Attributes, _ admission.
 		}
 
 		// we only admit at state transition to initializing
-		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
+		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 		if !transitioningToInitializing {
 			return nil
 		}
 
-		this.Status.Initializers = this.Spec.Initializers
+		logicalCluster.Status.Initializers = logicalCluster.Spec.Initializers
 
-		return updateUnstructured(u, this)
+		return updateUnstructured(u, logicalCluster)
 	}
 
 	return nil
@@ -137,8 +137,8 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
-		this := &corev1alpha1.LogicalCluster{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, this); err != nil {
+		logicalCluster := &corev1alpha1.LogicalCluster{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, logicalCluster); err != nil {
 			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
@@ -152,46 +152,46 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		}
 
 		oldSpec := toSet(old.Spec.Initializers)
-		newSpec := toSet(this.Spec.Initializers)
+		newSpec := toSet(logicalCluster.Spec.Initializers)
 		oldStatus := toSet(old.Status.Initializers)
-		newStatus := toSet(this.Status.Initializers)
+		newStatus := toSet(logicalCluster.Status.Initializers)
 
 		if !oldSpec.Equal(newSpec) {
 			return admission.NewForbidden(a, fmt.Errorf("spec.initializers is immutable"))
 		}
 
-		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
+		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 		if transitioningToInitializing && !newSpec.Equal(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers do not equal spec.initializers"))
 		}
 
-		if !transitioningToInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.IsSuperset(newStatus) {
+		if !transitioningToInitializing && logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.IsSuperset(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers must not grow"))
 		}
 
-		if this.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.Equal(newStatus) {
+		if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.Equal(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers is immutable after initilization"))
 		}
 
-		if old.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
-			if len(this.Status.Initializers) > 0 {
+		if old.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
+			if len(logicalCluster.Status.Initializers) > 0 {
 				return admission.NewForbidden(a, fmt.Errorf("status.initializers is not empty"))
 			}
 		}
 
-		if phaseOrdinal[old.Status.Phase] > phaseOrdinal[this.Status.Phase] {
-			return admission.NewForbidden(a, fmt.Errorf("cannot transition from %q to %q", old.Status.Phase, this.Status.Phase))
+		if phaseOrdinal[old.Status.Phase] > phaseOrdinal[logicalCluster.Status.Phase] {
+			return admission.NewForbidden(a, fmt.Errorf("cannot transition from %q to %q", old.Status.Phase, logicalCluster.Status.Phase))
 		}
 
 		return nil
 
 	case admission.Delete:
-		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+		logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
 		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-		if !this.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
+		if !logicalCluster.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
 			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
 		}
 

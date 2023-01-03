@@ -32,10 +32,10 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) (reconcileStatus, error)
+	reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error)
 }
 
-func (c *Controller) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (bool, error) {
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&phaseReconciler{},
@@ -48,7 +48,7 @@ func (c *Controller) reconcile(ctx context.Context, this *corev1alpha1.LogicalCl
 	for _, r := range reconcilers {
 		var err error
 		var status reconcileStatus
-		status, err = r.reconcile(ctx, this)
+		status, err = r.reconcile(ctx, logicalCluster)
 		if err != nil {
 			errs = append(errs, err)
 		}

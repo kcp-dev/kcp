@@ -242,19 +242,19 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		twInformer := corev1alpha1informers.NewLogicalClusterClusterInformer(client, resyncPeriod, nil)
 		twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				this := obj.(*corev1alpha1.LogicalCluster)
-				c.state.UpsertLogicalCluster(shard.Name, this)
+				logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+				c.state.UpsertLogicalCluster(shard.Name, logicalCluster)
 			},
 			UpdateFunc: func(old, obj interface{}) {
-				this := obj.(*corev1alpha1.LogicalCluster)
-				c.state.UpsertLogicalCluster(shard.Name, this)
+				logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+				c.state.UpsertLogicalCluster(shard.Name, logicalCluster)
 			},
 			DeleteFunc: func(obj interface{}) {
 				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = final.Obj
 				}
-				this := obj.(*corev1alpha1.LogicalCluster)
-				c.state.DeleteLogicalCluster(shard.Name, this)
+				logicalCluster := obj.(*corev1alpha1.LogicalCluster)
+				c.state.DeleteLogicalCluster(shard.Name, logicalCluster)
 			},
 		})
 

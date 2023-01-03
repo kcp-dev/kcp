@@ -495,11 +495,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		clusterClient := user1VwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters()
-		this, err := clusterClient.Cluster(wsClusterName.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		logicalCluster, err := clusterClient.Cluster(wsClusterName.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		t.Logf("Attempt to do something more than just removing our initializer %q, get denied", initializer)
-		patchBytes := patchBytesFor(this, func(workspace *corev1alpha1.LogicalCluster) {
+		patchBytes := patchBytesFor(logicalCluster, func(workspace *corev1alpha1.LogicalCluster) {
 			workspace.Status.Initializers = []corev1alpha1.LogicalClusterInitializer{"wrong"}
 		})
 		_, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
@@ -508,7 +508,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}
 
 		t.Logf("Remove just our initializer %q", initializer)
-		patchBytes = patchBytesFor(this, func(workspace *corev1alpha1.LogicalCluster) {
+		patchBytes = patchBytesFor(logicalCluster, func(workspace *corev1alpha1.LogicalCluster) {
 			workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(workspacetypes[initializer]), workspace.Status.Initializers)
 		})
 		_, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")

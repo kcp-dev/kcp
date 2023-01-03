@@ -126,7 +126,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		return nil
 	}
 
-	this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+	logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 	}
@@ -134,7 +134,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	// if the user has not provided any type, use the default from the parent workspace
 	empty := tenancyv1beta1.WorkspaceTypeReference{}
 	if ws.Spec.Type == empty {
-		typeAnnotation, found := this.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
+		typeAnnotation, found := logicalCluster.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
@@ -155,9 +155,9 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		}
 	}
 
-	thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
+	thisPath := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
 	if thisPath == "" {
-		thisPath = logicalcluster.From(this).Path().String()
+		thisPath = logicalcluster.From(logicalCluster).Path().String()
 	}
 
 	cwt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.WorkspaceTypeReference{
@@ -292,11 +292,11 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		}
 
 		// validate whether the workspace type is allowed in its parent, and the workspace type allows that parent
-		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+		logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
-		typeAnnotation, found := this.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
+		typeAnnotation, found := logicalCluster.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
