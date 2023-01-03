@@ -97,25 +97,28 @@
 /pkg/server/localproxy.go:137:4: function "Infof" should not be used, convert to contextual logging
 /pkg/server/localproxy.go:150:4: function "Infof" should not be used, convert to contextual logging
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:128:2: Additional arguments to Info should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:152:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:152:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:45:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:89:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:89:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
-/pkg/syncer/spec/spec_controller.go:163:16: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/spec/spec_controller.go:163:16: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
+/pkg/syncer/spec/spec_controller.go:182:15: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/spec/spec_controller.go:182:15: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:136:4: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
 /pkg/syncer/spec/spec_process.go:154:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
-/pkg/syncer/spec/spec_process.go:386:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
-/pkg/syncer/status/status_process.go:67:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/status/status_process.go:67:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
-/pkg/syncer/syncer.go:180:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
-/pkg/syncer/syncer.go:78:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetName provided with string value.
-/pkg/syncer/syncer.go:78:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetWorkspace provided with string value.
+/pkg/syncer/spec/spec_process.go:391:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/status/status_process.go:157:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
+/pkg/syncer/status/status_process.go:157:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
+/pkg/syncer/status/status_process.go:157:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
+/pkg/syncer/status/status_process.go:70:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/status/status_process.go:70:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
+/pkg/syncer/syncer.go:101:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetName provided with string value.
+/pkg/syncer/syncer.go:101:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetWorkspace provided with string value.
+/pkg/syncer/syncer.go:212:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
 /pkg/tunneler/dialer.go:148:8: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/dialer.go:148:8: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:157:3: function "Infof" should not be used, convert to contextual logging
