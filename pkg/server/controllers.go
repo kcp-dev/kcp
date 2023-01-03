@@ -1387,7 +1387,7 @@ func (s *Server) waitForOptionalSync(stop <-chan struct{}) error {
 	select {
 	case <-stop:
 		return errors.New("timed out waiting for optional informers to sync")
-	case <-s.syncedCh:
+	case <-s.syncedOptionalCh:
 		return nil
 	}
 }
