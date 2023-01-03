@@ -182,11 +182,6 @@ var (
 		// KCP Cache Server flags
 		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
 
-		// KCP Virtual Workspaces flags
-		"virtual-workspaces-workspaces.authorization-cache.jitter-factor", // Jitter factor for cache re-sync. Leave unset to use a default factor.
-		"virtual-workspaces-workspaces.authorization-cache.resync-period", // Period for cache re-sync.
-		"virtual-workspaces-workspaces.authorization-cache.sliding",       // Whether or not to take into account sync duration in period calculations.
-
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.
 		"goaway-chance",                        // To prevent HTTP/2 clients from getting stuck on a single apiserver, randomly close a connection (GOAWAY). The client's other in-flight requests won't be affected, and the client will reconnect, likely landing on a different apiserver after going through the load balancer again. This argument sets the fraction of requests that will be sent a GOAWAY. Clusters with single apiservers, or which don't use a load balancer, should NOT enable this. Min is 0 (off), Max is .02 (1/50 requests); .001 (1/1000) is a recommended starting point.

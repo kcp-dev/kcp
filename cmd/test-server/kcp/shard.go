@@ -105,7 +105,6 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 		"--audit-log-batch-throttle-enable=true",
 		"--audit-log-batch-throttle-qps=10",
 		"--audit-policy-file", filepath.Join(s.runtimeDir, "audit-policy.yaml"),
-		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 

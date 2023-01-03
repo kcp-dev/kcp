@@ -155,7 +155,4 @@
 /pkg/virtual/syncer/transformations/transformer.go:399:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
 /pkg/virtual/syncer/transformations/transformer.go:93:12: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetName provided with string value.
 /pkg/virtual/syncer/transformations/transformer.go:95:11: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/virtual/workspaces/builder/build.go:100:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/virtual/workspaces/builder/build.go:108:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/virtual/workspaces/builder/build.go:123:4: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/framework/config.go:42:2: function "InitFlags" should not be used, convert to contextual logging

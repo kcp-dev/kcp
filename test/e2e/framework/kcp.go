@@ -324,7 +324,6 @@ func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kc
 			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
 			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 			"--audit-log-path", filepath.Join(artifactDir, "kcp.audit"),
-			"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
