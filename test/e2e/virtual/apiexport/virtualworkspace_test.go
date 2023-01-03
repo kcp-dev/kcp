@@ -713,23 +713,35 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	}
 
 	t.Logf("verify that we get access denied for all claimed resources (other than apibindings and cowboys bindings) because the claims have not been accepted yet")
-	for _, gvr := range claimedGVRs {
-		t.Logf("Trying to wildcard list %q", gvr)
-		list, err := dynamicVWClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		if gvr.Resource == "cowboys" {
-			require.NoError(t, err, "error listing %q", gvr)
-		} else if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
-			require.NoError(t, err, "error listing %q", gvr)
-			// for this one we always see the reflexive objects
-			require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
-			for _, binding := range list.Items {
-				require.Equal(t, "cowboys", binding.GetName(), "expected binding name to be \"cowboys\"")
+	framework.Eventually(t, func() (bool, string) {
+		for _, gvr := range claimedGVRs {
+			list, err := dynamicVWClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+
+			if gvr.Resource == "cowboys" {
+				if err != nil {
+					return false, fmt.Sprintf("error listing %q", gvr)
+				}
+			} else if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
+				if err != nil {
+					return false, fmt.Sprintf("error listing %q", gvr)
+				}
+				// for this one we always see the reflexive objects
+				require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
+				for _, binding := range list.Items {
+					require.Equal(t, "cowboys", binding.GetName(), "expected binding name to be \"cowboys\"")
+				}
+			} else {
+				if err == nil {
+					return false, "expected error, got none"
+				}
+				if !strings.Contains(err.Error(), "access denied") {
+					return false, fmt.Sprintf("unexpected error: %v", err.Error())
+				}
 			}
-		} else {
-			require.Error(t, err, "error listing %q", gvr)
-			require.ErrorContains(t, err, `access denied`, "access must not be allowed to permission claims that are not accepted yet")
 		}
-	}
+
+		return true, "all good"
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("retrieving cowboys apibinding")
 	apiBinding, err := kcpClusterClient.Cluster(consumerClusterName.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
