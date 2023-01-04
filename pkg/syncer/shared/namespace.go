@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -104,4 +105,8 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 	// use 12 chars of the base36hash, should be enough to avoid collisions and
 	// keep the namespaces short enough.
 	return fmt.Sprintf("kcp-%s", base36hash[:12]), nil
+}
+
+func IsNamespace(gvr schema.GroupVersionResource) bool {
+	return gvr.Resource == "namespaces" && gvr.Group == "" && gvr.Version == "v1"
 }

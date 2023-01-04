@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,21 +31,21 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/informers"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 )
 
 var scheme *runtime.Scheme
@@ -295,6 +293,60 @@ func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 	}
 }
 
+var _ ddsif.GVRSource = (*mockedGVRSource)(nil)
+
+type mockedGVRSource struct {
+}
+
+func (s *mockedGVRSource) GVRs() map[schema.GroupVersionResource]ddsif.GVRPartialMetadata {
+	return map[schema.GroupVersionResource]ddsif.GVRPartialMetadata{
+		appsv1.SchemeGroupVersion.WithResource("deployments"): {
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "deployment",
+				Kind:     "Deployment",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "namespaces",
+		}: {
+			Scope: apiextensionsv1.ClusterScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "namespace",
+				Kind:     "Namespace",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "configmaps",
+		}: {
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "configmap",
+				Kind:     "ConfigMap",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "secrets",
+		}: {
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "secret",
+				Kind:     "Secret",
+			},
+		},
+	}
+}
+
+func (s *mockedGVRSource) Ready() bool {
+	return true
+}
+
+func (s *mockedGVRSource) Subscribe() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 func TestStatusSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -539,31 +591,80 @@ func TestStatusSyncerProcess(t *testing.T) {
 			toClusterClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, tc.toResources...)
 
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetClusterName, tc.syncTargetName)
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-			})
-			toInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(toClusterClient, time.Hour, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-			})
 
-			setupServersideApplyPatchReactor(toClusterClient)
-			fromClientResourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
-			toClientResourceWatcherStarted := setupClusterWatchReactor(tc.gvr.Resource, toClusterClient)
-
-			fakeInformers := newFakeSyncerInformers(tc.gvr, toInformers, fromInformers)
-			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, fromInformers, fakeInformers, tc.syncTargetUID)
+			ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(toClusterClient, nil, nil, &mockedGVRSource{}, cache.Indexers{})
 			require.NoError(t, err)
 
-			toInformers.ForResource(tc.gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})
+			ddsifForDownstream, err := ddsif.NewScopedDiscoveringDynamicSharedInformerFactory(fromClient, nil,
+				func(o *metav1.ListOptions) {
+					o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
+				},
+				&mockedGVRSource{},
+				cache.Indexers{
+					indexers.ByNamespaceLocatorIndexName: indexers.IndexByNamespaceLocator,
+				},
+			)
+			require.NoError(t, err)
 
-			fromInformers.Start(ctx.Done())
-			toInformers.Start(ctx.Done())
+			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
+			for _, alwaysRequired := range []string{"secrets", "namespaces"} {
+				if informer, err := ddsifForUpstreamSyncer.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
+					require.NoError(t, err)
+				} else {
+					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+				}
+				if informer, err := ddsifForDownstream.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
+					require.NoError(t, err)
+				} else {
+					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+				}
+			}
 
-			fromInformers.WaitForCacheSync(ctx.Done())
-			toInformers.WaitForCacheSync(ctx.Done())
+			setupServersideApplyPatchReactor(toClusterClient)
+			fromClientResourceWatcherStarted := setupWatchReactor(t, tc.gvr.Resource, fromClient)
+			toClientResourceWatcherStarted := setupClusterWatchReactor(t, tc.gvr.Resource, toClusterClient)
+
+			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, ddsifForUpstreamSyncer, ddsifForDownstream, tc.syncTargetUID)
+			require.NoError(t, err)
+
+			gvrsUpdated := make(chan struct{})
+			upstreamSyncerDDSIFUpdated := ddsifForDownstream.Subscribe("upstreamSyncer")
+			downstreamDDSIFUpdated := ddsifForDownstream.Subscribe("downstream")
+			go func() {
+				<-upstreamSyncerDDSIFUpdated
+				t.Logf("%s: upstream ddsif synced", t.Name())
+				<-downstreamDDSIFUpdated
+				t.Logf("%s: downstream ddsif synced", t.Name())
+
+				_, unsynced := ddsifForUpstreamSyncer.Listers()
+				for _, gvr := range unsynced {
+					informer, _ := ddsifForUpstreamSyncer.ForResource(gvr)
+					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
+					t.Logf("%s: upstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
+				}
+				_, unsynced = ddsifForDownstream.Listers()
+				for _, gvr := range unsynced {
+					informer, _ := ddsifForDownstream.ForResource(gvr)
+					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
+					t.Logf("%s: downstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
+				}
+				t.Logf("%s: gvrs updated", t.Name())
+				gvrsUpdated <- struct{}{}
+			}()
+
+			ddsifForUpstreamSyncer.Start(ctx.Done())
+			ddsifForDownstream.Start(ctx.Done())
+
+			go ddsifForUpstreamSyncer.StartWorker(ctx)
+			go ddsifForDownstream.StartWorker(ctx)
 
 			<-fromClientResourceWatcherStarted
 			<-toClientResourceWatcherStarted
+
+			cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
+			t.Logf("%s: informers synced for always required GVRs", t.Name())
+
+			<-gvrsUpdated
 
 			fromClient.ClearActions()
 			toClusterClient.ClearActions()
@@ -598,7 +699,8 @@ func setupServersideApplyPatchReactor(toClient *kcpfakedynamic.FakeDynamicCluste
 	})
 }
 
-func setupWatchReactor(resource string, client *dynamicfake.FakeDynamicClient) chan struct{} {
+func setupWatchReactor(t *testing.T, resource string, client *dynamicfake.FakeDynamicClient) chan struct{} {
+	t.Helper()
 	watcherStarted := make(chan struct{})
 	client.PrependWatchReactor(resource, func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
@@ -607,13 +709,15 @@ func setupWatchReactor(resource string, client *dynamicfake.FakeDynamicClient) c
 		if err != nil {
 			return false, nil, err
 		}
+		t.Logf("%s: watcher started", t.Name())
 		close(watcherStarted)
 		return true, watch, nil
 	})
 	return watcherStarted
 }
 
-func setupClusterWatchReactor(resource string, client *kcpfakedynamic.FakeDynamicClusterClientset) chan struct{} {
+func setupClusterWatchReactor(t *testing.T, resource string, client *kcpfakedynamic.FakeDynamicClusterClientset) chan struct{} {
+	t.Helper()
 	watcherStarted := make(chan struct{})
 	client.PrependWatchReactor(resource, func(action kcptesting.Action) (bool, watch.Interface, error) {
 		cluster := action.GetCluster()
@@ -627,6 +731,7 @@ func setupClusterWatchReactor(resource string, client *kcpfakedynamic.FakeDynami
 		default:
 			watcher, err = client.Tracker().Cluster(cluster).Watch(gvr, ns)
 		}
+		t.Logf("%s: cluster watcher started", t.Name())
 		close(watcherStarted)
 		return true, watcher, err
 	})
@@ -723,30 +828,3 @@ func updateDeploymentAction(namespace string, object runtime.Object, subresource
 		Object:     object,
 	}
 }
-
-type fakeSyncerInformers struct {
-	upstreamInformer   kcpkubernetesinformers.GenericClusterInformer
-	downStreamInformer informers.GenericInformer
-}
-
-func newFakeSyncerInformers(gvr schema.GroupVersionResource, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downStreamInformers dynamicinformer.DynamicSharedInformerFactory) *fakeSyncerInformers {
-	return &fakeSyncerInformers{
-		upstreamInformer:   upstreamInformers.ForResource(gvr),
-		downStreamInformer: downStreamInformers.ForResource(gvr),
-	}
-}
-
-func (f *fakeSyncerInformers) AddUpstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
-}
-func (f *fakeSyncerInformers) AddDownstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
-}
-func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResource) (*resourcesync.SyncerInformer, bool) {
-	return &resourcesync.SyncerInformer{
-		UpstreamInformer:   f.upstreamInformer,
-		DownstreamInformer: f.downStreamInformer,
-	}, true
-}
-func (f *fakeSyncerInformers) SyncableGVRs() (map[schema.GroupVersionResource]*resourcesync.SyncerInformer, error) {
-	return map[schema.GroupVersionResource]*resourcesync.SyncerInformer{{Group: "apps", Version: "v1", Resource: "deployments"}: nil}, nil
-}
-func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

@@ -22,27 +22,30 @@ import (
 	"net/url"
 	"time"
 
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
@@ -86,10 +89,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetPath)
+	kcpSyncTargetClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetPath)
 
-	// kcpInformerFactory to watch a certain syncTarget
-	kcpInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod, kcpinformers.WithTweakListOptions(
+	// kcpSyncTargetInformerFactory to watch a certain syncTarget
+	kcpSyncTargetInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpSyncTargetClient, resyncPeriod, kcpinformers.WithTweakListOptions(
 		func(listOptions *metav1.ListOptions) {
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.SyncTargetName).String()
 		},
@@ -107,7 +110,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	var syncTarget *workloadv1alpha1.SyncTarget
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		var err error
-		syncTarget, err = kcpBootstrapClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+		syncTarget, err = kcpSyncTargetClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -153,10 +156,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// kcpImporterInformerFactory only used for apiimport to watch APIResourceImport
 	// TODO(qiujian16) make starting apiimporter optional after we check compatibility of supported APIExports
 	// of synctarget in syncer rather than in server.
-	kcpImporterInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod)
+	kcpImporterInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpSyncTargetClient, resyncPeriod)
 	apiImporter, err := NewAPIImporter(
 		cfg.UpstreamConfig, cfg.DownstreamConfig,
-		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
+		kcpSyncTargetInformerFactory.Workload().V1alpha1().SyncTargets(),
 		kcpImporterInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		resources,
 		cfg.SyncTargetPath, cfg.SyncTargetName, syncTarget.GetUID())
@@ -180,32 +183,43 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger = logger.WithValues(SyncTargetKey, syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
-	upstreamInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient, resyncPeriod, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-	})
-	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(downstreamDynamicClient, resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	})
+	// syncerNamespaceInformerFactory to watch some DNS-related resources in the dns namespace
+	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 
-	// downstreamInformerFactory to watch some DNS-related resources in the dns namespace
-	downstreamInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
-	serviceAccountLister := downstreamInformerFactory.Core().V1().ServiceAccounts().Lister()
-	roleLister := downstreamInformerFactory.Rbac().V1().Roles().Lister()
-	roleBindingLister := downstreamInformerFactory.Rbac().V1().RoleBindings().Lister()
-	deploymentLister := downstreamInformerFactory.Apps().V1().Deployments().Lister()
-	serviceLister := downstreamInformerFactory.Core().V1().Services().Lister()
-	endpointLister := downstreamInformerFactory.Core().V1().Endpoints().Lister()
+	discoveryClient, err := kcpdiscovery.NewForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
 
-	syncerInformers, err := resourcesync.NewController(
+	resourceController, err := resourcesync.NewController(
 		logger,
+		discoveryClient.DiscoveryInterface,
 		upstreamDynamicClusterClient,
 		downstreamDynamicClient,
 		downstreamKubeClient,
-		kcpBootstrapClient,
-		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
+		kcpSyncTargetClient,
+		kcpSyncTargetInformerFactory.Workload().V1alpha1().SyncTargets(),
 		cfg.SyncTargetName,
 		logicalcluster.From(syncTarget),
 		syncTarget.GetUID(),
+	)
+	if err != nil {
+		return err
+	}
+
+	ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamDynamicClusterClient, nil, nil, resourceController, cache.Indexers{})
+	if err != nil {
+		return err
+	}
+
+	ddsifForDownstream, err := ddsif.NewScopedDiscoveringDynamicSharedInformerFactory(downstreamDynamicClient, nil,
+		func(o *metav1.ListOptions) {
+			o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
+		},
+		resourceController,
+		cache.Indexers{
+			indexers.ByNamespaceLocatorIndexName: indexers.IndexByNamespaceLocator,
+		},
 	)
 	if err != nil {
 		return err
@@ -224,37 +238,54 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, ddsifForUpstreamSyncer, ddsifForDownstream, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
 	if err != nil {
 		return err
 	}
 
 	specSyncer, err := spec.NewSpecSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(),
-		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, syncerNamespace, cfg.DNSImage)
+		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, downstreamNamespaceController, syncTarget.GetUID(),
+		syncerNamespace, syncerNamespaceInformerFactory, cfg.DNSImage)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamInformers, syncerInformers, syncTarget.GetUID())
+		upstreamDynamicClusterClient, downstreamDynamicClient, ddsifForUpstreamSyncer, ddsifForDownstream, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
-	upstreamInformers.Start(ctx.Done())
-	downstreamInformers.Start(ctx.Done())
-	kcpInformerFactory.Start(ctx.Done())
-	downstreamInformerFactory.Start(ctx.Done())
+	var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
+	for _, alwaysRequired := range []string{"secrets", "namespaces"} {
+		gvr := corev1.SchemeGroupVersion.WithResource(alwaysRequired)
+		if informer, err := ddsifForUpstreamSyncer.ForResource(gvr); err != nil {
+			return err
+		} else {
+			cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+		}
+		if informer, err := ddsifForDownstream.ForResource(gvr); err != nil {
+			return err
+		} else {
+			cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+		}
+	}
+	ddsifForUpstreamSyncer.Start(ctx.Done())
+	ddsifForDownstream.Start(ctx.Done())
 
-	upstreamInformers.WaitForCacheSync(ctx.Done())
-	downstreamInformers.WaitForCacheSync(ctx.Done())
-	kcpInformerFactory.WaitForCacheSync(ctx.Done())
-	downstreamInformerFactory.WaitForCacheSync(ctx.Done())
+	kcpSyncTargetInformerFactory.Start(ctx.Done())
+	syncerNamespaceInformerFactory.Start(ctx.Done())
+
+	kcpSyncTargetInformerFactory.WaitForCacheSync(ctx.Done())
+	syncerNamespaceInformerFactory.WaitForCacheSync(ctx.Done())
+	cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
+
+	go ddsifForUpstreamSyncer.StartWorker(ctx)
+	go ddsifForDownstream.StartWorker(ctx)
 
 	go apiImporter.Start(klog.NewContext(ctx, logger.WithValues("resources", resources)), importPollInterval)
-	go syncerInformers.Start(ctx, 1)
+	go resourceController.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
@@ -272,7 +303,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, cfg.SyncTargetUID, time.Now().Format(time.RFC3339)))
-			syncTarget, err = kcpBootstrapClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			syncTarget, err = kcpSyncTargetClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				logger.Error(err, "failed to set status.lastSyncerHeartbeatTime")
 				return false, nil //nolint:nilerr

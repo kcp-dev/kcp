@@ -18,12 +18,12 @@ package namespace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,15 +36,15 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 )
 
 const (
@@ -80,11 +80,10 @@ func NewDownstreamController(
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
-	syncerInformers resourcesync.SyncerInformerFactory,
 	downstreamConfig *rest.Config,
 	downstreamClient dynamic.Interface,
-	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
-	downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
+	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
+	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	dnsNamespace string,
 	namespaceCleanDelay time.Duration,
 ) (*DownstreamController, error) {
@@ -100,29 +99,45 @@ func NewDownstreamController(
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
-			_, err := upstreamInformers.ForResource(namespaceGVR).Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
+			lister, known, synced := ddsifForUpstreamSyncer.Lister(namespaceGVR)
+			if !known || !synced {
+				return false, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
+			}
+			_, err := lister.ByCluster(clusterName).Get(upstreamNamespaceName)
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
-			return !apierrors.IsNotFound(err), err
-		},
-		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
-			return downstreamInformers.ForResource(namespaceGVR).Lister().Get(downstreamNamespaceName)
-		},
-		listDownstreamNamespaces: func() ([]runtime.Object, error) {
-			return downstreamInformers.ForResource(namespaceGVR).Lister().List(labels.Everything())
-		},
-		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
-			gvrs, err := syncerInformers.SyncableGVRs()
 			if err != nil {
 				return false, err
 			}
-			for k, v := range gvrs {
+			return true, nil
+		},
+		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
+			lister, known, synced := ddsifForDownstream.Lister(namespaceGVR)
+			if !known || !synced {
+				return nil, errors.New("informer should be up and synced for namespaces in the downstream informer factory")
+			}
+			return lister.Get(downstreamNamespaceName)
+		},
+		listDownstreamNamespaces: func() ([]runtime.Object, error) {
+			lister, known, synced := ddsifForDownstream.Lister(namespaceGVR)
+			if !known || !synced {
+				return nil, errors.New("informer should be up and synced for namespaces in the downstream informer factory")
+			}
+			return lister.List(labels.Everything())
+		},
+		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
+			listers, notSynced := ddsifForDownstream.Listers()
+			if len(notSynced) > 0 {
+				return false, fmt.Errorf("some informers are still not synced in the downstream informer factory")
+			}
+
+			for gvr, lister := range listers {
 				// Skip namespaces.
-				if k.Group == "" && k.Version == "v1" && k.Resource == "namespaces" {
+				if gvr.Group == "" && gvr.Version == "v1" && gvr.Resource == "namespaces" {
 					continue
 				}
-				list, err := v.DownstreamInformer.Lister().ByNamespace(namespace).List(labels.Everything())
+				list, err := lister.ByNamespace(namespace).List(labels.Everything())
 				if err != nil {
 					return false, err
 				}
@@ -152,15 +167,18 @@ func NewDownstreamController(
 
 	// Those handlers are for start/resync cases, in case a namespace deletion event is missed, these handlers
 	// will make sure that we cleanup the namespace in downstream after restart/resync.
-	downstreamInformers.ForResource(namespaceGVR).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.AddToQueue(obj, logger)
+	ddsifForDownstream.AddEventHandler(ddsif.GVREventHandlerFuncs{
+		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			if gvr == namespaceGVR {
+				c.AddToQueue(obj, logger)
+			}
 		},
-		DeleteFunc: func(obj interface{}) {
-			c.AddToQueue(obj, logger)
+		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			if gvr == namespaceGVR {
+				c.AddToQueue(obj, logger)
+			}
 		},
 	})
-
 	return &c, nil
 }
 

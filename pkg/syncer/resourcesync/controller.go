@@ -26,13 +26,12 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,9 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -55,6 +54,7 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -63,47 +63,35 @@ const (
 	controllerName = "kcp-syncer-resourcesync-controller"
 )
 
-type SyncerInformer struct {
-	UpstreamInformer   kcpkubernetesinformers.GenericClusterInformer
-	DownstreamInformer informers.GenericInformer
-	cancel             context.CancelFunc
-}
-
-type SyncerInformerFactory interface {
-	AddUpstreamEventHandler(handler ResourceEventHandlerPerGVR)
-	AddDownstreamEventHandler(handler ResourceEventHandlerPerGVR)
-	InformerForResource(gvr schema.GroupVersionResource) (*SyncerInformer, bool)
-	SyncableGVRs() (map[schema.GroupVersionResource]*SyncerInformer, error)
-	Start(ctx context.Context, numThreads int)
-}
-
-type ResourceEventHandlerPerGVR func(schema.GroupVersionResource) cache.ResourceEventHandler
+var _ informer.GVRSource = (*Controller)(nil)
 
 // controller is a control loop that watches synctarget. It starts/stops spec syncer and status syncer
 // per gvr based on synctarget.Status.SyncedResources.
 // All the spec/status syncer share the same downstreamNSInformer and upstreamSecretInformer. Informers
 // for gvr is started separated for each syncer.
 type Controller struct {
-	queue                        workqueue.RateLimitingInterface
-	upstreamDynamicClusterClient kcpdynamic.ClusterInterface
-	downstreamDynamicClient      dynamic.Interface
-	downstreamKubeClient         kubernetes.Interface
+	queue                workqueue.RateLimitingInterface
+	downstreamKubeClient kubernetes.Interface
 
-	upstreamEventHandlers   []ResourceEventHandlerPerGVR
-	downstreamEventHandlers []ResourceEventHandlerPerGVR
+	cachedDiscovery discovery.CachedDiscoveryInterface
 
-	syncTargetName        string
-	syncTargetClusterName logicalcluster.Name
-	syncTargetUID         types.UID
-	syncTargetLister      workloadv1alpha1listers.SyncTargetLister
-	kcpClient             clientset.Interface
+	syncTargetUID               types.UID
+	syncTargetLister            workloadv1alpha1listers.SyncTargetLister
+	synctargetInformerCacheSync cache.InformerSynced
+	kcpClient                   clientset.Interface
 
-	syncerInformerMap map[schema.GroupVersionResource]*SyncerInformer
-	mutex             sync.RWMutex
+	gvrs map[schema.GroupVersionResource]informer.GVRPartialMetadata
+
+	mutex sync.RWMutex
+
+	// Support subscribers that want to know when Synced GVRs have changed.
+	subscribersLock sync.Mutex
+	subscribers     []chan<- struct{}
 }
 
 func NewController(
 	syncerLogger logr.Logger,
+	discoveryClient discovery.DiscoveryInterface,
 	upstreamDynamicClusterClient kcpdynamic.ClusterInterface,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
@@ -112,20 +100,16 @@ func NewController(
 	syncTargetName string,
 	syncTargetClusterName logicalcluster.Name,
 	syncTargetUID types.UID,
-) (SyncerInformerFactory, error) {
+) (*Controller, error) {
 	c := &Controller{
-		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		upstreamDynamicClusterClient: upstreamDynamicClusterClient,
-		downstreamDynamicClient:      downstreamDynamicClient,
-		downstreamKubeClient:         downstreamKubeClient,
-		kcpClient:                    kcpClient,
-		upstreamEventHandlers:        []ResourceEventHandlerPerGVR{},
-		downstreamEventHandlers:      []ResourceEventHandlerPerGVR{},
-		syncerInformerMap:            map[schema.GroupVersionResource]*SyncerInformer{},
-		syncTargetName:               syncTargetName,
-		syncTargetClusterName:        syncTargetClusterName,
-		syncTargetUID:                syncTargetUID,
-		syncTargetLister:             syncTargetInformer.Lister(),
+		queue:                       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		cachedDiscovery:             memory.NewMemCacheClient(discoveryClient),
+		downstreamKubeClient:        downstreamKubeClient,
+		kcpClient:                   kcpClient,
+		syncTargetUID:               syncTargetUID,
+		syncTargetLister:            syncTargetInformer.Lister(),
+		synctargetInformerCacheSync: syncTargetInformer.Informer().HasSynced,
+		gvrs:                        map[schema.GroupVersionResource]informer.GVRPartialMetadata{},
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
@@ -181,30 +165,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	<-ctx.Done()
 }
 
-func (c *Controller) AddUpstreamEventHandler(handler ResourceEventHandlerPerGVR) {
-	c.upstreamEventHandlers = append(c.upstreamEventHandlers, handler)
-}
-
-func (c *Controller) AddDownstreamEventHandler(handler ResourceEventHandlerPerGVR) {
-	c.downstreamEventHandlers = append(c.downstreamEventHandlers, handler)
-}
-
-func (c *Controller) InformerForResource(gvr schema.GroupVersionResource) (*SyncerInformer, bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	if informer, ok := c.syncerInformerMap[gvr]; ok {
-		return informer, true
-	}
-
-	return nil, false
-}
-
-func (c *Controller) SyncableGVRs() (map[schema.GroupVersionResource]*SyncerInformer, error) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return c.syncerInformerMap, nil
-}
-
 func (c *Controller) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
@@ -247,8 +207,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	syncTarget, err := c.syncTargetLister.Get(name)
 	if apierrors.IsNotFound(err) {
-		c.stopUnusedSyncerInformers(ctx, map[schema.GroupVersionResource]bool{})
-		return nil
+		return c.removeUnusedGVRs(ctx, map[schema.GroupVersionResource]bool{})
 	}
 
 	if err != nil {
@@ -260,6 +219,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 
 	requiredGVRs := getAllGVRs(syncTarget)
+
+	c.cachedDiscovery.Invalidate()
 
 	var errs []error
 	var unauthorizedGVRs []string
@@ -282,10 +243,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			continue
 		}
 
-		c.startSyncerInformer(ctx, gvr, syncTarget)
+		if err := c.addGVR(ctx, gvr, syncTarget); err != nil {
+			return err
+		}
 	}
 
-	c.stopUnusedSyncerInformers(ctx, requiredGVRs)
+	if err := c.removeUnusedGVRs(ctx, requiredGVRs); err != nil {
+		return err
+	}
 
 	newSyncTarget := syncTarget.DeepCopy()
 
@@ -365,79 +330,163 @@ func (c *Controller) checkSSAR(ctx context.Context, gvr schema.GroupVersionResou
 	return sar.Status.Allowed, nil
 }
 
-// stopUnusedSyncerInformers stop syncers for gvrs not in requiredGVRs.
-func (c *Controller) stopUnusedSyncerInformers(ctx context.Context, requiredGVRs map[schema.GroupVersionResource]bool) {
+// removeUnusedGVRs stop syncers for gvrs not in requiredGVRs.
+func (c *Controller) removeUnusedGVRs(ctx context.Context, requiredGVRs map[schema.GroupVersionResource]bool) error {
 	logger := klog.FromContext(ctx)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for gvr, informer := range c.syncerInformerMap {
+	updated := false
+	for gvr := range c.gvrs {
 		if _, ok := requiredGVRs[gvr]; !ok {
 			logger.WithValues("gvr", gvr.String()).V(2).Info("Stop syncer for gvr")
-			informer.cancel()
-			delete(c.syncerInformerMap, gvr)
+			delete(c.gvrs, gvr)
+			updated = true
+		}
+	}
+
+	if updated {
+		c.notifySubscribers(ctx)
+	}
+	return nil
+}
+
+func (c *Controller) GVRs() map[schema.GroupVersionResource]informer.GVRPartialMetadata {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	gvrs := make(map[schema.GroupVersionResource]informer.GVRPartialMetadata, len(c.gvrs)+len(builtinGVRs)+1)
+	gvrs[corev1.SchemeGroupVersion.WithResource("namespaces")] = informer.GVRPartialMetadata{
+		Scope: apiextensionsv1.ClusterScoped,
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Singular: "namespace",
+			Kind:     "Namespace",
+		},
+	}
+	for key, value := range builtinGVRs {
+		gvrs[key] = value
+	}
+	for key, value := range c.gvrs {
+		gvrs[key] = value
+	}
+	return gvrs
+}
+
+func (c *Controller) getGVRPartialMetadata(gvr schema.GroupVersionResource) (*informer.GVRPartialMetadata, error) {
+	apiResourceList, err := c.cachedDiscovery.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	if err != nil {
+		return nil, err
+	}
+	for _, apiResource := range apiResourceList.APIResources {
+		if apiResource.Name == gvr.Resource {
+			var resourceScope apiextensionsv1.ResourceScope
+			if apiResource.Namespaced {
+				resourceScope = apiextensionsv1.NamespaceScoped
+			} else {
+				resourceScope = apiextensionsv1.ClusterScoped
+			}
+
+			return &informer.GVRPartialMetadata{
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Kind:     apiResource.Kind,
+						Singular: apiResource.SingularName,
+					},
+					Scope: resourceScope,
+				},
+				nil
+		}
+	}
+	return nil, fmt.Errorf("unable to retrieve discovery for GVR: %s", gvr)
+}
+
+func (c *Controller) Ready() bool {
+	return c.synctargetInformerCacheSync()
+}
+
+func (c *Controller) Subscribe() <-chan struct{} {
+	c.subscribersLock.Lock()
+	defer c.subscribersLock.Unlock()
+
+	// Use a buffered channel so we can always send at least 1, regardless of consumer status.
+	changes := make(chan struct{}, 1)
+	c.subscribers = append(c.subscribers, changes)
+
+	return changes
+}
+
+func (c *Controller) notifySubscribers(ctx context.Context) {
+	logger := klog.FromContext(ctx)
+
+	c.subscribersLock.Lock()
+	defer c.subscribersLock.Unlock()
+
+	for index, ch := range c.subscribers {
+		logger.V(4).Info("Attempting to notify subscribers", "index", index)
+		select {
+		case ch <- struct{}{}:
+			logger.V(4).Info("Successfully notified subscriber", "index", index)
+		default:
+			logger.V(4).Info("Unable to notify subscriber - channel full", "index", index)
 		}
 	}
 }
 
-func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVersionResource, syncTarget *workloadv1alpha1.SyncTarget) {
+func (c *Controller) addGVR(ctx context.Context, gvr schema.GroupVersionResource, syncTarget *workloadv1alpha1.SyncTarget) error {
 	logger := klog.FromContext(ctx)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if _, ok := c.syncerInformerMap[gvr]; ok {
+	if _, ok := c.gvrs[gvr]; ok {
 		logger.V(2).Info("Informer is started already")
-		return
+		return nil
 	}
 
-	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(c.syncTargetClusterName, c.syncTargetName)
-
-	upstreamInformer := kcpdynamicinformer.NewFilteredDynamicInformer(c.upstreamDynamicClusterClient, gvr, resyncPeriod, cache.Indexers{
-		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
-		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc}, func(o *metav1.ListOptions) {},
-	)
-	downstreamInformer := dynamicinformer.NewFilteredDynamicInformer(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	})
-
-	for _, handler := range c.upstreamEventHandlers {
-		upstreamInformer.Informer().AddEventHandler(handler(gvr))
+	partialMetadata, err := c.getGVRPartialMetadata(gvr)
+	if err != nil {
+		return err
 	}
 
-	for _, handler := range c.downstreamEventHandlers {
-		downstreamInformer.Informer().AddEventHandler(handler(gvr))
-	}
+	c.gvrs[gvr] = *partialMetadata
 
-	logger.V(2).Info("Start informer for gvr")
-	syncerCtx, cancel := context.WithCancel(ctx)
+	c.notifySubscribers(ctx)
+	return nil
+}
 
-	go downstreamInformer.Informer().Run(syncerCtx.Done())
-	go upstreamInformer.Informer().Run(syncerCtx.Done())
-
-	c.syncerInformerMap[gvr] = &SyncerInformer{
-		cancel:             cancel,
-		UpstreamInformer:   upstreamInformer,
-		DownstreamInformer: downstreamInformer,
-	}
+var builtinGVRs = map[schema.GroupVersionResource]informer.GVRPartialMetadata{
+	{
+		Version:  "v1",
+		Resource: "configmaps",
+	}: {
+		Scope: apiextensionsv1.NamespaceScoped,
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Singular: "configMap",
+			Kind:     "configmap",
+		},
+	},
+	{
+		Version:  "v1",
+		Resource: "secrets",
+	}: {
+		Scope: apiextensionsv1.NamespaceScoped,
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Singular: "secret",
+			Kind:     "Secret",
+		},
+	},
 }
 
 func getAllGVRs(synctarget *workloadv1alpha1.SyncTarget) map[schema.GroupVersionResource]bool {
 	// TODO(jmprusi): Added Configmaps and Secrets to the default syncing, but we should figure out
 	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
-	gvrs := map[schema.GroupVersionResource]bool{
-		{
-			Version:  "v1",
-			Resource: "configmaps",
-		}: true,
-		{
-			Version:  "v1",
-			Resource: "secrets",
-		}: true,
+	gvrs := map[schema.GroupVersionResource]bool{}
+
+	for gvr := range builtinGVRs {
+		gvrs[gvr] = true
 	}
 
-	// TODO(qiujian16) We currently checks the API compaibility on the server side. When we change to check the
+	// TODO(qiujian16) We currently checks the API compatibility on the server side. When we change to check the
 	// compatibility on the syncer side, this part needs to be changed.
 	for _, r := range synctarget.Status.SyncedResources {
 		if r.State != workloadv1alpha1.ResourceSchemaAcceptedState {

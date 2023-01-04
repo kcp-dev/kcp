@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -31,27 +32,31 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
 	controllerName = "kcp-workload-syncer-status"
 )
 
+var namespaceGVR schema.GroupVersionResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	upstreamClient            kcpdynamic.ClusterInterface
-	downstreamClient          dynamic.Interface
-	downstreamNamespaceLister cache.GenericLister
+	upstreamClient   kcpdynamic.ClusterInterface
+	downstreamClient dynamic.Interface
 
-	syncerInformers           resourcesync.SyncerInformerFactory
+	getUpstreamLister   func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getDownstreamLister func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
+
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
@@ -60,15 +65,37 @@ type Controller struct {
 }
 
 func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
-	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface,
+	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
+	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
+	syncTargetUID types.UID) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:            upstreamClient,
-		downstreamClient:          downstreamClient,
-		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
+		upstreamClient:   upstreamClient,
+		downstreamClient: downstreamClient,
 
-		syncerInformers:           syncerInformers,
+		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			lister, known, synced := ddsifForDownstream.Lister(gvr)
+			if !known {
+				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+			}
+			if !synced {
+				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+			}
+			return lister, nil
+		},
+		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
+			lister, known, synced := ddsifForUpstreamSyncer.Lister(gvr)
+			if !known {
+				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+			}
+			if !synced {
+				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+			}
+			return lister, nil
+		},
+
 		syncTargetName:            syncTargetName,
 		syncTargetWorkspace:       syncTargetClusterName,
 		syncTargetUID:             syncTargetUID,
@@ -78,25 +105,31 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
-	syncerInformers.AddDownstreamEventHandler(
-		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
-			logger.V(2).Info("Set up downstream informer", "gvr", gvr.String())
-			return cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					c.AddToQueue(gvr, obj, logger)
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					oldUnstrob := oldObj.(*unstructured.Unstructured)
-					newUnstrob := newObj.(*unstructured.Unstructured)
+	ddsifForDownstream.AddEventHandler(
+		ddsif.GVREventHandlerFuncs{
+			AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+				if shared.IsNamespace(gvr) {
+					return
+				}
+				c.AddToQueue(gvr, obj, logger)
+			},
+			UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
+				if shared.IsNamespace(gvr) {
+					return
+				}
+				oldUnstrob := oldObj.(*unstructured.Unstructured)
+				newUnstrob := newObj.(*unstructured.Unstructured)
 
-					if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
-						c.AddToQueue(gvr, newUnstrob, logger)
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					c.AddToQueue(gvr, obj, logger)
-				},
-			}
+				if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
+					c.AddToQueue(gvr, newUnstrob, logger)
+				}
+			},
+			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+				if shared.IsNamespace(gvr) {
+					return
+				}
+				c.AddToQueue(gvr, obj, logger)
+			},
 		})
 
 	return c, nil
