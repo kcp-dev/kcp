@@ -16,24 +16,11 @@ jobs:
     if: github.repository_owner == 'kcp-dev'
     name: Build KCP Image
     runs-on: ubuntu-latest
-    outputs:
-      sha_short: ${{ env.sha_short }}
-    strategy:
-      matrix:
-        platforms:
-        - linux/amd64
-        - linux/arm64
-        - linux/ppc64le
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: v1.19
-
-      - name: Get the short sha
-        id: vars
-        run: |
-          echo "sha_short=$(echo ${{ github.sha }} | cut -b -7)" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -57,17 +44,17 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
-            type=raw,value=${{ env.sha_short }}
+            type=sha,prefix=,suffix=,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push ${{ matrix.platform }}
+      - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: ${{ matrix.platform }}
-          cache-from: type=gha,scope=$GITHUB_REF_NAME-{{ matrix.platform }}
-          cache-to: type=gha,scope=$GITHUB_REF_NAME-{{ matrix.platform }},mode=max
+          platforms: linux/amd64,linux/arm64,linux/ppc64le
+          cache-from: type=gha,scope=${{ github.ref_name }}-buildx
+          cache-to: type=gha,scope=${{ github.ref_name }}-buildx,mode=max
 
