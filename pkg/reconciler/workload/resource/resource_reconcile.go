@@ -47,6 +47,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
 
+	if isUpSynced(obj.GetLabels()) {
+		logger.V(4).Info("resource is in Upsync mode; ignoring")
+		return nil
+	}
+
 	// if the resource is a namespace, let's return early. nothing to do.
 	namespaceGVR := &schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	if gvr == namespaceGVR {
@@ -299,4 +304,15 @@ func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
 		c.enqueueResource(gvr, obj)
 	}
 	return nil
+}
+
+// isUpSynced returns true if the labels of the resource contain at least
+// one `ResourceState` label with the `Upsync` value.
+func isUpSynced(labels map[string]string) bool {
+	for k, v := range labels {
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateUpsync) {
+			return true
+		}
+	}
+	return false
 }
