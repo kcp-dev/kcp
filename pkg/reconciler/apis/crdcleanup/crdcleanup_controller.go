@@ -44,9 +44,10 @@ import (
 )
 
 const (
-	ControllerName = "kcp-crdcleanup"
-
+	ControllerName                 = "kcp-crdcleanup"
 	DefaultIdentitySecretNamespace = "kcp-system"
+
+	AgeThreshold time.Duration = time.Minute * 30
 )
 
 // NewController returns a new controller for CRD cleanup
@@ -248,9 +249,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	age := time.Since(obj.CreationTimestamp.Time)
 
-	ageThreshold := time.Second * 10
-	if age < ageThreshold {
-		duration := ageThreshold - age
+	if age < AgeThreshold {
+		duration := AgeThreshold - age
 		logger.V(4).Info("Requeueing until CRD is older to give some time for the bindings to complete initialization", "duration", duration)
 		c.queue.AddAfter(key, duration)
 		return nil

@@ -23,10 +23,8 @@ import (
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,7 +60,6 @@ func TestAPIBindingDeletion(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err, "failed to construct crd cluster client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -160,8 +157,6 @@ func TestAPIBindingDeletion(t *testing.T) {
 	}
 	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
-
-	apiBindingCopy, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err, "error getting apibinding in consumer workspace %q", consumerWorkspace)
 
 	err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Delete(ctx, apiBinding.Name, metav1.DeleteOptions{})
@@ -238,13 +233,6 @@ func TestAPIBindingDeletion(t *testing.T) {
 	t.Logf("apibinding should be deleted")
 	require.Eventually(t, func() bool {
 		_, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-		return apierrors.IsNotFound(err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-
-	crdName := apiBindingCopy.Status.BoundResources[0].Schema.UID
-	t.Logf("shadow CRD %s should be deleted", crdName)
-	require.Eventually(t, func() bool {
-		_, err := crdClusterClient.Cluster(logicalcluster.NewPath("system:bound-crds")).ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
