@@ -73,18 +73,14 @@ type GVRSource interface {
 	// GVRs returns the required metadata about all GVRs known by the GVRSource
 	GVRs() map[schema.GroupVersionResource]GVRPartialMetadata
 
-	// Synced returns true if informers used by this GVRSource are synced
-	Synced() bool
+	// Ready returns true if the GVRSource is ready to return available GVRs.
+	// For informer-based GVRSources (watching CRDs for example), it would return true if the underlying
+	// informer is synced.
+	Ready() bool
 
-	// Changes returns a channel to which the GVRSource writes whenever
+	// Subscribe returns a new channel to which the GVRSource writes whenever
 	// its list of known GVRs has changed
-	Changes() <-chan struct{}
-
-	// FilterBuiltinGVRs is a function that allows filtering out
-	// builtin GVRs that should not be considered.
-	// The function should return false to ignore a builtin GVR,
-	// and true to keep it.
-	FilterBuiltinGVRs(gvr schema.GroupVersionResource) bool
+	Subscribe() <-chan struct{}
 }
 
 // genericInformerBase is a base interface that would be satisfied by both
@@ -175,7 +171,7 @@ func NewGenericDiscoveringDynamicSharedInformerFactory[Informer cache.SharedInde
 
 	f.handlers.Store([]GVREventHandler{})
 
-	changes := gvrSource.Changes()
+	changes := gvrSource.Subscribe()
 	go func() {
 		for change := range changes {
 			select {
@@ -468,7 +464,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		d.informersLock.Unlock()
 	}()
 
-	if !cache.WaitForNamedCacheSync("kcp-ddsif-gvr-source", ctx.Done(), d.gvrSource.Synced) {
+	if !cache.WaitForNamedCacheSync("kcp-ddsif-gvr-source", ctx.Done(), d.gvrSource.Ready) {
 		klog.Errorf("GVR source never synced")
 		return
 	}
@@ -510,40 +506,13 @@ func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular 
 	}
 }
 
-// Hard-code built in types that support list+watch
-var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = map[schema.GroupVersionResource]GVRPartialMetadata{
-	gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
-	gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
-	gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
-	gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
-	gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
-	gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
-	gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
-	gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
-	gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
-	gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
-	gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
-	gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
-	gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
-	gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
-	gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
-	gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
-	gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
-}
-
 func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) updateInformers() {
 	klog.V(5).InfoS("Determining dynamic informer additions and removals")
-
-	latest := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(builtInInformableTypes))
-	for gvr, metadata := range builtInInformableTypes {
-		if d.gvrSource.FilterBuiltinGVRs(gvr) {
-			latest[gvr] = metadata
-		}
-	}
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
 	crdGVRs := d.gvrSource.GVRs()
+	latest := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(crdGVRs))
 	for gvr, gvrMetadata := range crdGVRs {
 		// Don't start a dynamic informer for projected resources such as tenancy.kcp.io/v1beta1 Workspaces
 		// (these are a virtual projection of data from tenancy.kcp.io/v1alpha1 ClusterWorkspaces).
@@ -847,6 +816,7 @@ func newRESTMapper(fn func() (meta.RESTMapper, error)) restMapper {
 	}
 }
 
+// NewCRDGVRSource returns a GVRSource based on CRDs watched in the given informer.
 func NewCRDGVRSource(informer cache.SharedIndexInformer) (*crdGVRSource, error) {
 	// Add an index function that indexes a CRD by its group/version/resource.
 	if err := informer.AddIndexers(cache.Indexers{
@@ -889,9 +859,33 @@ type crdGVRSource struct {
 	crdIndexer  cache.Indexer
 }
 
+// Hard-code built in types that support list+watch
+var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = map[schema.GroupVersionResource]GVRPartialMetadata{
+	gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
+	gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+	gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
+	gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
+	gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
+	gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
+	gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
+	gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
+	gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
+	gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+	gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
+	gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
+	gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
+}
+
 func (s *crdGVRSource) GVRs() map[schema.GroupVersionResource]GVRPartialMetadata {
 	crdGVRs := s.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
-	result := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(crdGVRs))
+	result := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(crdGVRs)+len(builtInInformableTypes))
+	for gvr, metadata := range builtInInformableTypes {
+		result[gvr] = metadata
+	}
 	for _, indexedValue := range crdGVRs {
 		parts := strings.Split(indexedValue, "/")
 		gvr := gvrFor(parts[0], parts[1], parts[2])
@@ -912,11 +906,11 @@ func (s *crdGVRSource) GVRs() map[schema.GroupVersionResource]GVRPartialMetadata
 	return result
 }
 
-func (s *crdGVRSource) Synced() bool {
+func (s *crdGVRSource) Ready() bool {
 	return s.crdInformer.HasSynced()
 }
 
-func (s *crdGVRSource) crdIsEstablished(obj interface{}) bool {
+func crdIsEstablished(obj interface{}) bool {
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("unable to determine if CRD is established - got type %T instead", obj))
@@ -926,19 +920,19 @@ func (s *crdGVRSource) crdIsEstablished(obj interface{}) bool {
 	return apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established)
 }
 
-func (s *crdGVRSource) Changes() <-chan struct{} {
+func (s *crdGVRSource) Subscribe() <-chan struct{} {
 	changes := make(chan struct{})
 
 	// When CRDs change, send a notification that we might need to add/remove informers.
 	s.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if s.crdIsEstablished(obj) {
+			if crdIsEstablished(obj) {
 				changes <- struct{}{}
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldEstablished := s.crdIsEstablished(oldObj)
-			newEstablished := s.crdIsEstablished(newObj)
+			oldEstablished := crdIsEstablished(oldObj)
+			newEstablished := crdIsEstablished(newObj)
 			if newEstablished || oldEstablished != newEstablished {
 				changes <- struct{}{}
 			}
@@ -949,10 +943,6 @@ func (s *crdGVRSource) Changes() <-chan struct{} {
 	})
 
 	return changes
-}
-
-func (s *crdGVRSource) FilterBuiltinGVRs(gvr schema.GroupVersionResource) bool {
-	return true
 }
 
 type restMapper struct {

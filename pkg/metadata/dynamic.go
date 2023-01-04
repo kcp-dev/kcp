@@ -42,7 +42,7 @@ func NewDynamicMetadataClusterClientForConfig(config *rest.Config) (kcpdynamic.C
 	return kcpdynamic.NewForConfig(&metadataConfig)
 }
 
-// NewDynamicMetadataClientForConfig returns a dynamic cluster client that only
+// NewDynamicMetadataClientForConfig returns a dynamic client that only
 // retrieves PartialObjectMetadata-like object, returned as Unstructured.
 func NewDynamicMetadataClientForConfig(config *rest.Config) (dynamic.Interface, error) {
 	// create special client that only gets PartialObjectMetadata objects. For these we can do
