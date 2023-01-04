@@ -921,24 +921,33 @@ func crdIsEstablished(obj interface{}) bool {
 }
 
 func (s *crdGVRSource) Subscribe() <-chan struct{} {
-	changes := make(chan struct{})
+	changes := make(chan struct{}, 1)
+
+	notifyChange := func() {
+		select {
+		case changes <- struct{}{}:
+			klog.V(4).InfoS("Enqueued CRD change notification")
+		default:
+			klog.V(5).InfoS("Dropping CRD change notification because a notification is already pending")
+		}
+	}
 
 	// When CRDs change, send a notification that we might need to add/remove informers.
 	s.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if crdIsEstablished(obj) {
-				changes <- struct{}{}
+				notifyChange()
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldEstablished := crdIsEstablished(oldObj)
 			newEstablished := crdIsEstablished(newObj)
 			if newEstablished || oldEstablished != newEstablished {
-				changes <- struct{}{}
+				notifyChange()
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			changes <- struct{}{}
+			notifyChange()
 		},
 	})
 
