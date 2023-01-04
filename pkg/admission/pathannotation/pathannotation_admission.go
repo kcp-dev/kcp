@@ -62,6 +62,10 @@ type pathAnnotationPlugin struct {
 	*admission.Handler
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
+
+	// getLogicalCluster is a convenience function for easier unit testing,
+	// it reads a LogicalCluster resource with the given name and from the given cluster.
+	getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 }
 
 var pathAnnotationResources = sets.NewString(
@@ -101,7 +105,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	logicalCluster, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+	logicalCluster, err := p.getLogicalCluster(clusterName, corev1alpha1.LogicalClusterName)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 	}
@@ -142,7 +146,7 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 
 	value, found := u.GetAnnotations()[core.LogicalClusterPathAnnotationKey]
 	if pathAnnotationResources.Has(a.GetResource().GroupResource().String()) || found {
-		logicalCluster, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+		logicalCluster, err := p.getLogicalCluster(clusterName, corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 		}
@@ -172,4 +176,7 @@ func (o *pathAnnotationPlugin) SetKcpInformers(informers kcpinformers.SharedInfo
 		return logicalClusterReady()
 	})
 	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	o.getLogicalCluster = func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error) {
+		return o.logicalClusterLister.Cluster(clusterName).Get(name)
+	}
 }
