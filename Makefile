@@ -122,7 +122,7 @@ build-kind-images: build-kind-images-ko
 
 install: WHAT ?= ./cmd/...
 install:
-	GOOS=$(OS) GOARCH=$(ARCH) go install -ldflags="$(LDFLAGS)" $(WHAT)
+	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $(WHAT)
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
 .PHONY: install
