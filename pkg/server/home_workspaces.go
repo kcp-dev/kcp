@@ -241,6 +241,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				Annotations: map[string]string{
 					tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: userInfo,
 					tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:home",
+					core.LogicalClusterPathAnnotationKey:                    fmt.Sprintf("user:%s", effectiveUser.GetName()),
 				},
 			},
 		}
