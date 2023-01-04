@@ -53,46 +53,48 @@ func TestBoundCRDDeletion(t *testing.T) {
 		},
 	}
 
-	establishedCRD := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              schemaUID,
-			CreationTimestamp: metav1.NewTime(time.Now().Add(time.Second * -11)),
-		},
-		Status: apiextensionsv1.CustomResourceDefinitionStatus{
-			Conditions: []apiextensionsv1.CustomResourceDefinitionCondition{{
-				Type:   apiextensionsv1.Established,
-				Status: apiextensionsv1.ConditionTrue,
-			}},
-		},
-	}
-
-	newCRD := establishedCRD.DeepCopy()
-	newCRD.Status.Conditions[0].Status = apiextensionsv1.ConditionFalse
-	newCRD.CreationTimestamp = metav1.NewTime(time.Now())
+	oldEnoughToDelete := time.Now().Add((AgeThreshold * -1) - time.Second)
 
 	tests := []struct {
-		name               string
-		crd                *apiextensionsv1.CustomResourceDefinition
-		apiBindingsInIndex []*apisv1alpha1.APIBinding
-		expectDeletion     bool
+		name                       string
+		creationTimestamp          time.Time
+		hasBindings                bool
+		expectDeletion             bool
+		expectRequeue              bool
+		hasBindingsAfterRequeue    bool
+		expectDeletionAfterRequeue bool
 	}{
 		{
-			name:               "find matching binding in index",
-			crd:                establishedCRD,
-			apiBindingsInIndex: []*apisv1alpha1.APIBinding{apiBinding},
-			expectDeletion:     false,
+			name:              "find matching binding in index (no requeue)",
+			creationTimestamp: oldEnoughToDelete,
+			hasBindings:       true,
+			expectDeletion:    false,
+			expectRequeue:     false,
 		},
 		{
-			name:               "no bindings",
-			crd:                establishedCRD,
-			apiBindingsInIndex: []*apisv1alpha1.APIBinding{},
-			expectDeletion:     true,
+			name:              "no bindings (no requeue)",
+			creationTimestamp: oldEnoughToDelete,
+			hasBindings:       false,
+			expectDeletion:    true,
+			expectRequeue:     false,
 		},
 		{
-			name:               "CRD is not old enough to delete",
-			crd:                newCRD,
-			apiBindingsInIndex: []*apisv1alpha1.APIBinding{},
-			expectDeletion:     false,
+			name:                       "CRD won't have bindings after requeue",
+			creationTimestamp:          time.Now(),
+			hasBindings:                false,
+			expectDeletion:             false,
+			expectRequeue:              true,
+			hasBindingsAfterRequeue:    false,
+			expectDeletionAfterRequeue: true,
+		},
+		{
+			name:                       "CRD will have bindings after requeue",
+			creationTimestamp:          time.Now(),
+			hasBindings:                false,
+			expectDeletion:             false,
+			expectRequeue:              true,
+			hasBindingsAfterRequeue:    true,
+			expectDeletionAfterRequeue: false,
 		},
 	}
 
@@ -100,13 +102,26 @@ func TestBoundCRDDeletion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			deleteHappened := false
 
+			crd := &apiextensionsv1.CustomResourceDefinition{}
+			crd.SetName(schemaUID)
+
+			q := testRateLimitingQueue{
+				workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+				false,
+			}
+
 			controller := &controller{
-				queue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+				queue: &q,
 				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-					return tt.crd, nil
+					return crd, nil
 				},
 				getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {
-					return tt.apiBindingsInIndex, nil
+					if !q.requeueHappened && tt.hasBindings {
+						return []*apisv1alpha1.APIBinding{apiBinding}, nil
+					} else if q.requeueHappened && tt.hasBindingsAfterRequeue {
+						return []*apisv1alpha1.APIBinding{apiBinding}, nil
+					}
+					return []*apisv1alpha1.APIBinding{}, nil
 				},
 				deleteCRD: func(ctx context.Context, name string) error {
 					deleteHappened = true
@@ -114,14 +129,42 @@ func TestBoundCRDDeletion(t *testing.T) {
 				},
 			}
 
-			err := controller.process(context.Background(), schemaUID)
-			if err != nil {
-				t.Errorf("Unexpected error: %q", err)
+			testController := func(creationTimestamp time.Time, expectDeletion bool) {
+				crd.ObjectMeta.CreationTimestamp = metav1.NewTime(creationTimestamp)
+				err := controller.process(context.Background(), schemaUID)
+				if err != nil {
+					t.Errorf("Unexpected error: %q", err)
+				}
+
+				if deleteHappened != expectDeletion {
+					t.Errorf("Expected deletion: %t, but instead actual deletion: %t", expectDeletion, deleteHappened)
+				}
 			}
 
-			if deleteHappened != tt.expectDeletion {
-				t.Errorf("Expected deletion: %t, but instead actual deletion: %t", tt.expectDeletion, deleteHappened)
+			testController(tt.creationTimestamp, tt.expectDeletion)
+
+			if tt.expectRequeue != q.requeueHappened {
+				t.Errorf("Expected requeue: %t, but instead acutal requeue: %t", tt.expectRequeue, q.requeueHappened)
+			}
+
+			if tt.expectRequeue {
+				// Test time passing but not long enough to trigger a delete
+				// This is to ensure CRDs do not get deleted before the configured threshold
+				testController(tt.creationTimestamp.Add(((AgeThreshold/2)+time.Second)*-1), false)
+
+				// This should be enough time passing to trigger a delete (if expected)
+				testController(tt.creationTimestamp.Add((AgeThreshold+time.Second)*-1), tt.expectDeletionAfterRequeue)
+
 			}
 		})
 	}
+}
+
+type testRateLimitingQueue struct {
+	workqueue.RateLimitingInterface
+	requeueHappened bool
+}
+
+func (q *testRateLimitingQueue) AddAfter(item interface{}, duration time.Duration) {
+	q.requeueHappened = true
 }
