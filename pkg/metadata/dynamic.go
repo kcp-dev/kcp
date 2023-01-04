@@ -23,6 +23,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
+	dynamic "k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
@@ -39,6 +40,19 @@ func NewDynamicMetadataClusterClientForConfig(config *rest.Config) (kcpdynamic.C
 		return &metadataTransport{RoundTripper: rt}
 	})
 	return kcpdynamic.NewForConfig(&metadataConfig)
+}
+
+// NewDynamicMetadataClientForConfig returns a dynamic client that only
+// retrieves PartialObjectMetadata-like object, returned as Unstructured.
+func NewDynamicMetadataClientForConfig(config *rest.Config) (dynamic.Interface, error) {
+	// create special client that only gets PartialObjectMetadata objects. For these we can do
+	// wildcard requests with different schemas without risking data loss.
+	metadataConfig := *config
+	metadataConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		// we have to use this way because the dynamic client overrides the content-type :-/
+		return &metadataTransport{RoundTripper: rt}
+	})
+	return dynamic.NewForConfig(&metadataConfig)
 }
 
 // metadataTransport does what client-go/metadata does, but injected into a dynamic client

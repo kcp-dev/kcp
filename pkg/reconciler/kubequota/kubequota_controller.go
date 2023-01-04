@@ -58,7 +58,7 @@ type scopeableInformerFactory interface {
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
+	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	kubeClusterClient                     kcpkubernetesclientset.ClusterInterface
 	informersStarted                      <-chan struct{}
 
@@ -85,7 +85,7 @@ func NewController(
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
+	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	quotaRecalculationPeriod time.Duration,
 	fullResyncPeriod time.Duration,
 	workersPerLogicalCluster int,

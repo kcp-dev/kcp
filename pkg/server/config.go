@@ -114,11 +114,11 @@ type ExtraConfig struct {
 	ShardVirtualWorkspaceURL func() string
 
 	// informers
-	KcpSharedInformerFactory              kcpinformers.SharedInformerFactory
-	KubeSharedInformerFactory             kcpkubernetesinformers.SharedInformerFactory
-	ApiExtensionsSharedInformerFactory    kcpapiextensionsinformers.SharedInformerFactory
-	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	CacheKcpSharedInformerFactory         kcpinformers.SharedInformerFactory
+	KcpSharedInformerFactory                kcpinformers.SharedInformerFactory
+	KubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
+	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
+	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
 	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
 	//                    we should have multi-shard aware informers
 	//

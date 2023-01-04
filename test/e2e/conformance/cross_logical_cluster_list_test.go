@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
@@ -221,10 +222,18 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 		0,
 	)
 
-	informerFactory, err := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootShardConfig,
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(
+		rest.AddUserAgent(rest.CopyConfig(rootShardConfig), "kcp-partial-metadata-informers"))
+	require.NoError(t, err, "error creating metadata cluster client")
+
+	crdGVRSource, err := informer.NewCRDGVRSource(apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
+	require.NoError(t, err, "error creating CRD-based GVR source")
+
+	informerFactory, err := informer.NewDiscoveringDynamicSharedInformerFactory(
+		metadataClusterClient,
 		func(obj interface{}) bool { return true },
-		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		nil,
+		crdGVRSource,
 		cache.Indexers{},
 	)
 	require.NoError(t, err, "error creating DynamicDiscoverySharedInformerFactory")

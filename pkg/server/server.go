@@ -45,6 +45,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -85,10 +86,22 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		),
 	)
 
-	s.DynamicDiscoverySharedInformerFactory, err = informer.NewDynamicDiscoverySharedInformerFactory(
-		s.MiniAggregator.GenericAPIServer.LoopbackClientConfig,
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(
+		rest.AddUserAgent(rest.CopyConfig(s.MiniAggregator.GenericAPIServer.LoopbackClientConfig), "kcp-partial-metadata-informers"))
+	if err != nil {
+		return nil, err
+	}
+
+	crdGVRSource, err := informer.NewCRDGVRSource(s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
+	if err != nil {
+		return nil, err
+	}
+
+	s.DiscoveringDynamicSharedInformerFactory, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+		metadataClusterClient,
 		func(obj interface{}) bool { return true },
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		nil,
+		crdGVRSource,
 		indexers.AppendOrDie(
 			cache.Indexers{
 				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
@@ -307,7 +320,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting (remaining) kcp informers")
 
 		logger.Info("starting dynamic metadata informer worker")
-		go s.DynamicDiscoverySharedInformerFactory.StartWorker(goContext(hookContext))
+		go s.DiscoveringDynamicSharedInformerFactory.StartWorker(goContext(hookContext))
 
 		logger.Info("synced all informers, ready to start controllers")
 		close(s.syncedCh)
@@ -449,13 +462,13 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.DynamicDiscoverySharedInformerFactory); err != nil {
+		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, delegationChainHead, s.DynamicDiscoverySharedInformerFactory); err != nil {
+		if err := s.installAPIBindingController(ctx, controllerConfig, delegationChainHead, s.DiscoveringDynamicSharedInformerFactory); err != nil {
 			return err
 		}
 		if err := s.installCRDCleanupController(ctx, controllerConfig, delegationChainHead); err != nil {

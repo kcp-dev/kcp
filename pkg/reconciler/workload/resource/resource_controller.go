@@ -62,7 +62,7 @@ const (
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	ddsif *informer.DynamicDiscoverySharedInformerFactory,
+	ddsif *informer.DiscoveringDynamicSharedInformerFactory,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
@@ -185,7 +185,7 @@ type Controller struct {
 	getSyncTargetPlacementAnnotations func(clusterName logicalcluster.Name) (sets.String, error)
 	getSyncTargetFromKey              func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
 
-	ddsif *informer.DynamicDiscoverySharedInformerFactory
+	ddsif *informer.DiscoveringDynamicSharedInformerFactory
 }
 
 func filterNamespace(obj interface{}) bool {
