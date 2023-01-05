@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Build the binary
-FROM golang:1.19 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.19 AS builder
 WORKDIR /workspace
 
 # Install dependencies.
@@ -43,9 +43,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copy the sources
 COPY ./ ./
 
+ARG TARGETOS
+ARG TARGETARCH
+
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    make
+    make OS=${TARGETOS} ARCH=${TARGETARCH}
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
