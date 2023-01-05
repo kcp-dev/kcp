@@ -44,7 +44,7 @@ const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 // +kubebuilder:resource:scope=Cluster,categories=kcp,shortName=ws
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.dev/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
-// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Workspace struct {
 	metav1.TypeMeta `json:",inline"`
@@ -58,6 +58,8 @@ type Workspace struct {
 }
 
 // WorkspaceSpec holds the desired state of the ClusterWorkspace.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster cannot be unset"
 type WorkspaceSpec struct {
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
@@ -81,6 +83,23 @@ type WorkspaceSpec struct {
 	//
 	// +optional
 	Location *WorkspaceLocation `json:"shard,omitempty"`
+
+	// cluster is the name of the logical cluster this workspace is stored under.
+	//
+	// Set by the system.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
+	Cluster string `json:"cluster,omitempty"`
+
+	// URL is the address under which the Kubernetes-cluster-like endpoint
+	// can be found. This URL can be used to access the workspace with standard Kubernetes
+	// client libraries and command line tools.
+	//
+	// Set by the system.
+	//
+	// +kubebuilder:format:uri
+	URL string `json:"URL,omitempty"`
 }
 
 // WorkspaceTypeReference is a reference to a workspace type.
@@ -107,23 +126,7 @@ type WorkspaceLocation struct {
 }
 
 // WorkspaceStatus communicates the observed state of the Workspace.
-//
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster is immutable"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
 type WorkspaceStatus struct {
-	// url is the address under which the Kubernetes-cluster-like endpoint
-	// can be found. This URL can be used to access the workspace with standard Kubernetes
-	// client libraries and command line tools.
-	//
-	// +kubebuilder:format:uri
-	URL string `json:"URL,omitempty"`
-
-	// cluster is the name of the logical cluster this workspace is stored under.
-	//
-	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
-	Cluster string `json:"cluster,omitempty"`
-
 	// Phase of the workspace (Scheduling, Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling

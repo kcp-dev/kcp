@@ -214,7 +214,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		newServerHost = homeWorkspace.Status.URL
+		newServerHost = homeWorkspace.Spec.URL
 
 	case ".":
 		cfg, err := o.ClientConfig.ClientConfig()
@@ -828,9 +828,9 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, n
 	}
 
 	for _, workspace := range results.Items {
-		_, currentClusterName, err := pluginhelpers.ParseClusterURL(workspace.Status.URL)
+		_, currentClusterName, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
-			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Status.URL)
+			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
 		}
 		err = o.populateBranch(ctx, b, currentClusterName)
 		if err != nil {

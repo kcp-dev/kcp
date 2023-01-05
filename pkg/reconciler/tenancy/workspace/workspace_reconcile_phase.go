@@ -43,13 +43,13 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 
 	switch workspace.Status.Phase {
 	case corev1alpha1.LogicalClusterPhaseScheduling:
-		if workspace.Status.Cluster != "" {
+		if workspace.Spec.URL != "" && workspace.Spec.Cluster != "" {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
 		}
 	case corev1alpha1.LogicalClusterPhaseInitializing:
-		logger = logger.WithValues("cluster", workspace.Status.Cluster)
+		logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
-		logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+		logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
 		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsNotFound(err) {
@@ -77,9 +77,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 
 	case corev1alpha1.LogicalClusterPhaseReady:
 		if !workspace.DeletionTimestamp.IsZero() {
-			logger = logger.WithValues("cluster", workspace.Status.Cluster)
+			logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
-			logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+			logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
 			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStopAndRequeue, err
 			} else if apierrors.IsNotFound(err) {

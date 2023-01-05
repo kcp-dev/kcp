@@ -93,8 +93,8 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Status.URL = `https://root/clusters/root-foo`
-				initialWS.Status.Cluster = "root-foo"
+				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
 					Status: corev1.ConditionTrue,
@@ -127,8 +127,8 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Status.URL = `https://root/clusters/root-foo`
-				initialWS.Status.Cluster = "root-foo"
+				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
 					Status: corev1.ConditionTrue,
@@ -190,8 +190,8 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Status.URL = `https://root/clusters/root-foo`
-				initialWS.Status.Cluster = "root-foo"
+				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
 					Status: corev1.ConditionTrue,
@@ -324,6 +324,16 @@ func TestReconcileScheduling(t *testing.T) {
 			status, err := target.reconcile(context.TODO(), scenario.targetWorkspace)
 			if err != nil {
 				t.Fatal(err)
+			}
+
+			if scenario.targetWorkspace.Spec.URL != "" && scenario.targetWorkspace.Spec.Cluster != "" {
+				// If the reconciler has set both url and cluster, call the reconciler again.
+				if status == reconcileStatusStopAndRequeue {
+					status, err = target.reconcile(context.TODO(), scenario.targetWorkspace)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
 			}
 			if status != scenario.expectedStatus {
 				t.Fatalf("unexpected reconciliation status:%v, expected:%v", status, scenario.expectedStatus)

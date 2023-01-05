@@ -32,9 +32,9 @@ func ProjectWorkspaceToClusterWorkspace(from *tenancyv1beta1.Workspace, to *tena
 			Selector: from.Spec.Location.Selector,
 		}
 	}
-	to.Status.BaseURL = from.Status.URL
+	to.Status.Cluster = from.Spec.Cluster
+	to.Status.BaseURL = from.Spec.URL
 	to.Status.Phase = from.Status.Phase
 	to.Status.Initializers = from.Status.Initializers
-	to.Status.Cluster = from.Status.Cluster
 	to.Status.Conditions = from.Status.Conditions
 }

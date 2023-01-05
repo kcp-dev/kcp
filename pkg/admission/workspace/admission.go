@@ -152,6 +152,8 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
+	isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+
 	switch a.GetOperation() {
 	case admission.Update:
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
@@ -163,6 +165,16 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 		}
 
+		if old.Spec.Cluster != "" && cw.Spec.Cluster == "" {
+			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
+		}
+		if old.Spec.Cluster != cw.Spec.Cluster && !isSystemPrivileged {
+			return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
+		}
+		if old.Spec.URL != cw.Spec.URL && !isSystemPrivileged {
+			return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
+		}
+
 		if errs := validation.ValidateImmutableField(cw.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
 			return admission.NewForbidden(a, errs.ToAggregate())
 		}
@@ -170,20 +182,23 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 
-		if old.Status.Cluster != "" && cw.Status.Cluster == "" {
-			return admission.NewForbidden(a, errors.New("status.cluster cannot be unset"))
-		}
-
-		if cw.Status.Phase != corev1alpha1.LogicalClusterPhaseScheduling {
-			if cw.Status.Cluster == "" {
-				return admission.NewForbidden(a, fmt.Errorf("status.cluster must be set for phase %s", cw.Status.Phase))
+		// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
+		if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && cw.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+			if cw.Spec.Cluster == "" {
+				return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", cw.Status.Phase))
 			}
-			if cw.Status.URL == "" {
-				return admission.NewForbidden(a, fmt.Errorf("status.URL must be set for phase %s", cw.Status.Phase))
+			if cw.Spec.URL == "" {
+				return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", cw.Status.Phase))
 			}
 		}
 	case admission.Create:
-		isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+		// only system users can set spec.Cluster or spec.URL
+		if cw.Spec.Cluster != "" && !isSystemPrivileged {
+			return admission.NewForbidden(a, errors.New("spec.Cluster can only be set by system privileged users"))
+		}
+		if cw.Spec.URL != "" && !isSystemPrivileged {
+			return admission.NewForbidden(a, errors.New("spec.URL can only be set by system privileged users"))
+		}
 
 		if !isSystemPrivileged {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())

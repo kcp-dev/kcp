@@ -81,7 +81,10 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	switch {
 	case !workspace.DeletionTimestamp.IsZero():
 		return reconcileStatusContinue, nil
-	case workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling:
+	case workspace.Spec.URL != "" && workspace.Spec.Cluster != "":
+		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+		return reconcileStatusContinue, nil
+	case workspace.Spec.URL == "" || workspace.Spec.Cluster == "":
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
@@ -144,6 +147,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		} else if apierrors.IsAlreadyExists(err) {
 			// we have checked in createLogicalCluster that this is a logicalcluster from another owner. Let's choose another cluster name.
 			delete(workspace.Annotations, workspaceClusterAnnotationKey)
+			logging.WithObject(logger, shard).Info("logical cluster already exists")
 			return reconcileStatusStopAndRequeue, nil
 		}
 		if err := r.updateLogicalClusterPhase(ctx, shard, clusterName.Path(), corev1alpha1.LogicalClusterPhaseInitializing); err != nil {
@@ -153,16 +157,14 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		// now complete the second part of our two-phase commit: set location in workspace
 		u, err := url.Parse(shard.Spec.ExternalURL)
 		if err != nil {
-			// shouldn't happen since we just checked in isValidShard
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target Shard: %v.", err)
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
-
 		u.Path = path.Join(u.Path, clusterName.Path().RequestPath())
-		workspace.Status.URL = u.String()
-		workspace.Status.Cluster = clusterName.String()
-		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+		workspace.Spec.Cluster = clusterName.String()
+		workspace.Spec.URL = u.String()
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
+		return reconcileStatusStopAndRequeue, nil
 	}
 
 	return reconcileStatusContinue, nil

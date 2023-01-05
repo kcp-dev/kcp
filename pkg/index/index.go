@@ -72,14 +72,14 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
 	c.lock.RUnlock()
 
-	if got.String() == ws.Status.Cluster {
+	if got.String() == ws.Spec.Cluster {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; got.String() != ws.Status.Cluster {
+	if got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; got.String() != ws.Spec.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
 			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
 			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Name]string{}
@@ -88,9 +88,9 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 		if c.shardWorkspaceNameCluster[shard][clusterName] == nil {
 			c.shardWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
 		}
-		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Status.Cluster)
-		c.shardClusterWorkspaceName[shard][logicalcluster.Name(ws.Status.Cluster)] = ws.Name
-		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Status.Cluster)] = clusterName
+		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Spec.Cluster)
+		c.shardClusterWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
+		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
 }
 
@@ -123,12 +123,12 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 		delete(c.shardWorkspaceNameCluster, shard)
 	}
 
-	delete(c.shardClusterWorkspaceName[shard], logicalcluster.Name(ws.Status.Cluster))
+	delete(c.shardClusterWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
 	if len(c.shardClusterWorkspaceName[shard]) == 0 {
 		delete(c.shardClusterWorkspaceName, shard)
 	}
 
-	delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Status.Cluster))
+	delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Spec.Cluster))
 	if len(c.shardClusterParentCluster[shard]) == 0 {
 		delete(c.shardClusterParentCluster, shard)
 	}
