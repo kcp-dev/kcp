@@ -254,7 +254,6 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		KCPNamespace: o.KCPNamespace,
 		Namespace:    o.DownstreamNamespace,
 
-		// run the syncer against a logical cluster, not the path, to make it resilient to workspace moves
 		SyncTargetPath: logicalcluster.From(syncTarget).Path().String(),
 		SyncTarget:     o.SyncTargetName,
 		SyncTargetUID:  string(syncTarget.UID),
