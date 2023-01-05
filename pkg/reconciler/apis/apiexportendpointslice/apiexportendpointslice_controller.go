@@ -19,6 +19,7 @@ package apiexportendpointslice
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -107,18 +108,19 @@ func NewController(
 		},
 	})
 
-	shardClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueueAllAPIExportEndpointSlices(obj)
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueAllAPIExportEndpointSlices(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueueAllAPIExportEndpointSlices(obj)
-			},
+	shardClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAllAPIExportEndpointSlices(obj)
 		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if filterShardEvent(oldObj, newObj) {
+				c.enqueueAllAPIExportEndpointSlices(newObj)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAllAPIExportEndpointSlices(obj)
+		},
+	},
 	)
 
 	return c, nil
@@ -305,4 +307,23 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+// filterShardEvent returns true if the event passes the filter and needs to be processed false otherwise
+func filterShardEvent(oldObj, newObj interface{}) bool {
+	oldShard, ok := oldObj.(*corev1alpha1.Shard)
+	if !ok {
+		return false
+	}
+	newShard, ok := newObj.(*corev1alpha1.Shard)
+	if !ok {
+		return false
+	}
+	if oldShard.Spec.VirtualWorkspaceURL != newShard.Spec.VirtualWorkspaceURL {
+		return true
+	}
+	if !reflect.DeepEqual(oldShard.Labels, newShard.Labels) {
+		return true
+	}
+	return false
 }
