@@ -160,6 +160,20 @@ func TestDeploymentCoordinator(t *testing.T) {
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	rootComputeKubernetesURL := rootKubernetesAPIExport.Status.VirtualWorkspaces[0].URL
 
+	rootComputeConfig := rest.CopyConfig(upstreamConfig)
+	rootComputeConfig.Host = rootComputeKubernetesURL
+	rootComputeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootComputeConfig)
+	require.NoError(t, err)
+
+	framework.Eventually(t, func() (success bool, reason string) {
+		t.Logf("Checking deployment access through a list")
+		_, err := rootComputeClusterClient.AppsV1().Deployments().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("deployments should be exposed by the root compute APIExport URL. But listing deployments produced the following error: %v", err)
+		}
+		return true, "deployments are exposed"
+	}, wait.ForeverTestTimeout, time.Millisecond*500, "deployments should be exposed by the root compute APIExport URL")
+
 	t.Logf("Start the Deployment controller")
 
 	artifactDir, _, err := framework.ScratchDirs(t)
