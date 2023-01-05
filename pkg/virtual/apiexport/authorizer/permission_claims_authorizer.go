@@ -212,7 +212,8 @@ type claimedVerbsAuthorizer struct {
 
 func (a *claimedVerbsAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	requestingAllResources := attr.GetName() == "" && attr.GetNamespace() == ""
-	resourceSelectorMatches := a.claim.All || requestingAllResources
+	claimingAllResources := a.claim != nil && a.claim.All
+	resourceSelectorMatches := claimingAllResources || requestingAllResources
 	for _, claimedResource := range a.claim.ResourceSelector {
 		var ns string
 		if claimedResource.Namespace != "" {
