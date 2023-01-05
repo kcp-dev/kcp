@@ -339,6 +339,8 @@ github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ
 github.com/google/btree v1.0.1 h1:gK4Kx5IaGY9CD5sPJ36FHiBJ6ZXl0kilRiiCj+jdYp4=
 github.com/google/btree v1.0.1/go.mod h1:xXMiIv4Fb/0kKde4SpL7qlzvu5cMJDRkFDxJfI9uaxA=
 github.com/google/cadvisor v0.44.1/go.mod h1:GQ9KQfz0iNHQk3D6ftzJWK4TXabfIgM10Oy3FkR+Gzg=
+github.com/google/cel-go v0.12.6 h1:kjeKudqV0OygrAqA9fX6J55S8gj+Jre2tckIm5RoG4M=
+github.com/google/cel-go v0.12.6/go.mod h1:Jk7ljRzLBhkmiAwBoUxB1sZSCVBAzkqPF25olK/iRDw=
 github.com/google/gnostic v0.5.7-v3refs h1:FhTMOKj2VhjpouxvWJAV1TL304uMlb9zcDqkl6cEI54=
 github.com/google/gnostic v0.5.7-v3refs/go.mod h1:73MKFl6jIHelAJNaBGFzt3SPtZULs9dYrGFt8OiIsHQ=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
@@ -457,8 +459,6 @@ github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1q
 github.com/kcp-dev/apimachinery v0.0.0-20221102195355-d65878bc16be/go.mod h1:qnvUHkdxOrNzX17yX+z8r81CZEBuFdveNzWqFlwZ55w=
 github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0 h1:fb+3CdDlxvnK+o1wm3IcDbD+MJndMUa17EUGqYORsvg=
 github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0/go.mod h1:dn1hXHMY9E6JbyOGa0qXt1Dq4akd/jHMZOpFhJoX7q4=
-github.com/kcp-dev/cel-go v0.0.0-20230104211646-409eafa0bc12 h1:LG9/i+POUIUZENfWmwBeZaly2uJ+5zo6DBC8pGBvxCU=
-github.com/kcp-dev/cel-go v0.0.0-20230104211646-409eafa0bc12/go.mod h1:Jk7ljRzLBhkmiAwBoUxB1sZSCVBAzkqPF25olK/iRDw=
 github.com/kcp-dev/client-go v0.0.0-20221215092857-c1e5154a9825 h1:7jgn80ujqiaAFKTZ3AE5Lx5mOwyUdDLeJzn9MhZGA3E=
 github.com/kcp-dev/client-go v0.0.0-20221215092857-c1e5154a9825/go.mod h1:sj0r6sAHNsfEpA37uLTVGZj9TMQQWjBXk4rbpcIDZ7U=
 github.com/kcp-dev/kubernetes v0.0.0-20221221132345-4bcc0e78af51 h1:g11Q0GcIKKCBh7157XTZItojkhD/HDlfnH9ifYGB5Zk=
