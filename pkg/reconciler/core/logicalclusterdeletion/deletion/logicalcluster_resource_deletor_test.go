@@ -43,7 +43,7 @@ func init() {
 	utilruntime.Must(metav1.AddMetaToScheme(scheme))
 }
 
-// TODO:(p0lyn0mial, sttts) rework this test to use Workspace
+// TODO:(p0lyn0mial, sttts) rework this test to use Workspace.
 func TestWorkspaceTerminating(t *testing.T) {
 	now := metav1.Now()
 	ws := &corev1alpha1.LogicalCluster{
@@ -219,7 +219,7 @@ func testResources() []*metav1.APIResourceList {
 	return results
 }
 
-// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests
+// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests.
 func matchErrors(e1, e2 error) bool {
 	if e1 == nil && e2 == nil {
 		return true

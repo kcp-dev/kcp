@@ -34,7 +34,7 @@ import (
 //go:embed *.yaml
 var fs embed.FS
 
-// RootComuteWorkspace is the workspace to host common kubernetes APIs
+// RootComputeClusterName is the workspace to host common kubernetes APIs.
 var RootComputeClusterName = logicalcluster.NewPath("root:compute")
 
 // Bootstrap creates resources in this package by continuously retrying the list.

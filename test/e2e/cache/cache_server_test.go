@@ -41,8 +41,10 @@ import (
 	cache2e "github.com/kcp-dev/kcp/test/e2e/reconciler/cache"
 )
 
-// testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.io.v1alpha1.apiexports"
+// testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.io.v1alpha1.apiexports".
 func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	type planet struct {
@@ -53,10 +55,10 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	}
 	earth := planet{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}, Star: "TheSun", Size: 40000}
 	validateFn := func(earth planet, cachedPlanetRaw *unstructured.Unstructured) {
-		cachedEarthJson, err := cachedPlanetRaw.MarshalJSON()
+		cachedEarthJSON, err := cachedPlanetRaw.MarshalJSON()
 		require.NoError(t, err)
 		cachedEarth := &planet{}
-		require.NoError(t, json.Unmarshal(cachedEarthJson, cachedEarth))
+		require.NoError(t, json.Unmarshal(cachedEarthJSON, cachedEarth))
 
 		earth.UID = cachedEarth.UID
 		earth.Generation = cachedEarth.Generation
@@ -103,8 +105,10 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 }
 
 // testShardNamesAssigned checks if a shard name is provided in the "kcp.io/shard" annotation and
-// if a cluster name is stored at "kcp.io/cluster" annotation
+// if a cluster name is stored at "kcp.io/cluster" annotation.
 func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialComicDB := newFakeAPIExport("comicdb")
@@ -135,8 +139,10 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 	validateFn(cachedComicDBRaw)
 }
 
-// testUIDGenerationCreationTime checks if overwriting UID, Generation, CreationTime when the shard annotation is set works
+// testUIDGenerationCreationTime checks if overwriting UID, Generation, CreationTime when the shard annotation is set works.
 func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialMangoDB := newFakeAPIExport("mangodb")
@@ -171,8 +177,10 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 }
 
-// testUIDGenerationCreationTimeNegative checks if UID, Generation, CreationTime are set when the shard annotation is NOT set
+// testUIDGenerationCreationTimeNegative checks if UID, Generation, CreationTime are set when the shard annotation is NOT set.
 func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialMangoDB := newFakeAPIExport("mangodbnegative")
@@ -220,8 +228,10 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 }
 
-// testGenerationOnSpecChanges checks if Generation is not increased when the spec is changed
+// testGenerationOnSpecChanges checks if Generation is not increased when the spec is changed.
 func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialCinnamonDB := newFakeAPIExport("cinnamondb")
@@ -264,8 +274,10 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	}
 }
 
-// testDeletionWithFinalizers checks if deleting an object with finalizers immediately removes it
+// testDeletionWithFinalizers checks if deleting an object with finalizers immediately removes it.
 func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialGhostDB := newFakeAPIExport("ghostdb")
@@ -288,8 +300,10 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	}
 }
 
-// testSpecStatusSimultaneously checks if updating spec and status at the same time works
+// testSpecStatusSimultaneously checks if updating spec and status at the same time works.
 func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
+	t.Helper()
+
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialCucumberDB := newFakeAPIExport("cucumberdb")
@@ -321,7 +335,6 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	if cachedCucumberDB.Status.Condition != "run out" {
 		t.Fatalf("unexpected status.condition %v after an update of amber|%s/%s (shard|cluster/name), epxected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
 	}
-
 }
 
 func newFakeAPIExport(name string) fakeAPIExport {
@@ -378,7 +391,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
 
-	cacheClientRT := cache2e.CacheClientRoundTrippersFor(cacheClientRestConfig)
+	cacheClientRT := cache2e.ClientRoundTrippersFor(cacheClientRestConfig)
 	for _, scenario := range scenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
@@ -393,7 +406,7 @@ type testScenario struct {
 	work func(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource)
 }
 
-// scenarios holds all test scenarios
+// scenarios holds all test scenarios.
 var scenarios = []testScenario{
 	{"TestSchemaIsNotEnforced", testSchemaIsNotEnforced},
 	{"TestShardClusterNamesAssigned", testShardClusterNamesAssigned},

@@ -300,7 +300,7 @@ func resolveLatestAPIResourceSchemas(logger logr.Logger, previous, current map[m
 }
 
 // compareSchemas compares JSON Schemas by unmarshalling them and comparing their values, instead
-// of comparing their raw []byte() representations, as those are not semantically meaningful
+// of comparing their raw []byte() representations, as those are not semantically meaningful.
 func compareSchemas() cmp.Option {
 	return cmp.FilterPath(func(path cmp.Path) bool {
 		return path.String() == "Versions.Schema.Raw"
@@ -329,7 +329,7 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 		}
 	}
 
-	var exports []*apisv1alpha1.APIExport
+	exports := make([]*apisv1alpha1.APIExport, 0, len(byExport))
 	for exportName, schemas := range byExport {
 		sort.Strings(schemas)
 
@@ -397,7 +397,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	}
 
 	logger.Info("Pruning output directory.")
-	if err := filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
+	return filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -419,9 +419,5 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 			}
 		}
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }

@@ -53,7 +53,7 @@ type testScenario struct {
 	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface)
 }
 
-// scenarios all test scenarios that will be run against in-process and standalone cache server
+// scenarios all test scenarios that will be run against in-process and standalone cache server.
 var scenarios = []testScenario{
 	{"TestReplicateAPIExport", replicateAPIExportScenario},
 	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
@@ -66,6 +66,8 @@ var scenarios = []testScenario{
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIResourceSchema object.
 func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	org := framework.NewOrganizationFixture(t, server)
 	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "today.sheriffs.wild.wild.west"
@@ -98,8 +100,10 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 	scenario.DeleteSourceResourceAndVerify(ctx, t, clusterName.Path())
 }
 
-// replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object
+// replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object.
 func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "juicy.mangodbs.db.io"
@@ -174,6 +178,8 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
 func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "wild.wild.west"
@@ -217,8 +223,10 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 	scenario.DeleteSourceResourceAndVerify(ctx, t, cluster.Path())
 }
 
-// replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object
+// replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object.
 func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "mangodb"
@@ -258,6 +266,8 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 // replicateShardScenario tests if a Shard is propagated to the cache server.
 // The test exercises creation, modification and removal of the Shard object.
 func replicateShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	// The Shard API is per default only available in the root workspace
 	clusterName := core.RootCluster
 	resourceName := "test-shard"
@@ -311,8 +321,10 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 	scenario.DeleteSourceResourceAndVerify(ctx, t, clusterName.Path())
 }
 
-// replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object
+// replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object.
 func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	t.Helper()
+
 	// The Shard API is per default only available in the root workspace
 	cluster := core.RootCluster
 	resourceName := "test-shard"
@@ -354,7 +366,7 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 	scenario.VerifyReplication(ctx, t, cluster.Path())
 }
 
-// TestCacheServerInProcess runs all test scenarios against a cache server that runs with a kcp server
+// TestCacheServerInProcess runs all test scenarios against a cache server that runs with a kcp server.
 func TestCacheServerInProcess(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -369,7 +381,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
-	cacheClientRT := CacheClientRoundTrippersFor(kcpRootShardConfig)
+	cacheClientRT := ClientRoundTrippersFor(kcpRootShardConfig)
 	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
@@ -382,7 +394,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	}
 }
 
-// TestCacheServerStandalone runs all test scenarios against a standalone cache server
+// TestCacheServerStandalone runs all test scenarios against a standalone cache server.
 func TestCacheServerStandalone(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -409,7 +421,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
-	cacheClientRT := CacheClientRoundTrippersFor(cacheClientRestConfig)
+	cacheClientRT := ClientRoundTrippersFor(cacheClientRestConfig)
 	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
@@ -422,7 +434,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	}
 }
 
-// replicateResourceScenario an auxiliary struct that is used by all test scenarios defined in this pkg
+// replicateResourceScenario an auxiliary struct that is used by all test scenarios defined in this pkg.
 type replicateResourceScenario struct {
 	resourceName string
 	resourceKind string
@@ -433,18 +445,22 @@ type replicateResourceScenario struct {
 }
 
 func (b *replicateResourceScenario) CreateSourceResource(t *testing.T, createSourceResource func() error) {
+	t.Helper()
 	require.NoError(t, createSourceResource())
 }
 
 func (b *replicateResourceScenario) UpdateSourceResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path, updater func(runtime.Object) error) {
+	t.Helper()
 	b.resourceUpdateHelper(ctx, t, cluster, b.getSourceResourceHelper, updater)
 }
 
 func (b *replicateResourceScenario) UpdateCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path, updater func(runtime.Object) error) {
+	t.Helper()
 	b.resourceUpdateHelper(ctx, t, cluster, b.getCachedResourceHelper, updater)
 }
 
 func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
+	t.Helper()
 	require.NoError(t, b.deleteSourceResourceHelper(ctx, cluster))
 	framework.Eventually(t, func() (bool, string) {
 		_, err := b.getCachedResourceHelper(ctx, cluster)
@@ -459,11 +475,13 @@ func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Co
 }
 
 func (b *replicateResourceScenario) DeleteCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
+	t.Helper()
 	err := b.deleteCachedResource(ctx, cluster)
 	require.NoError(t, err)
 }
 
 func (b *replicateResourceScenario) VerifyReplication(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
+	t.Helper()
 	t.Helper()
 	b.verifyResourceReplicationHelper(ctx, t, cluster)
 }
@@ -483,6 +501,7 @@ func (b *replicateResourceScenario) ChangeMetadataFor(originalResource runtime.O
 }
 
 func (b *replicateResourceScenario) resourceUpdateHelper(ctx context.Context, t *testing.T, cluster logicalcluster.Path, resourceGetter func(ctx context.Context, cluster logicalcluster.Path) (runtime.Object, error), resourceUpdater func(runtime.Object) error) {
+	t.Helper()
 	framework.Eventually(t, func() (bool, string) {
 		resource, err := resourceGetter(ctx, cluster)
 		if err != nil {

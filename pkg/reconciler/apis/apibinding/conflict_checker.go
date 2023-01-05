@@ -28,7 +28,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// byUID implements sort.Interface based on the UID field of CustomResourceDefinition
+// byUID implements sort.Interface based on the UID field of CustomResourceDefinition.
 type byUID []*apiextensionsv1.CustomResourceDefinition
 
 func (u byUID) Len() int           { return len(u) }

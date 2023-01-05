@@ -55,6 +55,8 @@ import (
 var noxusGVR = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
 func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage rest.Storage) {
+	t.Helper()
+
 	gvr := noxusGVR
 	groupVersion := gvr.GroupVersion()
 
@@ -209,6 +211,8 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 }
 
 func checkWatchEvents(t *testing.T, addEvents func(), watchCall func() (watch.Interface, error), expectedEvents []watch.Event) {
+	t.Helper()
+
 	watchingStarted := make(chan bool, 1)
 	go func() {
 		<-watchingStarted

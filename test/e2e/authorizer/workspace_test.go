@@ -60,6 +60,8 @@ func TestWorkspaces(t *testing.T) {
 			name:       "create a workspace in an org as org content admin, and have only its creator list it, not another user with just access",
 			userTokens: []string{"user-1-token", "user-2-token", "user-3-token"},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				user1Client := server.UserKcpClients[0]
 				user2Client := server.UserKcpClients[1]
 				user3Client := server.UserKcpClients[2]
@@ -175,6 +177,7 @@ func TestWorkspaces(t *testing.T) {
 }
 
 func permitAccessToWorkspace(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Path, admin bool, bindingName string, groupNames ...string) {
+	t.Helper()
 	t.Logf("Giving groups %v member access to workspace %q", groupNames, clusterName)
 
 	binding := &rbacv1.ClusterRoleBinding{

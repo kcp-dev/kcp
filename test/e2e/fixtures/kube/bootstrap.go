@@ -35,6 +35,8 @@ import (
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
@@ -45,6 +47,8 @@ func Create(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionI
 // CRD returns an *apiextensionsv1.CustomResourceDefinition for the GroupResource specified by gr from
 // rawCustomResourceDefinitions. The embedded file's name must have the format <group>_<resource>.yaml.
 func CRD(t *testing.T, gr metav1.GroupResource) *apiextensionsv1.CustomResourceDefinition {
+	t.Helper()
+
 	crd, err := configcrds.CRD(rawCustomResourceDefinitions, gr)
 	require.NoError(t, err, "error decoding CRD")
 

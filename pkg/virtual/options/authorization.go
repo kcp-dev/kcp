@@ -48,13 +48,13 @@ func NewAuthorization() *Authorization {
 	}
 }
 
-// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups
+// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups.
 func (s *Authorization) WithAlwaysAllowGroups(groups ...string) *Authorization {
 	s.AlwaysAllowGroups = append(s.AlwaysAllowGroups, groups...)
 	return s
 }
 
-// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths
+// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths.
 func (s *Authorization) WithAlwaysAllowPaths(paths ...string) *Authorization {
 	s.AlwaysAllowPaths = append(s.AlwaysAllowPaths, paths...)
 	return s

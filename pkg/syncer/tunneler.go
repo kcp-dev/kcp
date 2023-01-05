@@ -33,8 +33,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
-// startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target
-func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetClusterName logicalcluster.Name, syncTargetName string) {
+// startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target.
+func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Name, syncTargetName string) {
 	// connect to create the reverse tunnels
 	var (
 		initBackoff   = 5 * time.Second
@@ -51,7 +51,7 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 
 	wait.BackoffUntil(func() {
 		logger.V(5).Info("starting tunnel")
-		err := startTunneler(ctx, upstream, downstream, syncTargetClusterName, syncTargetName)
+		err := startTunneler(ctx, upstream, downstream, syncTargetWorkspace, syncTargetName)
 		if err != nil {
 			logger.Error(err, "failed to create tunnel")
 		}
@@ -109,7 +109,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	defer l.Close()
 
 	// reverse proxy the request coming from the reverse connection to the p-cluster apiserver
-	server := &http.Server{Handler: proxy}
+	server := &http.Server{ReadHeaderTimeout: 30 * time.Second, Handler: proxy}
 	defer server.Close()
 
 	logger.V(2).Info("serving on reverse connection")

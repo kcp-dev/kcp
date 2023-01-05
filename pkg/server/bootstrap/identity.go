@@ -45,7 +45,7 @@ import (
 )
 
 var (
-	// KcpRootGroupExportNames lists the APIExports in the root workspace for standard kcp groups
+	// KcpRootGroupExportNames lists the APIExports in the root workspace for standard kcp groups.
 	KcpRootGroupExportNames = map[string]string{
 		"tenancy.kcp.io":     "tenancy.kcp.io",
 		"scheduling.kcp.io":  "scheduling.kcp.io",
@@ -53,7 +53,7 @@ var (
 		"apiresource.kcp.io": "apiresource.kcp.io",
 	}
 
-	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources
+	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources.
 	KcpRootGroupResourceExportNames = map[schema.GroupResource]string{
 		{Group: "core.kcp.io", Resource: "shards"}: "shards.core.kcp.io",
 	}

@@ -35,7 +35,7 @@ const (
 	//
 	// // owner: @username
 	// // alpha: v1.4
-	// MyFeature() bool
+	// MyFeature() bool.
 
 	// owner: @sttts
 	// alpha: v0.4
@@ -61,7 +61,7 @@ func init() {
 }
 
 func KnownFeatures() []string {
-	var features []string
+	features := make([]string, 0, len(defaultGenericControlPlaneFeatureGates))
 	for k := range defaultGenericControlPlaneFeatureGates {
 		features = append(features, string(k))
 	}

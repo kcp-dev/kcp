@@ -45,6 +45,8 @@ func BindToExport(
 	bindingClusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 ) {
+	t.Helper()
+
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: exportPath.String(),
@@ -77,6 +79,7 @@ func BindToExport(
 }
 
 func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
 	bs, err := yaml.Marshal(obj)
 	require.NoError(t, err, "error converting to YAML")
 	return string(bs)

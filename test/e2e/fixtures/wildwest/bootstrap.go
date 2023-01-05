@@ -36,6 +36,8 @@ import (
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, clustername logicalcluster.Path, client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface, grs ...metav1.GroupResource) {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
@@ -44,6 +46,8 @@ func Create(t *testing.T, clustername logicalcluster.Path, client kcpapiextensio
 }
 
 func FakePClusterCreate(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 

@@ -61,7 +61,6 @@ type Controller struct {
 
 func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
-
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 

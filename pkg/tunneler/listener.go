@@ -58,7 +58,7 @@ type Listener struct {
 // NewListener returns a new Listener, it dials to the Dialer
 // creating "reverse connection" that are accepted by this Listener.
 // - client: http client, required for TLS
-// - url: a URL to the base of the reverse handler on the Dialer
+// - url: a URL to the base of the reverse handler on the Dialer.
 func NewListener(client *http.Client, url string) (*Listener, error) {
 	err := configureHTTP2Transport(client)
 	if err != nil {
@@ -97,7 +97,7 @@ func NewListener(client *http.Client, url string) (*Listener, error) {
 	return ln, nil
 }
 
-// run establish reverse connections against the server
+// run establish reverse connections against the server.
 func (ln *Listener) run() {
 	defer ln.Close()
 
@@ -144,7 +144,7 @@ func (ln *Listener) run() {
 }
 
 func (ln *Listener) sendMessage(m controlMsg) {
-	j, _ := json.Marshal(m)
+	j, _ := json.Marshal(m) //nolint:errchkjson
 	j = append(j, '\n')
 	ln.writec <- j
 }
@@ -152,19 +152,19 @@ func (ln *Listener) sendMessage(m controlMsg) {
 func (ln *Listener) dial() (net.Conn, error) {
 	connect := ln.url + "/" + cmdTunnelConnect
 	pr, pw := io.Pipe()
-	req, err := http.NewRequest("GET", connect, pr)
+	req, err := http.NewRequest(http.MethodGet, connect, pr) //nolint:noctx
 	if err != nil {
 		klog.V(5).Infof("Can not create request %v", err)
 		return nil, err
 	}
 
 	klog.V(5).Infof("Listener creating connection to %s", connect)
-	res, err := ln.client.Do(req)
+	res, err := ln.client.Do(req) //nolint:bodyclose // Seems we're returning the connection with res.Body, caller closes it?
 	if err != nil {
 		klog.V(5).Infof("Can not connect to %s request %v, retry %d", connect, err)
 		return nil, err
 	}
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		klog.V(5).Infof("Status code %d on request %v, retry %d", res.StatusCode, connect)
 		return nil, fmt.Errorf("status code %d", res.StatusCode)
 	}
@@ -193,7 +193,6 @@ func (ln *Listener) grabConn() {
 			return
 		}
 	}
-
 }
 
 // Accept blocks and returns a new connection, or an error.
@@ -234,7 +233,7 @@ func (ln *Listener) Close() error {
 // net.Listener interface.
 func (ln *Listener) Addr() net.Addr { return connAddr{} }
 
-// configureHTTP2Transport enable ping to avoid issues with stale connections
+// configureHTTP2Transport enable ping to avoid issues with stale connections.
 func configureHTTP2Transport(client *http.Client) error {
 	t, ok := client.Transport.(*http.Transport)
 	if !ok {

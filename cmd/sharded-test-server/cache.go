@@ -61,7 +61,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-cha
 		fmt.Sprintf("--secure-port=%d", cachePort),
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
 	logFilePath := filepath.Join(logDirPath, ".kcp-cache", "out.log")
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {

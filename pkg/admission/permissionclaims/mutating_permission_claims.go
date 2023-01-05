@@ -112,7 +112,6 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 	u.SetLabels(labels)
 
 	return nil
-
 }
 
 func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {

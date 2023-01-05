@@ -112,8 +112,8 @@ func Register(plugins *admission.Plugins) {
 	})
 }
 
-func (a *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
-	return a.WebhookDispatcher.Dispatch(ctx, attr, o)
+func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
+	return p.WebhookDispatcher.Dispatch(ctx, attr, o)
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.

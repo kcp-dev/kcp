@@ -92,7 +92,6 @@ func NewController(
 	})
 
 	return c, nil
-
 }
 
 // controller reconciles resource labels that make claimed resources visible to an APIExport
@@ -224,7 +223,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
 		if _, err := c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 			errs = append(errs, err)
-
 		}
 	}
 

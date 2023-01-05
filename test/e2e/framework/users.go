@@ -32,7 +32,8 @@ import (
 )
 
 // AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given workspace, optionally as admin.
-func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Path, users []string, groups []string, admin bool) {
+func AdmitWorkspaceAccess(ctx context.Context, t *testing.T, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Path, users []string, groups []string, admin bool) {
+	t.Helper()
 	if len(groups) > 0 {
 		t.Logf("Giving groups %v member access to workspace %q", groups, clusterName)
 	}

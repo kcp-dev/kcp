@@ -107,7 +107,7 @@ func NewController(
 	return c, nil
 }
 
-// controller
+// controller.
 type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*schedulingv1alpha1.Location, time.Duration)

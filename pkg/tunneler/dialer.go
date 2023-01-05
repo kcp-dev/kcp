@@ -113,8 +113,11 @@ func (d *Dialer) serve() {
 }
 
 func (d *Dialer) sendMessage(m controlMsg) error {
-	j, _ := json.Marshal(m)
-	err := d.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	j, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	err = d.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		return err
 	}

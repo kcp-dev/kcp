@@ -94,10 +94,10 @@ func TestMetadataMutations(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Verifying creation timestamp was not modified")
 	require.Equal(t, originalCreationTimestamp, patched.GetCreationTimestamp())
-
 }
 
 func encodeJSON(t *testing.T, obj interface{}) []byte {
+	t.Helper()
 	ret, err := json.Marshal(obj)
 	require.NoError(t, err)
 	return ret

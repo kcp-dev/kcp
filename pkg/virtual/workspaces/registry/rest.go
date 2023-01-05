@@ -77,17 +77,17 @@ func NewREST(
 	return mainRest
 }
 
-// New returns a new ClusterWorkspace
+// New returns a new ClusterWorkspace.
 func (s *REST) New() runtime.Object {
 	return &tenancyv1alpha1.ClusterWorkspace{}
 }
 
-// Destroy implements rest.Storage
+// Destroy implements rest.Storage.
 func (s *REST) Destroy() {
 	// Do nothing
 }
 
-// NewList returns a new ClusterWorkspaceList
+// NewList returns a new ClusterWorkspaceList.
 func (*REST) NewList() runtime.Object {
 	return &tenancyv1alpha1.ClusterWorkspaceList{}
 }
@@ -114,8 +114,9 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		Items:    make([]tenancyv1alpha1.ClusterWorkspace, len(ws.Items)),
 	}
 
-	for i, w := range ws.Items {
-		projection.ProjectWorkspaceToClusterWorkspace(&w, &cws.Items[i])
+	for i := range ws.Items {
+		w := &ws.Items[i]
+		projection.ProjectWorkspaceToClusterWorkspace(w, &cws.Items[i])
 	}
 
 	return cws, nil
@@ -135,7 +136,7 @@ func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (wa
 	return withProjection{delegate: w, ch: make(chan watch.Event)}, nil
 }
 
-// Get retrieves a Workspace by name
+// Get retrieves a Workspace by name.
 func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	opts := metav1.GetOptions{}
 	if options != nil {

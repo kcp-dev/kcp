@@ -58,6 +58,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
 				orgClusterName := framework.NewOrganizationFixture(t, server)
 
 				t.Logf("Create a workspace with a shard")
@@ -102,7 +103,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 				t.Logf("Wait for default namespace to be created")
 				framework.Eventually(t, func() (bool, string) {
 					_, err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
-					return err == nil, fmt.Sprintf("%v", err)
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
@@ -180,6 +184,8 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "nested worksapce cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				org := framework.NewOrganizationFixtureObject(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 				orgClusterName := logicalcluster.Name(org.Status.Cluster)
 
@@ -230,7 +236,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					nslist, err := rootShardKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the sub-workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list namespaces in sub-workspace")
 
@@ -242,7 +248,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					nslist, err := rootShardKubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list namespaces in org workspace")
 
@@ -254,7 +260,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Cluster(orgClusterName.Path()).List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list workspaces in org workspace")
 
@@ -300,6 +306,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 }
 
 func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
 	bs, err := yaml.Marshal(obj)
 	require.NoError(t, err, "failed to marshal object")
 	return string(bs)

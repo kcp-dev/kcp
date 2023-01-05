@@ -97,13 +97,13 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	var ret []*apiextensionsv1.CustomResourceDefinition
-
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
 	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDClusterName).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
+
+	ret := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(systemCRDObjs))
 	for _, crd := range systemCRDObjs {
 		ret = append(ret, crd)
 		seen.Insert(crdName(crd))
@@ -114,7 +114,6 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +273,7 @@ func shallowCopyCRDAndDeepCopyAnnotations(in *apiextensionsv1.CustomResourceDefi
 
 // decorateCRDWithBinding copy and mutate crd by
 // 1. adding identity annotation
-// 2. terminating status when apibinding is deleting
+// 2. terminating status when apibinding is deleting.
 func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identity string, deleteTime *metav1.Time) *apiextensionsv1.CustomResourceDefinition {
 	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
@@ -380,7 +379,6 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			// identity is empty string if the request is coming from a regular workspace client.
 			// It is set if the request is coming from the virtual apiexport apiserver client.

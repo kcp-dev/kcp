@@ -78,9 +78,7 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
-		getAPIBindings: func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
-			return getAPIBindings(ctx, kcpClusterClient, host)
-		},
+		getAPIBindings: getAPIBindings,
 	}
 }
 
@@ -369,7 +367,6 @@ func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha1.AP
 				}
 				found = true
 				ack = (specClaim.State == apisv1alpha1.ClaimAccepted) || specClaim.State == apisv1alpha1.ClaimRejected
-
 			}
 			if !found {
 				fmt.Fprintf(out, "Warning: claim for %s exported but not specified on APIBinding %s\nAdd this claim to the APIBinding's Spec.\n", exportedClaim.String(), binding.Name)
@@ -756,7 +753,7 @@ func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.Clus
 	return kcpclientset.NewForConfig(clusterConfig)
 }
 
-// TreeOptions contains options for displaying the workspace tree
+// TreeOptions contains options for displaying the workspace tree.
 type TreeOptions struct {
 	*base.Options
 

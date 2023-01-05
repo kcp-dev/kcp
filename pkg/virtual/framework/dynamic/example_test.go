@@ -32,9 +32,8 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
-// Typical Usage of a DynamicVirtualWorkspace
+// Typical Usage of a DynamicVirtualWorkspace.
 func Example() {
-
 	var someAPIDefinitionSetGetter apidefinition.APIDefinitionSetGetter
 	readyCh := make(chan struct{})
 
@@ -68,7 +67,6 @@ func Example() {
 		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-
 			// Initialize the implementation of the APIDefinitionSetGetter
 
 			someAPIDefinitionSetGetter = newAPIDefinitionSetGetter()
@@ -83,7 +81,6 @@ func Example() {
 			// Start the controllers in a PostStartHook
 
 			if err := mainConfig.AddPostStartHook("SomeDynamicVirtualWorkspacePostStartHook", func(hookContext genericapiserver.PostStartHookContext) error {
-
 				// Wait for required informers to be synced
 
 				someController.Start()

@@ -49,7 +49,7 @@ func (n Name) String() string {
 	return string(n)
 }
 
-// Empty returns true if the name of the shard is empty
+// Empty returns true if the name of the shard is empty.
 func (n Name) Empty() bool {
 	return n == ""
 }

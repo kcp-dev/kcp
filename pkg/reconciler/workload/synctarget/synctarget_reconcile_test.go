@@ -336,7 +336,7 @@ func TestReconciler(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := Controller{}
 			returnedSyncTarget, err := c.reconcile(context.TODO(), tc.syncTarget, tc.workspaceShards)
-			if err != nil && tc.expectError != true {
+			if err != nil && !tc.expectError {
 				t.Errorf("unexpected error: %v", err)
 			}
 			sort.Slice(tc.expectedSyncTarget.Status.VirtualWorkspaces, func(i, j int) bool {

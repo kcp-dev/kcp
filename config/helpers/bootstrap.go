@@ -82,7 +82,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
 	// bootstrap non-crd resources
-	var transformers []TransformFileFunc
+	transformers := make([]TransformFileFunc, 0, len(opts))
 	for _, opt := range opts {
 		transformers = append(transformers, opt.TransformFile)
 	}

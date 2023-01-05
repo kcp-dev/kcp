@@ -27,7 +27,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cliplugins/claims/plugin"
 )
 
-// TODO: Add examples for edit and update claims
+// TODO: Add examples for edit and update claims.
 var (
 	claimsExample = `
 	# Lists the permission claims and their respective status related to a specific APIBinding.
@@ -40,7 +40,6 @@ var (
 
 // New returns a cobra.Command for claims related actions.
 func New(streams genericclioptions.IOStreams) *cobra.Command {
-
 	cliName := "kubectl"
 	if pflag.CommandLine.Name() == "kubectl-kcp" {
 		cliName = "kubectl kcp"

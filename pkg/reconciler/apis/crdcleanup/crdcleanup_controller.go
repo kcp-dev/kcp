@@ -50,7 +50,7 @@ const (
 	AgeThreshold time.Duration = time.Minute * 30
 )
 
-// NewController returns a new controller for CRD cleanup
+// NewController returns a new controller for CRD cleanup.
 func NewController(
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
@@ -114,7 +114,7 @@ func NewController(
 	return c, nil
 }
 
-// controller deletes bound CRDs when they are no longer in use by any APIBindings
+// controller deletes bound CRDs when they are no longer in use by any APIBindings.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 

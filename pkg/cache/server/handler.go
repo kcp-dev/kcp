@@ -61,7 +61,7 @@ func init() {
 //
 // Note:
 // not all paths require to have a valid shard name,
-// as of today the following paths pass through: "/livez", "/readyz", "/healthz"
+// as of today the following paths pass through: "/livez", "/readyz", "/healthz".
 func WithShardScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if path := req.URL.Path; path == "/livez" || path == "/readyz" || path == "/healthz" {
@@ -122,7 +122,7 @@ func WithShardScope(handler http.Handler) http.Handler {
 // WithServiceScope an HTTP filter that trims "/services/cache" prefix from the URL.
 //
 // for example: /services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
-// is truncated to /shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
+// is truncated to /shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports.
 func WithServiceScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if path := req.URL.Path; strings.HasPrefix(path, "/services/cache") {

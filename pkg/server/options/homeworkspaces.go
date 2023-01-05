@@ -64,20 +64,20 @@ func (hw *HomeWorkspaces) AddFlags(fs *pflag.FlagSet) {
 	fs.MarkDeprecated("home-workspaces-bucket-size", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
 }
 
-func (e *HomeWorkspaces) Validate() []error {
+func (hw *HomeWorkspaces) Validate() []error {
 	var errs []error
 
-	if e.Enabled {
-		if e.BucketLevels < 1 || e.BucketLevels > 5 {
+	if hw.Enabled {
+		if hw.BucketLevels < 1 || hw.BucketLevels > 5 {
 			errs = append(errs, fmt.Errorf("--home-workspaces-bucket-levels should be between 1 and 5"))
 		}
-		if e.BucketSize < 1 || e.BucketLevels > 4 {
+		if hw.BucketSize < 1 || hw.BucketLevels > 4 {
 			errs = append(errs, fmt.Errorf("--home-workspaces-bucket-size should be between 1 and 4"))
 		}
-		if e.CreationDelaySeconds < 1 {
+		if hw.CreationDelaySeconds < 1 {
 			errs = append(errs, fmt.Errorf("--home-workspaces-creation-delay-seconds should be between 1"))
 		}
-		if homePrefix := logicalcluster.NewPath(e.HomeRootPrefix); !homePrefix.IsValid() ||
+		if homePrefix := logicalcluster.NewPath(hw.HomeRootPrefix); !homePrefix.IsValid() ||
 			homePrefix == logicalcluster.Wildcard ||
 			!homePrefix.HasPrefix(core.RootCluster.Path()) {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))

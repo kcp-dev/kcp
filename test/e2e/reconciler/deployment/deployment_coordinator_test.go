@@ -49,6 +49,8 @@ import (
 )
 
 func createResources(t *testing.T, ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, path logicalcluster.Path, transformers ...helpers.TransformFileFunc) error {
+	t.Helper()
+
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
@@ -108,8 +110,8 @@ func TestDeploymentCoordinator(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(locationWorkspace.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
-	eastSyncer.WaitForClusterReady(t, ctx)
-	westSyncer.WaitForClusterReady(t, ctx)
+	eastSyncer.WaitForClusterReady(ctx, t)
+	westSyncer.WaitForClusterReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
 	err = createResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
@@ -274,6 +276,8 @@ func TestDeploymentCoordinator(t *testing.T) {
 }
 
 func dumpPodEvents(ctx context.Context, t *testing.T, startAfter time.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) time.Time {
+	t.Helper()
+
 	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		t.Logf("Error getting events: %v", err)
@@ -315,6 +319,8 @@ func dumpPodEvents(ctx context.Context, t *testing.T, startAfter time.Time, down
 }
 
 func dumpPodLogs(ctx context.Context, t *testing.T, startAfter map[string]*metav1.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) map[string]*metav1.Time {
+	t.Helper()
+
 	if startAfter == nil {
 		startAfter = make(map[string]*metav1.Time)
 	}

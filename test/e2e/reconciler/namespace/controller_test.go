@@ -74,6 +74,7 @@ func TestNamespaceScheduler(t *testing.T) {
 		{
 			name: "validate namespace scheduling",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
 				t.Log("Create a namespace without a cluster available and expect it to be marked unschedulable")
 				namespace, err := server.client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
@@ -147,6 +148,8 @@ func TestNamespaceScheduler(t *testing.T) {
 		{
 			name: "GVRs are removed, and then quickly re-added to a new workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
@@ -321,6 +324,8 @@ func scheduledMatcher(target string) namespaceExpectation {
 type registerNamespaceExpectation func(seed *corev1.Namespace, expectation namespaceExpectation) error
 
 func expectNamespaces(ctx context.Context, t *testing.T, client kcpkubernetesclientset.ClusterInterface) (registerNamespaceExpectation, error) {
+	t.Helper()
+
 	informerFactory := kcpkubernetesinformers.NewSharedInformerFactory(client, 0)
 	informer := informerFactory.Core().V1().Namespaces()
 	expecter := framework.NewExpecter(informer.Informer())

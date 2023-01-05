@@ -26,7 +26,7 @@ import (
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
-// HandlerFactory creates an HTTP handler using the root API server configuration, for dynamic registration
+// HandlerFactory creates an HTTP handler using the root API server configuration, for dynamic registration.
 type HandlerFactory func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error)
 
 type VirtualWorkspace struct {

@@ -44,7 +44,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 		admissionResource schema.GroupVersionResource
 		admissionVerb     admission.Operation
 		admissionOptions  runtime.Object
-		admissionContext  context.Context
+		admissionContext  context.Context //nolint:containedctx
 		getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 
 		expectError             bool
@@ -78,6 +78,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 			admissionObject:   &apisv1alpha1.APIResourceSchema{},
 			getLogicalCluster: getCluster("foo"),
 			validateAdmissionObject: func(t *testing.T, obj runtime.Object) {
+				t.Helper()
 				objMeta, err := meta.Accessor(obj)
 				if err != nil {
 					t.Fatal(err)
@@ -184,7 +185,7 @@ func TestPathAnnotationValidate(t *testing.T) {
 		admissionResource schema.GroupVersionResource
 		admissionVerb     admission.Operation
 		admissionOptions  runtime.Object
-		admissionContext  context.Context
+		admissionContext  context.Context //nolint:containedctx
 		getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 
 		expectError bool
@@ -291,6 +292,7 @@ func getCluster(expectedClusterName string) func(clusterName logicalcluster.Name
 
 func objectHasPathAnnotation(expectedPathAnnotation string) func(t *testing.T, obj runtime.Object) {
 	return func(t *testing.T, obj runtime.Object) {
+		t.Helper()
 		objMeta, err := meta.Accessor(obj)
 		if err != nil {
 			t.Fatal(err)
@@ -303,6 +305,7 @@ func objectHasPathAnnotation(expectedPathAnnotation string) func(t *testing.T, o
 }
 
 func objectWithoutPathAnnotation(t *testing.T, obj runtime.Object) {
+	t.Helper()
 	objMeta, err := meta.Accessor(obj)
 	if err != nil {
 		t.Fatal(err)

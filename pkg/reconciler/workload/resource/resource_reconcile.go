@@ -209,7 +209,7 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 	return annotationPatch
 }
 
-// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending
+// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending.
 func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
 	currentSynctargetKeys := getLocations(obj.GetLabels(), false)
 	currentSynctargetKeysDeleting := getDeletingLocations(obj.GetAnnotations())

@@ -136,7 +136,7 @@ func (o *BindComputeOptions) Validate() error {
 	return nil
 }
 
-// Run creates a placement in the workspace, linking to the location workspace
+// Run creates a placement in the workspace, linking to the location workspace.
 func (o *BindComputeOptions) Run(ctx context.Context) error {
 	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
@@ -265,7 +265,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	var localClusterName logicalcluster.Name
 
 	existingAPIExports := sets.NewString()
-	for _, binding := range apiBindings.Items {
+	for i := range apiBindings.Items {
+		binding := apiBindings.Items[i]
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
@@ -293,7 +294,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 
 	var errs []error
 	diff := desiredAPIExports.Difference(existingAPIExports)
-	var bindings []*apisv1alpha1.APIBinding
+	bindings := make([]*apisv1alpha1.APIBinding, 0, len(diff))
 	for export := range diff {
 		path, name := logicalcluster.NewPath(export).Split()
 		if path == localClusterName.Path() {

@@ -131,7 +131,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&o.Replicas, "replicas", o.Replicas, "Number of replicas of the syncer deployment.")
 	cmd.Flags().StringVar(&o.KCPNamespace, "kcp-namespace", o.KCPNamespace, "The name of the kcp namespace to create a service account in.")
 	cmd.Flags().StringVarP(&o.OutputFile, "output-file", "o", o.OutputFile, "The manifest file to be created and applied to the physical cluster. Use - for stdout.")
-	cmd.Flags().StringVarP(&o.DownstreamNamespace, "namespace", "n", o.DownstreamNamespace, "The namespace to create the syncer in in the physical cluster. By default this is \"kcp-syncer-<synctarget-name>-<uid>\".")
+	cmd.Flags().StringVarP(&o.DownstreamNamespace, "namespace", "n", o.DownstreamNamespace, "The namespace to create the syncer in the physical cluster. By default this is \"kcp-syncer-<synctarget-name>-<uid>\".")
 	cmd.Flags().Float32Var(&o.QPS, "qps", o.QPS, "QPS to use when talking to API servers.")
 	cmd.Flags().IntVar(&o.Burst, "burst", o.Burst, "Burst to use when talking to API servers.")
 	cmd.Flags().StringVar(&o.FeatureGates, "feature-gates", o.FeatureGates,
@@ -290,7 +290,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 }
 
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
-	var supportedAPIExports []tenancyv1alpha1.APIExportReference
+	supportedAPIExports := make([]tenancyv1alpha1.APIExportReference, 0, len(o.APIExports))
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.NewPath(export).Split()
 		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
@@ -638,7 +638,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 	return string(saTokenBytes), syncerID, syncTarget, nil
 }
 
-// mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences
+// mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences.
 func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerReference) []metav1.OwnerReference {
 	var merged []metav1.OwnerReference
 
@@ -658,7 +658,6 @@ func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerRefer
 	}
 
 	return merged
-
 }
 
 // templateInput represents the external input required to render the resources to
@@ -802,8 +801,8 @@ func getGroupMappings(resourcesToSync []string) []groupMapping {
 			groupMap[apiGroup] = append(groupMap[apiGroup], name)
 		}
 	}
-	var groupMappings []groupMapping
 
+	groupMappings := make([]groupMapping, 0, len(groupMap))
 	for apiGroup, resources := range groupMap {
 		groupMappings = append(groupMappings, groupMapping{
 			APIGroup:  apiGroup,

@@ -53,7 +53,7 @@ func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 		return []string{client.ToClusterAwareKey(clusterName.Path(), reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
 	}
 
-	var keys []string
+	keys := make([]string, 0, len(synctarget.Spec.SupportedAPIExports))
 	for _, export := range synctarget.Spec.SupportedAPIExports {
 		if len(export.Export) == 0 {
 			keys = append(keys, client.ToClusterAwareKey(clusterName.Path(), export.Export))

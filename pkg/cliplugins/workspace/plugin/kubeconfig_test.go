@@ -768,7 +768,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "no arg",
@@ -793,7 +793,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is \"%s\".\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is %q.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "workspace name, apibindings have matching permission and export claims",
@@ -892,7 +892,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+				fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "- with existing previous context, apibinding claims/exports don't match ",

@@ -77,11 +77,7 @@ func (o *Options) Complete() error {
 		o.SecureServing.ServerCert.CertDirectory = filepath.Join(o.RootDirectory, o.SecureServing.ServerCert.CertDirectory)
 	}
 
-	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", []string{"kubernetes.default.svc", "kubernetes.default", "kubernetes"}, nil); err != nil {
-		return err
-	}
-
-	return nil
+	return o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", []string{"kubernetes.default.svc", "kubernetes.default", "kubernetes"}, nil)
 }
 
 func (o *Options) Validate() []error {

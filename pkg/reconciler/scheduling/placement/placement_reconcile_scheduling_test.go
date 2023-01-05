@@ -219,7 +219,6 @@ func TestPlacementScheduling(t *testing.T) {
 			require.NotNil(t, c)
 			require.Equal(t, testCase.wantStatus, c.Status)
 			require.Equal(t, testCase.wantSelectLocation, updated.Status.SelectedLocation)
-
 		})
 	}
 }

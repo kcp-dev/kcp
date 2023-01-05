@@ -112,7 +112,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		return errors.New("missing environment variable: NAMESPACE")
 	}
 
-	if err := syncer.StartSyncer(
+	return syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
 			UpstreamConfig:                upstreamConfig,
@@ -127,9 +127,5 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		numThreads,
 		options.APIImportPollInterval,
 		namespace,
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }

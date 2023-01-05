@@ -474,13 +474,13 @@ func (f fakeWorkspaceTypeClusterLister) GetByPath(path logicalcluster.Path, name
 	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("workspacetypes"), name)
 }
 
-func (l fakeWorkspaceTypeClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.WorkspaceType, err error) {
-	return l, nil
+func (f fakeWorkspaceTypeClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.WorkspaceType, err error) {
+	return f, nil
 }
 
-func (l fakeWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.WorkspaceTypeLister {
+func (f fakeWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.WorkspaceTypeLister {
 	var perCluster []*tenancyv1alpha1.WorkspaceType
-	for _, this := range l {
+	for _, this := range f {
 		if logicalcluster.From(this) == cluster {
 			perCluster = append(perCluster, this)
 		}

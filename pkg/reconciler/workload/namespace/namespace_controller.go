@@ -117,7 +117,7 @@ func NewController(
 	return c, nil
 }
 
-// controller
+// controller.
 type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*corev1.Namespace, time.Duration)

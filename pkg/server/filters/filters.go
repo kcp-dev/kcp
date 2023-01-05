@@ -52,7 +52,7 @@ var (
 	// reClusterName is a regular expression for cluster names. It is based on
 	// modified RFC 1123. It allows for 63 characters for single name and includes
 	// KCP specific ':' separator for workspace nesting. We are not re-using k8s
-	// validation regex because its purpose is for single name validation
+	// validation regex because its purpose is for single name validation.
 	reClusterName = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?:)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 	errorScheme = runtime.NewScheme()
@@ -137,7 +137,7 @@ func ClusterPathFromAndStrip(req *http.Request) (logicalcluster.Path, *url.URL, 
 
 		i := strings.Index(reqPath, "/")
 		if i == -1 {
-			reqPath = reqPath + "/"
+			reqPath += "/"
 			i = len(reqPath) - 1
 		}
 		path, reqPath := logicalcluster.NewPath(reqPath[:i]), reqPath[i:]

@@ -39,14 +39,14 @@ import (
 // Authentication wraps BuiltInAuthenticationOptions so we can minimize the
 // dependencies on apiserver auth machinery, specifically by overriding the
 // ApplyTo so we can remove those config dependencies not relevant to the
-// subset of auth methods we enable in the proxy
+// subset of auth methods we enable in the proxy.
 type Authentication struct {
 	BuiltInOptions *kubeoptions.BuiltInAuthenticationOptions
 	PassOnGroups   []string
 	DropGroups     []string
 }
 
-// NewAuthentication creates a default Authentication
+// NewAuthentication creates a default Authentication.
 func NewAuthentication() *Authentication {
 	auth := &Authentication{
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
@@ -61,7 +61,7 @@ func NewAuthentication() *Authentication {
 	return auth
 }
 
-// When configured to enable auth other than ClientCert, this returns true
+// When configured to enable auth other than ClientCert, this returns true.
 func (c *Authentication) AdditionalAuthEnabled() bool {
 	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled() || c.oidcAuthEnabled()
 }
@@ -149,7 +149,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 	return nil
 }
 
-// AddFlags delegates to ClientCertAuthenticationOptions
+// AddFlags delegates to ClientCertAuthenticationOptions.
 func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
 	c.BuiltInOptions.AddFlags(fs)
 

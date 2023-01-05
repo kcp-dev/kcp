@@ -169,7 +169,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	}
 
 	if opts.Extra.ProfilerAddress != "" {
-		//nolint:errcheck
+		//nolint:errcheck,gosec
 		go http.ListenAndServe(opts.Extra.ProfilerAddress, nil)
 	}
 

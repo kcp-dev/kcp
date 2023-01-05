@@ -90,7 +90,7 @@ func printWorkspaceList(list *tenancyv1alpha1.ClusterWorkspaceList, options kpri
 	return rows, nil
 }
 
-// SortableWorkspaces is a list of workspaces that can be sorted
+// SortableWorkspaces is a list of workspaces that can be sorted.
 type SortableWorkspaces []tenancyv1alpha1.ClusterWorkspace
 
 func (list SortableWorkspaces) Len() int {

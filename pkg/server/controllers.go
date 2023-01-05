@@ -470,7 +470,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}); err != nil {
 			return err
 		}
-
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)
@@ -1295,14 +1294,10 @@ func (s *Server) installKubeQuotaController(
 		return err
 	}
 
-	if err := server.AddPreShutdownHook(kubequota.ControllerName, func() error {
+	return server.AddPreShutdownHook(kubequota.ControllerName, func() error {
 		close(s.quotaAdmissionStopCh)
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installApiExportIdentityController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -1332,7 +1327,6 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 }
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, replication.ControllerName)
 	dynamicLocalClient, err := kcpdynamic.NewForConfig(config)

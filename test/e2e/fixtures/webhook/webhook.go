@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package Webhook
+package webhook
 
 import (
 	"context"
@@ -43,6 +43,8 @@ type AdmissionWebhookServer struct {
 }
 
 func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string, port string) {
+	t.Helper()
+
 	s.t = t
 	s.port = port
 
@@ -74,6 +76,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 		msg := "Expected request body to be non-empty"
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
+		return
 	}
 
 	data, err := io.ReadAll(req.Body)
@@ -81,6 +84,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 		msg := fmt.Sprintf("Request could not be decoded: %v", err)
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
+		return
 	}
 
 	// verify the content type is accurate

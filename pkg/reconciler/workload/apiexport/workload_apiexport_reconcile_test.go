@@ -43,7 +43,9 @@ import (
 
 type SchemaCheck func(t *testing.T, s *apisv1alpha1.APIResourceSchema)
 
-func someSchemaWeDontCareAboutInDetail(t *testing.T, got *apisv1alpha1.APIResourceSchema) {}
+func someSchemaWeDontCareAboutInDetail(t *testing.T, got *apisv1alpha1.APIResourceSchema) {
+	t.Helper()
+}
 
 func equals(expected *apisv1alpha1.APIResourceSchema) func(*testing.T, *apisv1alpha1.APIResourceSchema) {
 	return func(t *testing.T, got *apisv1alpha1.APIResourceSchema) {

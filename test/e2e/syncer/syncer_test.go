@@ -476,10 +476,11 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		return false, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not deleted downstream", upstreamPersistentVolume.Name)
-
 }
 
 func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) time.Time {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -524,6 +525,8 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient kube
 }
 
 func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) map[string]*metav1.Time {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -588,7 +591,6 @@ func TestSyncWorkload(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
 
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommand)
-
 }
 
 func TestCordonUncordonDrain(t *testing.T) {
@@ -692,5 +694,4 @@ func TestCordonUncordonDrain(t *testing.T) {
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
-
 }

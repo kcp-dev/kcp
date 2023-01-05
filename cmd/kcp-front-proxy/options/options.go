@@ -47,10 +47,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) Complete() error {
-	if err := o.Proxy.Complete(); err != nil {
-		return err
-	}
-	return nil
+	return o.Proxy.Complete()
 }
 
 func (o *Options) Validate() []error {

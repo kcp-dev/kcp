@@ -50,20 +50,20 @@ func NewOptions() *Options {
 	}
 }
 
-func (v *Options) Validate() []error {
+func (o *Options) Validate() []error {
 	var errs []error
 
-	errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
-func (v *Options) AddFlags(fs *pflag.FlagSet) {
-	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
-	v.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
@@ -72,7 +72,6 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-
 	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config)
 	if err != nil {
 		return nil, err

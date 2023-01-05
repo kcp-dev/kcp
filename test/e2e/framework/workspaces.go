@@ -71,6 +71,8 @@ func WithName(s string, formatArgs ...interface{}) ClusterWorkspaceOption {
 }
 
 func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...ClusterWorkspaceOption) *tenancyv1alpha1.ClusterWorkspace {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -144,15 +146,18 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 }
 
 func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+	t.Helper()
 	ws := NewWorkspaceFixtureObject(t, server, orgClusterName, options...)
 	return logicalcluster.Name(ws.Status.Cluster)
 }
 
 func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) *tenancyv1alpha1.ClusterWorkspace {
+	t.Helper()
 	return NewWorkspaceFixtureObject(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
 func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
+	t.Helper()
 	org := NewOrganizationFixtureObject(t, server, options...)
 	return logicalcluster.Name(org.Status.Cluster)
 }

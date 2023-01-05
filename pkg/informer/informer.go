@@ -84,7 +84,7 @@ type GVRSource interface {
 }
 
 // genericInformerBase is a base interface that would be satisfied by both
-// cluster-aware and cluster-unaware generic informers
+// cluster-aware and cluster-unaware generic informers.
 type genericInformerBase[Informer cache.SharedIndexInformer, Lister genericListerBase] interface {
 	// Informer is the shared index informer returned by the generic informer.
 	// It would be either a SharedIndexInformer or a ScopeableSharedIndexInformer,
@@ -829,7 +829,6 @@ func NewCRDGVRSource(informer cache.SharedIndexInformer) (*crdGVRSource, error) 
 		crdInformer: informer,
 		crdIndexer:  informer.GetIndexer(),
 	}, nil
-
 }
 
 func byGroupVersionResourceKeyFunc(group, version, resource string) string {
@@ -842,8 +841,7 @@ func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
 		return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
 	}
 
-	var ret []string
-
+	ret := make([]string, 0, len(crd.Spec.Versions))
 	for _, v := range crd.Spec.Versions {
 		if !v.Served {
 			continue
@@ -859,7 +857,7 @@ type crdGVRSource struct {
 	crdIndexer  cache.Indexer
 }
 
-// Hard-code built in types that support list+watch
+// Hard-code built in types that support list+watch.
 var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = map[schema.GroupVersionResource]GVRPartialMetadata{
 	gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
 	gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),

@@ -46,7 +46,6 @@ func NewLabeler(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) *Labeler {
-
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})

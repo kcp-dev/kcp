@@ -127,5 +127,4 @@ func TestGroupFilter(t *testing.T) {
 			require.Equal(t, tc.wantGroups, res.User.GetGroups())
 		})
 	}
-
 }

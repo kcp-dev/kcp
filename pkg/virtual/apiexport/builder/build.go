@@ -93,7 +93,7 @@ func BuildVirtualWorkspace(
 				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
-					var wrapper forwardingregistry.StorageWrapper = nil
+					var wrapper forwardingregistry.StorageWrapper
 					if len(optionalLabelRequirements) > 0 {
 						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
 							return optionalLabelRequirements

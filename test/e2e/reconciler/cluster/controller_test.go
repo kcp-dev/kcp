@@ -66,6 +66,7 @@ func TestClusterController(t *testing.T) {
 		{
 			name: "create an object, expect spec and status to sync to sink, then delete",
 			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer, syncerFixture *framework.StartedSyncerFixture) {
+				t.Helper()
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 

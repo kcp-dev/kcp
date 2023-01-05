@@ -74,8 +74,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create requestheader-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create requestheader-ca: %w", err)
 	}
 	_, err = requestHeaderCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
@@ -84,8 +83,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create requestheader client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create requestheader client cert: %w", err)
 	}
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
@@ -97,8 +95,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create client-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
 	_, err = clientCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
@@ -110,8 +107,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create kcp-admin client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create kcp-admin client cert: %w", err)
 	}
 
 	// client cert for logical-cluster-admin
@@ -125,8 +121,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create kcp-logical-cluster client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create kcp-logical-cluster client cert: %w", err)
 	}
 
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
@@ -143,8 +138,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create front proxy shard admin client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create front proxy shard admin client cert: %w", err)
 	}
 
 	// create server CA to be used to sign shard serving certs
@@ -156,8 +150,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create serving-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create serving-ca: %w", err)
 	}
 
 	// create service account signing and verification key
@@ -168,8 +161,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		"kcp-service-account-signing-ca",
 		365,
 	); err != nil {
-		fmt.Printf("failed to create service-account-signing-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create service-account-signing-ca: %w", err)
 	}
 
 	// find external IP to put into certs as valid IPs

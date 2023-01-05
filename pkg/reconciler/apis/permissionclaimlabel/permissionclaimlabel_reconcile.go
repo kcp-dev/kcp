@@ -165,7 +165,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		}
 	}
 
-	var unexpectedOrInvalidErrors []error
+	unexpectedOrInvalidErrors := make([]error, 0, unexpectedClaims.Len())
 	for _, s := range unexpectedClaims.List() {
 		claim := claimFromSetKey(s)
 		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))

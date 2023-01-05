@@ -39,7 +39,7 @@ var (
 	scheme = runtime.NewScheme()
 	codecs = serializer.NewCodecFactory(scheme)
 
-	// if you modify this, make sure you update the crEncoder
+	// if you modify this, make sure you update the crEncoder.
 	unversionedVersion = schema.GroupVersion{Group: "", Version: "v1"}
 	unversionedTypes   = []runtime.Object{
 		&metav1.Status{},
@@ -58,12 +58,12 @@ func init() {
 	scheme.AddUnversionedTypes(unversionedVersion, unversionedTypes...)
 }
 
-// DynamicAPIServerExtraConfig contains additional configuration for the DynamicAPIServer
+// DynamicAPIServerExtraConfig contains additional configuration for the DynamicAPIServer.
 type DynamicAPIServerExtraConfig struct {
 	APISetRetriever apidefinition.APIDefinitionSetGetter
 }
 
-// DynamicAPIServerConfig contains the configuration for the DynamicAPIServer
+// DynamicAPIServerConfig contains the configuration for the DynamicAPIServer.
 type DynamicAPIServerConfig struct {
 	GenericConfig *genericapiserver.RecommendedConfig
 	ExtraConfig   DynamicAPIServerExtraConfig

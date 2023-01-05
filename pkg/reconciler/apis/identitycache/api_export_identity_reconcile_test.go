@@ -61,6 +61,8 @@ func TestReconcile(t *testing.T) {
 				return nil, nil
 			},
 			validateCalls: func(t *testing.T, ctx callContext) {
+				t.Helper()
+
 				if !ctx.createConfigMap.called {
 					t.Error("configmap never created")
 				}
@@ -104,6 +106,8 @@ func TestReconcile(t *testing.T) {
 				return nil, nil
 			},
 			validateCalls: func(t *testing.T, ctx callContext) {
+				t.Helper()
+
 				if !ctx.updateConfigMap.called {
 					t.Error("configmap never updated")
 				}

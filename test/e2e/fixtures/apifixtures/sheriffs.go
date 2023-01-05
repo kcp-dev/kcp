@@ -122,6 +122,8 @@ func CreateSheriffsSchemaAndExport(
 	group string,
 	description string,
 ) {
+	t.Helper()
+
 	schema := &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("today.sheriffs.%s", group),
@@ -181,6 +183,8 @@ func CreateSheriff(
 	clusterName logicalcluster.Path,
 	group, name string,
 ) {
+	t.Helper()
+
 	name = strings.ReplaceAll(name, ":", "-")
 
 	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)

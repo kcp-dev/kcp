@@ -66,5 +66,4 @@ func TestAuditLogs(t *testing.T) {
 	workspaceNameRecvd := auditEvent.Annotations["tenancy.kcp.io/workspace"]
 
 	require.Equal(t, workspaceNameSent, workspaceNameRecvd)
-
 }

@@ -20,7 +20,6 @@ package tunneler
 import "testing"
 
 func Test_SyncerTunnelURL(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		host    string

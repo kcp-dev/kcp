@@ -150,11 +150,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	logger := logging.WithObject(klog.FromContext(ctx), secret)
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(2).Info("creating identity secret")
-	if err := c.createSecret(ctx, clusterName, secret); err != nil {
-		return err
-	}
-
-	return nil
+	return c.createSecret(ctx, clusterName, secret)
 }
 
 func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha1.APIExport) error {

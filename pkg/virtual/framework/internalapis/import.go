@@ -35,7 +35,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
-// InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions
+// InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions.
 type InternalAPI struct {
 	Names         apiextensionsv1.CustomResourceDefinitionNames
 	GroupVersion  schema.GroupVersion
@@ -57,7 +57,7 @@ func CreateAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGette
 		return result
 	}, endpointsopenapi.NewDefinitionNamer(schemes...))
 
-	var canonicalTypeNames []string
+	canonicalTypeNames := make([]string, 0, len(defs))
 	for _, def := range defs {
 		canonicalTypeNames = append(canonicalTypeNames, util.GetCanonicalTypeName(def.Instance))
 	}

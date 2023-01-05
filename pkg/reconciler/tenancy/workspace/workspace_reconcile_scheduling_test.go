@@ -71,6 +71,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
@@ -87,6 +89,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:       wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster:  &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
 				initialWS.Status.URL = `https://root/clusters/root-foo`
@@ -100,6 +104,8 @@ func TestReconcileScheduling(t *testing.T) {
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				t.Helper()
+
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:           reconcileStatusContinue,
@@ -117,6 +123,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
 				initialWS.Status.URL = `https://root/clusters/root-foo`
@@ -130,6 +138,7 @@ func TestReconcileScheduling(t *testing.T) {
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				t.Helper()
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:           reconcileStatusContinue,
@@ -148,6 +157,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
 				delete(initialWS.Annotations, "internal.tenancy.kcp.io/cluster")
@@ -175,6 +186,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
 				initialWS.Status.URL = `https://root/clusters/root-foo`
@@ -188,6 +201,7 @@ func TestReconcileScheduling(t *testing.T) {
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				t.Helper()
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:           reconcileStatusContinue,
@@ -198,6 +212,8 @@ func TestReconcileScheduling(t *testing.T) {
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:     tenancyv1alpha1.WorkspaceScheduled,
@@ -227,6 +243,8 @@ func TestReconcileScheduling(t *testing.T) {
 				return s
 			}()},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				t.Helper()
+
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
@@ -397,6 +415,8 @@ func wellKnownCRBForThisWS() *rbacv1.ClusterRoleBinding {
 }
 
 func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgotesting.Action) {
+	t.Helper()
+
 	wasLogicalClusterCreated := false
 	wasLogicalClusterUpdated := false
 	expectedObj := wellKnownLogicalClusterForFooWS()

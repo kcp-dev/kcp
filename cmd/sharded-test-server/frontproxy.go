@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -140,7 +141,7 @@ func startFrontProxy(
 	commandLine = append(commandLine, args...)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
 	logFilePath := filepath.Join(workDirPath, ".kcp-front-proxy/proxy.log")
 	if logDirPath != "" {
@@ -236,7 +237,7 @@ func startFrontProxy(
 }
 
 func writeAdminKubeConfig(hostIP string, workDirPath string) error {
-	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
+	baseHost := "https://" + net.JoinHostPort(hostIP, "6443")
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
@@ -294,7 +295,7 @@ func writeShardKubeConfig(workDirPath string) error {
 }
 
 func writeLogicalClusterAdminKubeConfig(hostIP, workDirPath string) error {
-	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
+	baseHost := fmt.Sprintf("https://%s", net.JoinHostPort(hostIP, "6443"))
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
