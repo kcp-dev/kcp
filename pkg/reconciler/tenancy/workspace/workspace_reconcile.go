@@ -65,6 +65,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 	kcpDirectClientFor := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
+		if shard.Name == c.shardName {
+			return c.kcpClusterClient, nil
+		}
 		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
 		shardConfig.Host = shard.Spec.BaseURL
 		shardClient, err := kcpclientset.NewForConfig(shardConfig)
@@ -78,6 +81,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 	kubeDirectClientFor := func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error) {
+		if shard.Name == c.shardName {
+			return c.kubeClusterClient, nil
+		}
 		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
 		shardConfig.Host = shard.Spec.BaseURL
 		shardClient, err := kubernetes.NewForConfig(shardConfig)

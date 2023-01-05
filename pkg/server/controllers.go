@@ -416,6 +416,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName)
 
 	workspaceController, err := workspace.NewController(
+		s.Options.Extra.ShardName,
 		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,

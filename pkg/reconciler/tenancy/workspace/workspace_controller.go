@@ -52,6 +52,7 @@ const (
 )
 
 func NewController(
+	shardName string,
 	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
@@ -66,6 +67,7 @@ func NewController(
 	c := &Controller{
 		queue: queue,
 
+		shardName:        shardName,
 		shardExternalURL: shardExternalURL,
 
 		logicalClusterAdminConfig: logicalClusterAdminConfig,
@@ -119,6 +121,7 @@ type workspaceResource = committer.Resource[*tenancyv1beta1.WorkspaceSpec, *tena
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
+	shardName                 string
 	shardExternalURL          func() string
 	logicalClusterAdminConfig *rest.Config
 
