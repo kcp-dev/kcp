@@ -162,7 +162,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "not permitted due to phase \"Scheduling\"",
 		},
 		{
-			testName: "service account of same workspace is denied on initializing workspace",
+			testName: "service account of same workspace is allowed on initializing workspace",
 
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root:initializing", "system:authenticated"),

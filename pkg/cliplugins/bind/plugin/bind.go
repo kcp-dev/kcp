@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -83,8 +82,8 @@ func (b *BindOptions) Validate() error {
 		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
 	}
 
-	if !strings.HasPrefix(b.APIExportRef, "root") || !logicalcluster.NewPath(b.APIExportRef).IsValid() {
-		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `root:<ws>:<apiexport>`")
+	if !logicalcluster.NewPath(b.APIExportRef).IsValid() {
+		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `<logical-cluster-name>:<apiexport>` or `<full>:<path>:<to>:<apiexport>`")
 	}
 
 	return b.Options.Validate()
