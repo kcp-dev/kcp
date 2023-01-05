@@ -217,9 +217,11 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 		desiredURLs.Insert(u.String())
 	}
 
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	apiExport.Status.VirtualWorkspaces = nil
 
 	for _, u := range desiredURLs.List() {
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha1.VirtualWorkspace{
 			URL: u,
 		})

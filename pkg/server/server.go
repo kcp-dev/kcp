@@ -347,25 +347,23 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if s.Options.Cache.Enabled {
-		if err := s.AddPostStartHook("kcp-start-optional-informers", func(hookContext genericapiserver.PostStartHookContext) error {
-			// TODO(p0lyn0mial): failing the optional hook should not render the main server unhealthy
-			logger := logger.WithValues("postStartHook", "kcp-start-optional-informers")
-			s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
-			s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+	if err := s.AddPostStartHook("kcp-start-optional-informers", func(hookContext genericapiserver.PostStartHookContext) error {
+		// TODO(p0lyn0mial): failing the optional hook should not render the main server unhealthy
+		logger := logger.WithValues("postStartHook", "kcp-start-optional-informers")
+		s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
+		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 
-			select {
-			case <-hookContext.StopCh:
-				return nil // context closed, avoid reporting success below
-			default:
-			}
-
-			logger.Info("finished starting optional cache informers, ready to start controllers")
-			close(s.syncedOptionalCh)
-			return nil
-		}); err != nil {
-			return err
+		select {
+		case <-hookContext.StopCh:
+			return nil // context closed, avoid reporting success below
+		default:
 		}
+
+		logger.Info("finished starting optional cache informers, ready to start controllers")
+		close(s.syncedOptionalCh)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// ========================================================================================================
@@ -485,6 +483,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
+		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
 		if err := s.installAPIBinderController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
@@ -534,7 +538,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.Options.Cache.Enabled && len(s.Options.Cache.KubeconfigFile) == 0 {
+	if len(s.Options.Cache.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err
 		}

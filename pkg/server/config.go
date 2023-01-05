@@ -188,32 +188,30 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	if c.Options.Cache.Enabled {
-		var cacheClientConfig *rest.Config
-		if len(c.Options.Cache.KubeconfigFile) > 0 {
-			cacheClientConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Cache.KubeconfigFile}, nil).ClientConfig()
-			if err != nil {
-				return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a cache client, err: %w", c.Options.Cache.KubeconfigFile, err)
-			}
-		} else {
-			cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	var cacheClientConfig *rest.Config
+	if len(c.Options.Cache.KubeconfigFile) > 0 {
+		cacheClientConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Cache.KubeconfigFile}, nil).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a cache client, err: %w", c.Options.Cache.KubeconfigFile, err)
 		}
-		rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
-		rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
-		rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
+	} else {
+		cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	}
+	rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
+	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
+	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
 
-		cacheKcpClusterClient, err := kcpclientset.NewForConfig(rt)
-		if err != nil {
-			return nil, err
-		}
-		c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-			cacheKcpClusterClient,
-			resyncPeriod,
-		)
-		c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
-		if err != nil {
-			return nil, err
-		}
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(rt)
+	if err != nil {
+		return nil, err
+	}
+	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
+		cacheKcpClusterClient,
+		resyncPeriod,
+	)
+	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
+	if err != nil {
+		return nil, err
 	}
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.

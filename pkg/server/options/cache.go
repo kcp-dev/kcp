@@ -55,8 +55,7 @@ func NewCache(rootDir string) *Cache {
 }
 
 func (c *Cache) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&c.KubeconfigFile, "cache-server-kubeconfig-file", c.KubeconfigFile, "Kubeconfig for the cache server this instance connects to (defaults to loop back configuration).")
-	fs.BoolVar(&c.Enabled, "run-cache-server", c.Enabled, "If set to true it turns the cache server support on this instance (default false).")
+	fs.StringVar(&c.KubeconfigFile, "cache-server-kubeconfig-file", c.KubeconfigFile, "Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).")
 
 	// note do not add cache server's flag c.Server.AddFlags(fs)
 	// it will cause an undefined behavior as some flags will be overwritten (also defined by the kcp server)

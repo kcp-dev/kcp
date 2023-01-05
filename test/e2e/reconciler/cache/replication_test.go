@@ -362,10 +362,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
-			"--run-cache-server=true",
-		)...,
-		))
+		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
@@ -400,7 +397,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), "--run-cache-server=true", fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
+		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
 		framework.WithScratchDirectories(artifactDir, dataDir),
 	)
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)

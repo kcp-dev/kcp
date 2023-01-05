@@ -52,8 +52,8 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 		Size              int    `json:"size,omitempty"`
 	}
 	earth := planet{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}, Star: "TheSun", Size: 40000}
-	validateFn := func(earth planet, cachedPlatenRaw *unstructured.Unstructured) {
-		cachedEarthJson, err := cachedPlatenRaw.MarshalJSON()
+	validateFn := func(earth planet, cachedPlanetRaw *unstructured.Unstructured) {
+		cachedEarthJson, err := cachedPlanetRaw.MarshalJSON()
 		require.NoError(t, err)
 		cachedEarth := &planet{}
 		require.NoError(t, json.Unmarshal(cachedEarthJson, cachedEarth))
@@ -69,7 +69,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 		}
 	}
 
-	t.Logf("Create abmer|%s/earth (shard|cluster/name) on the cache server without type information", cluster)
+	t.Logf("Create amber|%s/earth (shard|cluster/name) on the cache server without type information", cluster)
 	earthRaw, err := toUnstructured(&earth)
 	require.NoError(t, err)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
@@ -79,7 +79,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 
 	earth.APIVersion = "apis.kcp.io/v1alpha1"
 	earth.Kind = "APIExport"
-	t.Logf("Create abmer/%s/earth on the cache server without providing a name", cluster)
+	t.Logf("Create amber/%s/earth on the cache server without providing a name", cluster)
 	earthRaw, err = toUnstructured(&earth)
 	require.NoError(t, err)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
@@ -88,7 +88,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	}
 
 	earth.Name = "earth"
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, earth.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, earth.Name)
 	earthRaw, err = toUnstructured(&earth)
 	require.NoError(t, err)
 	cachedEarthRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
@@ -96,7 +96,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	validateFn(earth, cachedEarthRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, earth.Name)
+	t.Logf("Get amber|%s/%s (shard|cluster/name) from the cache server", cluster, earth.Name)
 	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earth.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(earth, cachedEarthRaw)
@@ -121,7 +121,7 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 		}
 	}
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialComicDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialComicDB.Name)
 	comicDBRaw, err := toUnstructured(&initialComicDB)
 	require.NoError(t, err)
 	cachedComicDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), comicDBRaw, metav1.CreateOptions{})
@@ -129,7 +129,7 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 	validateFn(cachedComicDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialComicDB.Name)
+	t.Logf("Get amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialComicDB.Name)
 	cachedComicDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialComicDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(cachedComicDBRaw)
@@ -157,7 +157,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 		}
 	}
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
 	mangoDBRaw, err := toUnstructured(&initialMangoDB)
 	require.NoError(t, err)
 	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), mangoDBRaw, metav1.CreateOptions{})
@@ -165,7 +165,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Get amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
@@ -188,13 +188,13 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		require.NoError(t, json.Unmarshal(cachedMangoDBJson, cachedMangoDB))
 
 		if cachedMangoDB.UID == mangoDB.UID {
-			t.Fatalf("unexpected UID %v set on amber|%s/%s (shard|cluster/name), an UID should be assinged by the server", cachedMangoDB.UID, cluster, mangoDB.Name)
+			t.Fatalf("unexpected UID %v set on amber|%s/%s (shard|cluster/name), an UID should be assigned by the server", cachedMangoDB.UID, cluster, mangoDB.Name)
 		}
 		if cachedMangoDB.Generation == mangoDB.Generation {
-			t.Fatalf("unexpected Generation %v set on amber|%s/%s (shard|cluster/name), a Generation should be assinged by the server", cachedMangoDB.Generation, cluster, mangoDB.Name)
+			t.Fatalf("unexpected Generation %v set on amber|%s/%s (shard|cluster/name), a Generation should be assigned by the server", cachedMangoDB.Generation, cluster, mangoDB.Name)
 		}
 		if cachedMangoDB.CreationTimestamp == mangoDB.CreationTimestamp {
-			t.Fatalf("unexpected CreationTimestamp %v set on amber|%s/%s (shard|cluster/name), a CreationTimestamp should be assinged by the server", cachedMangoDB.CreationTimestamp, cluster, mangoDB.Name)
+			t.Fatalf("unexpected CreationTimestamp %v set on amber|%s/%s (shard|cluster/name), a CreationTimestamp should be assigned by the server", cachedMangoDB.CreationTimestamp, cluster, mangoDB.Name)
 		}
 
 		mangoDB.UID = cachedMangoDB.UID
@@ -208,13 +208,13 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		}
 	}
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), mangoDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Get amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
@@ -226,7 +226,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	require.NoError(t, err)
 	initialCinnamonDB := newFakeAPIExport("cinnamondb")
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCinnamonDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialCinnamonDB.Name)
 	cinnamonDBRaw, err := toUnstructured(&initialCinnamonDB)
 	require.NoError(t, err)
 	cachedCinnamonDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), cinnamonDBRaw, metav1.CreateOptions{})
@@ -252,7 +252,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	}
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialCinnamonDB.Name)
+	t.Logf("Get amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialCinnamonDB.Name)
 	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialCinnamonDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
@@ -271,7 +271,7 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	initialGhostDB := newFakeAPIExport("ghostdb")
 	initialGhostDB.Finalizers = append(initialGhostDB.Finalizers, "doNotRemove")
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialGhostDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialGhostDB.Name)
 	ghostDBRaw, err := toUnstructured(&initialGhostDB)
 	require.NoError(t, err)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), ghostDBRaw, metav1.CreateOptions{})
@@ -281,7 +281,7 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Delete(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialGhostDB.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialGhostDB.Name)
+	t.Logf("Get amber/%s/%s from the cache server", cluster, initialGhostDB.Name)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialGhostDB.Name, metav1.GetOptions{})
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("expected to get a NotFound error, got %v", err)
@@ -294,7 +294,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	require.NoError(t, err)
 	initialCucumberDB := newFakeAPIExport("cucumberdb")
 
-	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCucumberDB.Name)
+	t.Logf("Create amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialCucumberDB.Name)
 	cucumberDBRaw, err := toUnstructured(&initialCucumberDB)
 	require.NoError(t, err)
 	cachedCucumberDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), cucumberDBRaw, metav1.CreateOptions{})

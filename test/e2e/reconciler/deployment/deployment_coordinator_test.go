@@ -152,8 +152,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 	rootKubernetesAPIExport, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root:compute")).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
 	require.NoError(t, err, "failed to retrieve Root compute kubernetes APIExport")
 
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	require.GreaterOrEqual(t, len(rootKubernetesAPIExport.Status.VirtualWorkspaces), 1, "Root compute kubernetes APIExport should contain at least one virtual workspace URL")
 
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	rootComputeKubernetesURL := rootKubernetesAPIExport.Status.VirtualWorkspaces[0].URL
 
 	t.Logf("Start the Deployment controller")

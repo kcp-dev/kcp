@@ -291,6 +291,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		if len(apiExport.Status.VirtualWorkspaces) > 0 {
 			return true, ""
 		}
@@ -299,6 +300,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	user2ApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 	user2DynamicVWClient, err := kcpdynamic.NewForConfig(user2ApiExportVWCfg)
 
@@ -489,6 +491,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 		if err != nil {
 			return false, fmt.Sprintf("waiting on APIExport to be available %v", err.Error())
 		}
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		if len(export.Status.VirtualWorkspaces) > 0 {
 			return true, ""
 		}
@@ -497,6 +500,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	serviceApiExportVWCfg := framework.UserConfig(providerUser, rest.CopyConfig(cfg))
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	serviceApiExportVWCfg.Host = export.Status.VirtualWorkspaces[0].URL
 	serviceDynamicVWClient, err := kcpdynamic.NewForConfig(serviceApiExportVWCfg)
 	require.NoError(t, err)

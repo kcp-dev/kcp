@@ -173,7 +173,7 @@ type controller struct {
 	commit     CommitFunc
 }
 
-// enqueueAPIBinding enqueues an APIExport .
+// enqueueAPIExport enqueues an APIExport.
 func (c *controller) enqueueAPIExport(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {

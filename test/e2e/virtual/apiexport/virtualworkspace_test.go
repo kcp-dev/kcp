@@ -109,6 +109,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	t.Logf("test that the virtualWorkspaceURL is not set on initial APIExport creation")
 	apiExport, err := kcpClients.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	require.Empty(t, apiExport.Status.VirtualWorkspaces)
 	require.NoError(t, err, "error getting APIExport")
 
@@ -139,9 +140,11 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
 	apiExport, err = kcpClients.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 	require.NoError(t, err, "error getting APIExport")
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	require.Len(t, apiExport.Status.VirtualWorkspaces, shardVirtualWorkspaceURLs.Len(), "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 
 	wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
@@ -389,10 +392,12 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 			apiExport, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 			require.NoError(t, err, "error getting APIExport %s|%s", clusterName, exportName)
 
+			//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 			if len(apiExport.Status.VirtualWorkspaces) == 0 {
 				return false, fmt.Sprintf("%#v", apiExport.Status)
 			}
 
+			//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 			url = apiExport.Status.VirtualWorkspaces[0].URL
 			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "did not get a virtual workspace URL for APIExport %s", exportName)
@@ -676,6 +681,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		if len(apiExport.Status.VirtualWorkspaces) > 0 {
 			return true, ""
 		}
@@ -684,6 +690,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 
 	wildwestVCClients, err := wildwestclientset.NewForConfig(apiExportVWCfg)

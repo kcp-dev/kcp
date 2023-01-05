@@ -258,6 +258,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialLocalAPIExports: []runtime.Object{
 				func() *apisv1alpha1.APIExport {
 					apiExport := newAPIExport("foo")
+					//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 					apiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
 					return apiExport
 				}(),
@@ -283,6 +284,7 @@ func TestReconcileAPIExports(t *testing.T) {
 						}
 
 						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
+						//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 						expectedAPIExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
 						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
 							ts.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
