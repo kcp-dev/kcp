@@ -92,7 +92,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/cel-go v0.12.5 // indirect
+	github.com/google/cel-go v0.12.6 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -188,7 +188,7 @@ require (
 )
 
 replace (
-	github.com/google/cel-go => github.com/kcp-dev/cel-go v0.0.0-20230104211646-409eafa0bc12
+	github.com/google/cel-go => github.com/google/cel-go v0.12.6
 	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20221221132345-4bcc0e78af51
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20221221132345-4bcc0e78af51
