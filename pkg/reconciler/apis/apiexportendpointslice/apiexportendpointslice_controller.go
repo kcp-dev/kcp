@@ -74,15 +74,8 @@ func NewController(
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportClusterInformer.Informer().GetIndexer(), path, name)
 		},
-		getAPIExportKeys: func(index, keyString string) ([]string, error) {
-			return apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(index, keyString)
-		},
-		getSliceByAPIExportKey: func(key string) (item *apisv1alpha1.APIExportEndpointSlice, exists bool, err error) {
-			itemInt, exists, err := apiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
-			item = itemInt.(*apisv1alpha1.APIExportEndpointSlice)
-			return item, exists, err
-		},
-		commit: committer.NewCommitter[*APIExportEndpointSlice, Patcher, *APIExportEndpointSliceSpec, *APIExportEndpointSliceStatus](kcpClusterClient.ApisV1alpha1().APIExportEndpointSlices()),
+		apiExportEndpointSliceClusterInformer: apiExportEndpointSliceClusterInformer,
+		commit:                                committer.NewCommitter[*APIExportEndpointSlice, Patcher, *APIExportEndpointSliceSpec, *APIExportEndpointSliceStatus](kcpClusterClient.ApisV1alpha1().APIExportEndpointSlices()),
 	}
 
 	indexers.AddIfNotPresentOrDie(apiExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
@@ -147,10 +140,9 @@ type controller struct {
 	listAPIExportEndpointSlices func() ([]*apisv1alpha1.APIExportEndpointSlice, error)
 	getAPIExportEndpointSlice   func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
 	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
-	getAPIExportKeys            func(index, keyString string) ([]string, error)
-	getSliceByAPIExportKey      func(key string) (item *apisv1alpha1.APIExportEndpointSlice, exists bool, err error)
 
-	commit CommitFunc
+	apiExportEndpointSliceClusterInformer apisinformers.APIExportEndpointSliceClusterInformer
+	commit                                CommitFunc
 }
 
 // enqueueAPIExportEndpointSlice enqueues an APIExportEndpointSlice.
@@ -180,7 +172,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	// binding keys by full path
 	keys := sets.NewString()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
-		pathKeys, err := c.getAPIExportKeys(indexAPIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
+		pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -188,7 +180,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 		keys.Insert(pathKeys...)
 	}
 
-	clusterKeys, err := c.getAPIExportKeys(indexAPIExportEndpointSliceByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+	clusterKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -196,7 +188,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	keys.Insert(clusterKeys...)
 
 	for _, key := range keys.List() {
-		slice, exists, err := c.getSliceByAPIExportKey(key)
+		slice, exists, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
 		if err != nil {
 			runtime.HandleError(err)
 			continue

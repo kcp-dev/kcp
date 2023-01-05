@@ -30,14 +30,28 @@ import (
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
 
-func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+type endpointsReconciler struct {
+	listShards   func() ([]*corev1alpha1.Shard, error)
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+}
 
+func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+	r := &endpointsReconciler{
+		listShards:   c.listShards,
+		getAPIExport: c.getAPIExport,
+	}
+
+	return r.reconcile(ctx, apiExportEndpointSlice)
+}
+
+func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
 	// TODO (fgiloux): When the information is available in the cache server
 	// check if at least one APIBinding is bound in the shard to the APIExport referenced by the APIExportEndpointSLice.
 	// If so, add the respective endpoint to the status.
@@ -48,7 +62,7 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiExportEndpointSlice).Path()
 	}
-	apiExport, err := c.getAPIExport(apiExportPath, apiExportEndpointSlice.Spec.APIExport.Name)
+	apiExport, err := r.getAPIExport(apiExportPath, apiExportEndpointSlice.Spec.APIExport.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Don't keep the endpoints if the APIExport has been deleted
@@ -78,7 +92,7 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 	}
 	conditions.MarkTrue(apiExportEndpointSlice, apisv1alpha1.APIExportValid)
 
-	if err = c.updateEndpoints(ctx, apiExportEndpointSlice, apiExport); err != nil {
+	if err = r.updateEndpoints(ctx, apiExportEndpointSlice, apiExport); err != nil {
 		conditions.MarkFalse(
 			apiExportEndpointSlice,
 			apisv1alpha1.APIExportEndpointSliceURLsReady,
@@ -93,11 +107,11 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 	return nil
 }
 
-func (c *controller) updateEndpoints(ctx context.Context,
+func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 	apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice,
 	apiExport *apisv1alpha1.APIExport) error {
 	logger := klog.FromContext(ctx)
-	shards, err := c.listShards()
+	shards, err := r.listShards()
 	if err != nil {
 		return fmt.Errorf("error listing Shards: %w", err)
 	}
