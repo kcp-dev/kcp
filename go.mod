@@ -189,6 +189,7 @@ require (
 
 replace (
 	github.com/google/cel-go => github.com/kcp-dev/cel-go v0.0.0-20230104211646-409eafa0bc12
+	github.com/kcp-dev/apimachinery/v2 => github.com/sttts/apimachinery-1/v2 v2.0.0-20230105120024-2d54e607e2c7
 	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20221221132345-4bcc0e78af51
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20221221132345-4bcc0e78af51
