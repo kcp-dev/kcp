@@ -19,6 +19,7 @@ package authorizer
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -33,7 +34,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -119,6 +122,27 @@ func TestAuthorizer(t *testing.T) {
 			require.Error(t, err, "user-2 should not be able to create namespace in workspace1")
 			_, err = user2KubeClusterClient.Cluster(org1.Path().Join("workspace1")).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list secrets in workspace1 as defined in the local policy")
+		},
+		"with org access, workspace1 non-admin user-2 can access /healthz, /livez, /readyz etc": func(t *testing.T) {
+			cl := user2KubeClusterClient.RESTClient()
+			requestPath := org1.Path().RequestPath()
+			{
+				for endpoint := range sets.NewString("/healthz", "/readyz", "/livez") {
+					req := cl.Get().AbsPath(requestPath + endpoint)
+					respBytes, err := req.DoRaw(ctx)
+					require.NoError(t, err, "should be able to GET %s", endpoint)
+					require.Equal(t, "ok", string(respBytes))
+				}
+			}
+			{
+				endpoint := "/version"
+				req := cl.Get().AbsPath(requestPath + endpoint)
+				respBytes, err := req.DoRaw(ctx)
+				require.NoError(t, err, "should be able to GET %s", endpoint)
+				require.NotEmpty(t, string(respBytes))
+				version := new(apimachineryversion.Info)
+				require.NoError(t, json.Unmarshal(respBytes, version))
+			}
 		},
 		"without org access, org1 workspace1 admin user-1 cannot access org2, not even discovery": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org2.Path().Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
