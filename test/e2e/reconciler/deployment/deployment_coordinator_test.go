@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -87,7 +88,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 	westSyncer.WaitForClusterReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
-	err = framework.CreateResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
+	err = framework.CreateResources(ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
 	require.NoError(t, err)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the east location")
@@ -203,7 +204,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 
 		t.Logf("Create workload in workload workspace %q, with replicas set to %d", workspace.clusterName, workspace.requestedReplicas)
 		framework.Eventually(t, func() (bool, string) {
-			if err := framework.CreateResources(t, ctx, workloads.FS, upstreamConfig, workspace.clusterName.Path(), func(bs []byte) ([]byte, error) {
+			if err := framework.CreateResources(ctx, workloads.FS, upstreamConfig, workspace.clusterName.Path(), func(bs []byte) ([]byte, error) {
 				yaml := string(bs)
 				yaml = strings.Replace(yaml, "replicas: 1", fmt.Sprintf("replicas: %d", workspace.requestedReplicas), 1)
 				return []byte(yaml), nil

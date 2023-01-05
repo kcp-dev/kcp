@@ -75,10 +75,10 @@ func TestDNSResolution(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
 	).Bind(t)
 
-	err = framework.CreateResources(t, ctx, workspace1.FS, upstreamConfig, workloadWorkspace1.Path())
+	err = framework.CreateResources(ctx, workspace1.FS, upstreamConfig, workloadWorkspace1.Path())
 	require.NoError(t, err)
 
-	err = framework.CreateResources(t, ctx, workspace2.FS, upstreamConfig, workloadWorkspace2.Path())
+	err = framework.CreateResources(ctx, workspace2.FS, upstreamConfig, workloadWorkspace2.Path())
 	require.NoError(t, err)
 
 	downstreamWS1NS1 := syncer.DownstreamNamespaceFor(t, workloadWorkspace1, "dns-ws1-ns1")
@@ -108,6 +108,8 @@ func TestDNSResolution(t *testing.T) {
 }
 
 func checkLogs(ctx context.Context, t *testing.T, downstreamKubeClient *kubernetes.Clientset, downstreamNamespace, containerName, expectedPrefix string) func() (success bool, reason string) {
+	t.Helper()
+
 	return func() (success bool, reason string) {
 		pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespace).List(ctx, metav1.ListOptions{})
 		if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -31,18 +32,24 @@ import (
 	"testing"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
+	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/config/helpers"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -365,4 +372,26 @@ func UniqueGroup(suffix string) string {
 		return "a" + ret[1:]
 	}
 	return ret
+}
+
+// CreateResources creates all resources from a filesystem in the given workspace identified by upstreamConfig.
+func CreateResources(ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, clusterName logicalcluster.Path, transformers ...helpers.TransformFileFunc) error {
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+
+	client := dynamicClusterClient.Cluster(clusterName)
+
+	apiextensionsClusterClient, err := kcpapiextensionsclientset.NewForConfig(upstreamConfig)
+	if err != nil {
+		return err
+	}
+
+	discoveryClient := apiextensionsClusterClient.Cluster(clusterName).Discovery()
+
+	cache := memory.NewMemCacheClient(discoveryClient)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
+
+	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.NewString(), fs, transformers...)
 }
