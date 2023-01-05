@@ -230,7 +230,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			return reconcileStatusContinue, err
 		}
 
-		logger = logging.WithObject(logger, schema)
+		logger := logging.WithObject(logger, schema)
 
 		// Check for conflicts
 		checker := &conflictChecker{
