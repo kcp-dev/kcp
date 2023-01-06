@@ -58,7 +58,7 @@ const (
 // for the given GRs when making requests to the server.
 func NewApiExportIdentityProviderController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	remoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	cacheAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	configMapInformer kcpcorev1informers.ConfigMapClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -74,12 +74,12 @@ func NewApiExportIdentityProviderController(
 		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
-		listAPIExportsFromRemoteShard: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return remoteShardApiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
+		listCacheAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+			return cacheAPIExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 	}
 
-	remoteShardApiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	cacheAPIExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
@@ -172,9 +172,9 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 type controller struct {
-	queue                         workqueue.RateLimitingInterface
-	createConfigMap               func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	getConfigMap                  func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
-	updateConfigMap               func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	listAPIExportsFromRemoteShard func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	queue               workqueue.RateLimitingInterface
+	createConfigMap     func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	getConfigMap        func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+	updateConfigMap     func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	listCacheAPIExports func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 }

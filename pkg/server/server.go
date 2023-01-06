@@ -56,7 +56,6 @@ type Server struct {
 	*genericcontrolplane.ServerChain
 
 	syncedCh             chan struct{}
-	syncedOptionalCh     chan struct{}
 	rootPhase1FinishedCh chan struct{}
 }
 
@@ -68,7 +67,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig:      c,
 		syncedCh:             make(chan struct{}),
-		syncedOptionalCh:     make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
 	}
 
@@ -181,15 +179,15 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished bootstrapping the shard workspace")
 
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
+		go s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.StopCh)
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
-			return exportsSynced && bindingsSynced && logicalClusterSynced, nil
+			return exportsSynced && cacheExportsSynced && logicalClusterSynced, nil
 		}); err != nil {
 			logger.Error(err, "failed to start some of APIExport, APIBinding and LogicalCluster informers")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -225,21 +223,6 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			logger.Info("finished getting kcp APIExport identities")
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
-			logger.Info("starting setting up kcp informers for the root shard")
-
-			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh) // TODO(sttts): necessary?
-
-			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-				exportsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-				bindingsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-				return exportsSynced && bindingsSynced, nil
-			}); err != nil {
-				logger.Error(err, "failed to start APIExport and/or APIBinding informers for the root shard")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished starting APIExport and APIBinding informers for the root shard")
-
 			logger.Info("getting kcp APIExport identities for the root shard")
 			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
@@ -251,22 +234,14 @@ func (s *Server) Run(ctx context.Context) error {
 				logger.Error(err, "failed to get or create identities for the root shard")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
-
 			logger.Info("finished getting kcp APIExport identities for the root shard")
-
-			s.TemporaryRootShardKcpSharedInformerFactory.Start(hookContext.StopCh)
-			s.TemporaryRootShardKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
-
-			select {
-			case <-hookContext.StopCh:
-				return nil // context closed, avoid reporting success below
-			default:
-			}
-			logger.Info("finished starting kcp informers for the root shard")
 		}
 
 		s.KcpSharedInformerFactory.Start(hookContext.StopCh)
+		s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
+
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 
 		// create or update shard
 		shard := &corev1alpha1.Shard{
@@ -342,25 +317,6 @@ func (s *Server) Run(ctx context.Context) error {
 			close(s.rootPhase1FinishedCh)
 		}
 
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	if err := s.AddPostStartHook("kcp-start-optional-informers", func(hookContext genericapiserver.PostStartHookContext) error {
-		// TODO(p0lyn0mial): failing the optional hook should not render the main server unhealthy
-		logger := logger.WithValues("postStartHook", "kcp-start-optional-informers")
-		s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
-		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
-
-		select {
-		case <-hookContext.StopCh:
-			return nil // context closed, avoid reporting success below
-		default:
-		}
-
-		logger.Info("finished starting optional cache informers, ready to start controllers")
-		close(s.syncedOptionalCh)
 		return nil
 	}); err != nil {
 		return err
