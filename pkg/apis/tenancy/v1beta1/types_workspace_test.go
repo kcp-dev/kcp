@@ -38,26 +38,26 @@ func TestWorkspaceCELValidation(t *testing.T) {
 		},
 		{
 			name:    "unset URL",
-			old:     `{"status":{"URL": "abc"}}`,
-			current: `{"status":{}}`,
+			old:     `{"spec":{"URL": "abc"}}`,
+			current: `{"spec":{}}`,
 			wantErrs: []string{
-				"status: Invalid value: \"object\": URL cannot be unset",
+				"spec: Invalid value: \"object\": URL cannot be unset",
 			},
 		},
 		{
 			name:    "unset cluster",
-			old:     `{"status":{"cluster": "abc"}}`,
-			current: `{"status":{}}`,
+			old:     `{"spec":{"cluster": "abc"}}`,
+			current: `{"spec":{}}`,
 			wantErrs: []string{
-				"status: Invalid value: \"object\": cluster is immutable",
+				"spec: Invalid value: \"object\": cluster cannot be unset",
 			},
 		},
 		{
 			name:    "change cluster",
-			old:     `{"status":{"cluster": "abc"}}`,
-			current: `{"status":{"cluster": "def"}}`,
+			old:     `{"spec":{"cluster": "abc"}}`,
+			current: `{"spec":{"cluster": "def"}}`,
 			wantErrs: []string{
-				"status.cluster: Invalid value: \"string\": cluster is immutable",
+				"spec.cluster: Invalid value: \"string\": cluster is immutable",
 			},
 		},
 		{

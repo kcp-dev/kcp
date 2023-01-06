@@ -37,7 +37,7 @@ type deletionReconciler struct {
 
 func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "deletion")
-	logger = logger.WithValues("cluster", workspace.Status.Cluster)
+	logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
 	if workspace.DeletionTimestamp.IsZero() {
 		return reconcileStatusContinue, nil
@@ -49,7 +49,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 
 	// If the logical cluster hasn't been created yet, we have to look at the annotation to
 	// get the cluster name, instead of looking at status.
-	clusterName := logicalcluster.Name(workspace.Status.Cluster)
+	clusterName := logicalcluster.Name(workspace.Spec.Cluster)
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		a, ok := workspace.Annotations[workspaceClusterAnnotationKey]
 		if !ok {

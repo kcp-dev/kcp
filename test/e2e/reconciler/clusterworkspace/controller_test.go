@@ -139,10 +139,10 @@ func TestWorkspaceController(t *testing.T) {
 					if isUnschedulable(workspace) {
 						return false, fmt.Sprintf("unschedulable:\n%s", toYAML(t, workspace))
 					}
-					if workspace.Status.Cluster == "" {
-						return false, fmt.Sprintf("status.cluster is empty\n%s", toYAML(t, workspace))
+					if workspace.Spec.Cluster == "" {
+						return false, fmt.Sprintf("spec.cluster is empty\n%s", toYAML(t, workspace))
 					}
-					if expected := previouslyValidShard.Spec.BaseURL + "/clusters/" + workspace.Status.Cluster; workspace.Status.URL != expected {
+					if expected := previouslyValidShard.Spec.BaseURL + "/clusters/" + workspace.Spec.Cluster; workspace.Spec.URL != expected {
 						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""
@@ -220,8 +220,8 @@ func scheduledAnywhere(object *tenancyv1beta1.Workspace) error {
 	if isUnschedulable(object) {
 		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
-	if object.Status.Cluster == "" {
-		return fmt.Errorf("expected workspace.status.cluster to be anything, got %q", object.Status.Cluster)
+	if object.Spec.Cluster == "" {
+		return fmt.Errorf("expected workspace.spec.cluster to be anything, got %q", object.Spec.Cluster)
 	}
 	return nil
 }

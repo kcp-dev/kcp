@@ -63,6 +63,10 @@ func createAttrWithUser(ws *tenancyv1beta1.Workspace, info kuser.Info) admission
 }
 
 func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
+	return updateAttrWithUser(ws, old, &kuser.DefaultInfo{})
+}
+
+func updateAttrWithUser(ws, old *tenancyv1beta1.Workspace, info kuser.Info) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(ws),
 		helpers.ToUnstructuredOrDie(old),
@@ -74,7 +78,7 @@ func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
 		admission.Update,
 		&metav1.CreateOptions{},
 		false,
-		&kuser.DefaultInfo{},
+		info,
 	)
 }
 
@@ -374,28 +378,28 @@ func TestValidate(t *testing.T) {
 						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
+						Cluster: "somewhere",
 						Type: tenancyv1beta1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1beta1.WorkspaceStatus{
-						Cluster: "somewhere",
-					},
 				}),
-			expectedErrors: []string{"status.cluster cannot be unset"},
+			expectedErrors: []string{"spec.cluster cannot be unset"},
 		},
 		{
 			name: "allows transition to ready directly when valid",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
-			a: updateAttr(&tenancyv1beta1.Workspace{
+			a: updateAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
+					Cluster: "somewhere",
+					URL:     "https://kcp.bigcorp.com/clusters/org:test",
 					Type: tenancyv1beta1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -404,8 +408,6 @@ func TestValidate(t *testing.T) {
 				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        corev1alpha1.LogicalClusterPhaseReady,
 					Initializers: []corev1alpha1.LogicalClusterInitializer{},
-					Cluster:      "somewhere",
-					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
 				&tenancyv1beta1.Workspace{
@@ -423,10 +425,34 @@ func TestValidate(t *testing.T) {
 						Phase:        corev1alpha1.LogicalClusterPhaseScheduling,
 						Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 					},
-				}),
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
 		},
 		{
 			name: "allows creation to ready directly when valid",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
+			},
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1beta1.WorkspaceSpec{
+					Cluster: "somewhere",
+					URL:     "https://kcp.bigcorp.com/clusters/org:test",
+					Type: tenancyv1beta1.WorkspaceTypeReference{
+						Name: "foo",
+						Path: "root:org",
+					},
+				},
+				Status: tenancyv1beta1.WorkspaceStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{},
+				},
+			}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+		},
+		{
+			name: "rejects creation with spec.cluster when unprivileged user",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
@@ -436,6 +462,8 @@ func TestValidate(t *testing.T) {
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
+					Cluster: "somewhere",
+					URL:     "https://kcp.bigcorp.com/clusters/org:test",
 					Type: tenancyv1beta1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -444,13 +472,12 @@ func TestValidate(t *testing.T) {
 				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        corev1alpha1.LogicalClusterPhaseReady,
 					Initializers: []corev1alpha1.LogicalClusterInitializer{},
-					Cluster:      "somewhere",
-					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			}),
+			expectedErrors: []string{"spec.Cluster can only be set by system privileged users"},
 		},
 		{
-			name: "rejects transition to ready directly when invalid",
+			name: "rejects changing url from unprivileged users",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
@@ -460,6 +487,8 @@ func TestValidate(t *testing.T) {
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
+					Cluster: "somewhere",
+					URL:     "https://kcp.bigcorp.com/clusters/org:test",
 					Type: tenancyv1beta1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -468,7 +497,48 @@ func TestValidate(t *testing.T) {
 				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        corev1alpha1.LogicalClusterPhaseReady,
 					Initializers: []corev1alpha1.LogicalClusterInitializer{},
-					Cluster:      "somewhere",
+				},
+			},
+				&tenancyv1beta1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "test",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1beta1.WorkspaceSpec{
+						Cluster: "somewhere",
+						URL:     "https://kcp.otherbigcorp.com/clusters/org:test",
+						Type: tenancyv1beta1.WorkspaceTypeReference{
+							Name: "foo",
+							Path: "root:org",
+						},
+					},
+					Status: tenancyv1beta1.WorkspaceStatus{
+						Phase:        corev1alpha1.LogicalClusterPhaseScheduling,
+						Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
+					},
+				}),
+			expectedErrors: []string{"spec.URL can only be changed by system privileged users"},
+		},
+		{
+			name: "rejects transition to ready directly when invalid",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
+			},
+			a: updateAttrWithUser(&tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1beta1.WorkspaceSpec{
+					Cluster: "somewhere",
+					Type: tenancyv1beta1.WorkspaceTypeReference{
+						Name: "foo",
+						Path: "root:org",
+					},
+				},
+				Status: tenancyv1beta1.WorkspaceStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{},
 				},
 			},
 				&tenancyv1beta1.Workspace{
@@ -486,8 +556,8 @@ func TestValidate(t *testing.T) {
 						Phase:        corev1alpha1.LogicalClusterPhaseScheduling,
 						Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 					},
-				}),
-			expectedErrors: []string{"status.URL must be set for phase Ready"},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.URL must be set for phase Ready"},
 		},
 		{
 			name: "ignores different resources",

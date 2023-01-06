@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221219-9eb351177.workspaces.tenancy.kcp.io
+  name: v230106-48fd7f1e.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -26,7 +26,7 @@ spec:
       name: Phase
       type: string
     - description: URL to access the workspace
-      jsonPath: .status.URL
+      jsonPath: .spec.URL
       name: URL
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -63,6 +63,19 @@ spec:
           default: {}
           description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
           properties:
+            URL:
+              description: "URL is the address under which the Kubernetes-cluster-like
+                endpoint can be found. This URL can be used to access the workspace
+                with standard Kubernetes client libraries and command line tools.
+                \n Set by the system."
+              type: string
+            cluster:
+              description: "cluster is the name of the logical cluster this workspace
+                is stored under. \n Set by the system."
+              type: string
+              x-kubernetes-validations:
+              - message: cluster is immutable
+                rule: self == oldSelf
             shard:
               description: "location constraints where this workspace can be scheduled
                 to. \n If the no location is specified, an arbitrary location is chosen."
@@ -144,22 +157,15 @@ spec:
               - message: path is immutable
                 rule: '!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path'
           type: object
+          x-kubernetes-validations:
+          - message: URL cannot be unset
+            rule: '!has(oldSelf.URL) || has(self.URL)'
+          - message: cluster cannot be unset
+            rule: '!has(oldSelf.cluster) || has(self.cluster)'
         status:
           default: {}
           description: WorkspaceStatus communicates the observed state of the Workspace.
           properties:
-            URL:
-              description: url is the address under which the Kubernetes-cluster-like
-                endpoint can be found. This URL can be used to access the workspace
-                with standard Kubernetes client libraries and command line tools.
-              type: string
-            cluster:
-              description: cluster is the name of the logical cluster this workspace
-                is stored under.
-              type: string
-              x-kubernetes-validations:
-              - message: cluster is immutable
-                rule: self == oldSelf
             conditions:
               description: Current processing state of the ClusterWorkspace.
               items:
@@ -222,11 +228,6 @@ spec:
               - Ready
               type: string
           type: object
-          x-kubernetes-validations:
-          - message: cluster is immutable
-            rule: '!has(oldSelf.cluster) || has(self.cluster)'
-          - message: URL cannot be unset
-            rule: '!has(oldSelf.URL) || has(self.URL)'
       required:
       - spec
       type: object

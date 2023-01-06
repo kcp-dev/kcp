@@ -363,7 +363,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			lclusters.Insert(logicalcluster.From(&actual.Items[i]).String())
 		}
 		for i := range expected {
-			expectedClusters.Insert(expected[i].Status.Cluster)
+			expectedClusters.Insert(expected[i].Spec.Cluster)
 		}
 		sort.Slice(actual.Items, func(i, j int) bool {
 			return actual.Items[i].UID < actual.Items[j].UID
@@ -402,16 +402,16 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	ws, err = sourceKcpClusterClient.TenancyV1beta1().Cluster(clusterName.Path()).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 	require.NoError(t, err)
-	wsClusterName := logicalcluster.Name(ws.Status.Cluster)
+	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
-	t.Logf("Waiting for watchers to see the logicalcluster in %s for workspace %s", ws.Status.Cluster, ws.Name)
+	t.Logf("Waiting for watchers to see the logicalcluster in %s for workspace %s", ws.Spec.Cluster, ws.Name)
 	for initializer, watcher := range watchers {
 		for {
 			select {
 			case evt := <-watcher.ResultChan():
 				// there might be other actors doing who-knows-what on the workspaces, so we need to specifically
 				// look for the first event *relating to the new workspace* that we get
-				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Status.Cluster {
+				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Spec.Cluster {
 					continue
 				}
 				require.Equal(t, evt.Type, watch.Added)
@@ -526,7 +526,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				}
 				// there might be other actors doing who-knows-what on the workspaces, so we need to specifically
 				// look for the first event *relating to the new workspace* that we get
-				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Status.Cluster {
+				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Spec.Cluster {
 					continue
 				}
 				require.Equal(t, evt.Type, watch.Deleted)

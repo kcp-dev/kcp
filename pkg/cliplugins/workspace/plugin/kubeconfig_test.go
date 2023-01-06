@@ -200,6 +200,7 @@ func TestCreate(t *testing.T) {
 						Name: name,
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
+						URL: fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
 						Type: tenancyv1beta1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
@@ -207,7 +208,6 @@ func TestCreate(t *testing.T) {
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase: corev1alpha1.LogicalClusterPhaseReady,
-						URL:   fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
 					},
 				})
 			}
@@ -228,7 +228,7 @@ func TestCreate(t *testing.T) {
 					obj.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).RequestPath()
-					obj.Status.URL = u.String()
+					obj.Spec.URL = u.String()
 					obj.Spec.Type = workspaceType
 					if err := client.Tracker().Cluster(currentClusterName).Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
 						return false, nil, err
@@ -1204,7 +1204,7 @@ func TestUse(t *testing.T) {
 					}
 					if !tt.unready[lcluster.Path()][name] {
 						obj.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
-						obj.Status.URL = fmt.Sprintf("https://test%s", lcluster.Path().Join(name).RequestPath())
+						obj.Spec.URL = fmt.Sprintf("https://test%s", lcluster.Path().Join(name).RequestPath())
 					}
 					objs = append(objs, obj)
 				}
@@ -1221,13 +1221,11 @@ func TestUse(t *testing.T) {
 							Name: "user-name",
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
+							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.RequestPath()),
 							Type: tenancyv1beta1.WorkspaceTypeReference{
 								Name: "home",
 								Path: "root",
 							},
-						},
-						Status: tenancyv1beta1.WorkspaceStatus{
-							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.RequestPath()),
 						},
 					}, nil
 				}

@@ -3997,6 +3997,20 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation"),
 						},
 					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the name of the logical cluster this workspace is stored under.\n\nSet by the system.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"URL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the workspace with standard Kubernetes client libraries and command line tools.\n\nSet by the system.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -4012,20 +4026,6 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 				Description: "WorkspaceStatus communicates the observed state of the Workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"URL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "url is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the workspace with standard Kubernetes client libraries and command line tools.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"cluster": {
-						SchemaProps: spec.SchemaProps{
-							Description: "cluster is the name of the logical cluster this workspace is stored under.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Phase of the workspace (Scheduling, Initializing, Ready).",
