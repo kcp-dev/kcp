@@ -142,17 +142,17 @@ func TestReconcile(t *testing.T) {
 						return nil, err
 					},
 				},
-				listCacheAPIExports: listCacheAPIExportsRecord{
+				listGlobalAPIExports: listGlobalAPIExportsRecord{
 					defaulted: func(name logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
 						return scenario.initialApiExports, nil
 					},
 				},
 			}
 			target := &controller{
-				createConfigMap:     calls.createConfigMap.call,
-				updateConfigMap:     calls.updateConfigMap.call,
-				getConfigMap:        calls.getConfigMap.call,
-				listCacheAPIExports: calls.listCacheAPIExports.call,
+				createConfigMap:      calls.createConfigMap.call,
+				updateConfigMap:      calls.updateConfigMap.call,
+				getConfigMap:         calls.getConfigMap.call,
+				listGlobalAPIExports: calls.listGlobalAPIExports.call,
 			}
 			if err := target.reconcile(context.TODO()); err != nil {
 				t.Error(err)
@@ -165,10 +165,10 @@ func TestReconcile(t *testing.T) {
 }
 
 type callContext struct {
-	createConfigMap     createConfigMapRecord
-	getConfigMap        getConfigMapRecord
-	updateConfigMap     updateConfigMapRecord
-	listCacheAPIExports listCacheAPIExportsRecord
+	createConfigMap      createConfigMapRecord
+	getConfigMap         getConfigMapRecord
+	updateConfigMap      updateConfigMapRecord
+	listGlobalAPIExports listGlobalAPIExportsRecord
 }
 
 type createConfigMapRecord struct {
@@ -213,12 +213,12 @@ func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster
 	return delegate(ctx, cluster, namespace, configMap)
 }
 
-type listCacheAPIExportsRecord struct {
+type listGlobalAPIExportsRecord struct {
 	called              bool
 	delegate, defaulted func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 }
 
-func (r *listCacheAPIExportsRecord) call(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+func (r *listGlobalAPIExportsRecord) call(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
 	r.called = true
 	delegate := r.delegate
 	if delegate == nil {
