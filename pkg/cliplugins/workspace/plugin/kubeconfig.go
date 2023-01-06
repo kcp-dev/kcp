@@ -449,6 +449,8 @@ type CreateWorkspaceOptions struct {
 	IgnoreExisting bool
 	// ReadyWaitTimeout is how long to wait for the workspace to be ready before returning control to the user.
 	ReadyWaitTimeout time.Duration
+	// LocationSelector is the location selector to use when creating the workspace to select a matching shard.
+	LocationSelector string
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -486,6 +488,10 @@ func (o *CreateWorkspaceOptions) Complete(args []string) error {
 
 // Validate validates the CreateWorkspaceOptions are complete and usable.
 func (o *CreateWorkspaceOptions) Validate() error {
+	if _, err := metav1.ParseToLabelSelector(o.LocationSelector); err != nil {
+		return fmt.Errorf("invalid location selector: %w", err)
+	}
+
 	return o.Options.Validate()
 }
 
@@ -495,6 +501,7 @@ func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.Type, "type", o.Type, "A workspace type. The default type depends on where this child workspace is created.")
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
 	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
+	cmd.Flags().StringVar(&o.LocationSelector, "location-selector", o.LocationSelector, "A label selector to select the scheduling location of the created workspace.")
 }
 
 // Run creates a workspace.
@@ -529,15 +536,28 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		}
 	}
 
-	preExisting := false
-	ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+	ws := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: o.Name,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
 			Type: structuredWorkspaceType,
 		},
-	}, metav1.CreateOptions{})
+	}
+
+	if o.LocationSelector != "" {
+		selector, err := metav1.ParseToLabelSelector(o.LocationSelector)
+		if err != nil {
+			return err
+		}
+
+		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{
+			Selector: selector,
+		}
+	}
+
+	preExisting := false
+	ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
 	if apierrors.IsNotFound(err) {
 		// STOP THE BLEEDING: currently, kcp forwards workspace resource request to the workspace virtual apiserver
 		// independently whether the CRD is installed in the workspace. Universal workspaces though don't have that
