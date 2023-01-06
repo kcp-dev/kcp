@@ -89,7 +89,7 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg := server.BaseConfig(t)
+	cfg := server.RootShardSystemMasterBaseConfig(t)
 	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
@@ -113,13 +113,10 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.
 	var ws *tenancyv1beta1.Workspace
-	require.Eventually(t, func() bool {
+	Eventually(t, func() (bool, string) {
 		var err error
 		ws, err = clusterClient.Cluster(parent).TenancyV1beta1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
-		if err != nil {
-			t.Logf("error creating workspace under %s: %v", parent, err)
-		}
-		return err == nil
+		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
 
 	t.Cleanup(func() {

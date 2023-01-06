@@ -68,7 +68,7 @@ func TestAdmission(t *testing.T) {
 			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "ClusterWorkspace", "notacworcwt"),
 		},
 		"NotApplicableKind": {
-			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaCWorCWT", "clusterworkspaces"),
+			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaCWorCWT", "workspaces"),
 		},
 	}
 	for name, tc := range cases {
