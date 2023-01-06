@@ -150,44 +150,6 @@ func (l *mergedRoleNamespaceLister) List(selector labels.Selector) (ret []*rbacv
 	return aggregatedList, nil
 }
 
-// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18.
-func mergeRoles(array []*rbacv1.Role, rolesToBeMergedIn []*rbacv1.Role) []*rbacv1.Role {
-	for _, roleToBeMerged := range rolesToBeMergedIn {
-		foundIndex := -1
-		for i, role := range array {
-			if roleToBeMerged.Name == role.Name {
-				foundIndex = i
-				break
-			}
-		}
-		if foundIndex != -1 {
-			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
-		} else {
-			array = append(array, roleToBeMerged)
-		}
-	}
-	return array
-}
-
-// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18.
-func mergeClusterRoles(array []*rbacv1.ClusterRole, rolesToBeMergedIn []*rbacv1.ClusterRole) []*rbacv1.ClusterRole {
-	for _, roleToBeMerged := range rolesToBeMergedIn {
-		foundIndex := -1
-		for i, role := range array {
-			if roleToBeMerged.Name == role.Name {
-				foundIndex = i
-				break
-			}
-		}
-		if foundIndex != -1 {
-			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
-		} else {
-			array = append(array, roleToBeMerged)
-		}
-	}
-	return array
-}
-
 func (l *mergedRoleNamespaceLister) Get(name string) (*rbacv1.Role, error) {
 	var errorHolder error
 	var mergedItem *rbacv1.Role
@@ -209,4 +171,109 @@ func (l *mergedRoleNamespaceLister) Get(name string) (*rbacv1.Role, error) {
 		errorHolder = nil
 	}
 	return mergedItem, errorHolder
+}
+
+var _ rbaclisters.RoleBindingLister = (*mergedRoleBindingLister)(nil)
+var _ rbaclisters.RoleBindingNamespaceLister = (*mergedRoleBindingNamespaceLister)(nil)
+
+func NewMergedRoleBindingLister(listers ...rbaclisters.RoleBindingLister) rbaclisters.RoleBindingLister {
+	return &mergedRoleBindingLister{listers: listers}
+}
+
+type mergedRoleBindingLister struct {
+	listers []rbaclisters.RoleBindingLister
+}
+
+func (l *mergedRoleBindingLister) List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error) {
+	result := make([]*rbacv1.RoleBinding, 0)
+	for _, lister := range l.listers {
+		list, err := lister.List(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range list {
+			entry := list[i].DeepCopy()
+			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
+			result = append(result, entry)
+		}
+	}
+	return result, nil
+}
+
+func (l *mergedRoleBindingLister) Get(name string) (*rbacv1.RoleBinding, error) {
+	panic("not implemented")
+}
+
+func (l *mergedRoleBindingLister) RoleBindings(namespace string) rbaclisters.RoleBindingNamespaceLister {
+	aggregatedListers := make([]rbaclisters.RoleBindingNamespaceLister, 0)
+	for _, inf := range l.listers {
+		aggregatedListers = append(aggregatedListers, inf.RoleBindings(namespace))
+	}
+	return &mergedRoleBindingNamespaceLister{
+		listers: aggregatedListers,
+	}
+}
+
+type mergedRoleBindingNamespaceLister struct {
+	listers []rbaclisters.RoleBindingNamespaceLister
+}
+
+func (l mergedRoleBindingNamespaceLister) List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error) {
+	result := make([]*rbacv1.RoleBinding, 0)
+	for _, lister := range l.listers {
+		list, err := lister.List(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range list {
+			entry := list[i].DeepCopy()
+			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
+			result = append(result, entry)
+		}
+	}
+	return result, nil
+}
+
+func (m mergedRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding, error) {
+	panic("implement me")
+}
+
+// TODO: to be converted to generics once we rebase on Go 1.18.
+func mergeRoles(array []*rbacv1.Role, rolesToBeMergedIn []*rbacv1.Role) []*rbacv1.Role {
+	for _, roleToBeMerged := range rolesToBeMergedIn {
+		foundIndex := -1
+		for i, role := range array {
+			if roleToBeMerged.Name == role.Name {
+				foundIndex = i
+				break
+			}
+		}
+		if foundIndex != -1 {
+			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
+		} else {
+			array = append(array, roleToBeMerged)
+		}
+	}
+	return array
+}
+
+// TODO: to be converted to generics once we rebase on Go 1.18.
+func mergeClusterRoles(array []*rbacv1.ClusterRole, rolesToBeMergedIn []*rbacv1.ClusterRole) []*rbacv1.ClusterRole {
+	for _, roleToBeMerged := range rolesToBeMergedIn {
+		foundIndex := -1
+		for i, role := range array {
+			if roleToBeMerged.Name == role.Name {
+				foundIndex = i
+				break
+			}
+		}
+		if foundIndex != -1 {
+			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
+		} else {
+			array = append(array, roleToBeMerged)
+		}
+	}
+	return array
 }
