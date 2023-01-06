@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-clusterworkspace-index"
+	controllerName = "kcp-workspace-index"
 
 	resyncPeriod = 2 * time.Hour
 )
@@ -71,7 +71,7 @@ func NewController(
 
 		shardWorkspaceInformers:      map[string]cache.SharedIndexInformer{},
 		shardLogicalClusterInformers: map[string]cache.SharedIndexInformer{},
-		shardClusterWorkspaceStopCh:  map[string]chan struct{}{},
+		shardWorkspaceStopCh:         map[string]chan struct{}{},
 
 		state: *index.New([]index.PathRewriter{
 			indexrewriters.UserRewriter,
@@ -120,7 +120,7 @@ type Controller struct {
 	lock                         sync.RWMutex
 	shardWorkspaceInformers      map[string]cache.SharedIndexInformer
 	shardLogicalClusterInformers map[string]cache.SharedIndexInformer
-	shardClusterWorkspaceStopCh  map[string]chan struct{}
+	shardWorkspaceStopCh         map[string]chan struct{}
 
 	state index.State
 }
@@ -132,7 +132,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer func() {
 		c.lock.Lock()
 		defer c.lock.Unlock()
-		for _, stopCh := range c.shardClusterWorkspaceStopCh {
+		for _, stopCh := range c.shardWorkspaceStopCh {
 			close(stopCh)
 		}
 	}()
@@ -261,7 +261,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		stopCh := make(chan struct{})
 		c.shardWorkspaceInformers[shard.Name] = wsInformer
 		c.shardLogicalClusterInformers[shard.Name] = twInformer
-		c.shardClusterWorkspaceStopCh[shard.Name] = stopCh
+		c.shardWorkspaceStopCh[shard.Name] = stopCh
 
 		go wsInformer.Run(stopCh)
 		go twInformer.Run(stopCh)
@@ -278,10 +278,10 @@ func (c *Controller) stopShard(shard *corev1alpha1.Shard) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if stopCh, found := c.shardClusterWorkspaceStopCh[shard.Name]; found {
+	if stopCh, found := c.shardWorkspaceStopCh[shard.Name]; found {
 		close(stopCh)
 	}
-	delete(c.shardClusterWorkspaceStopCh, shard.Name)
+	delete(c.shardWorkspaceStopCh, shard.Name)
 	delete(c.shardWorkspaceInformers, shard.Name)
 	delete(c.shardLogicalClusterInformers, shard.Name)
 }
