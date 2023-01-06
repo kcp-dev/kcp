@@ -19,83 +19,8 @@ package v1alpha1
 import (
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
-
-// ClusterWorkspace defines a Kubernetes-cluster-like endpoint that holds a default set
-// of resources and exhibits standard Kubernetes API semantics of CRUD operations. It represents
-// the full life-cycle of the persisted data in this workspace in a KCP installation.
-//
-// ClusterWorkspace is a concrete type that implements a workspace.
-//
-// +crd
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
-// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
-// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.baseURL`,description="URL to access the workspace"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-type ClusterWorkspace struct {
-	metav1.TypeMeta `json:",inline"`
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// +optional
-	Spec ClusterWorkspaceSpec `json:"spec,omitempty"`
-
-	// +optional
-	Status ClusterWorkspaceStatus `json:"status,omitempty"`
-}
-
-// ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
-type ClusterWorkspaceSpec struct {
-	// +optional
-	ReadOnly bool `json:"readOnly,omitempty"`
-
-	// type defines properties of the workspace both on creation (e.g. initial
-	// resources and initially installed APIs) and during runtime (e.g. permissions).
-	// If no type is provided, the default type for the workspace in which this workspace
-	// is nesting will be used.
-	//
-	// The type is a reference to a WorkspaceType in the listed workspace, but
-	// lower-cased. The WorkspaceType existence is validated at admission during
-	// creation. The type is immutable after creation. The use of a type is gated via
-	// the RBAC workspacetypes/use resource permission.
-	//
-	// +optional
-	Type WorkspaceTypeReference `json:"type,omitempty"`
-
-	// shard constraints onto which shards this cluster workspace can be scheduled to.
-	// if the constraint is not fulfilled by the current location stored in the status,
-	// movement will be attempted.
-	//
-	// Either shard name or shard selector must be specified.
-	//
-	// If the no shard constraints are specified, an arbitrary shard is chosen.
-	//
-	// +optional
-	Shard *ShardConstraints `json:"shard,omitempty"`
-}
-
-type ShardConstraints struct {
-	// name is the name of Shard.
-	//
-	// +optional
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-	Name string `json:"name,omitempty"`
-
-	// selector is a label selector that filters shard scheduling targets.
-	//
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
-}
 
 // WorkspaceTypeReference is a globally unique, fully qualified reference to a
 // cluster workspace type.
@@ -125,76 +50,7 @@ func (r WorkspaceTypeReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
-// ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
-//
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"
-type ClusterWorkspaceStatus struct {
-	// Phase of the workspace (Scheduling / Initializing / Ready)
-	//
-	// +kubebuilder:default=Scheduling
-	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
-
-	// Current processing state of the ClusterWorkspace.
-	// +optional
-	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
-
-	// Base URL where this ClusterWorkspace can be targeted.
-	// This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>.
-	// But a workspace could also be targetable by a unique hostname in the future.
-	//
-	// +kubebuilder:validation:Pattern:https://[^/].*
-	// +optional
-	BaseURL string `json:"baseURL,omitempty"`
-
-	// cluster is the name of the logical cluster this workspace is stored under.
-	//
-	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
-	Cluster string `json:"cluster,omitempty"`
-
-	// Contains workspace placement information.
-	//
-	// +optional
-	Location ClusterWorkspaceLocation `json:"location,omitempty"`
-
-	// initializers are set on creation by the system and must be cleared
-	// by a controller before the workspace can be used. The workspace will
-	// stay in the phase "Initializing" state until all initializers are cleared.
-	//
-	// A cluster workspace in "Initializing" state are gated via the RBAC
-	// clusterworkspaces/initialize resource permission.
-	//
-	// +optional
-	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-}
-
 const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
-
-// ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
-// historical information.
-type ClusterWorkspaceLocation struct {
-	// Current workspace placement (shard).
-	//
-	// +optional
-	Current string `json:"current,omitempty"`
-
-	// Target workspace placement (shard).
-	//
-	// +optional
-	// +kubebuilder:validation:Enum=""
-	Target string `json:"target,omitempty"`
-}
-
-func (in *ClusterWorkspace) SetConditions(c conditionsv1alpha1.Conditions) {
-	in.Status.Conditions = c
-}
-
-func (in *ClusterWorkspace) GetConditions() conditionsv1alpha1.Conditions {
-	return in.Status.Conditions
-}
-
-var _ conditions.Getter = &ClusterWorkspace{}
-var _ conditions.Setter = &ClusterWorkspace{}
 
 // These are valid conditions of workspace.
 const (
@@ -232,13 +88,3 @@ const (
 	// were errors trying to initialize APIBindings for the workspace.
 	WorkspaceInitializedAPIBindingErrors = "APIBindingErrors"
 )
-
-// ClusterWorkspaceList is a list of ClusterWorkspace resources
-//
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterWorkspaceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []ClusterWorkspace `json:"items"`
-}

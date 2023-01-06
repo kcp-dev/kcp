@@ -29,10 +29,6 @@ type FakeTenancyV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeTenancyV1alpha1) ClusterWorkspaces() v1alpha1.ClusterWorkspaceInterface {
-	return &FakeClusterWorkspaces{c}
-}
-
 func (c *FakeTenancyV1alpha1) WorkspaceTypes() v1alpha1.WorkspaceTypeInterface {
 	return &FakeWorkspaceTypes{c}
 }
