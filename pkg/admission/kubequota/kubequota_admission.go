@@ -144,7 +144,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 	}
 
 	k.clusterWorkspaceDeletionMonitorStarter.Do(func() {
-		m := newClusterWorkspaceDeletionMonitor(k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
+		m := newLogicalClusterDeletionMonitor(k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
 		go m.Start(k.serverDone)
 	})
 
