@@ -60,7 +60,7 @@ func initializingWorkspaceRequirements(initializer corev1alpha1.LogicalClusterIn
 	return requirements, nil
 }
 
-func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func() (string, error)) func(
+func provideFilteredLogicalClusterReadOnlyRestStorage(getTenancyIdentity func() (string, error)) func(
 	ctx context.Context,
 	clusterClient kcpdynamic.ClusterInterface,
 	initializer corev1alpha1.LogicalClusterInitializer,
@@ -89,7 +89,7 @@ func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func
 	}
 }
 
-func provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity func() (string, error)) func(
+func provideDelegatingLogicalClusterRestStorage(getTenancyIdentity func() (string, error)) func(
 	ctx context.Context,
 	clusterClient kcpdynamic.ClusterInterface,
 	initializer corev1alpha1.LogicalClusterInitializer,
