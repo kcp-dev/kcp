@@ -75,7 +75,7 @@ type WorkspaceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
 	// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
 	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
-	Type WorkspaceTypeReference `json:"type,omitempty"`
+	Type v1alpha1.WorkspaceTypeReference `json:"type,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
@@ -100,21 +100,6 @@ type WorkspaceSpec struct {
 	//
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
-}
-
-// WorkspaceTypeReference is a reference to a workspace type.
-type WorkspaceTypeReference struct {
-	// name is the name of the WorkspaceType
-	//
-	// +required
-	// +kubebuilder:validation:Required
-	Name v1alpha1.WorkspaceTypeName `json:"name"`
-
-	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
-	//
-	// +optional
-	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path,omitempty"`
 }
 
 type WorkspaceLocation struct {
