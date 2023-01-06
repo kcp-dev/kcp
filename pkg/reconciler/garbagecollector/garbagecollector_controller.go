@@ -196,7 +196,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ws, err := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			logger.V(2).Info("ClusterWorkspace not found - stopping garbage collector controller for it (if needed)")
+			logger.V(2).Info("LogicalCluster not found - stopping garbage collector controller for it (if needed)")
 
 			c.lock.Lock()
 			cancel, ok := c.cancelFuncs[clusterName]
@@ -230,7 +230,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 	c.cancelFuncs[clusterName] = cancel
 
-	if err := c.startGarbageCollectorForClusterWorkspace(ctx, clusterName); err != nil {
+	if err := c.startGarbageCollectorForLogicalCluster(ctx, clusterName); err != nil {
 		cancel()
 		return fmt.Errorf("error starting garbage collector controller for cluster %q: %w", clusterName, err)
 	}
@@ -238,7 +238,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 
 	kubeClient := c.kubeClusterClient.Cluster(clusterName.Path())

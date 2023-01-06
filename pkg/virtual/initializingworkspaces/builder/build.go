@@ -127,7 +127,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
 				resource:             &logicalClusterResource,
-				storageProvider:      provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity),
+				storageProvider:      provideFilteredLogicalClusterReadOnlyRestStorage(getTenancyIdentity),
 			}, nil
 		},
 	}
@@ -164,7 +164,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
 				resource:             &logicalClusterResource,
-				storageProvider:      provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity),
+				storageProvider:      provideDelegatingLogicalClusterRestStorage(getTenancyIdentity),
 			}, nil
 		},
 	}

@@ -32,21 +32,21 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 )
 
-const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"
+const logicalClusterDeletionMonitorControllerName = "kcp-kubequota-logical-cluster-deletion-monitor"
 
-// clusterWorkspaceDeletionMonitor monitors LogicalClusters and terminates QuotaAdmission for a logical cluster
+// logicalClusterDeletionMonitor monitors LogicalClusters and terminates QuotaAdmission for a logical cluster
 // when its corresponding ClusterWorkspace is deleted.
-type clusterWorkspaceDeletionMonitor struct {
+type logicalClusterDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
 	stopFunc func(name logicalcluster.Name)
 }
 
-func newClusterWorkspaceDeletionMonitor(
+func newLogicalClusterDeletionMonitor(
 	workspaceInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	stopFunc func(logicalcluster.Name),
-) *clusterWorkspaceDeletionMonitor {
-	m := &clusterWorkspaceDeletionMonitor{
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), clusterWorkspaceDeletionMonitorControllerName),
+) *logicalClusterDeletionMonitor {
+	m := &logicalClusterDeletionMonitor{
+		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), logicalClusterDeletionMonitorControllerName),
 		stopFunc: stopFunc,
 	}
 
@@ -59,7 +59,7 @@ func newClusterWorkspaceDeletionMonitor(
 	return m
 }
 
-func (m *clusterWorkspaceDeletionMonitor) enqueue(obj interface{}) {
+func (m *logicalClusterDeletionMonitor) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -69,24 +69,24 @@ func (m *clusterWorkspaceDeletionMonitor) enqueue(obj interface{}) {
 	m.queue.Add(key)
 }
 
-func (m *clusterWorkspaceDeletionMonitor) Start(stop <-chan struct{}) {
+func (m *logicalClusterDeletionMonitor) Start(stop <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer m.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", clusterWorkspaceDeletionMonitorControllerName)
-	defer klog.Infof("Shutting down %s controller", clusterWorkspaceDeletionMonitorControllerName)
+	klog.Infof("Starting %s controller", logicalClusterDeletionMonitorControllerName)
+	defer klog.Infof("Shutting down %s controller", logicalClusterDeletionMonitorControllerName)
 
 	go wait.Until(m.startWorker, time.Second, stop)
 
 	<-stop
 }
 
-func (m *clusterWorkspaceDeletionMonitor) startWorker() {
+func (m *logicalClusterDeletionMonitor) startWorker() {
 	for m.processNextWorkItem() {
 	}
 }
 
-func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
+func (m *logicalClusterDeletionMonitor) processNextWorkItem() bool {
 	// Wait until there is a new item in the working queue
 	k, quit := m.queue.Get()
 	if quit {
@@ -99,7 +99,7 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 	defer m.queue.Done(key)
 
 	if err := m.process(key); err != nil {
-		runtime.HandleError(fmt.Errorf("clusterWorkspaceDeletionMonitor failed to sync %q, err: %w", key, err))
+		runtime.HandleError(fmt.Errorf("logicalClusterDeletionMonitor failed to sync %q, err: %w", key, err))
 
 		m.queue.AddRateLimited(key)
 
@@ -112,7 +112,7 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 	return true
 }
 
-func (m *clusterWorkspaceDeletionMonitor) process(key string) error {
+func (m *logicalClusterDeletionMonitor) process(key string) error {
 	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)

@@ -239,7 +239,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 	c.cancelFuncs[clusterName] = cancel
 
-	if err := c.startQuotaForClusterWorkspace(ctx, clusterName); err != nil {
+	if err := c.startQuotaForLogicalCluster(ctx, clusterName); err != nil {
 		cancel()
 		return fmt.Errorf("error starting quota controller for cluster %q: %w", clusterName, err)
 	}
@@ -247,7 +247,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName.Path())
 

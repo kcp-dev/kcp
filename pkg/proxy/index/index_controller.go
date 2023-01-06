@@ -52,12 +52,12 @@ type Index interface {
 	LookupURL(path logicalcluster.Path) (url string, found bool)
 }
 
-type ClusterWorkspaceClientGetter func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
+type ClusterClientGetter func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
 
 func NewController(
 	ctx context.Context,
 	shardInformer corev1alpha1informers.ShardInformer,
-	clientGetter ClusterWorkspaceClientGetter,
+	clientGetter ClusterClientGetter,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -112,7 +112,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	clientGetter ClusterWorkspaceClientGetter
+	clientGetter ClusterClientGetter
 
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardLister
