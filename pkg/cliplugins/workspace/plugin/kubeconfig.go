@@ -573,7 +573,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, ws.Spec.Type)
+	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String())
 	if preExisting {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
 			wsTypeString := logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
