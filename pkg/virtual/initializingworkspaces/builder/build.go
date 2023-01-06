@@ -19,7 +19,6 @@ package builder
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -45,7 +44,6 @@ import (
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -89,17 +87,6 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
-	getTenancyIdentity := func() (string, error) {
-		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(core.RootCluster).Get("tenancy.kcp.io")
-		if err != nil {
-			return "", err
-		}
-		if export.Status.IdentityHash == "" {
-			return "", errors.New("identity hash is empty")
-		}
-		return export.Status.IdentityHash, nil
-	}
-
 	wildcardLogicalClustersName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -127,7 +114,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
 				resource:             &logicalClusterResource,
-				storageProvider:      provideFilteredLogicalClusterReadOnlyRestStorage(getTenancyIdentity),
+				storageProvider:      filteredLogicalClusterReadOnlyRestStorage,
 			}, nil
 		},
 	}
@@ -164,7 +151,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
 				resource:             &logicalClusterResource,
-				storageProvider:      provideDelegatingLogicalClusterRestStorage(getTenancyIdentity),
+				storageProvider:      delegatingLogicalClusterReadOnlyRestStorage,
 			}, nil
 		},
 	}

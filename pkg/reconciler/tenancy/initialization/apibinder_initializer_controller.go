@@ -181,7 +181,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	logicalCluster, err := b.getLogicalCluster(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// The workspace was deleted or is no longer initializing, so we can safely ignore this event.
+			// The workspace was deleted, or is no longer initializing, or is not actually a workspace, so we can safely ignore this event.
 			return
 		}
 		logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
