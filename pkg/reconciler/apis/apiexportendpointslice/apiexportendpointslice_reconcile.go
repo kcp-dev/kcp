@@ -57,7 +57,7 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 
 func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
 	// TODO (fgiloux): When the information is available in the cache server
-	// check if at least one APIBinding is bound in the shard to the APIExport referenced by the APIExportEndpointSLice.
+	// check if at least one APIBinding is bound in the shard to the APIExport referenced by the APIExportEndpointSlice.
 	// If so, add the respective endpoint to the status.
 	// For now the unfiltered list is added.
 
