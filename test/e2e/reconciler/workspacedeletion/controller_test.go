@@ -68,8 +68,12 @@ func TestWorkspaceDeletion(t *testing.T) {
 							Name: "universal",
 							Path: "root",
 						},
-						Shard: &tenancyv1beta1.WorkspaceLocation{
-							Name: "root",
+						Location: &tenancyv1beta1.WorkspaceLocation{
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"name": corev1alpha1.RootShard,
+								},
+							},
 						},
 					},
 				}, metav1.CreateOptions{})
