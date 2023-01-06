@@ -119,6 +119,7 @@ type ExtraConfig struct {
 	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
 	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
+	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -197,8 +198,16 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rt)
+	if err != nil {
+		return nil, err
+	}
 	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		cacheKcpClusterClient,
+		resyncPeriod,
+	)
+	c.CacheKubeSharedInformerFactory = kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		cacheKubeClusterClient,
 		resyncPeriod,
 	)
 	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)

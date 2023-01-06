@@ -504,7 +504,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 				}
 				return []runtime.Object{unstructuredCacheObject}
 			}()...)
-			target.dynamicCacheClient = fakeDynamicClient
+			target.dynamicKcpCacheClient = fakeDynamicClient
 
 			err = target.handleObjectDeletion(context.TODO(), "root", &gvr, unstructuredCacheObject)
 			if err != nil {

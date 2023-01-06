@@ -131,9 +131,11 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("starting kube informers")
 		s.KubeSharedInformerFactory.Start(hookContext.StopCh)
 		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
+		s.CacheKubeSharedInformerFactory.Start(hookContext.StopCh)
 
 		s.KubeSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 		s.ApiExtensionsSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+		s.CacheKubeSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 
 		select {
 		case <-hookContext.StopCh:

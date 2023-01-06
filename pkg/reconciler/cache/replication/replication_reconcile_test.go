@@ -333,9 +333,9 @@ func TestReconcileAPIExports(t *testing.T) {
 				}
 				return []runtime.Object{}
 			}()...)
-			target.dynamicCacheClient = fakeCacheDynamicClient
+			target.dynamicKcpCacheClient = fakeCacheDynamicClient
 			fakeLocalDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme)
-			target.dynamicLocalClient = fakeLocalDynamicClient
+			target.dynamicKcpLocalClient = fakeLocalDynamicClient
 			if err := target.reconcile(context.TODO(), scenario.reconcileKey); err != nil {
 				tt.Fatal(err)
 			}

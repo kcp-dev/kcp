@@ -62,7 +62,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 		}
 		annotations[genericrequest.AnnotationKey] = c.shardName
 		localObject.SetAnnotations(annotations)
-		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
+		_, err := c.dynamicKcpCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
 		return err
 	}
 
@@ -79,7 +79,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 	}
 
 	if metaChanged || remainingChanged {
-		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
+		_, err := c.dynamicKcpCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
 		return err
 	}
 	return nil
@@ -90,7 +90,7 @@ func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcl
 		return nil // the cached object already removed
 	}
 	if cacheObject.GetDeletionTimestamp() == nil {
-		return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
+		return c.dynamicKcpCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }

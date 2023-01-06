@@ -25,6 +25,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +52,9 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalAPIExportIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localAPIExportLister.Cluster(cluster).Get(name)
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localAPIExportLister.Cluster(cluster).Get(name)
+				return obj, true, err
 			})
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
 		return c.reconcileObject(ctx,
@@ -62,8 +64,9 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
+				return obj, true, err
 			})
 	case corev1alpha1.SchemeGroupVersion.WithResource("shards").String():
 		return c.reconcileObject(ctx,
@@ -73,8 +76,9 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalShardIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localShardLister.Cluster(cluster).Get(name)
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localShardLister.Cluster(cluster).Get(name)
+				return obj, true, err
 			})
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes").String():
 		return c.reconcileObject(ctx,
@@ -84,8 +88,39 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalWorkspaceTypeIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localWorkspaceTypeLister.Cluster(cluster).Get(name)
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localWorkspaceTypeLister.Cluster(cluster).Get(name)
+				return obj, true, err
+			})
+	case rbacv1.SchemeGroupVersion.WithResource("clusterroles").String():
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			rbacv1.SchemeGroupVersion.WithResource("clusterroles"),
+			rbacv1.SchemeGroupVersion.WithKind("ClusterRole"),
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.globalClusterRoleIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localClusterRoleLister.Cluster(cluster).Get(name)
+				if err != nil {
+					return obj, true, err
+				}
+				return obj, shouldReplicate(obj.Labels), err
+			})
+	case rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings").String():
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"),
+			rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"),
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.globalClusterRoleBindingIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
+				obj, err := c.localClusterRoleBindingLister.Cluster(cluster).Get(name)
+				if err != nil {
+					return obj, true, err
+				}
+				return obj, shouldReplicate(obj.Labels), err
 			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
@@ -100,7 +135,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 func (c *controller) reconcileObject(ctx context.Context,
 	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
 	retrieveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
-	retrieveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
+	retrieveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, bool, error)) error {
 	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
@@ -109,13 +144,16 @@ func (c *controller) reconcileObject(ctx context.Context,
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localObject, err := retrieveLocalObject(cluster, namespace, name)
+	localObject, replicate, err := retrieveLocalObject(cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
+	if !replicate {
+		return nil
+	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
-		_, err = c.dynamicLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		_, err = c.dynamicKcpLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err == nil {
 			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
 		}
@@ -169,4 +207,13 @@ func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Inde
 
 func isNotNil(obj interface{}) bool {
 	return obj != nil && (reflect.ValueOf(obj).Kind() == reflect.Ptr && !reflect.ValueOf(obj).IsNil())
+}
+
+func shouldReplicate(labels map[string]string) bool {
+	for k := range labels {
+		if strings.HasSuffix(k, ".kcp.io/replicate") {
+			return true
+		}
+	}
+	return false
 }

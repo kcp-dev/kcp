@@ -62,6 +62,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -910,6 +912,24 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	clusterRoleReplication, err := replicationclusterrole.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	clusterRoleBindingReplication, err := replicationclusterrolebinding.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+	)
+	if err != nil {
+		return err
+	}
+
 	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexport.ControllerName))
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
@@ -925,6 +945,8 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		}
 
 		go c.Start(goContext(hookContext), 2)
+		go clusterRoleReplication.Start(goContext(hookContext), 2)
+		go clusterRoleBindingReplication.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -1334,7 +1356,7 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 	if err != nil {
 		return err
 	}
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, dynamicLocalClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory)
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, dynamicLocalClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
 	if err != nil {
 		return err
 	}
