@@ -276,15 +276,16 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
+		apiExportClusterName := logicalcluster.From(apiExport)
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(schemaName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
 			logger.WithValues(
 				"schema", schemaName,
-				"exportNamespace", apiExport.Namespace,
-				"export", apiExport.Name,
+				"exportClusterName", apiExportClusterName,
+				"exportName", apiExport.Name,
 			).V(3).Info("APIResourceSchema for APIExport not found")
 			continue
 		}
