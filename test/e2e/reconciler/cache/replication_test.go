@@ -40,7 +40,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -69,7 +68,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	resourceName := "today.sheriffs.wild.wild.west"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "APIResourceSchema", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
@@ -105,7 +104,7 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	resourceName := "juicy.mangodbs.db.io"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "APIResourceSchema", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
@@ -181,7 +180,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	resourceName := "wild.wild.west"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "APIExport", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
@@ -228,7 +227,7 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	resourceName := "mangodb"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "APIExport", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 

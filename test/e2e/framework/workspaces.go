@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
@@ -39,9 +40,21 @@ import (
 
 type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
 
-func WithShardConstraints(c tenancyv1alpha1.ShardConstraints) ClusterWorkspaceOption {
-	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
-		ws.Spec.Shard = &c
+func WithRootShard() ClusterWorkspaceOption {
+	return WithShard(corev1alpha1.RootShard)
+}
+
+func WithShard(name string) ClusterWorkspaceOption {
+	return WithLocation(tenancyv1beta1.WorkspaceLocation{Selector: &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"name": name,
+		},
+	}})
+}
+
+func WithLocation(c tenancyv1beta1.WorkspaceLocation) ClusterWorkspaceOption {
+	return func(ws *tenancyv1beta1.Workspace) {
+		ws.Spec.Location = &c
 	}
 }
 

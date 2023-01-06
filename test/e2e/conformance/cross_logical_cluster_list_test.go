@@ -69,8 +69,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 	logicalClusters := []logicalcluster.Name{
-		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
-		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
+		framework.NewOrganizationFixture(t, server, framework.WithRootShard()),
+		framework.NewOrganizationFixture(t, server, framework.WithRootShard()),
 	}
 	expectedWorkspaces := sets.NewString()
 	for i, clusterName := range logicalClusters {
@@ -137,11 +137,11 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 
 	// These 2 workspaces will have the same sheriffs CRD schema as normal CRDs
-	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	// This workspace will have a different sherrifs CRD schema as a normal CRD - will conflict with 1a/1b.
-	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	// These 2 workspaces will export a sheriffs API with the same schema
 	wsExport1a := framework.NewWorkspaceFixture(t, server, org.Path())
@@ -151,13 +151,13 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsExport2 := framework.NewWorkspaceFixture(t, server, org.Path())
 
 	// This workspace will consume from wsExport1a
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	// This workspace will consume from wsExport1b
-	wsConsume1b := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsConsume1b := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	// This workspace will consume from wsExport2
-	wsConsume2 := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsConsume2 := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	cfg := server.BaseConfig(t)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
@@ -289,7 +289,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	require.NoError(t, err, "error creating kube cluster client")
 
 	for i := 0; i < 3; i++ {
-		ws := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+		ws := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 		configMapName := fmt.Sprintf("test-cm-%d", i)
 		configMap := &corev1.ConfigMap{

@@ -43,8 +43,6 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -75,7 +73,7 @@ func TestAuthorizer(t *testing.T) {
 
 	framework.NewWorkspaceFixture(t, server, org1.Path(), framework.WithName("workspace1"))
 	framework.NewWorkspaceFixture(t, server, org1.Path(), framework.WithName("workspace2"))
-	framework.NewWorkspaceFixture(t, server, org2.Path(), framework.WithName("workspace1"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: corev1alpha1.RootShard})) // on root for deep SAR test
+	framework.NewWorkspaceFixture(t, server, org2.Path(), framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
 	framework.NewWorkspaceFixture(t, server, org2.Path(), framework.WithName("workspace2"))
 
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Path().Join("workspace1"), "workspace1-resources.yaml")

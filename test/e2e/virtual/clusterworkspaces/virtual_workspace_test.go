@@ -234,7 +234,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+			orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 
 			// create non-virtual clients
 			kcpConfig := server.RootShardSystemMasterBaseConfig(t)

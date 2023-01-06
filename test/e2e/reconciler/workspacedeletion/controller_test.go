@@ -186,7 +186,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				org := framework.NewOrganizationFixtureObject(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+				org := framework.NewOrganizationFixtureObject(t, server, framework.WithRootShard())
 				orgClusterName := logicalcluster.Name(org.Status.Cluster)
 
 				t.Logf("Should have finalizer in org workspace")
@@ -197,7 +197,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Create a workspace with in the org workspace")
-				ws := framework.NewWorkspaceFixtureObject(t, server.RunningServer, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+				ws := framework.NewWorkspaceFixtureObject(t, server.RunningServer, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithRootShard())
 				wsClusterName := logicalcluster.Name(ws.Status.Cluster)
 
 				t.Logf("Should have finalizer added in workspace")

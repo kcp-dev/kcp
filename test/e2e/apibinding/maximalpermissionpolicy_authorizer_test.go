@@ -65,9 +65,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")
-	orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{
-		Name: "root",
-	}))
+	orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 
 	t.Logf("Giving user-1 admin access")
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, orgClusterName.Path(), []string{"user-1"}, nil, true)
