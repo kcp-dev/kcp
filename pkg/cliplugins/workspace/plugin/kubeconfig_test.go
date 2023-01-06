@@ -26,10 +26,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
-
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,14 +45,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 )
 
 func TestCreate(t *testing.T) {
@@ -57,7 +56,7 @@ func TestCreate(t *testing.T) {
 		markReady          bool
 
 		newWorkspaceName                 string
-		newWorkspaceType                 tenancyv1beta1.WorkspaceTypeReference
+		newWorkspaceType                 tenancyv1alpha1.WorkspaceTypeReference
 		useAfterCreation, ignoreExisting bool
 
 		expected *clientcmdapi.Config
@@ -152,7 +151,7 @@ func TestCreate(t *testing.T) {
 			},
 			existingWorkspaces: []string{"bar"},
 			newWorkspaceName:   "bar",
-			newWorkspaceType:   tenancyv1beta1.WorkspaceTypeReference{Path: "root", Name: "universal"},
+			newWorkspaceType:   tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
 			useAfterCreation:   true,
 			markReady:          true,
 			ignoreExisting:     true,
@@ -178,7 +177,7 @@ func TestCreate(t *testing.T) {
 			},
 			newWorkspaceName: "bar",
 			ignoreExisting:   true,
-			newWorkspaceType: tenancyv1beta1.WorkspaceTypeReference{Name: "universal"},
+			newWorkspaceType: tenancyv1alpha1.WorkspaceTypeReference{Name: "universal"},
 			wantErr:          true,
 		},
 	}
@@ -201,7 +200,7 @@ func TestCreate(t *testing.T) {
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						URL: fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
-						Type: tenancyv1beta1.WorkspaceTypeReference{
+						Type: tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
 						},
@@ -214,9 +213,9 @@ func TestCreate(t *testing.T) {
 			client := kcpfakeclient.NewSimpleClientset(objects...)
 
 			workspaceType := tt.newWorkspaceType
-			empty := tenancyv1beta1.WorkspaceTypeReference{}
+			empty := tenancyv1alpha1.WorkspaceTypeReference{}
 			if workspaceType == empty {
-				workspaceType = tenancyv1beta1.WorkspaceTypeReference{
+				workspaceType = tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "universal",
 					Path: "root",
 				}
@@ -1196,7 +1195,7 @@ func TestUse(t *testing.T) {
 							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: tenancyv1beta1.WorkspaceTypeReference{
+							Type: tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "universal",
 								Path: "root",
 							},
@@ -1222,7 +1221,7 @@ func TestUse(t *testing.T) {
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.RequestPath()),
-							Type: tenancyv1beta1.WorkspaceTypeReference{
+							Type: tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "home",
 								Path: "root",
 							},

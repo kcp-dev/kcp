@@ -41,7 +41,6 @@ import (
 
 	virtualcommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -88,7 +87,7 @@ var testCases = []struct {
 			t.Helper()
 
 			t.Logf("Create ClusterWorkspace workspace1 in the virtual workspace")
-			workspace1, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+			workspace1, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
@@ -98,16 +97,16 @@ var testCases = []struct {
 			require.NoError(t, err, "expected to see workspace1 as Workspace")
 
 			t.Logf("Verify that the ClusterWorkspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as Workspace")
 
 			t.Logf("ClusterWorkspace will show up in a list")
-			list, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+			list, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 			require.NoError(t, err)
 			require.Len(t, list.Items, 1)
 
 			t.Logf("Deleting ClusterWorkspace results in Workspace deletion")
-			err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, workspace1.Name, metav1.DeleteOptions{})
+			err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Delete(ctx, workspace1.Name, metav1.DeleteOptions{})
 			require.NoError(t, err)
 			require.Eventually(t, func() bool {
 				if _, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{}); kerrors.IsNotFound(err) {
@@ -118,7 +117,7 @@ var testCases = []struct {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected Workspace to be deleted")
 
 			t.Logf("Deleting ClusterWorkspace results in ClusterWorkspace deletion")
-			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			if !kerrors.IsNotFound(err) {
 				require.NoError(t, err)
 			}
@@ -136,7 +135,7 @@ var testCases = []struct {
 			require.NoError(t, err)
 
 			t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+			_, err = server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as Workspace")
 		},
 	},

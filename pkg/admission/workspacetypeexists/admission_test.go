@@ -868,7 +868,7 @@ func newWorkspace(qualifiedName string) wsBuilder {
 
 func (b wsBuilder) withType(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
-	b.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
+	b.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 		Path: path.String(),
 		Name: tenancyv1alpha1.WorkspaceTypeName(name),
 	}
