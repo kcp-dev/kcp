@@ -828,8 +828,10 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		initializingWorkspacesKcpClusterClient,
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 	if err != nil {
 		return err
@@ -1404,4 +1406,3 @@ func (s *Server) waitForSync(stop <-chan struct{}) error {
 		return nil
 	}
 }
-
