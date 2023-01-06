@@ -44,7 +44,7 @@ const (
 
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
-func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
 	// Make sure informer knows what to watch
 	kubeInformers.Rbac().V1().Roles().Lister()
 	kubeInformers.Rbac().V1().RoleBindings().Lister()
@@ -55,12 +55,20 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.S
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
+	indexers.AddIfNotPresentOrDie(globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
 	return &MaximalPermissionPolicyAuthorizer{
 		getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
+			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
+			if apierrors.IsNotFound(err) {
+				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
+			}
+			return export, err
 		},
 		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
 			return rbac.New(

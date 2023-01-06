@@ -81,10 +81,10 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpinformer.Core().V1alpha1().LogicalClusters().Lister()
+	workspaceLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -114,7 +114,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	// everything below - skipped for Deep SAR
 
 	// enforce maximal permission policy
-	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
+	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpInformers, globalKcpInformers, union.New(bootstrapAuth, localAuth))
 	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.io", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// protect status updates to apiexport and apibinding
