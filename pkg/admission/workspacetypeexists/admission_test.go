@@ -201,7 +201,6 @@ func TestAdmit(t *testing.T) {
 			o := &workspacetypeExists{
 				Handler:                admission.NewHandler(admission.Create, admission.Update),
 				getType:                getType(tt.types),
-				typeLister:             typeLister,
 				logicalClusterLister:   fakeLogicalClusterClusterLister(tt.logicalClusters),
 				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
 			}
@@ -445,7 +444,6 @@ func TestValidate(t *testing.T) {
 			o := &workspacetypeExists{
 				Handler:              admission.NewHandler(admission.Create, admission.Update),
 				getType:              getType(tt.types),
-				typeLister:           typeLister,
 				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
