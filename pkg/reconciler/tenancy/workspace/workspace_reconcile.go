@@ -51,7 +51,7 @@ type reconciler interface {
 
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace) (bool, error) {
 	getShardByName := func(hash string) (*corev1alpha1.Shard, error) {
-		shards, err := c.shardIndexer.ByIndex(byBase36Sha224Name, hash)
+		shards, err := c.globalShardIndexer.ByIndex(byBase36Sha224Name, hash)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	}
 
 	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-		return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), c.workspaceTypeIndexer, path, name)
+		return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), c.globalWorkspaceTypeIndexer, path, name)
 	}
 
 	reconcilers := []reconciler{
@@ -110,10 +110,10 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		&schedulingReconciler{
 			generateClusterName: randomClusterName,
 			getShard: func(name string) (*corev1alpha1.Shard, error) {
-				return c.shardLister.Cluster(core.RootCluster).Get(name)
+				return c.globalShardLister.Cluster(core.RootCluster).Get(name)
 			},
 			getShardByHash:   getShardByName,
-			listShards:       c.shardLister.List,
+			listShards:       c.globalShardLister.List,
 			getWorkspaceType: getType,
 			getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 				return c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
