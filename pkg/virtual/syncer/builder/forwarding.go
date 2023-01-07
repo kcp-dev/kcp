@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
+	"k8s.io/apimachinery/pkg/api/validation/path"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -52,6 +53,7 @@ func NewSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Cluster
 			typer,
 			namespaceScoped,
 			kind,
+			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
@@ -147,6 +149,7 @@ func NewUpSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Clust
 			typer,
 			namespaceScoped,
 			kind,
+			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},

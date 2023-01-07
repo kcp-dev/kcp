@@ -34,6 +34,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
+	"k8s.io/apimachinery/pkg/api/validation/path"
 )
 
 // StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
@@ -143,6 +144,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.Cl
 			typer,
 			namespaceScoped,
 			kind,
+			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
