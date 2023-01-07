@@ -244,9 +244,9 @@ func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kcpkubernetes
 	k.kubeClusterClient = kubeClusterClient
 }
 
-func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	k.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
-	k.logicalClusterInformer = informers.Core().V1alpha1().LogicalClusters()
+func (k *KubeResourceQuota) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	k.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
+	k.logicalClusterInformer = local.Core().V1alpha1().LogicalClusters()
 }
 
 func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers informers.SharedInformerFactory) {

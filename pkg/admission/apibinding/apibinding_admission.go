@@ -310,15 +310,15 @@ func (o *apiBindingAdmission) SetDeepSARClient(client kcpkubernetesclientset.Clu
 	o.deepSARClient = client
 }
 
-func (o *apiBindingAdmission) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	apiExportsReady := informers.Apis().V1alpha1().APIExports().Informer().HasSynced
+func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	apiExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return apiExportsReady()
 	})
-	o.apiExportLister = informers.Apis().V1alpha1().APIExports().Lister()
-	o.apiExportIndexer = informers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	o.apiExportLister = local.Apis().V1alpha1().APIExports().Lister()
+	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
-	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

@@ -180,18 +180,18 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
-func (p *WebhookDispatcher) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
-	p.apiBindingClusterLister = f.Apis().V1alpha1().APIBindings().Lister()
-	p.apiExportIndexer = f.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+func (p *WebhookDispatcher) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	p.apiBindingClusterLister = local.Apis().V1alpha1().APIBindings().Lister()
+	p.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
 	synced := func() bool {
-		return f.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
-			f.Apis().V1alpha1().APIExports().Informer().HasSynced()
+		return local.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+			local.Apis().V1alpha1().APIExports().Informer().HasSynced()
 	}
 	p.SetReadyFunc(synced)
 	p.informersHaveSynced = synced
 
-	indexers.AddIfNotPresentOrDie(f.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(local.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

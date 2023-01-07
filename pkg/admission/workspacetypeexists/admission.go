@@ -336,17 +336,17 @@ func (o *workspacetypeExists) ValidateInitialization() error {
 	return nil
 }
 
-func (o *workspacetypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	typesReady := informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
-	logicalClusterReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+func (o *workspacetypeExists) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	typesReady := local.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
+	logicalClusterReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return typesReady() && logicalClusterReady()
 	})
-	o.typeLister = informers.Tenancy().V1alpha1().WorkspaceTypes().Lister()
-	o.typeIndexer = informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
-	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	o.typeLister = local.Tenancy().V1alpha1().WorkspaceTypes().Lister()
+	o.typeIndexer = local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 
-	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }
