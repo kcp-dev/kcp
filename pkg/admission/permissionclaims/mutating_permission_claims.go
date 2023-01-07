@@ -168,6 +168,7 @@ func (m *mutatingPermissionClaims) SetKcpInformers(local, global kcpinformers.Sh
 	m.permissionClaimLabeler = permissionclaim.NewLabeler(
 		local.Apis().V1alpha1().APIBindings(),
 		local.Apis().V1alpha1().APIExports(),
+		global.Apis().V1alpha1().APIExports(),
 	)
 }
 
