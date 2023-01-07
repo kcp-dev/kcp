@@ -23,6 +23,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -90,6 +91,7 @@ type WebhookDispatcher struct {
 
 	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
 	apiExportIndexer        cache.Indexer
+	globalAPIExportIndexer  cache.Indexer
 
 	informersHaveSynced func() bool
 }
@@ -100,7 +102,11 @@ func NewWebhookDispatcher() *WebhookDispatcher {
 	}
 
 	d.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-		return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), d.apiExportIndexer, path, name)
+		obj, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), d.apiExportIndexer, path, name)
+		if errors.IsNotFound(err) {
+			obj, err = indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), d.globalAPIExportIndexer, path, name)
+		}
+		return obj, err
 	}
 
 	return d
@@ -183,15 +189,21 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 func (p *WebhookDispatcher) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	p.apiBindingClusterLister = local.Apis().V1alpha1().APIBindings().Lister()
 	p.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	p.globalAPIExportIndexer = global.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
 	synced := func() bool {
 		return local.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
-			local.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			local.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+			global.Apis().V1alpha1().APIExports().Informer().HasSynced()
 	}
 	p.SetReadyFunc(synced)
 	p.informersHaveSynced = synced
 
 	indexers.AddIfNotPresentOrDie(local.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(global.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }
