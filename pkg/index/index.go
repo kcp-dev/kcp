@@ -95,9 +95,6 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 }
 
 func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
-	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
-		return
-	}
 	clusterName := logicalcluster.From(ws)
 
 	c.lock.RLock()
