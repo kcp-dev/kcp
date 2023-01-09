@@ -24,7 +24,6 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +43,6 @@ import (
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -68,11 +66,26 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
-		queue:             queue,
+		queue: queue,
+
 		kcpClusterClient:  kcpClusterClient,
-		apiExportLister:   apiExportInformer.Lister(),
-		apiExportIndexer:  apiExportInformer.Informer().GetIndexer(),
 		kubeClusterClient: kubeClusterClient,
+
+		listAPIExports: func() ([]*apisv1alpha1.APIExport, error) {
+			return apiExportInformer.Lister().List(labels.Everything())
+		},
+		listAPIExportsForSecret: func(secret *corev1.Secret) ([]*apisv1alpha1.APIExport, error) {
+			secretKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(secret)
+			if err != nil {
+				return nil, err
+			}
+
+			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), indexers.APIExportBySecret, secretKey)
+		},
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
+		},
+
 		getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 			return namespaceInformer.Lister().Cluster(clusterName).Get(name)
 		},
@@ -80,19 +93,33 @@ func NewController(
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 			return err
 		},
-		secretLister:    secretInformer.Lister(),
 		secretNamespace: DefaultIdentitySecretNamespace,
+
+		getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
+			secret, err := secretInformer.Lister().Cluster(clusterName).Secrets(ns).Get(name)
+			if err == nil {
+				return secret, nil
+			}
+
+			// In case the lister is slow to catch up, try a live read
+			secret, err = kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			return secret, nil
+		},
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
 		},
+
 		listShards: func() ([]*corev1alpha1.Shard, error) {
 			return shardInformer.Lister().List(labels.Everything())
 		},
+
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
 	}
-
-	c.getSecret = c.readThroughGetSecret
 
 	indexers.AddIfNotPresentOrDie(
 		apiExportInformer.Informer().GetIndexer(),
@@ -104,38 +131,38 @@ func NewController(
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExport(newObj)
+			c.enqueueAPIExport(newObj.(*apisv1alpha1.APIExport))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
 		},
 	})
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueSecret(obj)
+			c.enqueueSecret(obj.(*corev1.Secret))
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueSecret(newObj)
+			c.enqueueSecret(newObj.(*corev1.Secret))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueSecret(obj)
+			c.enqueueSecret(obj.(*corev1.Secret))
 		},
 	})
 
 	shardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueueAllAPIExports(obj)
+				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
 			},
 			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueAllAPIExports(newObj)
+				c.enqueueAllAPIExports(newObj.(*corev1alpha1.Shard))
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.enqueueAllAPIExports(obj)
+				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
 			},
 		},
 	)
@@ -154,28 +181,29 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclientset.ClusterInterface
-	apiExportLister  apisv1alpha1listers.APIExportClusterLister
-	apiExportIndexer cache.Indexer
-
+	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
+
+	listAPIExports          func() ([]*apisv1alpha1.APIExport, error)
+	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha1.APIExport, error)
+	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace) error
 
-	secretLister    corev1listers.SecretClusterLister
 	secretNamespace string
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
 
 	listShards func() ([]*corev1alpha1.Shard, error)
-	commit     CommitFunc
+
+	commit CommitFunc
 }
 
 // enqueueAPIExport enqueues an APIExport.
-func (c *controller) enqueueAPIExport(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueAPIExport(apiExport *apisv1alpha1.APIExport) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -186,14 +214,14 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueAllAPIExports(shard interface{}) {
-	list, err := c.apiExportLister.List(labels.Everything())
+func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
+	list, err := c.listAPIExports()
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), shard.(*corev1alpha1.Shard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), shard)
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -206,20 +234,14 @@ func (c *controller) enqueueAllAPIExports(shard interface{}) {
 	}
 }
 
-func (c *controller) enqueueSecret(obj interface{}) {
-	secretKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueSecret(secret *corev1.Secret) {
+	apiExports, err := c.listAPIExportsForSecret(secret)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	apiExports, err := c.apiExportIndexer.ByIndex(indexers.APIExportBySecret, secretKey)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*corev1.Secret))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), secret)
 	for _, apiExport := range apiExports {
 		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 		if err != nil {
@@ -285,7 +307,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.apiExportLister.Cluster(cluster).Get(name)
+	obj, err := c.getAPIExport(cluster, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -315,19 +337,4 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	return utilerrors.NewAggregate(errs)
-}
-
-func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
-	secret, err := c.secretLister.Cluster(clusterName).Secrets(ns).Get(name)
-	if err == nil {
-		return secret, nil
-	}
-
-	// In case the lister is slow to catch up, try a live read
-	secret, err = c.kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return secret, nil
 }
