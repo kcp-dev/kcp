@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ping-fully-qualified
+  namespace: dns-ws1-ns1
+spec:
+  selector:
+    matchLabels:
+      app: ping-fully-qualified
+  template:
+    metadata:
+      labels:
+        app: ping-fully-qualified
+    spec:
+      containers:
+      - name: ping-fully-qualified
+        image: ghcr.io/distroless/alpine-base:latest
+        command: ['sh', '-c', 'until ping svc.dns-ws1-ns1.svc.cluster.local; do sleep 1; done']
