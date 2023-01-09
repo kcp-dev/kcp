@@ -132,7 +132,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	var newServerHost string
-	var workspaceType *tenancyv1beta1.WorkspaceTypeReference
+	var workspaceType *tenancyv1alpha1.WorkspaceTypeReference
 	switch o.Name {
 	case "-":
 		prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
@@ -412,7 +412,7 @@ func (o *CurrentWorkspaceOptions) Run(ctx context.Context) error {
 
 type shortWorkspaceOutput bool
 
-func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1beta1.WorkspaceTypeReference) error {
+func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1alpha1.WorkspaceTypeReference) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {
@@ -519,17 +519,17 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
-	var structuredWorkspaceType tenancyv1beta1.WorkspaceTypeReference
+	var structuredWorkspaceType tenancyv1alpha1.WorkspaceTypeReference
 	if o.Type != "" {
 		separatorIndex := strings.LastIndex(o.Type, ":")
 		switch separatorIndex {
 		case -1:
-			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
+			structuredWorkspaceType = tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
-			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
+			structuredWorkspaceType = tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
 				Path: o.Type[:separatorIndex],
 			}

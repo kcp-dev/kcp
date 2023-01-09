@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -54,7 +53,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
@@ -118,8 +117,8 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
-	wsExport1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsExport1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 	group := "newyork.io"
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a.Path(), kcpClusterClient, group, "export1")
@@ -167,7 +166,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
 	org := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", clusterName)
 	_, err = kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})

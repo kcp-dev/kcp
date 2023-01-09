@@ -132,7 +132,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	}
 
 	// if the user has not provided any type, use the default from the parent workspace
-	empty := tenancyv1beta1.WorkspaceTypeReference{}
+	empty := tenancyv1alpha1.WorkspaceTypeReference{}
 	if ws.Spec.Type == empty {
 		typeAnnotation, found := logicalCluster.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
 		if !found {
@@ -149,7 +149,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		if parentCwt.Spec.DefaultChildWorkspaceType == nil {
 			return admission.NewForbidden(a, errors.New("spec.defaultChildWorkspaceType of workspace type %s:%s must be set"))
 		}
-		ws.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
+		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 			Path: parentCwt.Spec.DefaultChildWorkspaceType.Path,
 			Name: parentCwt.Spec.DefaultChildWorkspaceType.Name,
 		}

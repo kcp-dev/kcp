@@ -46,10 +46,13 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	org := framework.NewOrganizationFixtureObject(t, server)
 	orgPath := core.RootCluster.Path().Join(org.Name)
-	cowboysProviderWorkspace := framework.NewWorkspaceFixtureObject(t, server, orgPath, framework.WithName("cowboys-provider"))
-	cowboysProviderPath := orgPath.Join(cowboysProviderWorkspace.Name)
 
 	cfg := server.BaseConfig(t)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
+
+	cowboysProviderWorkspace := framework.NewWorkspaceFixtureObject(t, clusterClient, orgPath, framework.WithName("cowboys-provider"))
+	cowboysProviderPath := orgPath.Join(cowboysProviderWorkspace.Name)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
@@ -85,7 +88,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
-	universal := framework.NewWorkspaceFixtureObject(t, server, orgPath, framework.WithName("universal"))
+	universal := framework.NewWorkspaceFixtureObject(t, clusterClient, orgPath, framework.WithName("universal"))
 	universalPath := orgPath.Join(universal.Name)
 
 	cwtParent1 := &tenancyv1alpha1.WorkspaceType{

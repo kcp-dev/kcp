@@ -18,6 +18,4 @@ limitations under the License.
 
 package v1alpha1
 
-type ClusterWorkspaceExpansion interface{}
-
 type WorkspaceTypeExpansion interface{}

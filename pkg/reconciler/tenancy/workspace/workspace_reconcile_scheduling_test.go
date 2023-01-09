@@ -374,7 +374,7 @@ func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
 	ws.Annotations["experimental.tenancy.kcp.io/owner"] = `{"username":"kcp-admin"}`
 	ws.Finalizers = append(ws.Finalizers, "core.kcp.io/logicalcluster")
 	// type info is assigned by an admission plugin
-	ws.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
+	ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 		Name: "universal",
 		Path: "root",
 	}

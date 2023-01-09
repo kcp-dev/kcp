@@ -44,10 +44,6 @@ func (c *TenancyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 	return &TenancyV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaces() kcptenancyv1alpha1.ClusterWorkspaceClusterInterface {
-	return &clusterWorkspacesClusterClient{Fake: c.Fake}
-}
-
 func (c *TenancyV1alpha1ClusterClient) WorkspaceTypes() kcptenancyv1alpha1.WorkspaceTypeClusterInterface {
 	return &workspaceTypesClusterClient{Fake: c.Fake}
 }
@@ -62,10 +58,6 @@ type TenancyV1alpha1Client struct {
 func (c *TenancyV1alpha1Client) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
-}
-
-func (c *TenancyV1alpha1Client) ClusterWorkspaces() tenancyv1alpha1.ClusterWorkspaceInterface {
-	return &clusterWorkspacesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }
 
 func (c *TenancyV1alpha1Client) WorkspaceTypes() tenancyv1alpha1.WorkspaceTypeInterface {
