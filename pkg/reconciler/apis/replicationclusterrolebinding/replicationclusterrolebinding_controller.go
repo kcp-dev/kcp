@@ -38,6 +38,8 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
@@ -45,9 +47,6 @@ import (
 
 const (
 	ControllerName = "kcp-apiexport-replication-clusterrolebinding"
-
-	// ReplicateLabelKey is the label key used to indicate that a ClusterRoleBinding should be replicated.
-	ReplicateLabelKey = replicationclusterrole.ReplicateLabelKey // same label
 )
 
 // NewController returns a new controller for labelling ClusterRoleBinding that should be replicated.
@@ -238,14 +237,19 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 	}
 
-	_, found := crb.Labels[ReplicateLabelKey]
-	if replicate == found {
+	// calculate patch
+	var value string
+	var changed bool
+	if replicate {
+		if value, changed = kcpcorehelper.ReplicateForValue(crb.Annotations[core.ReplicateAnnotationKey], "apiexport"); !changed {
+			return nil
+		}
+	} else if value, changed = kcpcorehelper.DontReplicateForValue(crb.Annotations[core.ReplicateAnnotationKey], "apiexport"); !changed {
 		return nil
 	}
-
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, ReplicateLabelKey)
-	if replicate {
-		patch = fmt.Sprintf(`{"metadata":{"labels":{"%s":"%t"}}}`, ReplicateLabelKey, replicate)
+	patch := fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:null}}}`, crb.ResourceVersion, crb.UID, core.ReplicateAnnotationKey)
+	if value != "" {
+		patch = fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:%q}}}`, crb.ResourceVersion, crb.UID, core.ReplicateAnnotationKey, value)
 	}
 
 	logger.V(4).Info("patching ClusterRoleBinding", "patch", patch)
