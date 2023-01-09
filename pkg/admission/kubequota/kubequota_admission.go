@@ -98,7 +98,7 @@ type KubeResourceQuota struct {
 	lock      sync.RWMutex
 	delegates map[logicalcluster.Name]*stoppableQuotaAdmission
 
-	clusterWorkspaceDeletionMonitorStarter sync.Once
+	workspaceDeletionMonitorStarter sync.Once
 }
 
 // ValidateInitialization validates all the expected fields are set.
@@ -143,7 +143,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 		}
 	}
 
-	k.clusterWorkspaceDeletionMonitorStarter.Do(func() {
+	k.workspaceDeletionMonitorStarter.Do(func() {
 		m := newLogicalClusterDeletionMonitor(k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
 		go m.Start(k.serverDone)
 	})

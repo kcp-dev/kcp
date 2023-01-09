@@ -200,7 +200,7 @@ func (in *WorkspaceType) SetConditions(conditions conditionsv1alpha1.Conditions)
 	in.Status.Conditions = conditions
 }
 
-// WorkspaceTypeList is a list of cluster workspace types
+// WorkspaceTypeList is a list of workspace types
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type WorkspaceTypeList struct {
@@ -215,7 +215,7 @@ type WorkspaceTypeList struct {
 const WorkspaceAPIBindingsInitializer corev1alpha1.LogicalClusterInitializer = "system:apibindings"
 
 const (
-	// WorkspacePhaseLabel holds the ClusterWorkspace.Status.Phase value, and is enforced to match
+	// WorkspacePhaseLabel holds the Workspace.Status.Phase value, and is enforced to match
 	// by a mutating admission webhook.
 	WorkspacePhaseLabel = "tenancy.kcp.io/phase"
 	// WorkspaceInitializerLabelPrefix is the prefix for labels which match Workspace.Status.Initializers,
@@ -225,7 +225,7 @@ const (
 )
 
 const (
-	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
+	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no workspace type
 	RootWorkspaceTypeName = WorkspaceTypeName("root")
 )
 

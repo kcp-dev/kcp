@@ -126,7 +126,7 @@ func NewController(
 	return c, nil
 }
 
-// enqueue adds the key for a ClusterWorkspace to the queue.
+// enqueue adds the key for a Workspace to the queue.
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
@@ -135,7 +135,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	}
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ClusterWorkspace")
+	logger.V(2).Info("queueing Workspace")
 	c.queue.Add(key)
 }
 
@@ -205,7 +205,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ws, err := c.getLogicalCluster(clusterName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")
+			logger.V(2).Info("Workspace not found - stopping quota controller for it (if needed)")
 
 			c.lock.Lock()
 			cancel, ok := c.cancelFuncs[clusterName]

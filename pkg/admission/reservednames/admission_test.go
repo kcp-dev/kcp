@@ -53,22 +53,22 @@ func TestAdmission(t *testing.T) {
 		attr admission.Attributes
 		want error
 	}{
-		"ForbiddenAnyCWT": {
+		"ForbiddenAnyWT": {
 			attr: createAttr("any", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "any", "name is reserved"),
 		},
-		"ForbiddenSystemCWT": {
+		"ForbiddenSystemWT": {
 			attr: createAttr("system", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "system", "name is reserved"),
 		},
-		"ValidCWT": {
-			attr: createAttr("cool-cwt", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
+		"ValidWT": {
+			attr: createAttr("cool-wt", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 		},
 		"NotApplicableResource": {
-			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "ClusterWorkspace", "notacworcwt"),
+			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "Workspace", "notaworwt"),
 		},
 		"NotApplicableKind": {
-			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaCWorCWT", "workspaces"),
+			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaWorWT", "workspaces"),
 		},
 	}
 	for name, tc := range cases {

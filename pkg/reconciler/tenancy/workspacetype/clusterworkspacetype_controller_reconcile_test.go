@@ -38,14 +38,14 @@ func TestReconcile(t *testing.T) {
 		name     string
 		shards   []*corev1alpha1.Shard
 		listErr  error
-		cwts     []*tenancyv1alpha1.WorkspaceType
+		wts      []*tenancyv1alpha1.WorkspaceType
 		getErr   error
-		cwt      *tenancyv1alpha1.WorkspaceType
+		wt       *tenancyv1alpha1.WorkspaceType
 		expected *tenancyv1alpha1.WorkspaceType
 	}{
 		{
 			name: "no shards, no URLs in status",
-			cwt: &tenancyv1alpha1.WorkspaceType{
+			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -78,7 +78,7 @@ func TestReconcile(t *testing.T) {
 			name:    "error listing shards, error in status",
 			shards:  []*corev1alpha1.Shard{},
 			listErr: fmt.Errorf("oops"),
-			cwt: &tenancyv1alpha1.WorkspaceType{
+			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -120,7 +120,7 @@ func TestReconcile(t *testing.T) {
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
-			cwt: &tenancyv1alpha1.WorkspaceType{
+			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -161,7 +161,7 @@ func TestReconcile(t *testing.T) {
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
-			cwt: &tenancyv1alpha1.WorkspaceType{
+			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -212,7 +212,7 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			testCase.cwts = append(testCase.cwts, testCase.cwt.DeepCopy())
+			testCase.wts = append(testCase.wts, testCase.wt.DeepCopy())
 			c := controller{
 				listShards: func() ([]*corev1alpha1.Shard, error) {
 					return testCase.shards, testCase.listErr
@@ -221,17 +221,17 @@ func TestReconcile(t *testing.T) {
 					if testCase.getErr != nil {
 						return nil, testCase.getErr
 					}
-					for _, cwt := range testCase.cwts {
-						if logicalcluster.From(cwt).String() == reference.Path && cwt.Name == string(reference.Name) {
-							return cwt, nil
+					for _, wt := range testCase.wts {
+						if logicalcluster.From(wt).String() == reference.Path && wt.Name == string(reference.Name) {
+							return wt, nil
 						}
 					}
 					return nil, errors.NewNotFound(tenancyv1alpha1.Resource("workspacetype"), string(reference.Name))
 				},
 			}
-			c.reconcile(context.TODO(), testCase.cwt)
-			c.reconcile(context.TODO(), testCase.cwt) // relationships require resolved extensions
-			if diff := cmp.Diff(testCase.cwt, testCase.expected, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
+			c.reconcile(context.TODO(), testCase.wt)
+			c.reconcile(context.TODO(), testCase.wt) // relationships require resolved extensions
+			if diff := cmp.Diff(testCase.wt, testCase.expected, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
 				t.Errorf("incorrect WorkspaceType after reconciliation: %v", diff)
 			}
 		})

@@ -229,7 +229,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				_, err = server.kubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns %q in workspace root:%s", ns.Name, org.Name)
 
-				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
+				// get clients for the right shards. We have to access the shards directly to see object (Namespace and Workspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
 				rootShardKcpClusterClient, err := kcpclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kcp client for root shard")

@@ -57,7 +57,7 @@ type Workspace struct {
 	Status WorkspaceStatus `json:"status,omitempty"`
 }
 
-// WorkspaceSpec holds the desired state of the ClusterWorkspace.
+// WorkspaceSpec holds the desired state of the Workspace.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster cannot be unset"
 type WorkspaceSpec struct {
@@ -117,7 +117,7 @@ type WorkspaceStatus struct {
 	// +kubebuilder:default=Scheduling
 	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
 
-	// Current processing state of the ClusterWorkspace.
+	// Current processing state of the Workspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 

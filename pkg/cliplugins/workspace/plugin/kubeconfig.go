@@ -189,7 +189,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 		if err != nil {
-			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+			return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 		}
 		parentClusterName, hasParent := currentClusterName.Parent()
 		if !hasParent {
@@ -234,7 +234,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 		if err != nil {
-			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+			return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 		}
 
 		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.NewPath("system")) {
@@ -288,7 +288,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			}
 			u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 			if err != nil {
-				return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+				return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 			}
 
 			u.Path = path.Join(u.Path, currentClusterName.Join(ws.Name).RequestPath())
@@ -512,7 +512,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+		return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 	}
 
 	if o.IgnoreExisting && o.Type != "" && !logicalcluster.NewPath(o.Type).HasPrefix(core.RootCluster.Path()) {
@@ -720,7 +720,7 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 	}
 	_, currentClusterName, err := pluginhelpers.ParseClusterURL(currentCluster.Server)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", currentCluster.Server)
+		return fmt.Errorf("current URL %q does not point to a workspace", currentCluster.Server)
 	}
 
 	if o.Name == "" {

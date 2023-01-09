@@ -28,5 +28,5 @@ const (
 	LogicalClusterPathAnnotationKey = "kcp.io/path"
 )
 
-// RootCluster is the root of ClusterWorkspace based logical clusters.
+// RootCluster is the root of workspace based logical clusters.
 var RootCluster = logicalcluster.Name("root")

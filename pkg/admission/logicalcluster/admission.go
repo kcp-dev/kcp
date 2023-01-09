@@ -225,9 +225,9 @@ func toSet(initializers []corev1alpha1.LogicalClusterInitializer) sets.String {
 	return ret
 }
 
-// updateUnstructured updates the given unstructured object to match the given cluster workspace.
-func updateUnstructured(u *unstructured.Unstructured, cw *corev1alpha1.LogicalCluster) error {
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+// updateUnstructured updates the given unstructured object to match the given logical cluster.
+func updateUnstructured(u *unstructured.Unstructured, logicalCluster *corev1alpha1.LogicalCluster) error {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(logicalCluster)
 	if err != nil {
 		return err
 	}

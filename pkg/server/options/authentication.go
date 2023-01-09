@@ -43,7 +43,7 @@ const (
 	// A shard admin being member of the privileged system group.
 	// This will bypass most kcp authorization checks.
 	shardAdminUserName = "shard-admin"
-	// A kcp admin being member of system:kcp:clusterworkspace:admin and system:kcp:clusterworkspace:access.
+	// A kcp admin being member of system:kcp:workspace:admin and system:kcp:workspace:access.
 	// This user will be subject of kcp authorization checks.
 	kcpAdminUserName = "kcp-admin"
 	// A non-admin user part of the "user" battery.

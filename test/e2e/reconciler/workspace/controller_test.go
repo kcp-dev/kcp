@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspace
+package workspace
 
 import (
 	"context"
@@ -60,11 +60,11 @@ func TestWorkspaceController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				cws, err := server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				wShard, err := server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err, "did not see root workspace shard")
 
-				require.True(t, strings.HasPrefix(cws.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", cws.Spec.BaseURL)
-				require.True(t, strings.HasPrefix(cws.Spec.ExternalURL, "https://"), "expected https:// root shard external URL, got=%q", cws.Spec.ExternalURL)
+				require.True(t, strings.HasPrefix(wShard.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", wShard.Spec.BaseURL)
+				require.True(t, strings.HasPrefix(wShard.Spec.ExternalURL, "https://"), "expected https:// root shard external URL, got=%q", wShard.Spec.ExternalURL)
 			},
 		},
 		{

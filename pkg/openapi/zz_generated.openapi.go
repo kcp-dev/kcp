@@ -3368,7 +3368,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceTypeList is a list of cluster workspace types",
+				Description: "WorkspaceTypeList is a list of workspace types",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3417,7 +3417,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceTypeReference is a globally unique, fully qualified reference to a cluster workspace type.",
+				Description: "WorkspaceTypeReference is a globally unique, fully qualified reference to a workspace type.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -3718,7 +3718,7 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceSpec holds the desired state of the ClusterWorkspace.",
+				Description: "WorkspaceSpec holds the desired state of the Workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
@@ -3772,7 +3772,7 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Current processing state of the ClusterWorkspace.",
+							Description: "Current processing state of the Workspace.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

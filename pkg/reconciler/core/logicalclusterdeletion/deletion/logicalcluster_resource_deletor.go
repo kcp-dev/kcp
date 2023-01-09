@@ -366,7 +366,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 
 		// Don't try to delete projected resources such as tenancy.kcp.io v1beta1 Workspaces - these are virtual
 		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
-		// data (e.g. ClusterWorkspaces) are deleted.
+		// data (e.g. Workspaces) are deleted.
 		isNotVirtualResource{},
 		// no need to delete namespace scoped resource since it will be handled by namespace deletion anyway. This
 		// can avoid redundant list/delete requests.

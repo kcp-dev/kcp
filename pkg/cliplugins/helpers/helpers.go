@@ -40,5 +40,5 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.Path, error) {
 		return &ret, clusterName, nil
 	}
 
-	return nil, logicalcluster.Path{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
+	return nil, logicalcluster.Path{}, fmt.Errorf("current cluster URL %s is not pointing to a workspace", u)
 }
