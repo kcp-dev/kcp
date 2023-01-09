@@ -249,7 +249,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		patch = fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:%q}}}`, cr.ResourceVersion, cr.UID, core.ReplicateAnnotationKey, value)
 	}
 
-	logger.V(2).Info("patching ClusterRole", "patch", patch)
+	logger.V(2).WithValues("patch", patch).Info("patching ClusterRole")
 	_, err = c.kubeClusterClient.Cluster(cluster.Path()).RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }

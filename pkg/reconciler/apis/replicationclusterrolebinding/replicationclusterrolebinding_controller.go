@@ -102,7 +102,7 @@ func NewController(
 
 // controller reconciles ClusterRoleBindings by labelling them to be replicated when
 // 1. either a maximum-permission-policy subject is bound
-// 2. or a ClusterRole
+// 2. or a ClusterRole.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -252,7 +252,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		patch = fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:%q}}}`, crb.ResourceVersion, crb.UID, core.ReplicateAnnotationKey, value)
 	}
 
-	logger.V(4).Info("patching ClusterRoleBinding", "patch", patch)
+	logger.V(4).WithValues("patch", patch).Info("patching ClusterRoleBinding")
 	_, err = c.kubeClusterClient.Cluster(cluster.Path()).RbacV1().ClusterRoleBindings().Patch(ctx, crb.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }

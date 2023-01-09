@@ -236,7 +236,7 @@ func (l mergedRoleBindingNamespaceLister) List(selector labels.Selector) (ret []
 	return result, nil
 }
 
-func (m mergedRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding, error) {
+func (l mergedRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding, error) {
 	panic("implement me")
 }
 
