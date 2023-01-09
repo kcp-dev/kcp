@@ -143,6 +143,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.Cl
 			typer,
 			namespaceScoped,
 			kind,
+			nil,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},

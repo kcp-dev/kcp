@@ -67,6 +67,7 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient kcpdynamic.
 			typer,
 			namespaceScoped,
 			kind,
+			nil,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},

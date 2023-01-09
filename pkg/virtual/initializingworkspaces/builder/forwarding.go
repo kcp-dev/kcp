@@ -112,6 +112,7 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			typer,
 			namespaceScoped,
 			kind,
+			nil,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},

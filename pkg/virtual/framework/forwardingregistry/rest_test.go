@@ -105,6 +105,7 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 			nil,
 			nil,
 			nil,
+			nil,
 			&apiextensions.CustomResourceSubresourceStatus{},
 			nil),
 		nil,
