@@ -667,8 +667,8 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
@@ -683,8 +683,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			cacheSchemasSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return crdsSynced && exportsSynced && bindingsSynced, nil
+			return crdsSynced && exportsSynced && cacheExportsSynced && schemasSynced && cacheSchemasSynced && bindingsSynced, nil
 		}); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -825,8 +828,10 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		initializingWorkspacesKcpClusterClient,
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 	if err != nil {
 		return err
@@ -913,8 +918,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return crdsSynced && exportsSynced && bindingsSynced, nil
+			return crdsSynced && exportsSynced, nil
 		}); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -949,10 +953,6 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 	return s.AddPostStartHook(postStartHookName(apiexportendpointslice.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexportendpointslice.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		if err := s.waitForOptionalSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -1311,7 +1311,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
+	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
 	if err != nil {
 		return err
 	}
@@ -1341,10 +1341,6 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 	return server.AddPostStartHook(postStartHookName(replication.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replication.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		if err := s.waitForOptionalSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -1407,17 +1403,6 @@ func (s *Server) waitForSync(stop <-chan struct{}) error {
 	case <-stop:
 		return errors.New("timed out waiting for informers to sync")
 	case <-s.syncedCh:
-		return nil
-	}
-}
-
-// waitForOptionalSync waits until optional informers have been synced.
-// use this method before starting controllers that require additional informers.
-func (s *Server) waitForOptionalSync(stop <-chan struct{}) error {
-	select {
-	case <-stop:
-		return errors.New("timed out waiting for optional informers to sync")
-	case <-s.syncedOptionalCh:
 		return nil
 	}
 }

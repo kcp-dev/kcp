@@ -98,7 +98,7 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 }
 
 // NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
-// that injected resource identities for individual group or group resources.
+// that injects resource identities for individual groups or group resources.
 // Each group or resource is coming from one APIExport whose names are passed in as a map.
 // The RoundTripper is exposed as a function that allows wrapping the RoundTripper
 //

@@ -172,7 +172,6 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 
 func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1beta1.Workspace) (shard string, reason string, err error) {
 	selector := labels.Everything()
-	var shards []*corev1alpha1.Shard
 	if workspace.Spec.Location != nil {
 		if workspace.Spec.Location.Selector != nil {
 			var err error
@@ -183,34 +182,27 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		}
 	}
 
-	if len(shards) == 0 {
-		var err error
-		shards, err = r.listShards(selector)
-		if err != nil {
-			return "", "", err
-		}
+	shards, err := r.listShards(selector)
+	if err != nil {
+		return "", "", err
+	}
 
-		// if no specific shard was required,
-		// we are going to schedule the given ws onto the root shard
-		// this step is temporary until working with multi-shard env works
-		// until then we need to assign ws to the root shard otherwise all e2e test will break
-		//
-		// note if there are no shards just let it run, at the end, we set a proper condition.
-		if len(shards) > 0 && (workspace.Spec.Location == nil || workspace.Spec.Location.Selector == nil) {
-			// trim the list to contain only the "root" shard so that we always schedule onto it
+	// schedule onto the root shard. This step is temporary until working with multi-shard env works
+	// until then we need to assign ws to the root shard otherwise all e2e test will break
+	if len(shards) > 0 && (workspace.Spec.Location == nil || workspace.Spec.Location.Selector == nil) {
+		// trim the list to contain only the "root" shard so that we always schedule onto it
+		for _, shard := range shards {
+			if shard.Name == "root" {
+				shards = []*corev1alpha1.Shard{shard}
+				break
+			}
+		}
+		if len(shards) == 0 {
+			names := make([]string, 0, len(shards))
 			for _, shard := range shards {
-				if shard.Name == "root" {
-					shards = []*corev1alpha1.Shard{shard}
-					break
-				}
+				names = append(names, shard.Name)
 			}
-			if len(shards) == 0 {
-				names := make([]string, 0, len(shards))
-				for _, shard := range shards {
-					names = append(names, shard.Name)
-				}
-				return "", "", fmt.Errorf("since no specific shard was requested we default to schedule onto the root shard, but the root shard wasn't found, found shards: %v", names)
-			}
+			return "", "", fmt.Errorf("since no specific shard was requested we default to schedule onto the root shard, but the root shard wasn't found, found shards: %v", names)
 		}
 	}
 

@@ -119,14 +119,6 @@ type ExtraConfig struct {
 	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
 	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
-	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
-	//                    we should have multi-shard aware informers
-	//
-	// TODO(p0lyn0mial): wire it to the root shard, this will be needed to get bindings,
-	//                   eventually it will be replaced by replication
-	//
-	// TemporaryRootShardKcpSharedInformerFactory bring data from the root shard
-	TemporaryRootShardKcpSharedInformerFactory kcpinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -233,10 +225,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-			c.RootShardKcpClusterClient,
-			resyncPeriod,
-		)
 
 		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
@@ -245,9 +233,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			return nil, err
 		}
 	} else {
-		// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
-		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(nil, resyncPeriod)
-
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
 		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)

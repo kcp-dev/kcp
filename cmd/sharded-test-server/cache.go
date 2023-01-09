@@ -40,11 +40,11 @@ import (
 )
 
 func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-chan error, string, error) {
-	red := color.New(color.BgHiRed, color.FgHiWhite).SprintFunc()
-	inverse := color.New(color.BgHiWhite, color.FgHiRed).SprintFunc()
+	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
+	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
-		lineprefix.Prefix(red(strings.ToUpper("cache"))),
-		lineprefix.Color(color.New(color.FgHiRed)),
+		lineprefix.Prefix(cyan(strings.ToUpper("cache"))),
+		lineprefix.Color(color.New(color.FgHiCyan)),
 	)
 	loggerOut := lineprefix.New(
 		lineprefix.Prefix(inverse(strings.ToUpper("cache"))),

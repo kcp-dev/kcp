@@ -29,7 +29,7 @@ import (
 )
 
 func (c *controller) reconcile(ctx context.Context) error {
-	apiExports, err := c.listAPIExportsFromRemoteShard(core.RootCluster)
+	apiExports, err := c.listGlobalAPIExports(core.RootCluster)
 	if err != nil {
 		return err
 	}

@@ -58,9 +58,9 @@ const (
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	workspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
+	workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportsInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportsInformer, globalAPIExportsInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*APIBinder, error) {
 	c := &APIBinder{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
@@ -69,7 +69,11 @@ func NewAPIBinder(
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 		getWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-			return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeInformer.Informer().GetIndexer(), path, name)
+			t, err := indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeInformer.Informer().GetIndexer(), path, name)
+			if apierrors.IsNotFound(err) {
+				return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), globalWorkspaceTypeInformer.Informer().GetIndexer(), path, name)
+			}
+			return t, err
 		},
 		listLogicalClusters: func() ([]*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().List(labels.Everything())
@@ -86,7 +90,11 @@ func NewAPIBinder(
 		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), path, name)
+			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), path, name)
+			if apierrors.IsNotFound(err) {
+				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportsInformer.Informer().GetIndexer(), path, name)
+			}
+			return export, err
 		},
 
 		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
@@ -97,6 +105,10 @@ func NewAPIBinder(
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -119,6 +131,15 @@ func NewAPIBinder(
 	})
 
 	workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueWorkspaceTypes(obj, logger)
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueWorkspaceTypes(obj, logger)
+		},
+	})
+
+	globalWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
@@ -181,7 +202,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	logicalCluster, err := b.getLogicalCluster(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// The workspace was deleted or is no longer initializing, so we can safely ignore this event.
+			// The workspace was deleted, or is no longer initializing, or is not actually a workspace, so we can safely ignore this event.
 			return
 		}
 		logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
