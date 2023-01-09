@@ -22,7 +22,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -46,7 +46,7 @@ type reconciler interface {
 // statusReconciler reconciles Location objects' status.
 type statusReconciler struct {
 	listSyncTargets func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
-	updateLocation  func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
+	updateLocation  func(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
 	enqueueAfter    func(*schedulingv1alpha1.Location, time.Duration)
 }
 
@@ -77,7 +77,7 @@ func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1
 			location.Annotations = make(map[string]string, 1)
 		}
 		location.Annotations[schedulingv1alpha1.LocationLabelsStringAnnotationKey] = labelString
-		if location, err = r.updateLocation(ctx, clusterName, location); err != nil {
+		if location, err = r.updateLocation(ctx, clusterName.Path(), location); err != nil {
 			return reconcileStatusStop, err
 		}
 	}
@@ -126,6 +126,6 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
+func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Update(ctx, location, metav1.UpdateOptions{})
 }

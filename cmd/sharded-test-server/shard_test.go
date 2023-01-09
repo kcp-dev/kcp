@@ -94,5 +94,4 @@ func TestEmbeddedEtcdPeerPort(t *testing.T) {
 			t.Fatalf("unexpected etcd peer port %d, expected %d, for n = %d", actualPort, scenario.expectedPort, scenario.n)
 		}
 	}
-
 }

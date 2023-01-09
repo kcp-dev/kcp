@@ -20,9 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
@@ -37,10 +38,18 @@ import (
 type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 }
 
 // NewLabeler returns a new Labeler.
-func NewLabeler(apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) *Labeler {
+func NewLabeler(
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+) *Labeler {
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
@@ -49,6 +58,9 @@ func NewLabeler(apiBindingInformer apisv1alpha1informers.APIBindingClusterInform
 
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
+		},
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
 		},
 	}
 }
@@ -69,18 +81,21 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	for _, binding := range bindings {
 		logger := logging.WithObject(logger, binding)
 
-		if binding.Spec.Reference.Workspace == nil {
-			logger.V(4).Info("skipping APIBinding because it has no workspace set")
+		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(binding).Path()
+		}
+		export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
+		if err != nil {
 			continue
 		}
-		boundAPIExportWorkspace := binding.Spec.Reference.Workspace
 
 		for _, claim := range binding.Spec.PermissionClaims {
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
 				continue
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.New(boundAPIExportWorkspace.Path), boundAPIExportWorkspace.ExportName, claim.PermissionClaim)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",
@@ -101,8 +116,13 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 			return labels, nil // can only be a NotFound
 		}
 
-		if exportRef := binding.Spec.Reference; exportRef.Workspace != nil {
-			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.New(exportRef.Workspace.Path), exportRef.Workspace.ExportName)
+		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(binding).Path()
+		}
+		export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
+		if err == nil {
+			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(export), binding.Spec.Reference.Export.Name)
 			if _, found := labels[k]; !found {
 				labels[k] = v
 			}

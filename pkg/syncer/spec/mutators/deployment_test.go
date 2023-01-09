@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -819,16 +819,16 @@ func TestDeploymentMutate(t *testing.T) {
 					return unstructuredObjects, nil
 				}
 
-				workspace := logicalcluster.New("root:default:testing")
+				clusterName := logicalcluster.Name("root:default:testing")
 
 				serviceIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 
-				dnsServiceName := shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")
+				dnsServiceName := shared.GetDNSID(clusterName, "syncTargetUID", "syncTargetName")
 				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))
 				require.NoError(t, err, "Service Add() = %v", err)
 				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
 
-				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, workspace, "syncTargetUID", "syncTargetName", "dnsNamespace")
+				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace")
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)

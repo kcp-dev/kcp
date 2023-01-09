@@ -45,12 +45,8 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ClusterWorkspace{},
-		&ClusterWorkspaceList{},
-		&ClusterWorkspaceType{},
-		&ClusterWorkspaceTypeList{},
-		&ClusterWorkspaceShard{},
-		&ClusterWorkspaceShardList{},
+		&WorkspaceType{},
+		&WorkspaceTypeList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

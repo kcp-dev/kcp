@@ -32,7 +32,7 @@ func WithLatencyTracking(delegate http.Handler) http.Handler {
 	return promhttp.InstrumentHandlerDuration(requestLatencies.HistogramVec, delegate)
 }
 
-// TODO(csams): enhance metrics to include shard url
+// TODO(csams): enhance metrics to include shard url.
 var (
 	requestLatencies = compbasemetrics.NewHistogramVec(
 		&compbasemetrics.HistogramOpts{

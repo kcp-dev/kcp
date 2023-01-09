@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,8 +51,9 @@ const (
 func NewResourceController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
+	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*resourceController, error) {
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{
@@ -67,7 +68,7 @@ func NewResourceController(
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
-		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer),
+		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -78,7 +79,6 @@ func NewResourceController(
 	})
 
 	return c, nil
-
 }
 
 // resourceController reconciles resources from the ddsif, and will determine if it needs
@@ -87,7 +87,7 @@ type resourceController struct {
 	queue                  workqueue.RateLimitingInterface
 	kcpClusterClient       kcpclientset.ClusterInterface
 	dynamicClusterClient   kcpdynamic.ClusterInterface
-	ddsif                  *informer.DynamicDiscoverySharedInformerFactory
+	ddsif                  *informer.DiscoveringDynamicSharedInformerFactory
 	permissionClaimLabeler *permissionclaim.Labeler
 }
 

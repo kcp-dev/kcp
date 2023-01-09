@@ -19,7 +19,7 @@ package apidefinition
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
@@ -29,7 +29,7 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
-// APIDefinition provides access to all the information needed to serve a given API resource
+// APIDefinition provides access to all the information needed to serve a given API resource.
 type APIDefinition interface {
 	// GetAPIResourceSchema returns the API schema this definition serves.
 	GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema

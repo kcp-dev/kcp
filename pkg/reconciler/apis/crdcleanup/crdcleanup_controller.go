@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
@@ -44,12 +44,13 @@ import (
 )
 
 const (
-	ControllerName = "kcp-crdcleanup"
-
+	ControllerName                 = "kcp-crdcleanup"
 	DefaultIdentitySecretNamespace = "kcp-system"
+
+	AgeThreshold time.Duration = time.Minute * 30
 )
 
-// NewController returns a new controller for CRD cleanup
+// NewController returns a new controller for CRD cleanup.
 func NewController(
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
@@ -66,7 +67,7 @@ func NewController(
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
 		},
 		deleteCRD: func(ctx context.Context, name string) error {
-			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.ShadowWorkspaceName).Delete(ctx, name, metav1.DeleteOptions{})
+			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
 		},
 	}
 
@@ -84,7 +85,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == apibinding.ShadowWorkspaceName
+			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -113,7 +114,7 @@ func NewController(
 	return c, nil
 }
 
-// controller deletes bound CRDs when they are no longer in use by any APIBindings
+// controller deletes bound CRDs when they are no longer in use by any APIBindings.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -165,7 +166,7 @@ func (c *controller) enqueueFromAPIBinding(oldObj, newObj interface{}) {
 	}
 
 	for uid := range uidSet {
-		key := kcpcache.ToClusterAwareKey(apibinding.ShadowWorkspaceName.String(), "", uid)
+		key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDsClusterName.String(), "", uid)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing CRD via APIBinding")
 		c.queue.Add(key)
 	}
@@ -219,10 +220,11 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
+	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove this when SplitMetaClusterNamespaceKey returns a tenancy.Name
 
 	obj, err := c.getCRD(clusterName, name)
 	if err != nil {
@@ -247,9 +249,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	age := time.Since(obj.CreationTimestamp.Time)
 
-	ageThreshold := time.Second * 10
-	if age < ageThreshold {
-		duration := ageThreshold - age
+	if age < AgeThreshold {
+		duration := AgeThreshold - age
 		logger.V(4).Info("Requeueing until CRD is older to give some time for the bindings to complete initialization", "duration", duration)
 		c.queue.AddAfter(key, duration)
 		return nil

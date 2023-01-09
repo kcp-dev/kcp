@@ -19,7 +19,7 @@ package indexers
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -40,7 +40,7 @@ func IndexAPIBindingByClusterAndAcceptedClaimedGroupResources(obj interface{}) (
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Spec.PermissionClaims))
 	for _, c := range apiBinding.Spec.PermissionClaims {
 		if c.State != apisv1alpha1.ClaimAccepted {
 			continue
@@ -61,7 +61,7 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 	for _, r := range apiBinding.Status.BoundResources {
 		ret = append(ret, r.Schema.UID)
 	}
@@ -79,7 +79,7 @@ func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
 
 	clusterName := logicalcluster.From(apiBinding)
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 	for _, r := range apiBinding.Status.BoundResources {
 		ret = append(ret, APIBindingBoundResourceValue(clusterName, r.Group, r.Resource))
 	}
@@ -100,5 +100,10 @@ func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	return []string{ClusterPathAndAPIExportName(apiBinding.Spec.Reference.Workspace.Path, apiBinding.Spec.Reference.Workspace.ExportName)}, nil
+	path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if path.Empty() {
+		path = logicalcluster.From(apiBinding).Path()
+	}
+
+	return []string{path.Join(apiBinding.Spec.Reference.Export.Name).String()}, nil
 }

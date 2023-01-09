@@ -20,7 +20,6 @@ package tunneler
 import "testing"
 
 func Test_SyncerTunnelURL(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		host    string
@@ -34,7 +33,7 @@ func Test_SyncerTunnelURL(t *testing.T) {
 			host:   "https://host:9443/base",
 			ws:     "myws",
 			target: "syncer001",
-			want:   "https://host:9443/base/services/syncer-tunnels/clusters/myws/apis/workload.kcp.dev/v1alpha1/synctargets/syncer001",
+			want:   "https://host:9443/base/services/syncer-tunnels/clusters/myws/apis/workload.kcp.io/v1alpha1/synctargets/syncer001",
 		},
 		{
 			name:    "invalid host scheme",

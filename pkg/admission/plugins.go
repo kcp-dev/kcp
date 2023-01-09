@@ -43,33 +43,36 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacefinalizer"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	kcplimitranger "github.com/kcp-dev/kcp/pkg/admission/limitranger"
+	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
+	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
+	"github.com/kcp-dev/kcp/pkg/admission/pathannotation"
 	"github.com/kcp-dev/kcp/pkg/admission/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
+	"github.com/kcp-dev/kcp/pkg/admission/shard"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
+	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetype"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
 var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
-	clusterworkspace.PluginName,
-	clusterworkspacefinalizer.PluginName,
-	clusterworkspaceshard.PluginName,
-	clusterworkspacetype.PluginName,
-	clusterworkspacetypeexists.PluginName,
+	workspace.PluginName,
+	logicalclusterfinalizer.PluginName,
+	shard.PluginName,
+	workspacetype.PluginName,
+	workspacetypeexists.PluginName,
+	logicalcluster.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
@@ -82,6 +85,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	crdnooverlappinggvr.PluginName,
 	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
+	pathannotation.PluginName,
 	kubequota.PluginName,
 )
 
@@ -100,11 +104,12 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 // The order of registration is irrelevant, see AllOrderedPlugins for execution order.
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
-	clusterworkspace.Register(plugins)
-	clusterworkspacefinalizer.Register(plugins)
-	clusterworkspaceshard.Register(plugins)
-	clusterworkspacetype.Register(plugins)
-	clusterworkspacetypeexists.Register(plugins)
+	workspace.Register(plugins)
+	logicalclusterfinalizer.Register(plugins)
+	shard.Register(plugins)
+	workspacetype.Register(plugins)
+	workspacetypeexists.Register(plugins)
+	logicalcluster.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
 	apibinding.Register(plugins)
@@ -119,6 +124,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	crdnooverlappinggvr.Register(plugins)
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
+	pathannotation.Register(plugins)
 	kubequota.Register(plugins)
 }
 
@@ -130,11 +136,12 @@ var defaultOnPluginsInKcp = sets.NewString(
 	certsubjectrestriction.PluginName,      // CertificateSubjectRestriction
 
 	// KCP
-	clusterworkspace.PluginName,
-	clusterworkspacefinalizer.PluginName,
-	clusterworkspaceshard.PluginName,
-	clusterworkspacetype.PluginName,
-	clusterworkspacetypeexists.PluginName,
+	workspace.PluginName,
+	logicalclusterfinalizer.PluginName,
+	shard.PluginName,
+	workspacetype.PluginName,
+	workspacetypeexists.PluginName,
+	logicalcluster.PluginName,
 	apiresourceschema.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
@@ -145,6 +152,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
 	permissionclaims.PluginName,
+	pathannotation.PluginName,
 	kubequota.PluginName,
 )
 

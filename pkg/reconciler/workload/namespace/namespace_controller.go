@@ -23,11 +23,11 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,7 +43,6 @@ import (
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -67,7 +66,11 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
-			key := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(ns)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
 			queue.AddAfter(key, duration)
 		},
 
@@ -114,7 +117,7 @@ func NewController(
 	return c, nil
 }
 
-// controller
+// controller.
 type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*corev1.Namespace, time.Duration)
@@ -160,9 +163,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Placement))
 	for _, ns := range nss {
 		logger = logging.WithObject(logger, ns)
-		nskey := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")
-		c.queue.Add(nskey)
+
+		nsKey, err := kcpcache.MetaClusterNamespaceKeyFunc(ns)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+		logging.WithQueueKey(logger, nsKey).V(2).Info("queueing Namespace because of Placement")
+		c.queue.Add(nsKey)
 	}
 }
 
@@ -261,14 +269,14 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		logger.WithValues("patch", string(patchBytes)).V(2).Info("patching Namespace")
-		_, uerr := c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
 	return reconcileErr
 }
 
-func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
+func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Namespace")
 	return c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, name, pt, data, opts, subresources...)

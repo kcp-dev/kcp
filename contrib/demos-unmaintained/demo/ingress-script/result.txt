@@ -3,13 +3,13 @@ Error from server (NotFound): Unable to list "networking.k8s.io/v1, Resource=ing
 ingress-demo $ [1;37mkubectl get cluster -o wide[0m
 No resources found
 ingress-demo $ [1;37mkubectl apply -f /home/jmprusi/go/src/github.com/jmprusi/kcp/contrib/demo/clusters/kind/us-west1.yaml[0m
-workloadcluster.workload.kcp.dev/us-west1 created
+workloadcluster.workload.kcp.io/us-west1 created
 ingress-demo $ [1;37mkubectl wait cluster/us-west1 --for condition=Ready --timeout=60s[0m
-workloadcluster.workload.kcp.dev/us-west1 condition met
+workloadcluster.workload.kcp.io/us-west1 condition met
 ingress-demo $ [1;37mkubectl apply -f /home/jmprusi/go/src/github.com/jmprusi/kcp/contrib/demo/clusters/kind/us-east1.yaml[0m
-workloadcluster.workload.kcp.dev/us-east1 created
+workloadcluster.workload.kcp.io/us-east1 created
 ingress-demo $ [1;37mkubectl wait cluster/us-east1 --for condition=Ready --timeout=60s[0m
-workloadcluster.workload.kcp.dev/us-east1 condition met
+workloadcluster.workload.kcp.io/us-east1 condition met
 ingress-demo $ [1;37mkubectl get clusters -o wide[0m
 NAME       LOCATION   READY   SYNCED API RESOURCES
 us-east1   us-east1   True    ["deployments.apps","ingresses.networking.k8s.io","services"]
@@ -20,9 +20,9 @@ ingress-demo $ [1;37mkubectl apply -f /home/jmprusi/go/src/github.com/jmprusi/k
 deployment.apps/httpecho created
 service/httpecho created
 ingress.networking.k8s.io/httpecho created
-ingress-demo $ [1;37mkubectl label --overwrite deployment httpecho workloads.kcp.dev/cluster=us-east1[0m
+ingress-demo $ [1;37mkubectl label --overwrite deployment httpecho workloads.kcp.io/cluster=us-east1[0m
 deployment.apps/httpecho labeled
-ingress-demo $ [1;37mkubectl label --overwrite service httpecho workloads.kcp.dev/cluster=us-east1[0m
+ingress-demo $ [1;37mkubectl label --overwrite service httpecho workloads.kcp.io/cluster=us-east1[0m
 service/httpecho labeled
 ingress-demo $ [1;37mkubectl wait --for=condition=available --timeout=60s deployment/httpecho[0m
 deployment.apps/httpecho condition met
@@ -34,9 +34,9 @@ NAME                 AGE
 httpecho             42s
 httpecho--us-east1   28s
 ingress-demo $ [1;37mcurl -s -o /dev/null -w %{http_code} -H 'Host: httpecho.kcp-apps.127.0.0.1.nip.io' http://localhost:8181/[0m
-200[H[2J[3Jingress-demo $ [1;37mkubectl label --overwrite deployment httpecho workloads.kcp.dev/cluster=us-west1[0m
+200[H[2J[3Jingress-demo $ [1;37mkubectl label --overwrite deployment httpecho workloads.kcp.io/cluster=us-west1[0m
 deployment.apps/httpecho labeled
-ingress-demo $ [1;37mkubectl label --overwrite service httpecho workloads.kcp.dev/cluster=us-west1[0m
+ingress-demo $ [1;37mkubectl label --overwrite service httpecho workloads.kcp.io/cluster=us-west1[0m
 service/httpecho labeled
 ingress-demo $ [1;37mkubectl wait --for=condition=available --timeout=60s deployment/httpecho[0m
 deployment.apps/httpecho condition met

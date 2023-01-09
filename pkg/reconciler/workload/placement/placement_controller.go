@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -45,6 +45,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -54,7 +55,7 @@ const (
 	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
-// NewController returns a new controller starting the process of selecting synctarget for a placement
+// NewController returns a new controller starting the process of selecting synctarget for a placement.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	locationInformer schedulinginformers.LocationClusterInformer,
@@ -69,7 +70,8 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		locationLister: locationInformer.Lister(),
+		locationLister:  locationInformer.Lister(),
+		locationIndexer: locationInformer.Informer().GetIndexer(),
 
 		syncTargetLister: syncTargetInformer.Lister(),
 
@@ -86,6 +88,10 @@ func NewController(
 	}); err != nil {
 		return nil, err
 	}
+
+	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -153,13 +159,14 @@ type Patcher = schedulingv1alpha1client.PlacementInterface
 type Resource = committer.Resource[*PlacementSpec, *PlacementStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
-// controller
+// controller.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	locationLister schedulingv1alpha1listers.LocationClusterLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
+	locationIndexer cache.Indexer
 
 	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
 

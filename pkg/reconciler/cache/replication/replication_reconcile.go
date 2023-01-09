@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"strings"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -64,16 +65,27 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
 			})
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards").String():
+	case corev1alpha1.SchemeGroupVersion.WithResource("shards").String():
 		return c.reconcileObject(ctx,
 			keyParts[1],
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"),
-			tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspaceShard"),
+			corev1alpha1.SchemeGroupVersion.WithResource("shards"),
+			corev1alpha1.SchemeGroupVersion.WithKind("Shard"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalShardIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localClusterWorkspaceShardLister.Cluster(cluster).Get(name)
+				return c.localShardLister.Cluster(cluster).Get(name)
+			})
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes").String():
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
+			tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceType"),
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.globalWorkspaceTypeIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
+				return c.localWorkspaceTypeLister.Cluster(cluster).Get(name)
 			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
@@ -82,28 +94,28 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 
 // reconcileObject makes sure that the object under the given key from the local shard is replicated to the cache server.
 // the replication function handles the following cases:
-//  1. creation of the object in the cache server when the cached object is not found by retriveLocalObject
-//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retriveLocalObject
+//  1. creation of the object in the cache server when the cached object is not found by retrieveLocalObject
+//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retrieveLocalObject
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
 func (c *controller) reconcileObject(ctx context.Context,
 	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
-	retriveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
-	retriveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
+	retrieveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
+	retrieveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
 	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	cacheObject, err := retriveCacheObject(gvr, cluster, namespace, name)
+	cacheObject, err := retrieveCacheObject(gvr, cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localObject, err := retriveLocalObject(cluster, namespace, name)
+	localObject, err := retrieveLocalObject(cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
-		_, err = c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		_, err = c.dynamicLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err == nil {
 			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
 		}

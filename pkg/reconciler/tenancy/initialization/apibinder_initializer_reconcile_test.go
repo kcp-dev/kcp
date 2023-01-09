@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +50,7 @@ func TestGenerateAPIBindingName(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
-			clusterName := logicalcluster.New("root:some:ws")
+			clusterName := logicalcluster.Name("root:some:ws")
 			exportPath := "root:some:export:ws"
 
 			generated := generateAPIBindingName(clusterName, exportPath, tc.exportName)
@@ -67,7 +67,7 @@ func TestGenerateAPIBindingName(t *testing.T) {
 func TestGenerateAPIBindingNameWithMultipleSimilarLongNames(t *testing.T) {
 	t.Parallel()
 
-	clusterName := logicalcluster.New("root:some:ws")
+	clusterName := logicalcluster.Name("root:some:ws")
 	exportPath := "root:some:export:ws"
 
 	// 252 chars
@@ -81,8 +81,4 @@ func TestGenerateAPIBindingNameWithMultipleSimilarLongNames(t *testing.T) {
 	require.Len(t, generated1, 253)
 	require.Len(t, generated2, 253)
 	require.NotEqual(t, generated1, generated2, "expected different generated names")
-}
-
-func TestReconcile(t *testing.T) {
-
 }

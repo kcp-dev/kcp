@@ -69,7 +69,7 @@ func NewShard(name, runtimeDir, logFilePath string, args []string) *Shard {
 }
 
 // Start starts a kcp Shard server.
-func (s *Shard) Start(ctx context.Context) error {
+func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	logger := klog.FromContext(ctx).WithValues("shard", s.name)
 	// setup color output
 	prefix := strings.ToUpper(s.name)
@@ -105,11 +105,10 @@ func (s *Shard) Start(ctx context.Context) error {
 		"--audit-log-batch-throttle-enable=true",
 		"--audit-log-batch-throttle-qps=10",
 		"--audit-policy-file", filepath.Join(s.runtimeDir, "audit-policy.yaml"),
-		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
 		return err
 	}
@@ -123,7 +122,7 @@ func (s *Shard) Start(ctx context.Context) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = s.writer
 
-	if !logger.V(10).Enabled() { // someone has to *really* want verbose logs to get this spam
+	if quiet {
 		s.writer.StopOut()
 	}
 

@@ -36,9 +36,9 @@ type FakePartitionSets struct {
 	Fake *FakeTopologyV1alpha1
 }
 
-var partitionsetsResource = schema.GroupVersionResource{Group: "topology.kcp.dev", Version: "v1alpha1", Resource: "partitionsets"}
+var partitionsetsResource = schema.GroupVersionResource{Group: "topology.kcp.io", Version: "v1alpha1", Resource: "partitionsets"}
 
-var partitionsetsKind = schema.GroupVersionKind{Group: "topology.kcp.dev", Version: "v1alpha1", Kind: "PartitionSet"}
+var partitionsetsKind = schema.GroupVersionKind{Group: "topology.kcp.io", Version: "v1alpha1", Kind: "PartitionSet"}
 
 // Get takes name of the partitionSet, and returns the corresponding partitionSet object, and an error if there is any.
 func (c *FakePartitionSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PartitionSet, err error) {

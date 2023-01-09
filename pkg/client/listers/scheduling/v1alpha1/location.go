@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type LocationClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error)
 	// Cluster returns a lister that can list and get Locations in one workspace.
-	Cluster(cluster logicalcluster.Name) LocationLister
+	Cluster(clusterName logicalcluster.Name) LocationLister
 	LocationClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *locationClusterLister) List(selector labels.Selector) (ret []*schedulin
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Locations.
-func (s *locationClusterLister) Cluster(cluster logicalcluster.Name) LocationLister {
-	return &locationLister{indexer: s.indexer, cluster: cluster}
+func (s *locationClusterLister) Cluster(clusterName logicalcluster.Name) LocationLister {
+	return &locationLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // LocationLister can list all Locations, or get one in particular.
@@ -83,13 +83,13 @@ type LocationLister interface {
 
 // locationLister can list all Locations inside a workspace.
 type locationLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all Locations in the indexer for a workspace.
 func (s *locationLister) List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*schedulingv1alpha1.Location))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *locationLister) List(selector labels.Selector) (ret []*schedulingv1alph
 
 // Get retrieves the Location from the indexer for a given workspace and name.
 func (s *locationLister) Get(name string) (*schedulingv1alpha1.Location, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

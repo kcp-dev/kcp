@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -194,7 +194,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			if c, ok := claims[gvr.GroupResource()]; ok {
 				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
 				if err != nil {
-					return fmt.Errorf(fmt.Sprintf("failed to convert permission claim %v to label key and value: %v", c, err))
+					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
 				}
 				claimLabels := []string{label}
 				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
@@ -203,7 +203,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 				req, err := labels.NewRequirement(key, selection.In, claimLabels)
 				if err != nil {
-					return fmt.Errorf(fmt.Sprintf("failed to create label requirement for permission claim %v: %v", c, err))
+					return fmt.Errorf("failed to create label requirement for permission claim %v: %w", c, err)
 				}
 				labelReqs = labels.Requirements{*req}
 			}
@@ -276,15 +276,16 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
+		apiExportClusterName := logicalcluster.From(apiExport)
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(schemaName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
 			logger.WithValues(
 				"schema", schemaName,
-				"exportNamespace", apiExport.Namespace,
-				"export", apiExport.Name,
+				"exportClusterName", apiExportClusterName,
+				"exportName", apiExport.Name,
 			).V(3).Info("APIResourceSchema for APIExport not found")
 			continue
 		}

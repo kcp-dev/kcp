@@ -19,7 +19,7 @@ package placement
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,6 +30,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -76,17 +77,17 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
-	return c.locationLister.Cluster(clusterName).Get(name)
+func (c *controller) getLocation(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
+	return indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), c.locationIndexer, path, name)
 }
 
-func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-// listWorkloadAPIBindings list all compute apibindings
+// listWorkloadAPIBindings list all compute apibindings.
 func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {

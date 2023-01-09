@@ -17,5 +17,5 @@ limitations under the License.
 package topology
 
 const (
-	GroupName = "topology.kcp.dev"
+	GroupName = "topology.kcp.io"
 )

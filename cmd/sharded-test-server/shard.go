@@ -60,10 +60,12 @@ func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, h
 	}
 
 	if n > 0 {
-		args = append(args, fmt.Sprintf("--shard-name=shard-%d", n))
-		args = append(args, fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")))
-		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", embeddedEtcdClientPort(n)))
-		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)))
+		args = append(args,
+			fmt.Sprintf("--shard-name=shard-%d", n),
+			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")),
+			fmt.Sprintf("--embedded-etcd-client-port=%d", embeddedEtcdClientPort(n)),
+			fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)),
+		)
 	}
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
@@ -80,7 +82,7 @@ func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, h
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n))),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
-		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
+		fmt.Sprintf("--logical-cluster-admin-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/logical-cluster-admin.kubeconfig")),
 	)
 	if len(cacheServerConfigPath) > 0 {
 		args = append(args, fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheServerConfigPath))

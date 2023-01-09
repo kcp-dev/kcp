@@ -163,7 +163,7 @@ To build, make the root kcp folder your current working directory and run:
 make build-all install build-kind-images
 ```
 
-If your go version is not 1.18, which is the expected version, you need to run
+If your go version is not 1.19, which is the expected version, you need to run
 
 ```bash
 IGNORE_GO_VERSION=1 make build-all install build-kind-images
@@ -215,7 +215,7 @@ You can run the syncer in a kind cluster for development.
     ```sh
     kubectl kcp workload sync kind --syncer-image <image name> -o syncer.yaml
     ```
-    
+
 1. Create a second workspace for your workloads and immediately enter it:
 
     ```sh
@@ -225,7 +225,7 @@ You can run the syncer in a kind cluster for development.
     Workspace "my-workloads" (type root:organization) is ready to use.
     Current workspace is "root:my-workloads" (type "root:organization").
     ```
-    
+
 1. Bind it to the `my-locations` workspace with the synctarget:
 
     ```bash
@@ -258,7 +258,7 @@ You can run the syncer in a kind cluster for development.
     ```bash
     kubectl wait --for=condition=Ready synctarget/<mycluster>
     ```
-    
+
 1. Add a deployment to the my-workloads workspace and check the p-cluster to see if the workload has been created there:
 
     ```bash

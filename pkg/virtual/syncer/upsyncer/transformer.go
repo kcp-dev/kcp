@@ -34,11 +34,11 @@ import (
 
 // UpsyncDiffAnnotationPrefix is an internal annotation used on downstream resources to specify a transformation
 // that should be applied during the Upsyncing of the resource to upstream.
-// Format of the annotation is JSONPatch
-const UpsyncDiffAnnotationPrefix = "internal.workload.kcp.dev/upsyncdiff"
+// Format of the annotation is JSONPatch.
+const UpsyncDiffAnnotationPrefix = "internal.workload.kcp.io/upsyncdiff"
 
 // UpsyncerResourceTransformer defines a very simple transformer which transforms the resource by applying a
-// the JSON patch found in the `internal.workload.kcp.dev/upsyncdiff` annotation
+// the JSON patch found in the `internal.workload.kcp.io/upsyncdiff` annotation.
 type UpsyncerResourceTransformer struct{}
 
 func (rt *UpsyncerResourceTransformer) AfterRead(client dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, eventType *watch.EventType, subresources ...string) (*unstructured.Unstructured, error) {

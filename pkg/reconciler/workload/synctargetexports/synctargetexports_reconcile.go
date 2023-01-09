@@ -20,7 +20,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -28,32 +28,34 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 // exportReconciler updates syncedResource in SyncTarget status based on supportedAPIExports.
 type exportReconciler struct {
-	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport      func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
 func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
-	exportKeys := getExportKeys(syncTarget)
-
 	var errs []error
 	var syncedResources []workloadv1alpha1.ResourceToSync
-	for _, exportKey := range exportKeys {
-		exportCluster, name := client.SplitClusterAwareKey(exportKey)
-		export, err := e.getAPIExport(exportCluster, name)
+	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		path := logicalcluster.NewPath(exportRef.Path)
+		if path.Empty() {
+			path = logicalcluster.From(syncTarget).Path()
+		}
+		export, err := e.getAPIExport(path, exportRef.Export)
 		if apierrors.IsNotFound(err) {
+			klog.V(4).Infof("APIExport %q not found, skipping", path.Join(exportRef.Export))
 			continue
 		}
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		for _, schema := range export.Spec.LatestResourceSchemas {
-			syncedResource, err := e.convertSchemaToSyncedResource(exportCluster, schema, export.Status.IdentityHash)
+			syncedResource, err := e.convertSchemaToSyncedResource(logicalcluster.From(export), schema, export.Status.IdentityHash)
 			if err != nil {
 				klog.Warningf("cannot get schema: %v", err)
 				continue
@@ -88,8 +90,8 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 	return syncTarget, errors.NewAggregate(errs)
 }
 
-func (e *exportReconciler) convertSchemaToSyncedResource(cluterName logicalcluster.Name, schemaName, identityHash string) (workloadv1alpha1.ResourceToSync, error) {
-	schema, err := e.getResourceSchema(cluterName, schemaName)
+func (e *exportReconciler) convertSchemaToSyncedResource(clusterName logicalcluster.Name, schemaName, identityHash string) (workloadv1alpha1.ResourceToSync, error) {
+	schema, err := e.getResourceSchema(clusterName, schemaName)
 	if err != nil {
 		return workloadv1alpha1.ResourceToSync{}, err
 	}

@@ -22,7 +22,7 @@ import (
 
 const (
 	// AnnotationKey is the name of the annotation key used to denote an object's shard name.
-	AnnotationKey = "kcp.dev/shard"
+	AnnotationKey = "kcp.io/shard"
 )
 
 // Name hold the name of a shard. It is used by the cache-server
@@ -49,7 +49,7 @@ func (n Name) String() string {
 	return string(n)
 }
 
-// Empty returns true if the name of the shard is empty
+// Empty returns true if the name of the shard is empty.
 func (n Name) Empty() bool {
 	return n == ""
 }

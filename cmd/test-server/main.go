@@ -47,6 +47,7 @@ import (
 //	$ go test -v --use-default-kcp-server
 func main() {
 	flag.String("log-file-path", ".kcp/kcp.log", "Path to the log file")
+	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
 	// split flags into --shard-* and everything else (generic). The former are
 	// passed to the respective components. Everything after "--" is considered a shard flag.
@@ -64,7 +65,7 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(shardFlags); err != nil {
+	if err := start(shardFlags, *quiet); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
@@ -74,7 +75,7 @@ func main() {
 	}
 }
 
-func start(shardFlags []string) error {
+func start(shardFlags []string, quiet bool) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
@@ -85,7 +86,7 @@ func start(shardFlags []string) error {
 		logFilePath,
 		append(shardFlags, "--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log")),
 	)
-	if err := shard.Start(ctx); err != nil {
+	if err := shard.Start(ctx, quiet); err != nil {
 		return err
 	}
 

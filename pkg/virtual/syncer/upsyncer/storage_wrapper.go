@@ -32,7 +32,7 @@ import (
 
 // WithStaticLabelSelectorAndInWriteCallsCheck returns a StorageWrapper that adds the given label selector to the reading calls
 // (Get, List and Watch), but also checks that write calls (Create or Update) are refused with an error if the resource
-// would not not matched by the given label selector
+// would not be matched by the given label selector.
 func WithStaticLabelSelectorAndInWriteCallsCheck(labelSelector labels.Requirements) forwardingregistry.StorageWrapper {
 	return forwardingregistry.StorageWrapperFunc(
 		func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) {

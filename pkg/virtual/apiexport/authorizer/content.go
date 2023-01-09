@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
@@ -44,7 +44,7 @@ type apiExportsContentAuthorizer struct {
 func NewAPIExportsContentAuthorizer(delegate authorizer.Authorizer, kubeClusterClient kcpkubernetesclientset.ClusterInterface) authorizer.Authorizer {
 	return &apiExportsContentAuthorizer{
 		newDelegatedAuthorizer: func(clusterName string) (authorizer.Authorizer, error) {
-			return delegated.NewDelegatedAuthorizer(logicalcluster.New(clusterName), kubeClusterClient)
+			return delegated.NewDelegatedAuthorizer(logicalcluster.Name(clusterName), kubeClusterClient)
 		},
 		delegate: delegate,
 	}

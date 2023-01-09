@@ -32,7 +32,7 @@ type TenancyV1beta1Interface interface {
 	WorkspacesGetter
 }
 
-// TenancyV1beta1Client is used to interact with features provided by the tenancy.kcp.dev group.
+// TenancyV1beta1Client is used to interact with features provided by the tenancy.kcp.io group.
 type TenancyV1beta1Client struct {
 	restClient rest.Interface
 }

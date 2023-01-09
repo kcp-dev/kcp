@@ -9,4 +9,4 @@ roleRef:
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
-    name: apis.kcp.dev:binding:system:kcp:admin
+    name: apis.kcp.io:binding:system:kcp:admin

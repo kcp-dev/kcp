@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -66,7 +66,7 @@ func (apiDef *mockedAPIDefinition) GetAPIResourceSchema() *apisv1alpha1.APIResou
 	return apiDef.apiResourceSchema
 }
 func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
-	return logicalcluster.New("logicalClusterName")
+	return "logicalClusterName"
 }
 func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
 	return apiDef.store
@@ -198,10 +198,10 @@ func TestRouting(t *testing.T) {
 	delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		delegateCalled = true
 		if !hasSynced {
-			http.Error(w, "", 503)
+			http.Error(w, "", http.StatusServiceUnavailable)
 			return
 		}
-		http.Error(w, "", 418)
+		http.Error(w, "", http.StatusTeapot)
 	})
 
 	versionDiscoveryHandler := &versionDiscoveryHandler{
@@ -255,6 +255,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -289,6 +291,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -347,6 +351,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -383,6 +389,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -493,6 +501,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -525,6 +535,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -557,6 +569,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -598,6 +612,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         200,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -690,6 +706,8 @@ func TestRouting(t *testing.T) {
 			ExpectDelegateCalled: false,
 			ExpectStatus:         405,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
+				t.Helper()
+
 				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
 					// why?
 					return
@@ -763,6 +781,7 @@ func TestRouting(t *testing.T) {
 						t.Errorf("expected delegated called %v, got %v", tc.ExpectDelegateCalled, delegateCalled)
 					}
 					result := recorder.Result()
+					defer result.Body.Close()
 					content, _ := io.ReadAll(result.Body)
 					if e, a := expectStatus, result.StatusCode; e != a {
 						t.Log(string(content))

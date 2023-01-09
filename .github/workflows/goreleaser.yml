@@ -1,6 +1,10 @@
 name: goreleaser
 
 on:
+  pull_request:
+    paths:
+    - .github/workflows/goreleaser.yml
+    - .goreleaser.yaml
   push:
     tags:
     - 'v*'
@@ -18,17 +22,27 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-go@v3
       with:
-        go-version: v1.18
+        go-version: v1.19
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
     - name: Set LDFLAGS
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v3
+    - name: Run GoReleaser on tag
+      if: github.event_name != 'pull_request'
+      uses: goreleaser/goreleaser-action@v4
       with:
         distribution: goreleaser
         version: latest
         args: release --timeout 60m
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Run GoReleaser on pull request
+      if: github.event_name == 'pull_request'
+      uses: goreleaser/goreleaser-action@v4
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release --timeout 60m --snapshot
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: cytopia/upload-artifact-retry-action@v0.1.7

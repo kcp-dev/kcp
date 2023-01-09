@@ -22,7 +22,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client"
 	. "github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -84,9 +84,12 @@ func (srt SyncerResourceTransformer) SummarizingRulesFor(resource metav1.Object)
 // (syncer finalizer was removed).
 // In all other cases, it applies every summarized fields updated by the Syncer
 // to the Syncer View annotation, possibly promoting it to te upstream resource.
-func (rt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, syncerViewResource *unstructured.Unstructured, subresources ...string) (*unstructured.Unstructured, error) {
+func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, syncerViewResource *unstructured.Unstructured, subresources ...string) (*unstructured.Unstructured, error) {
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
-	_, syncTargetName := kcpclient.SplitClusterAwareKey(string(apiDomainKey))
+	_, _, syncTargetName, err := kcpcache.SplitMetaClusterNamespaceKey(string(apiDomainKey))
+	if err != nil {
+		return nil, err
+	}
 	logger := klog.FromContext(ctx).WithName("syncer-transformer").V(5).
 		WithValues("step", "before", "gvr", gvr.String(), "subresources", subresources, "apiDomainKey", apiDomainKey, SyncTargetName, syncTargetName)
 	logger = logger.WithValues(FromPrefix("syncerView", syncerViewResource)...)
@@ -135,7 +138,7 @@ func (rt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfac
 	}
 
 	var fieldsToSummarize []FieldToSummarize
-	if summarizingRules, err := rt.SummarizingRulesFor(existingUpstreamResource); err != nil {
+	if summarizingRules, err := srt.SummarizingRulesFor(existingUpstreamResource); err != nil {
 		logger.Error(err, errorMessage)
 		return nil, kerrors.NewInternalError(fmt.Errorf("unable to get summarizing rules from object upstream resource %s|%s/%s for SyncTarget %s: %w", logicalcluster.From(existingUpstreamResource), existingUpstreamResource.GetNamespace(), existingUpstreamResource.GetName(), syncTargetKey, err))
 	} else if summarizingRules != nil {
@@ -377,7 +380,7 @@ func (rt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfac
 // It transforms the upstream resource according to the provided Transformation,
 // and applies on top of the transformed resource every summarized fields previously updated
 // by the Syncer.
-func (rt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, eventType *watch.EventType, subresources ...string) (*unstructured.Unstructured, error) {
+func (srt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, eventType *watch.EventType, subresources ...string) (*unstructured.Unstructured, error) {
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 	logger := klog.FromContext(ctx).WithName("syncer-transformer").V(5).
 		WithValues("step", "after", "groupVersionResource", gvr.String(), "subresources", subresources, "apiDomainKey", apiDomainKey)
@@ -427,7 +430,7 @@ func (rt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx 
 	cleanedUpstreamResource.SetAnnotations(annotations)
 
 	transformedSyncerViewResource := cleanedUpstreamResource
-	if transformation, err := rt.TransformationFor(upstreamResource); err != nil {
+	if transformation, err := srt.TransformationFor(upstreamResource); err != nil {
 		logger.Error(err, errorMessage)
 		return nil, kerrors.NewInternalError(fmt.Errorf("unable to get transformation from object upstream resource %s|%s/%s for SyncTarget %s: %w", logicalcluster.From(upstreamResource), upstreamResource.GetNamespace(), upstreamResource.GetName(), syncTargetKey, err))
 	} else if transformation != nil {
@@ -438,7 +441,7 @@ func (rt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx 
 		}
 	}
 
-	if summarizingRules, err := rt.SummarizingRulesFor(upstreamResource); err != nil {
+	if summarizingRules, err := srt.SummarizingRulesFor(upstreamResource); err != nil {
 		logger.Error(err, errorMessage)
 		return nil, kerrors.NewInternalError(fmt.Errorf("unable to get summarizing rules from object upstream resource %s|%s/%s for SyncTarget %s: %w", logicalcluster.From(upstreamResource), upstreamResource.GetNamespace(), upstreamResource.GetName(), syncTargetKey, err))
 	} else if summarizingRules != nil {

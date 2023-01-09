@@ -25,9 +25,9 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -37,7 +37,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootShardClient               tenancyv1alpha1client.ClusterWorkspaceShardInterface
+		rootShardClient               corev1alpha1client.ShardInterface
 		rootKubeClient, orgKubeClient kubernetes.Interface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
@@ -77,7 +77,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName))
+			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
 			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -85,9 +85,9 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards(),
-				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster),
-				orgKubeClient:   kubeClient.Cluster(orgClusterName),
+				rootShardClient: kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards(),
+				rootKubeClient:  kubeClient.Cluster(core.RootCluster.Path()),
+				orgKubeClient:   kubeClient.Cluster(orgClusterName.Path()),
 				expect:          expect,
 			})
 		})

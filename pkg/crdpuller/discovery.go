@@ -128,7 +128,6 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 		for _, apiResource := range apiResourcesList.APIResources {
 			apiResourceNames[gv].Insert(apiResource.Name)
 		}
-
 	}
 
 	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
@@ -390,7 +389,7 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 	sc.setupDescription(a)
 	sc.schemaProps.Type = "array"
 	if len(a.Extensions) > 0 {
-		var kind *proto.Kind = nil
+		var kind *proto.Kind
 		switch subType := a.SubType.(type) {
 		case *proto.Ref:
 			refSchema := subType.SubSchema()

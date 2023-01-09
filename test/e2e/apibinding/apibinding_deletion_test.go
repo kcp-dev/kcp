@@ -23,10 +23,8 @@ import (
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,15 +52,14 @@ func TestAPIBindingDeletion(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
 
 	cfg := server.BaseConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err, "failed to construct crd cluster client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -72,8 +69,8 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(serviceProviderWorkspace).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(serviceProviderWorkspace.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace.Path()), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -85,7 +82,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, serviceProviderWorkspace)
@@ -94,21 +91,26 @@ func TestAPIBindingDeletion(t *testing.T) {
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       serviceProviderWorkspace.String(),
-					ExportName: "today-cowboys",
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: serviceProviderWorkspace.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Should have finalizer added in apibinding")
 	require.Eventually(t, func() bool {
-		apibinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		apibinding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -125,7 +127,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
-		groups, err := consumerWorkspaceClient.Cluster(consumerWorkspace).Discovery().ServerGroups()
+		groups, err := consumerWorkspaceClient.Cluster(consumerWorkspace.Path()).Discovery().ServerGroups()
 		if err != nil {
 			return false, fmt.Errorf("error retrieving consumer workspace %q group discovery: %w", consumerWorkspace, err)
 		}
@@ -137,10 +139,10 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
-	cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumerWorkspace).Cowboys("default")
+	cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumerWorkspace.Path()).Cowboys("default")
 	cowboy := &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("cowboy-1-%s", consumerWorkspace.Base()),
+			Name:      fmt.Sprintf("cowboy-1-%s", consumerWorkspace.String()),
 			Namespace: "default",
 		},
 	}
@@ -148,21 +150,19 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
 
 	t.Logf("Create a cowboy CR with finalizer in consumer workspace %q", consumerWorkspace)
-	cowboyName := fmt.Sprintf("cowboy-2-%s", consumerWorkspace.Base())
+	cowboyName := fmt.Sprintf("cowboy-2-%s", consumerWorkspace.String())
 	cowboy = &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       cowboyName,
 			Namespace:  "default",
-			Finalizers: []string{"tenancy.kcp.dev/test-finalizer"},
+			Finalizers: []string{"tenancy.kcp.io/test-finalizer"},
 		},
 	}
 	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
-
-	apiBindingCopy, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err, "error getting apibinding in consumer workspace %q", consumerWorkspace)
 
-	err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Delete(ctx, apiBinding.Name, metav1.DeleteOptions{})
+	err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Delete(ctx, apiBinding.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
 	t.Logf("There should left 1 cowboy CR in delete state")
@@ -181,7 +181,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("apibinding should have BindingResourceDeleteSuccess with false status")
 	require.Eventually(t, func() bool {
-		apibinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		apibinding, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -191,7 +191,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("ensure resource does not have create verb when deleting")
 	require.Eventually(t, func() bool {
-		resources, err := consumerWorkspaceClient.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+		resources, err := consumerWorkspaceClient.Cluster(consumerWorkspace.Path()).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
 		if err != nil {
 			return false
 		}
@@ -214,7 +214,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 	t.Logf("Create another cowboy CR in consumer workspace %q", consumerWorkspace)
 	cowboyDenied := &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("cowboy-3-%s", consumerWorkspace.Base()),
+			Name:      fmt.Sprintf("cowboy-3-%s", consumerWorkspace.String()),
 			Namespace: "default",
 		},
 	}
@@ -235,14 +235,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("apibinding should be deleted")
 	require.Eventually(t, func() bool {
-		_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-		return apierrors.IsNotFound(err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-
-	crdName := apiBindingCopy.Status.BoundResources[0].Schema.UID
-	t.Logf("shadow CRD %s should be deleted", crdName)
-	require.Eventually(t, func() bool {
-		_, err := crdClusterClient.Cluster(logicalcluster.New("system:bound-crds")).ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		_, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }

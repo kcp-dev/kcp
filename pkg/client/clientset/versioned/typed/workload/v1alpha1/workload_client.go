@@ -32,7 +32,7 @@ type WorkloadV1alpha1Interface interface {
 	SyncTargetsGetter
 }
 
-// WorkloadV1alpha1Client is used to interact with features provided by the workload.kcp.dev group.
+// WorkloadV1alpha1Client is used to interact with features provided by the workload.kcp.io group.
 type WorkloadV1alpha1Client struct {
 	restClient rest.Interface
 }

@@ -36,9 +36,9 @@ type FakePlacements struct {
 	Fake *FakeSchedulingV1alpha1
 }
 
-var placementsResource = schema.GroupVersionResource{Group: "scheduling.kcp.dev", Version: "v1alpha1", Resource: "placements"}
+var placementsResource = schema.GroupVersionResource{Group: "scheduling.kcp.io", Version: "v1alpha1", Resource: "placements"}
 
-var placementsKind = schema.GroupVersionKind{Group: "scheduling.kcp.dev", Version: "v1alpha1", Kind: "Placement"}
+var placementsKind = schema.GroupVersionKind{Group: "scheduling.kcp.io", Version: "v1alpha1", Kind: "Placement"}
 
 // Get takes name of the placement, and returns the corresponding placement object, and an error if there is any.
 func (c *FakePlacements) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Placement, err error) {

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsv1listers "k8s.io/apiextensions-apiserver/pkg/client/kcp/listers/apiextensions/v1"
@@ -31,7 +31,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 )
 
-// crdClusterLister is a CRD lister
+// crdClusterLister is a CRD lister.
 type crdClusterLister struct {
 	lister kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 }
@@ -48,7 +48,7 @@ func (c *crdClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRD
 
 var _ kcp.ClusterAwareCRDClusterLister = &crdClusterLister{}
 
-// crdLister is a CRD lister
+// crdLister is a CRD lister.
 type crdLister struct {
 	*crdClusterLister
 	cluster logicalcluster.Name
@@ -56,7 +56,7 @@ type crdLister struct {
 
 var _ kcp.ClusterAwareCRDLister = &crdLister{}
 
-// List lists all CustomResourceDefinitions
+// List lists all CustomResourceDefinitions.
 func (c *crdLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
 	return c.lister.List(selector)
@@ -66,7 +66,7 @@ func (c *crdLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*api
 	return crd, nil
 }
 
-// Get gets a CustomResourceDefinition
+// Get gets a CustomResourceDefinition.
 func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
 	return c.lister.Cluster(c.cluster).Get(name)

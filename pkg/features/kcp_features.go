@@ -35,12 +35,12 @@ const (
 	//
 	// // owner: @username
 	// // alpha: v1.4
-	// MyFeature() bool
+	// MyFeature() bool.
 
 	// owner: @sttts
 	// alpha: v0.4
 	//
-	// Enable the scheduling.kcp.dev/v1alpha1 API group, and related controllers.
+	// Enable the scheduling.kcp.io/v1alpha1 API group, and related controllers.
 	LocationAPI featuregate.Feature = "KCPLocationAPI"
 
 	// owner: @aojea
@@ -61,7 +61,7 @@ func init() {
 }
 
 func KnownFeatures() []string {
-	var features []string
+	features := make([]string, 0, len(defaultGenericControlPlaneFeatureGates))
 	for k := range defaultGenericControlPlaneFeatureGates {
 		features = append(features, string(k))
 	}

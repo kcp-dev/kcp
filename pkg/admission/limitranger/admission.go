@@ -24,7 +24,7 @@ import (
 
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	kcpcorev1listers "github.com/kcp-dev/client-go/listers/core/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -41,7 +41,7 @@ const (
 	PluginName = "WorkspaceLimitRanger"
 )
 
-// Register registers a plugin
+// Register registers a plugin.
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
 		return &workspaceLimitRanger{
@@ -52,7 +52,7 @@ func Register(plugins *admission.Plugins) {
 	})
 }
 
-// workspaceLimitRanger is a delegating multiplexer for the Kubernetes LimitRanger admission control plugin
+// workspaceLimitRanger is a delegating multiplexer for the Kubernetes LimitRanger admission control plugin.
 type workspaceLimitRanger struct {
 	*admission.Handler
 	client kcpkubernetesclient.ClusterInterface
@@ -84,7 +84,7 @@ func (l *workspaceLimitRanger) ValidateInitialization() error {
 	return nil
 }
 
-// Admit admits resources into cluster that do not violate any defined LimitRange in the namespace
+// Admit admits resources into cluster that do not violate any defined LimitRange in the namespace.
 func (l *workspaceLimitRanger) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -97,7 +97,7 @@ func (l *workspaceLimitRanger) Admit(ctx context.Context, a admission.Attributes
 	return delegate.Admit(ctx, a, o)
 }
 
-// Validate admits resources into cluster that do not violate any defined LimitRange in the namespace
+// Validate admits resources into cluster that do not violate any defined LimitRange in the namespace.
 func (l *workspaceLimitRanger) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -132,7 +132,7 @@ func (l *workspaceLimitRanger) delegateFor(cluster logicalcluster.Name) (*limitr
 	if err != nil {
 		return nil, err
 	}
-	delegate.SetExternalKubeClientSet(l.client.Cluster(cluster))
+	delegate.SetExternalKubeClientSet(l.client.Cluster(cluster.Path()))
 	delegate.SetExternalKubeLister(l.lister.Cluster(cluster))
 	return delegate, nil
 }

@@ -273,7 +273,6 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	for gvr := range apiSet {
-
 		if gvr.Group == "" {
 			// Don't include CRDs in the core ("") group in /apis discovery. They
 			// instead are in /api/v1 handled elsewhere.
@@ -303,7 +302,6 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	for _, versions := range apiVersionsForDiscovery {
 		sortGroupDiscoveryByKubeAwareVersion(versions)
-
 	}
 
 	groupList := make([]metav1.APIGroup, 0, len(apiVersionsForDiscovery))

@@ -19,35 +19,26 @@ package helpers
 import (
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
-	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
+func ParseClusterURL(host string) (*url.URL, logicalcluster.Path, error) {
 	u, err := url.Parse(host)
 	if err != nil {
-		return nil, logicalcluster.Name{}, err
+		return nil, logicalcluster.Path{}, err
 	}
 	ret := *u
-	var clusterName logicalcluster.Name
-	for _, prefix := range []string{
-		"/clusters/",
-		path.Join(virtualcommandoptions.DefaultRootPathPrefix, "workspaces") + "/",
-	} {
-		if clusterIndex := strings.Index(u.Path, prefix); clusterIndex >= 0 {
-			clusterName = logicalcluster.New(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
-			ret.Path = ret.Path[:clusterIndex]
-			break
+	prefix := "/clusters/"
+	if clusterIndex := strings.Index(u.Path, prefix); clusterIndex >= 0 {
+		clusterName := logicalcluster.NewPath(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
+		if !clusterName.IsValid() {
+			return nil, logicalcluster.Path{}, fmt.Errorf("invalid cluster name: %q", clusterName)
 		}
-	}
-	if clusterName.Empty() || !tenancyhelper.IsValidCluster(clusterName) {
-		return nil, logicalcluster.Name{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
+		ret.Path = ret.Path[:clusterIndex]
+		return &ret, clusterName, nil
 	}
 
-	return &ret, clusterName, nil
+	return nil, logicalcluster.Path{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
 }

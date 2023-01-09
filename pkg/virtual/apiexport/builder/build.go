@@ -24,7 +24,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -93,7 +93,7 @@ func BuildVirtualWorkspace(
 				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
-					var wrapper forwardingregistry.StorageWrapper = nil
+					var wrapper forwardingregistry.StorageWrapper
 					if len(optionalLabelRequirements) > 0 {
 						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
 							return optionalLabelRequirements
@@ -202,22 +202,33 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	clusterName := logicalcluster.New(parts[0])
+	path := logicalcluster.NewPath(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]
 	}
 
+	cluster = genericapirequest.Cluster{}
+	if path == logicalcluster.Wildcard {
+		cluster.Wildcard = true
+	} else {
+		var ok bool
+		cluster.Name, ok = path.Name()
+		if !ok {
+			return genericapirequest.Cluster{}, "", "", false
+		}
+	}
+
 	key := fmt.Sprintf("%s/%s", apiExportClusterName, apiExportName)
-	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
+	return cluster, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
 }
 
 func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports())
-	maximalPermissionAuth = authorization.NewDecorator(maximalPermissionAuth, "virtual.apiexport.maxpermissionpolicy.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	maximalPermissionAuth = authorization.NewDecorator("virtual.apiexport.maxpermissionpolicy.authorization.kcp.io", maximalPermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
-	apiExportsContentAuth = authorization.NewDecorator(apiExportsContentAuth, "virtual.apiexport.content.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
+	apiExportsContentAuth = authorization.NewDecorator("virtual.apiexport.content.authorization.kcp.io", apiExportsContentAuth).AddAuditLogging().AddAnonymization()
 
 	return apiExportsContentAuth
 }

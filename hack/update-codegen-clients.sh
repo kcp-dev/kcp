@@ -29,7 +29,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
-  "workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1 scheduling:v1alpha1 topology:v1alpha1" \
+  "core:v1alpha1 workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1 scheduling:v1alpha1 topology:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
@@ -69,6 +69,7 @@ popd
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
 
 "$GOPATH"/bin/openapi-gen  --input-dirs github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1 \
 --input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1 \

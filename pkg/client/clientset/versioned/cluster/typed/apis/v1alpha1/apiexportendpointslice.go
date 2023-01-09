@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type APIExportEndpointSlicesClusterGetter interface {
 // APIExportEndpointSliceClusterInterface can operate on APIExportEndpointSlices across all clusters,
 // or scope down to one cluster and return a apisv1alpha1client.APIExportEndpointSliceInterface.
 type APIExportEndpointSliceClusterInterface interface {
-	Cluster(logicalcluster.Name) apisv1alpha1client.APIExportEndpointSliceInterface
+	Cluster(logicalcluster.Path) apisv1alpha1client.APIExportEndpointSliceInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*apisv1alpha1.APIExportEndpointSliceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type aPIExportEndpointSlicesClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIExportEndpointSlicesClusterInterface) Cluster(name logicalcluster.Name) apisv1alpha1client.APIExportEndpointSliceInterface {
-	if name == logicalcluster.Wildcard {
+func (c *aPIExportEndpointSlicesClusterInterface) Cluster(clusterPath logicalcluster.Path) apisv1alpha1client.APIExportEndpointSliceInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).APIExportEndpointSlices()
+	return c.clientCache.ClusterOrDie(clusterPath).APIExportEndpointSlices()
 }
 
 // List returns the entire collection of all APIExportEndpointSlices across all clusters.

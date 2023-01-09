@@ -23,7 +23,6 @@ import (
 )
 
 func TestGetUpstreamResourceName(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		gvr      schema.GroupVersionResource

@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -77,11 +77,11 @@ func NewAPIImporter(
 	synctargetInformer workloadinformers.SyncTargetInformer,
 	apiImportInformer apiresourceinformer.APIResourceImportInformer,
 	resourcesToSync []string,
-	logicalClusterName logicalcluster.Name,
+	syncTargetPath logicalcluster.Path,
 	syncTargetName string,
 	syncTargetUID types.UID,
 ) (*APIImporter, error) {
-	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, syncTargetName)
+	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", syncTargetPath, syncTargetName)
 	upstreamConfig = rest.AddUserAgent(rest.CopyConfig(upstreamConfig), agent)
 	downstreamConfig = rest.AddUserAgent(rest.CopyConfig(downstreamConfig), agent)
 
@@ -90,7 +90,7 @@ func NewAPIImporter(
 		return nil, err
 	}
 
-	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
+	kcpClient := kcpClusterClient.Cluster(syncTargetPath)
 
 	importIndexer := apiImportInformer.Informer().GetIndexer()
 

@@ -17,5 +17,5 @@ limitations under the License.
 package apiresource
 
 const (
-	GroupName = "apiresource.kcp.dev"
+	GroupName = "apiresource.kcp.io"
 )

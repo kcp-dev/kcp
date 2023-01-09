@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
@@ -37,11 +37,11 @@ type SchedulingV1alpha1ClusterClient struct {
 	*kcptesting.Fake
 }
 
-func (c *SchedulingV1alpha1ClusterClient) Cluster(cluster logicalcluster.Name) schedulingv1alpha1.SchedulingV1alpha1Interface {
-	if cluster == logicalcluster.Wildcard {
+func (c *SchedulingV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) schedulingv1alpha1.SchedulingV1alpha1Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return &SchedulingV1alpha1Client{Fake: c.Fake, Cluster: cluster}
+	return &SchedulingV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 func (c *SchedulingV1alpha1ClusterClient) Locations() kcpschedulingv1alpha1.LocationClusterInterface {
@@ -56,7 +56,7 @@ var _ schedulingv1alpha1.SchedulingV1alpha1Interface = (*SchedulingV1alpha1Clien
 
 type SchedulingV1alpha1Client struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *SchedulingV1alpha1Client) RESTClient() rest.Interface {
@@ -65,9 +65,9 @@ func (c *SchedulingV1alpha1Client) RESTClient() rest.Interface {
 }
 
 func (c *SchedulingV1alpha1Client) Locations() schedulingv1alpha1.LocationInterface {
-	return &locationsClient{Fake: c.Fake, Cluster: c.Cluster}
+	return &locationsClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }
 
 func (c *SchedulingV1alpha1Client) Placements() schedulingv1alpha1.PlacementInterface {
-	return &placementsClient{Fake: c.Fake, Cluster: c.Cluster}
+	return &placementsClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

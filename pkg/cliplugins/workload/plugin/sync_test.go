@@ -56,6 +56,7 @@ rules:
   - namespaces
   verbs:
   - "create"
+  - "get"
   - "list"
   - "watch"
   - "delete"
@@ -237,7 +238,7 @@ spec:
 		CAData:                              "ca-data",
 		KCPNamespace:                        "kcp-namespace",
 		Namespace:                           "kcp-syncer-sync-target-name-34b23c4k",
-		LogicalCluster:                      "root:default:foo",
+		SyncTargetPath:                      "root:default:foo",
 		SyncTarget:                          "sync-target-name",
 		SyncTargetUID:                       "sync-target-uid",
 		Image:                               "image",
@@ -285,6 +286,7 @@ rules:
   - namespaces
   verbs:
   - "create"
+  - "get"
   - "list"
   - "watch"
   - "delete"
@@ -466,7 +468,7 @@ spec:
 		CAData:                              "ca-data",
 		KCPNamespace:                        "kcp-namespace",
 		Namespace:                           "kcp-syncer-sync-target-name-34b23c4k",
-		LogicalCluster:                      "root:default:foo",
+		SyncTargetPath:                      "root:default:foo",
 		SyncTarget:                          "sync-target-name",
 		SyncTargetUID:                       "sync-target-uid",
 		Image:                               "image",

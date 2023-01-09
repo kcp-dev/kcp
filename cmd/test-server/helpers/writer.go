@@ -17,8 +17,8 @@ limitations under the License.
 package helpers
 
 import (
+	"bytes"
 	"io"
-	"strings"
 	"sync"
 )
 
@@ -41,9 +41,9 @@ type headWriter struct {
 }
 
 // StopOut stops writing to out writer, but keep writing to file.
-func (h *headWriter) StopOut() {
-	h.stopOnce.Do(func() {
-		close(h.stopCh)
+func (hw *headWriter) StopOut() {
+	hw.stopOnce.Do(func() {
+		close(hw.stopCh)
 	})
 }
 
@@ -53,7 +53,7 @@ func (hw *headWriter) Write(p []byte) (n int, err error) {
 		if !hw.linePending {
 			return hw.file.Write(p)
 		}
-		if pos := strings.Index(string(p), "\n"); pos == -1 {
+		if pos := bytes.Index(p, []byte("\n")); pos == -1 {
 			hw.out.Write(p) //nolint:errcheck
 		} else {
 			hw.linePending = false

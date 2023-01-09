@@ -59,7 +59,7 @@ func startVirtual(ctx context.Context, index int, logDirPath, workDirPath string
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
 	logFilePath := filepath.Join(logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d.log", index))
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {

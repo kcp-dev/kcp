@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +40,7 @@ import (
 type bindNamespaceReconciler struct {
 	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 }
 
 func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
@@ -75,7 +75,7 @@ func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Name
 		return reconcileStatusStop, ns, err
 	}
 	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Namespace to update placement annotation")
-	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	updated, err := r.patchNamespace(ctx, clusterName.Path(), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return reconcileStatusStop, ns, err
 	}

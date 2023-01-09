@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
@@ -55,6 +55,8 @@ import (
 var noxusGVR = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
 func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage rest.Storage) {
+	t.Helper()
+
 	gvr := noxusGVR
 	groupVersion := gvr.GroupVersion()
 
@@ -142,14 +144,14 @@ func TestGet(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	getter := storage.(rest.Getter)
 	_, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	resource := createResource("default", "foo")
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 
 	result, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.NoError(t, err)
@@ -161,7 +163,7 @@ func TestList(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	lister := storage.(rest.Lister)
 	result, err := lister.List(ctx, &internalversion.ListOptions{})
@@ -187,12 +189,12 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 			noxusGVRWithHash: "NoxuList",
 		})
 	for _, resource := range resources {
-		_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Create(noxusGVRWithHash, resource, "default")
+		_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Create(noxusGVRWithHash, resource, "default")
 	}
 
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
 	lister := storage.(rest.Lister)
 	result, err := lister.List(ctx, &internalversion.ListOptions{})
@@ -209,6 +211,8 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 }
 
 func checkWatchEvents(t *testing.T, addEvents func(), watchCall func() (watch.Interface, error), expectedEvents []watch.Event) {
+	t.Helper()
+
 	watchingStarted := make(chan bool, 1)
 	go func() {
 		<-watchingStarted
@@ -241,7 +245,7 @@ func TestWatch(t *testing.T) {
 	fakeClient.PrependWatchReactor("noxus", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	watchedError := &metav1.Status{
 		Status:  "Failure",
@@ -285,7 +289,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
 	watchedError := &metav1.Status{
 		Status:  "Failure",
@@ -320,7 +324,7 @@ func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcpte
 		updateAction := action.(kcptesting.UpdateAction)
 		actionResource := updateAction.GetObject().(*unstructured.Unstructured)
 
-		existingObject, err := fakeClient.Tracker().Cluster(logicalcluster.New("test")).Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
+		existingObject, err := fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
 		if err != nil {
 			return true, nil, err
 		}
@@ -329,7 +333,7 @@ func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcpte
 		if existingResource.GetResourceVersion() != actionResource.GetResourceVersion() {
 			return true, nil, errors.NewConflict(action.GetResource().GroupResource(), existingResource.GetName(), fmt.Errorf(registry.OptimisticLockErrorMsg))
 		}
-		if err := fakeClient.Tracker().Cluster(logicalcluster.New("test")).Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
+		if err := fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
 			return true, nil, err
 		}
 
@@ -346,7 +350,7 @@ func TestUpdate(t *testing.T) {
 
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
 
 	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
@@ -360,7 +364,7 @@ func TestUpdate(t *testing.T) {
 	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.NoError(t, err)
 
@@ -392,7 +396,7 @@ func TestUpdateWithForceAllowCreate(t *testing.T) {
 
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
 
 	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
@@ -434,7 +438,7 @@ func TestStatusUpdate(t *testing.T) {
 
 	_, statusStorage := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	statusUpdated := resource.DeepCopy()
 	if err := unstructured.SetNestedField(statusUpdated.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
 		require.NoError(t, err)
@@ -464,7 +468,7 @@ func TestPatch(t *testing.T) {
 	storage, _ := newStorage(t, fakeClient, "", &backoff)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
 		if oldObj == nil {
@@ -484,7 +488,7 @@ func TestPatch(t *testing.T) {
 	_, _, err := updater.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 	getCallCounts := 0
 	noMoreConflicts := 4
 	fakeClient.PrependReactor("get", "noxus", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {

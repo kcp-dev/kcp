@@ -48,6 +48,8 @@ import (
 // StartStandaloneCacheServer runs the cache server as a separate process
 // and returns a path to kubeconfig that can be used to communicate with the server.
 func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir string) string {
+	t.Helper()
+
 	cacheServerPortStr, err := framework.GetFreePort(t)
 	require.NoError(t, err)
 	cacheServerPort, err := strconv.Atoi(cacheServerPortStr)
@@ -128,7 +130,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	return cacheKubeconfigPath
 }
 
-func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
+func ClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
@@ -137,6 +139,7 @@ func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 }
 
 func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientRT *rest.Config) {
+	t.Helper()
 	cacheClientRT = rest.CopyConfig(cacheClientRT)
 	if cacheClientRT.NegotiatedSerializer == nil {
 		cacheClientRT.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
@@ -158,6 +161,7 @@ func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientR
 }
 
 func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	t.Helper()
 	var lastError error
 	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
 		req := rest.NewRequest(client).RequestURI(endpoint)

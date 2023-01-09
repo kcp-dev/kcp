@@ -3,14 +3,13 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:tenancy:maximal-permission-policy
 rules:
-- apiGroups: ["tenancy.kcp.dev"]
+- apiGroups: ["tenancy.kcp.io"]
   verbs: ["*"]
   resources:
   - workspaces
-  - workspaces/content
-  - clusterworkspacetypes
-- apiGroups: ["tenancy.kcp.dev"]
+  - workspacetypes
+- apiGroups: ["tenancy.kcp.io"]
   verbs: ["list","watch","get"]
   resources:
   - workspaces/status
-  - clusterworkspacetypes/status
+  - workspacetypes/status

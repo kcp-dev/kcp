@@ -19,20 +19,20 @@ package projection
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 var projectedAPIs map[schema.GroupVersionResource]struct{}
 
 func init() {
 	projectedAPIs = map[schema.GroupVersionResource]struct{}{
-		tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"): {},
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"): {},
 	}
 }
 
 // Includes returns true if gvr is for a projected API. An API is projected if it is not stored in etcd and instead
-// comes from some other data that is actually stored in etcd. For example, Workspaces (tenancy.kcp.dev/v1beta1) are
-// projected; the real data comes from ClusterWorkspaces (tenancy.kcp.dev/v1alpha1).
+// comes from some other data that is actually stored in etcd. For example, Workspaces (tenancy.kcp.io/v1beta1) are
+// projected; the real data comes from ClusterWorkspaces (tenancy.kcp.io/v1alpha1).
 func Includes(gvr schema.GroupVersionResource) bool {
 	_, exists := projectedAPIs[gvr]
 	return exists

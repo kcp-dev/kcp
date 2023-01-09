@@ -37,7 +37,7 @@ jobs:
           path: docs
       - uses: actions/setup-go@v3
         with:
-          go-version: v1.18
+          go-version: v1.19
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v2
         with:
@@ -102,6 +102,7 @@ jobs:
           w
           q
           EOF
+          mkdir -p content/en/${{ github.ref }}
           mv content/en/main content/en/${{ github.ref }}
           hugo --minify
           rsync -av public/${{ github.ref }} ../../docs

@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +46,11 @@ import (
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
+
+	if isUpSynced(obj.GetLabels()) {
+		logger.V(4).Info("resource is in Upsync mode; ignoring")
+		return nil
+	}
 
 	// if the resource is a namespace, let's return early. nothing to do.
 	namespaceGVR := &schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
@@ -93,7 +98,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		// we do this by getting the current locations of the resource and
 		// comparing against the expected locations.
 
-		expectedSyncTargetKeys, err = c.getValidSyncTargetKeysForWorkspace(logicalcluster.From(obj))
+		expectedSyncTargetKeys, err = c.getSyncTargetPlacementAnnotations(logicalcluster.From(obj))
 		if err != nil {
 			logger.Error(err, "error getting valid sync target keys for workspace")
 			return nil
@@ -178,13 +183,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
 	if namespaceName != "" {
-		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 
@@ -204,7 +209,7 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 	return annotationPatch
 }
 
-// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending
+// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending.
 func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
 	currentSynctargetKeys := getLocations(obj.GetLabels(), false)
 	currentSynctargetKeysDeleting := getDeletingLocations(obj.GetAnnotations())
@@ -299,4 +304,15 @@ func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
 		c.enqueueResource(gvr, obj)
 	}
 	return nil
+}
+
+// isUpSynced returns true if the labels of the resource contain at least
+// one `ResourceState` label with the `Upsync` value.
+func isUpSynced(labels map[string]string) bool {
+	for k, v := range labels {
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateUpsync) {
+			return true
+		}
+	}
+	return false
 }

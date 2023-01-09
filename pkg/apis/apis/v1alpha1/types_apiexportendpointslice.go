@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // +crd
@@ -54,8 +56,8 @@ type APIExportEndpointSliceSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
 
-	// apiExport points to the service export.
-	APIExport ExportReference `json:"apiExport"`
+	// export points to the API export.
+	APIExport ExportBindingReference `json:"export"`
 
 	// +optional
 
@@ -66,6 +68,11 @@ type APIExportEndpointSliceSpec struct {
 
 // APIExportEndpointSliceStatus defines the observed state of APIExportEndpointSlice.
 type APIExportEndpointSliceStatus struct {
+	// +optional
+
+	// conditions is a list of conditions that apply to the APIExportEndpointSlice.
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
 	// +optional
 
 	// endpoints contains all the URLs of the APIExport service.
@@ -84,6 +91,20 @@ type APIExportEndpoint struct {
 	// url is an APIExport virtual workspace URL.
 	URL string `json:"url"`
 }
+
+func (in *APIExportEndpointSlice) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *APIExportEndpointSlice) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
+}
+
+// These are valid conditions of APIExportEndpointSlice in addition to
+// APIExportValid and related reasons defined with the APIBinding type.
+const (
+	APIExportEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

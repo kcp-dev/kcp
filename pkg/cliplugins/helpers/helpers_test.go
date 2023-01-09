@@ -19,7 +19,7 @@ package helpers
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,13 +36,13 @@ func TestParseClusterURL(t *testing.T) {
 		{host: "https://host/clusters/root", url: "https://host", cluster: "root"},
 		{host: "https://host/clusters/root:foo", url: "https://host", cluster: "root:foo"},
 		{host: "https://host/clusters/system:foo", url: "https://host", cluster: "system:foo"},
-		{host: "https://host/clusters/abc:def", wantErr: true},
+		{host: "https://host/clusters/abc:def%", wantErr: true},
 		{host: "https://host/clusters/", wantErr: true},
 		{host: "https://host/clusters", wantErr: true},
 		{host: "https://host/clusters/root:foo:bar", url: "https://host", cluster: "root:foo:bar"},
 		{host: "https://host/clusters/root:foo/abc", url: "https://host", cluster: "root:foo"},
-		{host: "https://host/services/workspaces/root:foo:bar", url: "https://host", cluster: "root:foo:bar"},
-		{host: "https://host/services/workspaces/root:foo:bar/abc", url: "https://host", cluster: "root:foo:bar"},
+		{host: "https://host/services/workspaces/root:foo:bar", wantErr: true},
+		{host: "https://host/services/workspaces/root:foo:bar/abc", wantErr: true},
 		{host: "https://host/services/workspaces/", wantErr: true},
 		{host: "https://host/services/workspaces", wantErr: true},
 		{host: "https://host/abc/clusters/root:foo", url: "https://host/abc", cluster: "root:foo"},
@@ -62,7 +62,7 @@ func TestParseClusterURL(t *testing.T) {
 			if gotURLStr != tt.url {
 				t.Errorf("url, _ := parseClusterURL(%q) got = %v, want %v", tt.host, gotURL, tt.url)
 			}
-			if gotCluster != logicalcluster.New(tt.cluster) {
+			if gotCluster != logicalcluster.NewPath(tt.cluster) {
 				t.Errorf("_, cluster := parseClusterURL(%q) got = %v, want %v", tt.host, gotCluster, tt.cluster)
 			}
 		})

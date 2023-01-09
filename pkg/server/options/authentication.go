@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	// A shard admin being member of the privileged system:masters group.
+	// A shard admin being member of the privileged system group.
 	// This will bypass most kcp authorization checks.
 	shardAdminUserName = "shard-admin"
 	// A kcp admin being member of system:kcp:clusterworkspace:admin and system:kcp:clusterworkspace:access.
@@ -118,8 +118,6 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		UID:  uuid.New().String(),
 		Groups: []string{
 			bootstrap.SystemKcpAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAccessGroup,
 		},
 	}
 
@@ -175,7 +173,7 @@ func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedC
 
 	// give up: either there is no new generated shard admin token or the kubeconfig file is malicious.
 	if shardAdminToken == "" {
-		return fmt.Errorf("cannot create the 'admin.kubeconfig` file with an empty token for the %s user", shardAdminUserName)
+		return fmt.Errorf("cannot create the 'admin.kubeconfig' file with an empty token for the %s user", shardAdminUserName)
 	}
 
 	externalKubeConfig := createKubeConfig(kcpAdminToken, shardAdminToken, userToken, externalKubeConfigHost, "", externalCACert)

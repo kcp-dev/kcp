@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:workload:maximal-permission-policy
 rules:
-- apiGroups: ["workload.kcp.dev"]
+- apiGroups: ["workload.kcp.io"]
   verbs: ["*"]
   resources:
   - synctargets

@@ -98,7 +98,6 @@ func (o *CordonOptions) Run(ctx context.Context) error {
 	var patchBytes []byte
 	if o.Cordon {
 		patchBytes = []byte(`[{"op":"replace","path":"/spec/unschedulable","value":true}]`)
-
 	} else {
 		evict := ``
 		if syncTarget.Spec.EvictAfter != nil {
@@ -194,5 +193,4 @@ func (o *DrainOptions) Run(ctx context.Context) error {
 	fmt.Fprintln(o.Out, o.SyncTarget, "draining")
 
 	return nil
-
 }

@@ -29,13 +29,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
-	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
-	Workspaces             *workspacesoptions.Workspaces
 	Syncer                 *synceroptions.Syncer
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
@@ -43,27 +41,24 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
-		Workspaces:             workspacesoptions.New(),
 		Syncer:                 synceroptions.New(),
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
 	}
 }
 
-func (v *Options) Validate() []error {
+func (o *Options) Validate() []error {
 	var errs []error
 
-	errs = append(errs, v.Workspaces.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, v.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
-func (v *Options) AddFlags(fs *pflag.FlagSet) {
-	v.Workspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
-	v.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
@@ -72,12 +67,6 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-
-	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
-	if err != nil {
-		return nil, err
-	}
-
 	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
@@ -93,7 +82,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := merge(workspaces, syncer, apiexports, initializingworkspaces)
+	all, err := merge(syncer, apiexports, initializingworkspaces)
 	if err != nil {
 		return nil, err
 	}

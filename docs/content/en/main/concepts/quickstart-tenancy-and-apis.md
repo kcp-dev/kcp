@@ -27,7 +27,7 @@ CURRENT   NAME           CLUSTER   AUTHINFO      NAMESPACE
 ```
 
 You can use API discovery to see what resources are available in this `root` workspace. We're here to explore the
-`tenancy.kcp.dev` and `apis.kcp.dev` resources.
+`tenancy.kcp.io` and `apis.kcp.io` resources.
 
 ```shell
 $ kubectl api-resources
@@ -35,10 +35,10 @@ NAME                              SHORTNAMES   APIVERSION                       
 configmaps                        cm           v1                                     true         ConfigMap
 events                            ev           v1                                     true         Event
 ...
-apibindings                                    apis.kcp.dev/v1alpha1                  false        APIBinding
-apiexports                                     apis.kcp.dev/v1alpha1                  false        APIExport
+apibindings                                    apis.kcp.io/v1alpha1                  false        APIBinding
+apiexports                                     apis.kcp.io/v1alpha1                  false        APIExport
 ...
-workspaces                        ws           tenancy.kcp.dev/v1beta1                false        Workspace
+workspaces                        ws           tenancy.kcp.io/v1beta1                false        Workspace
 ```
 
 ## Create and navigate some workspaces
@@ -81,8 +81,8 @@ CURRENT   NAME                         CLUSTER                      AUTHINFO    
           base                         base                         kcp-admin
           root                         root                         kcp-admin
           system:admin                 base                         shard-admin
-*         workspace.kcp.dev/current    workspace.kcp.dev/current    kcp-admin
-          workspace.kcp.dev/previous   workspace.kcp.dev/previous   kcp-admin
+*         workspace.kcp.io/current    workspace.kcp.io/current    kcp-admin
+          workspace.kcp.io/previous   workspace.kcp.io/previous   kcp-admin
 ```
 
 ## Understand workspace types
@@ -110,10 +110,10 @@ a       organization   Ready   https://myhost:6443/clusters/root:a
 users   homeroot       Ready   https://myhost:6443/clusters/root:users
 ```
 
-Workspace types and their behaviors are defined using the `ClusterWorkspaceType` resource:
+Workspace types and their behaviors are defined using the `WorkspaceType` resource:
 
 ```shell
-$ kubectl get clusterworkspacetypes
+$ kubectl get workspacetypes
 NAME           AGE
 home           74m
 homebucket     74m
@@ -122,11 +122,11 @@ organization   74m
 root           74m
 team           74m
 universal      74m
-$ kubectl describe clusterworkspacetype/team
+$ kubectl describe workspacetype/team
 Name:         team
 ...
-API Version:  tenancy.kcp.dev/v1alpha1
-Kind:         ClusterWorkspaceType
+API Version:  tenancy.kcp.io/v1alpha1
+Kind:         WorkspaceType
 ...
 Spec:
   Default Child Workspace Type:
@@ -196,9 +196,9 @@ apiexport-wildwest.dev.yaml
 apiresourceschema-cowboys.wildwest.dev.yaml
 
 $ kubectl apply -f wildwest-schemas/apiresourceschema-cowboys.wildwest.dev.yaml
-apiresourceschema.apis.kcp.dev/v220920-6039d110.cowboys.wildwest.dev created
+apiresourceschema.apis.kcp.io/v220920-6039d110.cowboys.wildwest.dev created
 $ kubectl apply -f wildwest-schemas/apiexport-wildwest.dev.yaml
-apiexport.apis.kcp.dev/wildwest.dev created
+apiexport.apis.kcp.io/wildwest.dev created
 ```
 
 You can think of an `APIResourceSchema` as being equivalent to a CRD, and an `APIExport` makes a set of schemas
@@ -217,7 +217,7 @@ Workspace "test-consumer" (type root:universal) is ready to use.
 Current workspace is "root:users:zu:yc:kcp-admin:test-consumer".
 
 $ kubectl apply -f - <<EOF
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
 metadata:
   name: cowboys
@@ -227,7 +227,7 @@ spec:
       path: root:wildwest:cowboys-service
       exportName: wildwest.dev
 EOF
-apibinding.apis.kcp.dev/cowboys created
+apibinding.apis.kcp.io/cowboys created
 ```
 
 Now this resource type is available for use within our workspace, so
@@ -256,7 +256,7 @@ Switching back to the service provider persona:
 $ kubectl ws root:wildwest:cowboys-service
 Current workspace is "root:wildwest:cowboys-service".
 $ kubectl get apiexport/wildwest.dev -o yaml
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIExport
 metadata:
   name: wildwest.dev

@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -69,6 +69,9 @@ func NewAPIReconciler(
 
 		apiExportLister:  apiExportInformer.Lister(),
 		apiExportIndexer: apiExportInformer.Informer().GetIndexer(),
+		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+			return apiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
+		},
 
 		queue: queue,
 
@@ -121,6 +124,7 @@ type APIReconciler struct {
 
 	apiExportLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
+	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 
 	queue workqueue.RateLimitingInterface
 
@@ -143,7 +147,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		runtime.HandleError(err)
 		return
 	}
-	exports, err := c.apiExportLister.Cluster(clusterName).List(labels.Everything())
+	exports, err := c.listAPIExports(clusterName)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -154,13 +158,13 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 	}
 
 	if len(exports) == 0 {
-		logger.V(2).Info("No kubernetes APIExport found for APIResourceSchema")
+		logger.V(2).Info("No APIExports found")
 		return
 	}
 
 	for _, export := range exports {
 		logger.WithValues("apiexport", export.Name).V(2).Info("Queueing APIExport for APIResourceSchema")
-		c.enqueueAPIExport(obj, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
+		c.enqueueAPIExport(export, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
 	}
 }
 

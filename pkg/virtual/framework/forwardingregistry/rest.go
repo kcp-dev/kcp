@@ -60,7 +60,7 @@ func (sw *StorageWrappers) Decorate(groupResource schema.GroupResource, storage 
 	}
 }
 
-// NewStorage returns a REST storage that forwards calls to a dynamic client
+// NewStorage returns a REST storage that forwards calls to a dynamic client.
 func NewStorage(
 	ctx context.Context,
 	resource schema.GroupVersionResource,

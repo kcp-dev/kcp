@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	PluginName                  = "kcp.dev/ReservedCRDGroups"
+	PluginName                  = "kcp.io/ReservedCRDGroups"
 	SystemCRDLogicalClusterName = "system:system-crds"
 )
 
@@ -48,7 +48,7 @@ type reservedCRDGroups struct {
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&reservedCRDGroups{})
 
-// Ensure that CRDs in *.kcp.dev group are only created inside system:system-crds workspace
+// Ensure that CRDs in *.kcp.io group are only created inside system:system-crds workspace.
 func (o *reservedCRDGroups) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != apiextensions.Resource("customresourcedefinitions") {
 		return nil
@@ -70,7 +70,7 @@ func (o *reservedCRDGroups) Validate(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	if strings.HasSuffix(crd.Spec.Group, "apis.kcp.dev") {
+	if strings.HasSuffix(crd.Spec.Group, "apis.kcp.io") {
 		return admission.NewForbidden(a, fmt.Errorf("%s is a reserved group", crd.Spec.Group))
 	}
 	return nil

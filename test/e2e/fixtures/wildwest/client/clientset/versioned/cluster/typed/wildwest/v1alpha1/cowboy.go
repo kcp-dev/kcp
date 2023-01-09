@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type CowboysClusterGetter interface {
 // CowboyClusterInterface can operate on Cowboys across all clusters,
 // or scope down to one cluster and return a CowboysNamespacer.
 type CowboyClusterInterface interface {
-	Cluster(logicalcluster.Name) CowboysNamespacer
+	Cluster(logicalcluster.Path) CowboysNamespacer
 	List(ctx context.Context, opts metav1.ListOptions) (*wildwestv1alpha1.CowboyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type cowboysClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *cowboysClusterInterface) Cluster(name logicalcluster.Name) CowboysNamespacer {
-	if name == logicalcluster.Wildcard {
+func (c *cowboysClusterInterface) Cluster(clusterPath logicalcluster.Path) CowboysNamespacer {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &cowboysNamespacer{clientCache: c.clientCache, name: name}
+	return &cowboysNamespacer{clientCache: c.clientCache, clusterPath: clusterPath}
 }
 
 // List returns the entire collection of all Cowboys across all clusters.
@@ -78,9 +78,9 @@ type CowboysNamespacer interface {
 
 type cowboysNamespacer struct {
 	clientCache kcpclient.Cache[*wildwestv1alpha1client.WildwestV1alpha1Client]
-	name        logicalcluster.Name
+	clusterPath logicalcluster.Path
 }
 
 func (n *cowboysNamespacer) Namespace(namespace string) wildwestv1alpha1client.CowboyInterface {
-	return n.clientCache.ClusterOrDie(n.name).Cowboys(namespace)
+	return n.clientCache.ClusterOrDie(n.clusterPath).Cowboys(namespace)
 }

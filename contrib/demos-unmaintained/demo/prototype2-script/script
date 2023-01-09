@@ -72,7 +72,7 @@ pe "kubectl config use-context root"
 pe "kubectl get clusterworkspaces"
 c "We are alone. Let's create an organization called demo, to not use the default organization as playground."
 cat <<EOF > "${KCP_DATA_DIR}/demo-org.yaml"
-apiVersion: tenancy.kcp.dev/v1alpha1
+apiVersion: tenancy.kcp.io/v1alpha1
 kind: ClusterWorkspace
 metadata:
   name: demo
@@ -133,7 +133,7 @@ clear
 c "Now let's register our kind cluster us-east1 with kcp"
 
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: kind-us-east1
@@ -150,7 +150,7 @@ c "Let's wait for kcp to have the cluster syncing ready"
 pe "kubectl wait --for condition=Ready workloadcluster/kind-us-east1"
 
 c "Let's wait for the deployment to be running in kind"
-pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'workloads.kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
+pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'workloads.kcp.io/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
   sleep 1
 done"
 
@@ -172,7 +172,7 @@ pe "cat ${DEMO_DIR}/ingress-kuard.yaml"
 pe "kubectl apply -f ${DEMO_DIR}/ingress-kuard.yaml"
 
 c "Wait for the ingress to be accepted by the ingress controller in the us-east1 cluster"
-pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
+pe "while ! kubectl get ingress -l ingress.kcp.io/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
 
 c "Now let's access our application with curl - we should get a 200 status code"
 pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
@@ -182,7 +182,7 @@ wait;clear
 c "Now let's register our kind cluster us-west1 with kcp"
 
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-west1.yaml"
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: kind-us-west1
@@ -210,7 +210,7 @@ c "Let's see if the deployment got rescheduled"
 pe "kubectl describe deployment/kuard"
 
 c "Let's wait for the ingress to be accepted by the ingress controller in the us-west1 cluster"
-pe "while ! kubectl get ingress -l ingress.kcp.dev/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
+pe "while ! kubectl get ingress -l ingress.kcp.io/envoy=true -o=jsonpath='{.items[*].status.loadBalancer.ingress[*].ip}' | grep -qoE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'; do sleep 1; done"
 c "And now, lets make an http request to our application again"
 pe "curl -s -o /dev/null --write-out '%{http_code}' -H 'Host: kuard.kcp-apps.127.0.0.1.nip.io' localhost:8181"
 
@@ -223,10 +223,10 @@ c "Let's create a new workspace called 'playground' as user-1 and switch to it."
 pe "kubectl kcp workspace --token user-1-token create playground --use"
 
 c "This sets up RBAC permissions, including a ClusterRole for owners of the workspace, and a ClusterRoleBinding for user-1 as an owner:"
-pe "kubectl --context workspace.kcp.dev/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
+pe "kubectl --context workspace.kcp.io/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
-pe "kubectl --context workspace.kcp.dev/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
+pe "kubectl --context workspace.kcp.io/personal/demo get clusterrole/owner-workspace-playground-user-1 -oyaml"
 wait
 clear
 c "As user-1, I should be able to access content in my new workspace"
@@ -235,7 +235,7 @@ pe "kubectl create namespace default"
 pe "kubectl create configmap test --from-literal hello=world"
 
 c "And if we remove user-1's access by deleting the ClusterRoleBinding..."
-pe "kubectl --context workspace.kcp.dev/personal/demo delete clusterrolebinding owner-workspace-playground-user-1"
+pe "kubectl --context workspace.kcp.io/personal/demo delete clusterrolebinding owner-workspace-playground-user-1"
 c "Then we see permissions have been revoked"
 pe "kubectl get configmaps"
 pe "kubectl get namespaces"
@@ -294,7 +294,7 @@ pe "kubectl get cowboys"
 
 wait;clear
 c "Update the inherit workspace to inherit from source"
-pe "kubectl --context workspace.kcp.dev/personal/demo patch clusterworkspaces/inherit --type merge --patch '{\"spec\":{\"inheritFrom\":\"source\"}}'"
+pe "kubectl --context workspace.kcp.io/personal/demo patch clusterworkspaces/inherit --type merge --patch '{\"spec\":{\"inheritFrom\":\"source\"}}'"
 
 c "Now we have access to the cowboys resource"
 pe "kubectl api-resources | grep cowboys"

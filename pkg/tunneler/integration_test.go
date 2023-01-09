@@ -74,12 +74,11 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 		backend.Close()
 	}
 	return publicServer.Client(), dstUrl + "/" + cmdTunnelProxy + "/", stop
-
 }
 
 func Test_integration(t *testing.T) {
 	client, uri, stop := setup(t)
-	resp, err := client.Get(uri)
+	resp, err := client.Get(uri) //nolint:noctx
 	if err != nil {
 		t.Fatalf("Request Failed: %s", err)
 	}
@@ -105,7 +104,7 @@ func Test_integration_multiple_connections(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := client.Get(uri)
+			resp, err := client.Get(uri) //nolint:noctx
 			if err != nil {
 				t.Errorf("Request Failed: %s", err)
 			}
@@ -142,11 +141,11 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	defer publicServer.Close()
 
 	// private server
-	dstUrl, err := SyncerTunnelURL(publicServer.URL, "ws", "d001")
+	dstURL, err := SyncerTunnelURL(publicServer.URL, "ws", "d001")
 	if err != nil {
 		t.Fatal(err)
 	}
-	l, err := NewListener(publicServer.Client(), dstUrl)
+	l, err := NewListener(publicServer.Client(), dstURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +167,9 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	client := publicServer.Client()
-	uri := dstUrl + "/" + cmdTunnelProxy + "/"
+	uri := dstURL + "/" + cmdTunnelProxy + "/"
 
-	resp, err := client.Get(uri)
+	resp, err := client.Get(uri) //nolint:noctx
 	if err != nil {
 		t.Fatalf("Request Failed: %s", err)
 	}
@@ -192,7 +191,7 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	<-l.donec
 	l = nil
 
-	l2, err := NewListener(publicServer.Client(), dstUrl)
+	l2, err := NewListener(publicServer.Client(), dstURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +201,7 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	go server2.Serve(l2)
 	defer server2.Close()
 
-	resp, err = client.Get(uri)
+	resp, err = client.Get(uri) //nolint:noctx
 	if err != nil {
 		t.Fatalf("Request Failed: %s", err)
 	}

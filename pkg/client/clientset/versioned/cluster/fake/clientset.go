@@ -22,7 +22,7 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
@@ -35,6 +35,8 @@ import (
 	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1/fake"
 	kcpapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	fakeapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1/fake"
+	kcpcorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
+	fakecorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1/fake"
 	kcpschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	fakeschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1/fake"
 	kcptenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
@@ -48,6 +50,7 @@ import (
 	clientscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
@@ -64,7 +67,7 @@ func NewSimpleClientset(objects ...runtime.Object) *ClusterClientset {
 	o.AddAll(objects...)
 
 	cs := &ClusterClientset{Fake: &kcptesting.Fake{}, tracker: o}
-	cs.discovery = &kcpfakediscovery.FakeDiscovery{Fake: cs.Fake, Cluster: logicalcluster.Wildcard}
+	cs.discovery = &kcpfakediscovery.FakeDiscovery{Fake: cs.Fake, ClusterPath: logicalcluster.Wildcard}
 	cs.AddReactor("*", "*", kcptesting.ObjectReaction(o))
 	cs.AddWatchReactor("*", kcptesting.WatchReaction(o))
 
@@ -99,6 +102,11 @@ func (c *ClusterClientset) ApisV1alpha1() kcpapisv1alpha1.ApisV1alpha1ClusterInt
 	return &fakeapisv1alpha1.ApisV1alpha1ClusterClient{Fake: c.Fake}
 }
 
+// CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.
+func (c *ClusterClientset) CoreV1alpha1() kcpcorev1alpha1.CoreV1alpha1ClusterInterface {
+	return &fakecorev1alpha1.CoreV1alpha1ClusterClient{Fake: c.Fake}
+}
+
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
 func (c *ClusterClientset) SchedulingV1alpha1() kcpschedulingv1alpha1.SchedulingV1alpha1ClusterInterface {
 	return &fakeschedulingv1alpha1.SchedulingV1alpha1ClusterClient{Fake: c.Fake}
@@ -125,15 +133,15 @@ func (c *ClusterClientset) WorkloadV1alpha1() kcpworkloadv1alpha1.WorkloadV1alph
 }
 
 // Cluster scopes this clientset to one cluster.
-func (c *ClusterClientset) Cluster(cluster logicalcluster.Name) client.Interface {
-	if cluster == logicalcluster.Wildcard {
+func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return &Clientset{
-		Fake:      c.Fake,
-		discovery: &kcpfakediscovery.FakeDiscovery{Fake: c.Fake, Cluster: cluster},
-		tracker:   c.tracker.Cluster(cluster),
-		cluster:   cluster,
+		Fake:        c.Fake,
+		discovery:   &kcpfakediscovery.FakeDiscovery{Fake: c.Fake, ClusterPath: clusterPath},
+		tracker:     c.tracker.Cluster(clusterPath),
+		clusterPath: clusterPath,
 	}
 }
 
@@ -142,9 +150,9 @@ var _ client.Interface = (*Clientset)(nil)
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*kcptesting.Fake
-	discovery *kcpfakediscovery.FakeDiscovery
-	tracker   kcptesting.ScopedObjectTracker
-	cluster   logicalcluster.Name
+	discovery   *kcpfakediscovery.FakeDiscovery
+	tracker     kcptesting.ScopedObjectTracker
+	clusterPath logicalcluster.Path
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -158,35 +166,40 @@ func (c *Clientset) Tracker() kcptesting.ScopedObjectTracker {
 
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client.
 func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
-	return &fakeapiresourcev1alpha1.ApiresourceV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &fakeapiresourcev1alpha1.ApiresourceV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client.
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
-	return &fakeapisv1alpha1.ApisV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &fakeapisv1alpha1.ApisV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1Client.
+func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
+	return &fakecorev1alpha1.CoreV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client.
 func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
-	return &fakeschedulingv1alpha1.SchedulingV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &fakeschedulingv1alpha1.SchedulingV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client.
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
-	return &faketenancyv1alpha1.TenancyV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &faketenancyv1alpha1.TenancyV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // TenancyV1beta1 retrieves the TenancyV1beta1Client.
 func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
-	return &faketenancyv1beta1.TenancyV1beta1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &faketenancyv1beta1.TenancyV1beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // TopologyV1alpha1 retrieves the TopologyV1alpha1Client.
 func (c *Clientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface {
-	return &faketopologyv1alpha1.TopologyV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &faketopologyv1alpha1.TopologyV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client.
 func (c *Clientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface {
-	return &fakeworkloadv1alpha1.WorkloadV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
+	return &fakeworkloadv1alpha1.WorkloadV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }

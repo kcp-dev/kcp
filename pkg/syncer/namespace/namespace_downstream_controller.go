@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -68,11 +68,11 @@ type DownstreamController struct {
 	createConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	updateConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 
-	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Name
-	syncTargetUID       types.UID
-	syncTargetKey       string
-	dnsNamespace        string
+	syncTargetName        string
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetKey         string
+	dnsNamespace          string
 }
 
 func NewDownstreamController(
@@ -139,11 +139,11 @@ func NewDownstreamController(
 			return kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
 
-		syncTargetName:      syncTargetName,
-		syncTargetWorkspace: syncTargetWorkspace,
-		syncTargetUID:       syncTargetUID,
-		syncTargetKey:       syncTargetKey,
-		dnsNamespace:        dnsNamespace,
+		syncTargetName:        syncTargetName,
+		syncTargetClusterName: syncTargetWorkspace,
+		syncTargetUID:         syncTargetUID,
+		syncTargetKey:         syncTargetKey,
+		dnsNamespace:          dnsNamespace,
 
 		namespaceCleanDelay: namespaceCleanDelay,
 	}

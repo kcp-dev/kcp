@@ -77,7 +77,7 @@ Out of the box, the server supports the following resources:
 
 - `apiresourceschemas`
 - `apiexports`
-- `clusterworkspaceshards`
+- `shards`
 
 All those resources are represented as CustomResourceDefinitions and
 stored in `system:cache:server` shard under `system:system-crds` cluster.
@@ -121,11 +121,11 @@ Parameters:
 
 For example:
 
-`/services/cache/shards/*/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for all shards and clusters
+`/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports`: for listing apiexports for all shards and clusters
 
-`/services/cache/shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for amber shard for all clusters
+`/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports`: for listing apiexports for amber shard for all clusters
 
-`/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for sapphire shard stored in system:sapphire cluster
+`/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha1/apiexports`: for listing apiexports for sapphire shard stored in system:sapphire cluster
 
 #### On the storage layer
 

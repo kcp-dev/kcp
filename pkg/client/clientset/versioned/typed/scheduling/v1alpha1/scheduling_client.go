@@ -33,7 +33,7 @@ type SchedulingV1alpha1Interface interface {
 	PlacementsGetter
 }
 
-// SchedulingV1alpha1Client is used to interact with features provided by the scheduling.kcp.dev group.
+// SchedulingV1alpha1Client is used to interact with features provided by the scheduling.kcp.io group.
 type SchedulingV1alpha1Client struct {
 	restClient rest.Interface
 }

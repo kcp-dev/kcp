@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,8 +40,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/resourcequota"
 	"k8s.io/kubernetes/pkg/quota/v1/install"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -58,7 +58,7 @@ type scopeableInformerFactory interface {
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
+	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	kubeClusterClient                     kcpkubernetesclientset.ClusterInterface
 	informersStarted                      <-chan struct{}
 
@@ -77,15 +77,15 @@ type Controller struct {
 	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
-	getClusterWorkspace func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 }
 
 // NewController creates a new Controller.
 func NewController(
-	clusterWorkspacesInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
+	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	quotaRecalculationPeriod time.Duration,
 	fullResyncPeriod time.Duration,
 	workersPerLogicalCluster int,
@@ -108,12 +108,12 @@ func NewController(
 		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
-		getClusterWorkspace: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-			return clusterWorkspacesInformer.Lister().Cluster(cluster).Get(name)
+		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 	}
 
-	clusterWorkspacesInformer.Informer().AddEventHandler(
+	logicalClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -193,17 +193,16 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // process processes a single key from the queue.
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return nil
 	}
+	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
 
-	// turn it into root:org:ws
-	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getClusterWorkspace(parent, name)
+	ws, err := c.getLogicalCluster(clusterName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")
@@ -240,7 +239,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 	c.cancelFuncs[clusterName] = cancel
 
-	if err := c.startQuotaForClusterWorkspace(ctx, clusterName); err != nil {
+	if err := c.startQuotaForLogicalCluster(ctx, clusterName); err != nil {
 		cancel()
 		return fmt.Errorf("error starting quota controller for cluster %q: %w", clusterName, err)
 	}
@@ -248,9 +247,9 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
-	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName)
+	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
 	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
 	// to get support for the special evaluators for pods/services/pvcs.

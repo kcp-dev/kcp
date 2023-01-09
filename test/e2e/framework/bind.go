@@ -19,7 +19,7 @@ package framework
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,25 +27,27 @@ import (
 
 type BindComputeOption func(t *testing.T, w *bindCompute)
 
-// bindCompute construct and run a kcp compute bind command
+// bindCompute construct and run a kcp compute bind command.
 type bindCompute struct {
 	apiExports        []string
 	nsSelector        string
 	locationSelectors []string
-	locationWorkspace logicalcluster.Name
+	locationWorkspace logicalcluster.Path
 	kubeconfigPath    string
 	placementName     string
 }
 
-func NewBindCompute(t *testing.T, clusterName logicalcluster.Name, server RunningServer, opts ...BindComputeOption) *bindCompute {
+func NewBindCompute(t *testing.T, path logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
+	t.Helper()
+
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", clusterName)
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", path)
 
 	workloadBind := &bindCompute{
 		kubeconfigPath:    kubeconfigPath,
-		locationWorkspace: clusterName,
+		locationWorkspace: path,
 	}
 
 	for _, opt := range opts {
@@ -56,6 +58,7 @@ func NewBindCompute(t *testing.T, clusterName logicalcluster.Name, server Runnin
 }
 
 func (w bindCompute) Bind(t *testing.T) {
+	t.Helper()
 	t.Logf("Bind workload workspace %s", w.locationWorkspace)
 	pluginArgs := []string{
 		"bind",
@@ -84,24 +87,28 @@ func (w bindCompute) Bind(t *testing.T) {
 
 func WithPlacementNameBindOption(placementName string) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.placementName = placementName
 	}
 }
 
-func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Name) BindComputeOption {
+func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Path) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.locationWorkspace = clusterName
 	}
 }
 
 func WithAPIExportsWorkloadBindOption(apiexports ...string) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.apiExports = apiexports
 	}
 }
 
 func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 		require.NoError(t, err)
 		w.nsSelector = labelSelector.String()
@@ -110,6 +117,7 @@ func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) BindCompute
 
 func WithLocationSelectorWorkloadBindOption(selectors ...metav1.LabelSelector) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		for _, selector := range selectors {
 			labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 			require.NoError(t, err)

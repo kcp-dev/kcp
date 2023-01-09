@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -44,26 +45,26 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 	}{
 		{
 			name: "export not found",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
+					Export: "kubernetes",
 				},
 			}, nil),
 		},
 		{
 			name: "resource schemas not found",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
+					Export: "kubernetes",
 				},
 			}, nil),
 			export: newAPIExport("kubernetes", []string{"v1.service"}, ""),
 		},
 		{
 			name: "update status correctly",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
+					Export: "kubernetes",
 				},
 			}, nil),
 			export: newAPIExport("kubernetes", []string{"v1.service", "apps.v1.deployment"}, ""),
@@ -78,9 +79,9 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 		},
 		{
 			name: "update existing",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
+					Export: "kubernetes",
 				}},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
@@ -99,9 +100,9 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 		},
 		{
 			name: "multiple versions",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
+					Export: "kubernetes",
 				}},
 				nil,
 			),
@@ -121,7 +122,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			getAPIExport := func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			getAPIExport := func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 				if tc.export == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
@@ -154,7 +155,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 	}
 }
 
-func newSyncTarget(exports []apisv1alpha1.ExportReference, syncedResource []workloadv1alpha1.ResourceToSync) *workloadv1alpha1.SyncTarget {
+func newSyncTarget(exports []tenancyv1alpha1.APIExportReference, syncedResource []workloadv1alpha1.ResourceToSync) *workloadv1alpha1.SyncTarget {
 	return &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-synctarget",

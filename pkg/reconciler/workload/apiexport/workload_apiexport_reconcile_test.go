@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -37,12 +37,15 @@ import (
 	"github.com/kcp-dev/kcp/config/rootcompute"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 type SchemaCheck func(t *testing.T, s *apisv1alpha1.APIResourceSchema)
 
-func someSchemaWeDontCareAboutInDetail(t *testing.T, got *apisv1alpha1.APIResourceSchema) {}
+func someSchemaWeDontCareAboutInDetail(t *testing.T, got *apisv1alpha1.APIResourceSchema) {
+	t.Helper()
+}
 
 func equals(expected *apisv1alpha1.APIResourceSchema) func(*testing.T, *apisv1alpha1.APIResourceSchema) {
 	return func(t *testing.T, got *apisv1alpha1.APIResourceSchema) {
@@ -83,35 +86,35 @@ func TestSchemaReconciler(t *testing.T) {
 		wantError           bool
 	}{
 		"some other export": {
-			export:              export(logicalcluster.New("root:org:ws"), "test"),
+			export:              export(logicalcluster.NewPath("root:org:ws"), "test"),
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"no negotiated API resources": {
-			export:              export(logicalcluster.New("root:org:ws"), "kubernetes"),
+			export:              export(logicalcluster.NewPath("root:org:ws"), "kubernetes"),
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"dangling schema, but no negotiated API resources": {
-			export:              export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
+			export:              export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"negotiated API resource, but some other export": {
-			export: export(logicalcluster.New("root:org:ws"), "something", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "something", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
 				},
 			},
 			wantReconcileStatus: reconcileStatusStop,
 		},
 		"full api resource": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "kubernetes"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "kubernetes"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
+				"root:org:ws": {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:            "deployments.v1.apps",
@@ -173,7 +176,7 @@ func TestSchemaReconciler(t *testing.T) {
 						Name: "rev-52.deployments.apps",
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion:         "apis.kcp.dev/v1alpha1",
+								APIVersion:         "apis.kcp.io/v1alpha1",
 								Kind:               "APIExport",
 								Name:               "kubernetes",
 								Controller:         pointer.BoolPtr(true),
@@ -239,10 +242,10 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"non-triple schema name": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "foo"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "foo"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			wantSchemaCreates: map[string]SchemaCheck{
@@ -254,15 +257,15 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"dangling schema in export": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-43.deployments.apps"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-43", "apps", "v1", "Deployment"), "kubernetes"),
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-43", "apps", "v1", "Deployment"), "kubernetes"),
 				},
 			},
 			wantSchemaCreates: map[string]SchemaCheck{
@@ -275,30 +278,30 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"up-to-date schema": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
 				},
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"outdated schema": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
+				"root:org:ws": {
 					withDifferentOpenAPI(
-						withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),
+						withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),
 						`{"type":"object"}`,
 					),
 				},
@@ -313,37 +316,37 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"unused schemas": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),        // older RV
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-19", "apps", "v1", "Deployment"), "kubernetes"), // older RV
-					apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"),                                       // not owned by export
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"),        // older RV
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-19", "apps", "v1", "Deployment"), "kubernetes"), // older RV
+					apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"),                                       // not owned by export
 				},
 			},
 			wantSchemaDeletes:   map[string]struct{}{"rev-19.deployments.apps": {}},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"skip kubernetes schema": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
-				logicalcluster.New("root:org:ws"): {
-					syncTarget("syncTarget1", rootcompute.RootComputeWorkspace, "kubernetes"),
+				"root:org:ws": {
+					syncTarget("syncTarget1", rootcompute.RootComputeClusterName, "kubernetes"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-15", "", "v1", "Service"), "kubernetes"),
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-15", "", "v1", "Service"), "kubernetes"),
 				},
 			},
 			wantSchemaDeletes: map[string]struct{}{"rev-15.services.core": {}},
@@ -353,20 +356,20 @@ func TestSchemaReconciler(t *testing.T) {
 			wantReconcileStatus: reconcileStatusContinue,
 		},
 		"keep local kubernetes schema": {
-			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			export: export(logicalcluster.NewPath("root:org:ws"), "kubernetes", "rev-10.services.core"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
-				logicalcluster.New("root:org:ws"): {
-					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				"root:org:ws": {
+					negotiatedAPIResource(logicalcluster.NewPath("root:org:ws"), "core", "v1", "Service"),
 				},
 			},
 			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
-				logicalcluster.New("root:org:ws"): {
-					syncTarget("syncTarget1", logicalcluster.New("root:org:ws"), "other-export"),
+				"root:org:ws": {
+					syncTarget("syncTarget1", logicalcluster.NewPath("root:org:ws"), "other-export"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
-				logicalcluster.New("root:org:ws"): {
-					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
+				"root:org:ws": {
+					withExportOwner(apiResourceSchema(logicalcluster.NewPath("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
 				},
 			},
 			wantReconcileStatus: reconcileStatusContinue,
@@ -404,23 +407,23 @@ func TestSchemaReconciler(t *testing.T) {
 							return s, nil
 						}
 					}
-					return nil, apierrors.NewNotFound(schema.GroupResource{Group: "apis.kcp.dev", Resource: "apiresourceschemas"}, name)
+					return nil, apierrors.NewNotFound(schema.GroupResource{Group: "apis.kcp.io", Resource: "apiresourceschemas"}, name)
 				},
-				createAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
+				createAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.createAPIResourceSchemaError != nil {
 						return nil, tc.createAPIResourceSchemaError
 					}
 					schemaCreates[schema.Name] = schema.DeepCopy()
 					return schema, nil
 				},
-				updateAPIExport: func(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
+				updateAPIExport: func(ctx context.Context, clusterName logicalcluster.Path, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
 					if tc.updateAPIExportError != nil {
 						return nil, tc.updateAPIExportError
 					}
 					exportUpdates[export.Name] = export.DeepCopy()
 					return export, nil
 				},
-				deleteAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Name, name string) error {
+				deleteAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Path, name string) error {
 					if tc.deleteAPIResourceSchemaError != nil {
 						return tc.deleteAPIResourceSchemaError
 					}
@@ -471,7 +474,7 @@ func TestSchemaReconciler(t *testing.T) {
 	}
 }
 
-func export(clusterName logicalcluster.Name, name string, exports ...string) *apisv1alpha1.APIExport {
+func export(clusterName logicalcluster.Path, name string, exports ...string) *apisv1alpha1.APIExport {
 	return &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -485,7 +488,7 @@ func export(clusterName logicalcluster.Name, name string, exports ...string) *ap
 	}
 }
 
-func apiResourceSchema(clusterName logicalcluster.Name, prefix string, group string, version string, kind string) *apisv1alpha1.APIResourceSchema {
+func apiResourceSchema(clusterName logicalcluster.Path, prefix string, group string, version string, kind string) *apisv1alpha1.APIResourceSchema {
 	nameGroup := group
 	if nameGroup == "" {
 		nameGroup = "core"
@@ -543,7 +546,7 @@ func withDifferentOpenAPI(schema *apisv1alpha1.APIResourceSchema, openAPISchema 
 	return schema
 }
 
-func negotiatedAPIResource(clusterName logicalcluster.Name, group string, version string, kind string) *apiresourcev1alpha1.NegotiatedAPIResource {
+func negotiatedAPIResource(clusterName logicalcluster.Path, group string, version string, kind string) *apiresourcev1alpha1.NegotiatedAPIResource {
 	return &apiresourcev1alpha1.NegotiatedAPIResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            fmt.Sprintf("%ss.%s.%s", strings.ToLower(kind), version, group),
@@ -575,18 +578,16 @@ func negotiatedAPIResource(clusterName logicalcluster.Name, group string, versio
 	}
 }
 
-func syncTarget(syncTargetName string, exportWorkspace logicalcluster.Name, exportName string) *workloadv1alpha1.SyncTarget {
+func syncTarget(syncTargetName string, computeWorkspace logicalcluster.Path, exportName string) *workloadv1alpha1.SyncTarget {
 	return &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: syncTargetName,
 		},
 		Spec: workloadv1alpha1.SyncTargetSpec{
-			SupportedAPIExports: []apisv1alpha1.ExportReference{
+			SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       exportWorkspace.String(),
-						ExportName: exportName,
-					},
+					Path:   computeWorkspace.String(),
+					Export: exportName,
 				},
 			},
 		},

@@ -1,0 +1,14 @@
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: home
+spec:
+  extend:
+    with:
+    - name: universal
+      path: root
+  defaultChildWorkspaceType:
+    name: universal
+    path: root
+  limitAllowedParents:
+    none: true

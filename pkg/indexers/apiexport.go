@@ -19,8 +19,8 @@ package indexers
 import (
 	"fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -64,8 +64,4 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 	}
 
 	return []string{kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), ref.Namespace, ref.Name)}, nil
-}
-
-func ClusterPathAndAPIExportName(clusterPath, exportName string) string {
-	return fmt.Sprintf("%s|%s", clusterPath, exportName)
 }

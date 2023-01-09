@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,7 +48,7 @@ const (
 )
 
 // rootComputeResourceSchema are the APIResourceSchemas which should not be added into the APIExport. These are
-// APIResourceSchemas of kubernetes in root:compute workspace
+// APIResourceSchemas of kubernetes in root:compute workspace.
 var rootComputeResourceSchema = sets.NewString(
 	"deployments.apps",
 	"services.core",
@@ -64,9 +64,9 @@ type schemaReconciler struct {
 	listAPIResourceSchemas     func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error)
 	listSyncTargets            func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
-	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, name string) error
-	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
+	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
+	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Path, name string) error
+	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.Path, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
 
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 }
@@ -106,6 +106,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 
 		// APIResourceSchemas already in root:compute should be skipped.
 		if shouldSkip && rootComputeResourceSchema.Has(schemaName) {
+			logger.V(4).Info("Skipping resource that's already in root:compute", "resource", schemaName)
 			continue
 		}
 
@@ -162,7 +163,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		schema.OwnerReferences = []metav1.OwnerReference{
 			*metav1.NewControllerRef(export, apisv1alpha1.SchemeGroupVersion.WithKind("APIExport")),
 		}
-		schema, err = r.createAPIResourceSchema(ctx, clusterName, schema)
+		schema, err = r.createAPIResourceSchema(ctx, clusterName.Path(), schema)
 		if apierrors.IsAlreadyExists(err) {
 			schema, err = r.getAPIResourceSchema(ctx, clusterName, schemaName)
 		}
@@ -189,7 +190,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		referencedSchemaNames[schema.Name] = true
 	}
 	if !reflect.DeepEqual(old.Spec.LatestResourceSchemas, export.Spec.LatestResourceSchemas) {
-		if _, err := r.updateAPIExport(ctx, clusterName, export); err != nil {
+		if _, err := r.updateAPIExport(ctx, clusterName.Path(), export); err != nil {
 			return reconcileStatusStop, err
 		}
 	}
@@ -202,7 +203,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	for _, schema := range allSchemas {
 		if !referencedSchemaNames[schema.Name] && metav1.IsControlledBy(schema, export) {
 			logging.WithObject(logger, schema).V(2).Info("deleting schema of APIExport")
-			if err := r.deleteAPIResourceSchema(ctx, clusterName, schema.Name); err != nil && !apierrors.IsNotFound(err) {
+			if err := r.deleteAPIResourceSchema(ctx, clusterName.Path(), schema.Name); err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStop, err
 			}
 		}
@@ -219,10 +220,8 @@ func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name
 
 	for _, syncTarget := range syncTargets {
 		for _, export := range syncTarget.Spec.SupportedAPIExports {
-			if export.Workspace == nil {
-				continue
-			}
-			if export.Workspace.ExportName == TemporaryComputeServiceExportName && export.Workspace.Path == rootcompute.RootComputeWorkspace.String() {
+			// TODO: this does not work. We must not handle root:compute special in any way.
+			if export.Export == TemporaryComputeServiceExportName && export.Path == rootcompute.RootComputeClusterName.String() {
 				return true, nil
 			}
 		}
@@ -283,19 +282,19 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	schema, err := c.apiResourceSchemaLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(err) {
-		return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
+		return c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
 	}
 	return schema, err
 }
 
-func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
 }
 
-func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
+func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Path, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Update(ctx, export, metav1.UpdateOptions{})
 }
 
-func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) error {
+func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Path, name string) error {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Delete(ctx, name, metav1.DeleteOptions{})
 }

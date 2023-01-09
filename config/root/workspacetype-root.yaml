@@ -1,0 +1,19 @@
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: root
+  annotations:
+    bootstrap.kcp.io/create-only: "true"
+spec:
+{{- $bat := index .Batteries "cluster-workspace-types" -}}
+{{ if eq $bat true }}
+  defaultChildWorkspaceType:
+    name: organization
+    path: root
+{{ end }}
+  limitAllowedParents:
+    none: true
+  extend:
+    with:
+    - name: universal
+      path: root

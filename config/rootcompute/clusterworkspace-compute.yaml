@@ -1,10 +1,10 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspace
+apiVersion: tenancy.kcp.io/v1beta1
+kind: Workspace
 metadata:
   name: compute
   annotations:
-    bootstrap.kcp.dev/create-only: "true"
-    bootstrap.kcp.dev/battery: root-compute-workspace
+    bootstrap.kcp.io/create-only: "true"
+    bootstrap.kcp.io/battery: root-compute-workspace
 spec:
   type:
     name: universal

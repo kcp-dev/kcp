@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type APIBindingClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIBinding, err error)
 	// Cluster returns a lister that can list and get APIBindings in one workspace.
-	Cluster(cluster logicalcluster.Name) APIBindingLister
+	Cluster(clusterName logicalcluster.Name) APIBindingLister
 	APIBindingClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *aPIBindingClusterLister) List(selector labels.Selector) (ret []*apisv1a
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIBindings.
-func (s *aPIBindingClusterLister) Cluster(cluster logicalcluster.Name) APIBindingLister {
-	return &aPIBindingLister{indexer: s.indexer, cluster: cluster}
+func (s *aPIBindingClusterLister) Cluster(clusterName logicalcluster.Name) APIBindingLister {
+	return &aPIBindingLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // APIBindingLister can list all APIBindings, or get one in particular.
@@ -83,13 +83,13 @@ type APIBindingLister interface {
 
 // aPIBindingLister can list all APIBindings inside a workspace.
 type aPIBindingLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all APIBindings in the indexer for a workspace.
 func (s *aPIBindingLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIBinding, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*apisv1alpha1.APIBinding))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *aPIBindingLister) List(selector labels.Selector) (ret []*apisv1alpha1.A
 
 // Get retrieves the APIBinding from the indexer for a given workspace and name.
 func (s *aPIBindingLister) Get(name string) (*apisv1alpha1.APIBinding, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

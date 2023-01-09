@@ -23,7 +23,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,19 +32,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Resource is a generic wrapper around resources so we can generate patches
+// Resource is a generic wrapper around resources so we can generate patches.
 type Resource[Sp any, St any] struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              Sp `json:"spec"`
 	Status            St `json:"status,omitempty"`
 }
 
-// ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe
+// ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe.
 type ClusterPatcher[R runtime.Object, P Patcher[R]] interface {
-	Cluster(cluster logicalcluster.Name) P
+	Cluster(cluster logicalcluster.Path) P
 }
 
-// Patcher is just the Patch API with a generic to keep use sites type safe
+// Patcher is just the Patch API with a generic to keep use sites type safe.
 type Patcher[R runtime.Object] interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (R, error)
 }
@@ -52,7 +52,7 @@ type Patcher[R runtime.Object] interface {
 // NewCommitter returns a function that can patch instances of R based on meta, spec or status
 // changes using a cluster-aware patcher.
 func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", *new(R))
+	focusType := fmt.Sprintf("%T", new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
 		clusterName := logicalcluster.From(old)
@@ -67,20 +67,19 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 		}
 
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
-		_, err = patcher.Cluster(clusterName).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+		_, err = patcher.Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s %s|%s: %w", focusType, clusterName, old.Name, err)
 		}
 
 		return nil
 	}
-
 }
 
 // NewCommitterScoped returns a function that can patch instances of R based on meta, spec or
 // status changes using a scoped patcher.
 func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", *new(R))
+	focusType := fmt.Sprintf("%T", new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
 		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)

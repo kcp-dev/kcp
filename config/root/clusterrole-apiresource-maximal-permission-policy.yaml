@@ -3,12 +3,12 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:apiresource:maximal-permission-policy
 rules:
-- apiGroups: ["apiresource.kcp.dev"]
+- apiGroups: ["apiresource.kcp.io"]
   verbs: ["*"]
   resources:
   - apiresourceimports
   - negotiatedapiresources
-- apiGroups: ["apiresource.kcp.dev"]
+- apiGroups: ["apiresource.kcp.io"]
   verbs: ["get","list","watch"]
   resources:
   - apiresourceimports/status

@@ -19,11 +19,10 @@ package apifixtures
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,20 +40,22 @@ import (
 func BindToExport(
 	ctx context.Context,
 	t *testing.T,
-	exportClusterName logicalcluster.Name,
+	exportPath logicalcluster.Path,
 	apiExportName string,
-	bindingClusterName logicalcluster.Name,
+	bindingClusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 ) {
+	t.Helper()
+
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.ReplaceAll(exportClusterName.String(), ":", "-"),
+			Name: exportPath.String(),
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       exportClusterName.String(),
-					ExportName: apiExportName,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: exportPath.String(),
+					Name: apiExportName,
 				},
 			},
 		},
@@ -78,6 +79,7 @@ func BindToExport(
 }
 
 func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
 	bs, err := yaml.Marshal(obj)
 	require.NoError(t, err, "error converting to YAML")
 	return string(bs)

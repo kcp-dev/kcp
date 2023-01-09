@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +53,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 	}{
 		"NamespaceSyncer removes downstream namespace when no matching upstream has been found, expect downstream namespace deletion": {
 			upstreamNamespaceExists: false,
-			deletedNamespace:        "kcp-hcbsa8z6c2er",
+			deletedNamespace:        "kcp-33jbiactwhg0",
 			eventOrigin:             "downstream",
 		},
 		"NamespaceSyncer doesn't remove downstream namespace when nsLocator synctarget UID is different, expect no namespace deletion": {
@@ -89,14 +89,14 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			downstreamNamespace := namespace(logicalcluster.New(""), "kcp-hcbsa8z6c2er", map[string]string{
-				"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
+			downstreamNamespace := namespace(logicalcluster.NewPath(""), "kcp-33jbiactwhg0", map[string]string{
+				"internal.workload.kcp.io/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 			}, map[string]string{
-				"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+				"kcp.io/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 			})
-			syncTargetWorkspace := logicalcluster.New("root:org:ws")
+			syncTargetClusterName := logicalcluster.Name("root:org:ws")
 			syncTargetName := "us-west1"
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, syncTargetName)
 			syncTargetUID := types.UID("syncTargetUID")
 			if tc.syncTargetUID != "" {
 				syncTargetUID = tc.syncTargetUID
@@ -128,18 +128,18 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				isDowntreamNamespaceEmpty: func(ctx context.Context, namespaceName string) (bool, error) {
 					return true, nil
 				},
-				syncTargetName:      syncTargetName,
-				syncTargetWorkspace: syncTargetWorkspace,
-				syncTargetUID:       syncTargetUID,
-				syncTargetKey:       syncTargetKey,
-				dnsNamespace:        "kcp-hcbsa8z6c2er",
+				syncTargetName:        syncTargetName,
+				syncTargetClusterName: syncTargetClusterName,
+				syncTargetUID:         syncTargetUID,
+				syncTargetKey:         syncTargetKey,
+				dnsNamespace:          "kcp-33jbiactwhg0",
 			}
 
 			var key string
 			if tc.eventOrigin == "downstream" {
 				key = downstreamNamespace.GetName()
 			} else if tc.eventOrigin == "upstream" {
-				key = client.ToClusterAwareKey(logicalcluster.New("root:org:ws"), "test")
+				key = client.ToClusterAwareKey(logicalcluster.NewPath("root:org:ws"), "test")
 			} else {
 				t.Fatalf("unexpected event origin: %s", tc.eventOrigin)
 			}
@@ -157,7 +157,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 	}
 }
 
-func namespace(clusterName logicalcluster.Name, name string, labels, annotations map[string]string) *corev1.Namespace {
+func namespace(clusterName logicalcluster.Path, name string, labels, annotations map[string]string) *corev1.Namespace {
 	if !clusterName.Empty() {
 		if annotations == nil {
 			annotations = make(map[string]string)

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -112,13 +112,13 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		return errors.New("missing environment variable: NAMESPACE")
 	}
 
-	if err := syncer.StartSyncer(
+	return syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
 			UpstreamConfig:                upstreamConfig,
 			DownstreamConfig:              downstreamConfig,
 			ResourcesToSync:               sets.NewString(options.SyncedResourceTypes...),
-			SyncTargetWorkspace:           logicalcluster.New(options.FromClusterName),
+			SyncTargetPath:                logicalcluster.NewPath(options.FromClusterPath),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,
 			DNSImage:                      options.DNSImage,
@@ -127,9 +127,5 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		numThreads,
 		options.APIImportPollInterval,
 		namespace,
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }

@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +31,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
 )
 
 func TestMutateResourceRemainingStatus(t *testing.T) {
@@ -200,7 +200,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			controller := &Controller{
-				listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+				listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 					if tt.existingObjects == nil {
 						return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
 					}
@@ -209,7 +209,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 					}
 					return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
 				},
-				deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
+				deleteResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error {
 					return nil
 				},
 			}
@@ -239,7 +239,7 @@ func newPartialObject(apiversion, kind, name, namespace string, finlizers []stri
 	}
 }
 
-// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests
+// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests.
 func matchErrors(e1, e2 error) bool {
 	if e1 == nil && e2 == nil {
 		return true

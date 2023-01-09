@@ -19,18 +19,18 @@ package replication
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
 const (
-	// ByShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's shard and logical cluster, namespace and name
+	// ByShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's shard and logical cluster, namespace and name.
 	ByShardAndLogicalClusterAndNamespaceAndName = "kcp-byShardAndLogicalClusterAndNamespaceAndName"
 )
 
-// IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name
+// IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
 func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
 	a, err := meta.Accessor(obj)
 	if err != nil {

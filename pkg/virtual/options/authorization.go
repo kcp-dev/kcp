@@ -35,7 +35,7 @@ type Authorization struct {
 	// paths or end in * in which case prefix-match is applied. A leading / is optional.
 	AlwaysAllowPaths []string
 
-	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is system:masters.
+	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is the privileged system group.
 	AlwaysAllowGroups []string
 }
 
@@ -48,13 +48,13 @@ func NewAuthorization() *Authorization {
 	}
 }
 
-// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups
+// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups.
 func (s *Authorization) WithAlwaysAllowGroups(groups ...string) *Authorization {
 	s.AlwaysAllowGroups = append(s.AlwaysAllowGroups, groups...)
 	return s
 }
 
-// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths
+// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths.
 func (s *Authorization) WithAlwaysAllowPaths(paths ...string) *Authorization {
 	s.AlwaysAllowPaths = append(s.AlwaysAllowPaths, paths...)
 	return s

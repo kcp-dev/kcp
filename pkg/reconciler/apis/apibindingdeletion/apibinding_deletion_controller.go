@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,22 +45,22 @@ import (
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
 )
 
 const (
 	ControllerName = "kcp-apibindingdeletion"
 
-	APIBindingFinalizer = "apis.kcp.dev/apibinding-finalizer"
+	APIBindingFinalizer = "apis.kcp.io/apibinding-finalizer"
 
 	DeletionRecheckEstimateSeconds = 5
 
 	// ResourceDeletionFailedReason is the reason for condition BindingResourceDeleteSuccess that deletion of
-	// some CRs is failed
+	// some CRs is failed.
 	ResourceDeletionFailedReason = "ResourceDeletionFailed"
 
 	// ResourceRemainingReason is the reason for condition BindingResourceDeleteSuccess that some CR resource still
-	// exists when apibinding is deleting
+	// exists when apibinding is deleting.
 	ResourceRemainingReason = "SomeResourcesRemain"
 
 	// ResourceFinalizersRemainReason is the reason for condition BindingResourceDeleteSuccess that finalizers on some
@@ -77,10 +77,10 @@ func NewController(
 
 	c := &Controller{
 		queue: queue,
-		listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+		listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 		},
-		deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
+		deleteResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error {
 			background := metav1.DeletePropagationBackground
 			opts := metav1.DeleteOptions{PropagationPolicy: &background}
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(namespace).DeleteCollection(ctx, opts, metav1.ListOptions{})
@@ -119,8 +119,8 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	listResources   func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error)
-	deleteResources func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error
+	listResources   func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error)
+	deleteResources func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error
 
 	getAPIBinding func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 	commit        CommitFunc
@@ -205,12 +205,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
+	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey is updated
 
 	defer func() {
 		logger.V(4).Info("finished syncing", "duration", time.Since(startTime))
 	}()
 
-	apibinding, deleteErr := c.getAPIBinding(cluster, name)
+	apibinding, deleteErr := c.getAPIBinding(clusterName, name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(3).Info("APIBinding has been deleted")
 		return nil

@@ -36,9 +36,9 @@ type FakeAPIExports struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apiexportsResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"}
+var apiexportsResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiexports"}
 
-var apiexportsKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIExport"}
+var apiexportsKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIExport"}
 
 // Get takes name of the aPIExport, and returns the corresponding aPIExport object, and an error if there is any.
 func (c *FakeAPIExports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExport, err error) {

@@ -1,5 +1,5 @@
 ---
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIExport
 metadata:
   name: cert-manager-stable

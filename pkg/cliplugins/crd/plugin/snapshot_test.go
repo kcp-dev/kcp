@@ -49,6 +49,7 @@ func TestSnapshot(t *testing.T) {
 	require.Empty(t, cmp.Diff(expectedYAML, strings.Trim(stdout.String(), "\n")))
 }
 
+//nolint:dupword
 var multiCRDYaml = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -357,7 +358,8 @@ spec:
       status: {}
 `
 
-var expectedYAML = `apiVersion: apis.kcp.dev/v1alpha1
+//nolint:dupword
+var expectedYAML = `apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
@@ -576,7 +578,7 @@ spec:
     subresources: {}
 
 ---
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null

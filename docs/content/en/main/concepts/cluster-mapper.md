@@ -49,7 +49,7 @@ Assumption: we prefer not to require order to correctly map, but some order is i
 4. sync some fields (status?) back to source object
 5. delete all objects no longer assigned to the remote location
    - read all mappable objects from all mappable resources?
-     - use `kcp.dev/location=X` label to filter
+     - use `kcp.io/location=X` label to filter
    - detect when an object policy on mapping is changed?
    - only need the partial object (metadata)
    - can we leverage the garbage collector to delete the object?

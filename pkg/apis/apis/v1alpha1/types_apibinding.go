@@ -25,7 +25,7 @@ import (
 const (
 	// InternalAPIBindingExportLabelKey is the label key on an APIBinding with the
 	// base62(sha224(<clusterName>:<exportName>)) as value to filter bindings by export.
-	InternalAPIBindingExportLabelKey = "internal.apis.kcp.dev/export"
+	InternalAPIBindingExportLabelKey = "internal.apis.kcp.io/export"
 )
 
 // APIBinding enables a set of resources and their behaviour through an external
@@ -70,7 +70,7 @@ type APIBindingSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
-	Reference ExportReference `json:"reference"`
+	Reference BindingReference `json:"reference"`
 
 	// permissionClaims records decisions about permission claims requested by the API service provider.
 	// Individual claims can be accepted or rejected. If accepted, the API service provider gets the
@@ -100,32 +100,32 @@ const (
 	ClaimRejected AcceptablePermissionClaimState = "Rejected"
 )
 
-// ExportReference describes a reference to an APIExport. Exactly one of the
+// BindingReference describes a reference to an APIExport. Exactly one of the
 // fields must be set.
-type ExportReference struct {
-	// workspace is a reference to an APIExport in the same organization. The creator
-	// of the APIBinding needs to have access to the APIExport with the verb `bind`
-	// in order to bind to it.
+type BindingReference struct {
+	// export is a reference to an APIExport by cluster name and export name.
+	// The creator of the APIBinding needs to have access to the APIExport with the
+	// verb `bind` in order to bind to it.
 	//
 	// +optional
-	Workspace *WorkspaceExportReference `json:"workspace,omitempty"`
+	Export *ExportBindingReference `json:"export,omitempty"`
 }
 
-// WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the
-// specified Workspace.
-type WorkspaceExportReference struct {
-	// path is an absolute reference to a workspace, e.g. root:org:ws.
-	// If it is unset, the path of the APIBinding is used.
+// ExportBindingReference is a reference to an APIExport by cluster and name.
+type ExportBindingReference struct {
+	// path is a logical cluster path where the APIExport is defined.
+	// If the path is unset, the logical cluster of the APIBinding is used.
+	//
 	// +optional
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path,omitempty"`
 
-	// Name of the APIExport that describes the API.
+	// name is the name of the APIExport that describes the API.
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	ExportName string `json:"exportName"`
+	Name string `json:"name"`
 }
 
 // APIBindingPhaseType is the type of the current phase of an APIBinding.
@@ -224,17 +224,17 @@ const (
 // These are annotations for bound CRDs
 const (
 	// AnnotationBoundCRDKey is the annotation key that indicates a CRD is for an APIExport (a "bound CRD").
-	AnnotationBoundCRDKey = "apis.kcp.dev/bound-crd"
+	AnnotationBoundCRDKey = "apis.kcp.io/bound-crd"
 	// AnnotationSchemaClusterKey is the annotation key for a bound CRD indicating the cluster name of the
 	// APIResourceSchema for the CRD.
-	AnnotationSchemaClusterKey = "apis.kcp.dev/schema-cluster"
+	AnnotationSchemaClusterKey = "apis.kcp.io/schema-cluster"
 	// AnnotationSchemaNameKey is the annotation key for a bound CRD indicating the name of the APIResourceSchema for
 	// the CRD.
-	AnnotationSchemaNameKey = "apis.kcp.dev/schema-name"
+	AnnotationSchemaNameKey = "apis.kcp.io/schema-name"
 	// AnnotationAPIIdentityKey is the annotation key for a bound CRD indicating the identity hash of the APIExport
 	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
 	// CRs for the CRD.
-	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
+	AnnotationAPIIdentityKey = "apis.kcp.io/identity"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..

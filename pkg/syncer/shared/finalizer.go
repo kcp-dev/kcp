@@ -22,7 +22,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ import (
 const (
 	// SyncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
 	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
-	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
+	SyncerFinalizerNamePrefix = "workload.kcp.io/syncer-"
 )
 
 func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer kcpkubernetesinformers.GenericClusterInformer, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
@@ -89,9 +89,9 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 
 	if upstreamNamespace != "" {
-		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+		_, err = upstreamClient.Cluster(logicalClusterName.Path()).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	} else {
-		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+		_, err = upstreamClient.Cluster(logicalClusterName.Path()).Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	}
 
 	if err != nil {

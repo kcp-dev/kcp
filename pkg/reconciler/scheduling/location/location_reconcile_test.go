@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +53,7 @@ func instances(expected uint32) func(t *testing.T, l *schedulingv1alpha1.Locatio
 func labelString(expected string) func(t *testing.T, l *schedulingv1alpha1.Location) {
 	return func(t *testing.T, got *schedulingv1alpha1.Location) {
 		t.Helper()
-		require.Equal(t, expected, got.Annotations["scheduling.kcp.dev/labels"])
+		require.Equal(t, expected, got.Annotations["scheduling.kcp.io/labels"])
 	}
 }
 
@@ -76,12 +76,12 @@ func TestLocationStatusReconciler(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: "root:org:negotiation-workspace",
-				"scheduling.kcp.dev/labels":  "continent=north-america country=usa",
+				"scheduling.kcp.io/labels":   "continent=north-america country=usa",
 			},
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},
@@ -98,7 +98,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 
 	tests := map[string]struct {
 		location    *schedulingv1alpha1.Location
-		syncTargets map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget
+		syncTargets map[logicalcluster.Path][]*workloadv1alpha1.SyncTarget
 
 		listSyncTargetError error
 		updateLocationError error
@@ -124,8 +124,8 @@ func TestLocationStatusReconciler(t *testing.T) {
 		},
 		"with sync targets, across two regions": {
 			location: usEast1,
-			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
-				logicalcluster.New("root:org:negotiation-workspace"): {
+			syncTargets: map[logicalcluster.Path][]*workloadv1alpha1.SyncTarget{
+				logicalcluster.NewPath("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-3"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-east1"}),
@@ -134,7 +134,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 					withLabels(withConditions(cluster("us-west1-1"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-west1"}),
 					withLabels(withConditions(cluster("us-west1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-west1"}),
 				},
-				logicalcluster.New("root:org:somewhere-else"): {
+				logicalcluster.NewPath("root:org:somewhere-else"): {
 					cluster("us-east1-1"),
 					cluster("us-east1-2"),
 				},
@@ -153,9 +153,9 @@ func TestLocationStatusReconciler(t *testing.T) {
 					if tc.listSyncTargetError != nil {
 						return nil, tc.listSyncTargetError
 					}
-					return tc.syncTargets[clusterName], nil
+					return tc.syncTargets[clusterName.Path()], nil
 				},
-				updateLocation: func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
+				updateLocation: func(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 					if tc.updateLocationError != nil {
 						return nil, tc.updateLocationError
 					}

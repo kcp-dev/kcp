@@ -23,8 +23,8 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -39,8 +40,8 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -48,6 +49,7 @@ import (
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 const (
@@ -66,7 +68,6 @@ func NewController(
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 ) (*Controller, error) {
-
 	c := &Controller{
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:     kcpClusterClient,
@@ -84,11 +85,10 @@ func NewController(
 		return nil, err
 	}
 
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemas,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	// Watch for events related to SyncTargets
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -166,27 +166,48 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	}
 
 	lcluster := logicalcluster.From(apiImport)
-	key := client.ToClusterAwareKey(lcluster, apiImport.Spec.Location)
+	key := kcpcache.ToClusterAwareKey(lcluster.String(), "", apiImport.Spec.Location)
 
 	klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
 	c.queue.Add(key)
 }
 
 func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = d.Obj
+	}
+
+	export, ok := obj.(*apisv1alpha1.APIExport)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		return
+	}
+
+	// synctarget keys by full path
+	keys := sets.NewString()
+	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
+		pathKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.NewPath(path).Join(export.Name).String())
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		keys.Insert(pathKeys...)
+	}
+
+	clusterKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	keys.Insert(clusterKeys...)
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(indexSyncTargetsByExport, key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range synctargets {
-		c.enqueueSyncTarget(obj, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
+	for _, key := range keys.List() {
+		syncTarget, _, err := c.syncTargetIndexer.GetByKey(key)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+		c.enqueueSyncTarget(syncTarget, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
 	}
 }
 
@@ -326,7 +347,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	clusterName := logicalcluster.From(currentSyncTarget)
 	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
-	if _, err := c.kcpClusterClient.Cluster(clusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.kcpClusterClient.Cluster(clusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
@@ -334,8 +355,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	return c.apiExportLister.Cluster(clusterName).Get(name)
+func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+	return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), c.apiExportsIndexer, path, name)
 }
 
 func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {

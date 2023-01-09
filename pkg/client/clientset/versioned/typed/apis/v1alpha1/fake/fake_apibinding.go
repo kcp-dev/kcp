@@ -36,9 +36,9 @@ type FakeAPIBindings struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apibindingsResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apibindings"}
+var apibindingsResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apibindings"}
 
-var apibindingsKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIBinding"}
+var apibindingsKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIBinding"}
 
 // Get takes name of the aPIBinding, and returns the corresponding aPIBinding object, and an error if there is any.
 func (c *FakeAPIBindings) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIBinding, err error) {

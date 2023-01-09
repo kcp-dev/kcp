@@ -25,11 +25,11 @@ import (
 type shardKey int
 
 const (
-	// shardContextKey is the context key for a request
+	// shardContextKey is the context key for a request.
 	shardContextKey shardKey = iota
 )
 
-// WithShardInContext returns a context with the given shard set
+// WithShardInContext returns a context with the given shard set.
 func WithShardInContext(parent context.Context, shard shard.Name) context.Context {
 	return context.WithValue(parent, shardContextKey, shard)
 }

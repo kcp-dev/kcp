@@ -19,13 +19,14 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// WorkspaceNameLabel is a label indicating the workspace in which the given
-// object resides.
-const WorkspaceNameLabel = "workspaces.kcp.dev/name"
+// LogicalClusterTypeAnnotationKey is the annotation key used to indicate
+// the type of the workspace on the corresponding LogicalCluster object. Its format is "root:ws:name".
+const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
 // discovery APIs, OpenAPI and resource API endpoints.
@@ -41,9 +42,9 @@ const WorkspaceNameLabel = "workspaces.kcp.dev/name"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp,shortName=ws
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
-// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.dev/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Workspace struct {
 	metav1.TypeMeta `json:",inline"`
@@ -57,47 +58,82 @@ type Workspace struct {
 }
 
 // WorkspaceSpec holds the desired state of the ClusterWorkspace.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster cannot be unset"
 type WorkspaceSpec struct {
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
 	// If no type is provided, the default type for the workspace in which this workspace
 	// is nesting will be used.
 	//
-	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
-	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
+	// The type is a reference to a WorkspaceType in the listed workspace, but
+	// lower-cased. The WorkspaceType existence is validated at admission during
 	// creation. The type is immutable after creation. The use of a type is gated via
-	// the RBAC clusterworkspacetypes/use resource permission.
+	// the RBAC workspacetypes/use resource permission.
 	//
 	// +optional
-	Type v1alpha1.ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
+	Type v1alpha1.WorkspaceTypeReference `json:"type,omitempty"`
+
+	// location constraints where this workspace can be scheduled to.
+	//
+	// If the no location is specified, an arbitrary location is chosen.
+	//
+	// +optional
+	Location *WorkspaceLocation `json:"shard,omitempty"`
+
+	// cluster is the name of the logical cluster this workspace is stored under.
+	//
+	// Set by the system.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
+	Cluster string `json:"cluster,omitempty"`
+
+	// URL is the address under which the Kubernetes-cluster-like endpoint
+	// can be found. This URL can be used to access the workspace with standard Kubernetes
+	// client libraries and command line tools.
+	//
+	// Set by the system.
+	//
+	// +kubebuilder:format:uri
+	URL string `json:"URL,omitempty"`
+}
+
+type WorkspaceLocation struct {
+
+	// selector is a label selector that filters workspace scheduling targets.
+	//
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // WorkspaceStatus communicates the observed state of the Workspace.
 type WorkspaceStatus struct {
-	// url is the address under which the Kubernetes-cluster-like endpoint
-	// can be found. This URL can be used to access the workspace with standard Kubernetes
-	// client libraries and command line tools.
+	// Phase of the workspace (Scheduling, Initializing, Ready).
 	//
-	// +required
-	// +kubebuilder:format:uri
-	URL string `json:"URL"`
-
-	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
-	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
+	// +kubebuilder:default=Scheduling
+	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// initializers are set on creation by the system and must be cleared
-	// by a controller before the workspace can be used. The workspace will
-	// stay in the phase "Initializing" state until all initializers are cleared.
-	//
-	// A cluster workspace in "Initializing" state are gated via the RBAC
-	// clusterworkspaces/initialize resource permission.
+	// initializers must be cleared by a controller before the workspace is ready
+	// and can be used.
 	//
 	// +optional
-	Initializers []v1alpha1.ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+}
+
+func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *Workspace) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
 }
 
 // WorkspaceList is a list of Workspaces

@@ -27,7 +27,7 @@ import (
 //
 // placement is in Pending state initially. When a location is selected by the placement, the placement
 // turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location.
-// When the a namespace is annotated by another controller or user with the key of "scheduling.kcp.dev/placement",
+// When the a namespace is annotated by another controller or user with the key of "scheduling.kcp.io/placement",
 // the namespace will pick one placement, and this placement is transferred to Bound state. Any update to spec of the placement
 // is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace
 // uses this placement any more.
@@ -80,7 +80,7 @@ type PlacementSpec struct {
 	// locationWorkspace is an absolute reference to a workspace for the location. If it is not set, the workspace of
 	// APIBinding will be used.
 	// +optional
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	LocationWorkspace string `json:"locationWorkspace,omitempty"`
 }
 
@@ -107,7 +107,7 @@ type LocationReference struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 
 	// Name of the Location.

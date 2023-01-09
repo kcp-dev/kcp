@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type PartitionClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*topologyv1alpha1.Partition, err error)
 	// Cluster returns a lister that can list and get Partitions in one workspace.
-	Cluster(cluster logicalcluster.Name) PartitionLister
+	Cluster(clusterName logicalcluster.Name) PartitionLister
 	PartitionClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *partitionClusterLister) List(selector labels.Selector) (ret []*topology
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Partitions.
-func (s *partitionClusterLister) Cluster(cluster logicalcluster.Name) PartitionLister {
-	return &partitionLister{indexer: s.indexer, cluster: cluster}
+func (s *partitionClusterLister) Cluster(clusterName logicalcluster.Name) PartitionLister {
+	return &partitionLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // PartitionLister can list all Partitions, or get one in particular.
@@ -83,13 +83,13 @@ type PartitionLister interface {
 
 // partitionLister can list all Partitions inside a workspace.
 type partitionLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all Partitions in the indexer for a workspace.
 func (s *partitionLister) List(selector labels.Selector) (ret []*topologyv1alpha1.Partition, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*topologyv1alpha1.Partition))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *partitionLister) List(selector labels.Selector) (ret []*topologyv1alpha
 
 // Get retrieves the Partition from the indexer for a given workspace and name.
 func (s *partitionLister) Get(name string) (*topologyv1alpha1.Partition, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

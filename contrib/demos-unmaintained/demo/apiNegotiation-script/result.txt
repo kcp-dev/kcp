@@ -1,10 +1,10 @@
 [3J[H[2J☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/config
-customresourcedefinition.apiextensions.k8s.io/apiresourceimports.apiresource.kcp.dev created
-customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource.kcp.dev created
-customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.dev created
+customresourcedefinition.apiextensions.k8s.io/apiresourceimports.apiresource.kcp.io created
+customresourcedefinition.apiextensions.k8s.io/negotiatedapiresources.apiresource.kcp.io created
+customresourcedefinition.apiextensions.k8s.io/workloadclusters.workload.kcp.io created
 ☸️ $ kubectl api-resources | grep deployments
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-east1.yaml
-workloadcluster.workload.kcp.dev/us-east1 created
+workloadcluster.workload.kcp.io/us-east1 created
 ☸️ $ kubectl get clusters -o wide
 NAME       LOCATION   READY   SYNCED API RESOURCES
 us-east1   us-east1           
@@ -15,7 +15,7 @@ deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1      
 NAME                  PUBLISH   API VERSION   API RESOURCE   PUBLISHED   ENFORCED
 deployments.v1.apps             apps/v1       deployments                
 ☸️ $ kubectl patch negotiatedapiresources deployments.v1.apps --type="merge" -p '{"spec":{"publish":true}}'
-negotiatedapiresource.apiresource.kcp.dev/deployments.v1.apps patched
+negotiatedapiresource.apiresource.kcp.io/deployments.v1.apps patched
 ☸️ $ kubectl get negotiatedapiresources -o wide
 NAME                  PUBLISH   API VERSION   API RESOURCE   PUBLISHED   ENFORCED
 deployments.v1.apps   true      apps/v1       deployments    False       False
@@ -32,7 +32,7 @@ deployments.v1.apps   true      apps/v1       deployments    True        False
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-west1.yaml
-workloadcluster.workload.kcp.dev/us-west1 created
+workloadcluster.workload.kcp.io/us-west1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
@@ -40,7 +40,7 @@ deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1      
 ☸️ $ kubectl get apiresourceimports deployments.us-west1.v1.apps -o=go-template='{{ range .status.conditions }}{{ if eq .type "Compatible" }}{{ .message }}{{ end }}{{ end }}'
 <no value>
 ☸️ $ kubectl patch apiresourceimports deployments.us-west1.v1.apps --type="merge" -p '{"spec":{"schemaUpdateStrategy":"UpdatePublished"}}'
-apiresourceimport.apiresource.kcp.dev/deployments.us-west1.v1.apps patched
+apiresourceimport.apiresource.kcp.io/deployments.us-west1.v1.apps patched
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
@@ -50,7 +50,7 @@ deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1      
 ☸️ $ kubectl get crds deployments.apps -o yaml | grep ephemeralContainers
                       ephemeralContainers:
 ☸️ $ kubectl delete clusters us-west1
-workloadcluster.workload.kcp.dev "us-west1" deleted
+workloadcluster.workload.kcp.io "us-west1" deleted
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    True         True
@@ -59,7 +59,7 @@ deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1      
 ☸️ $ kubectl get crds deployments.apps -o yaml | grep ephemeralContainers
                       ephemeralContainers:
 ☸️ $ kubectl delete clusters us-east1
-workloadcluster.workload.kcp.dev "us-east1" deleted
+workloadcluster.workload.kcp.io "us-east1" deleted
 ☸️ $ kubectl get apiresourceimports -o wide
 No resources found
 ☸️ $ kubectl get negotiatedapiresources -o wide
@@ -68,7 +68,7 @@ No resources found
 [3J[H[2J☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/crds/apps/apps_deployments.yaml
 customresourcedefinition.apiextensions.k8s.io/deployments.apps created
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-west1.yaml
-workloadcluster.workload.kcp.dev/us-west1 created
+workloadcluster.workload.kcp.io/us-west1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1       deployments    False        True
@@ -76,7 +76,7 @@ deployments.us-west1.v1.apps   us-west1   UpdateUnpublished        apps/v1      
 NAME                  PUBLISH   API VERSION   API RESOURCE   PUBLISHED   ENFORCED
 deployments.v1.apps   true      apps/v1       deployments    True        True
 ☸️ $ kubectl patch apiresourceimports deployments.us-west1.v1.apps --type="merge" -p '{"spec":{"schemaUpdateStrategy":"UpdatePublished"}}'
-apiresourceimport.apiresource.kcp.dev/deployments.us-west1.v1.apps patched
+apiresourceimport.apiresource.kcp.io/deployments.us-west1.v1.apps patched
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1       deployments    False        True
@@ -84,7 +84,7 @@ deployments.us-west1.v1.apps   us-west1   UpdatePublished          apps/v1      
 NAME                  PUBLISH   API VERSION   API RESOURCE   PUBLISHED   ENFORCED
 deployments.v1.apps   true      apps/v1       deployments    True        True
 ☸️ $ kubectl apply -f /home/dfestal/go/src/github.com/kcp-dev/kcp/contrib/demo/clusters/kind/us-east1.yaml
-workloadcluster.workload.kcp.dev/us-east1 created
+workloadcluster.workload.kcp.io/us-east1 created
 ☸️ $ kubectl get apiresourceimports -o wide
 NAME                           LOCATION   SCHEMA UPDATE STRATEGY   API VERSION   API RESOURCE   COMPATIBLE   AVAILABLE
 deployments.us-east1.v1.apps   us-east1   UpdateUnpublished        apps/v1       deployments    False        

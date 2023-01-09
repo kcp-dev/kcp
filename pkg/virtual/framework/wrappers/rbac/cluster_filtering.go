@@ -17,7 +17,8 @@ limitations under the License.
 package rbac
 
 import (
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -104,7 +105,7 @@ func (l *filteredClusterRoleBindingLister) List(selector labels.Selector) (ret [
 
 func (l *filteredClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRoleBinding, error) {
 	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = client.ToClusterAwareKey(l.clusterName, name)
+		name = kcpcache.ToClusterAwareKey(l.clusterName.String(), "", name)
 	}
 	return l.lister.Get(name)
 }
@@ -155,7 +156,7 @@ func (l *filteredClusterRoleLister) List(selector labels.Selector) (ret []*rbacv
 
 func (l *filteredClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) {
 	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = client.ToClusterAwareKey(l.clusterName, name)
+		name = kcpcache.ToClusterAwareKey(l.clusterName.String(), "", name)
 	}
 	return l.lister.Get(name)
 }
@@ -232,7 +233,7 @@ func (l *filteredRoleBindingNamespaceLister) List(selector labels.Selector) (ret
 
 func (l *filteredRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding, error) {
 	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = client.ToClusterAwareKey(l.clusterName, name)
+		name = kcpcache.ToClusterAwareKey(l.clusterName.String(), "", name)
 	}
 	return l.lister.Get(name)
 }
@@ -309,7 +310,7 @@ func (l *filteredRoleNamespaceLister) List(selector labels.Selector) (ret []*rba
 
 func (l *filteredRoleNamespaceLister) Get(name string) (*rbacv1.Role, error) {
 	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = client.ToClusterAwareKey(l.clusterName, name)
+		name = kcpcache.ToClusterAwareKey(l.clusterName.String(), "", name)
 	}
 	return l.lister.Get(name)
 }

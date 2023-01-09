@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,24 +28,24 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 )
 
 func TestAdmit(t *testing.T) {
 	now := metav1.Now()
 
 	tests := []struct {
-		name      string
-		workspace *tenancyv1alpha1.ClusterWorkspace
-		namespace string
-		wantErr   bool
+		name           string
+		logicalCluster *corev1alpha1.LogicalCluster
+		namespace      string
+		wantErr        bool
 	}{
 		{
 			name:      "delete immortal namespace in workspace",
 			namespace: "default",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			logicalCluster: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "root:org|test",
+					Name: corev1alpha1.LogicalClusterName,
 				},
 			},
 			wantErr: true,
@@ -53,9 +53,9 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete regular namespace in workspace",
 			namespace: "test",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			logicalCluster: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "root:org|test",
+					Name: corev1alpha1.LogicalClusterName,
 				},
 			},
 			wantErr: false,
@@ -63,9 +63,9 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete immortal namespace in deleting workspace",
 			namespace: "default",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			logicalCluster: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              "root:org|test",
+					Name:              corev1alpha1.LogicalClusterName,
 					DeletionTimestamp: &now,
 				},
 			},
@@ -77,8 +77,8 @@ func TestAdmit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler, err := newWorkspaceNamespaceLifecycle()
 			require.NoError(t, err, "error creating admission plugin")
-			handler.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return tt.workspace, nil
+			handler.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+				return tt.logicalCluster, nil
 			}
 
 			a := admission.NewAttributesRecord(
@@ -95,7 +95,7 @@ func TestAdmit(t *testing.T) {
 				nil,
 			)
 
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:test")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org:test"})
 			if err := handler.Admit(ctx, a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}

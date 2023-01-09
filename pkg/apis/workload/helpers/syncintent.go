@@ -30,18 +30,18 @@ import (
 // annotations.
 type SyncIntent struct {
 	// ResourceState is the requested syncing state for this SyncTarget.
-	// It is read on the state.workload.kcp.dev/<syncTargetKey> label
+	// It is read on the state.workload.kcp.io/<syncTargetKey> label
 	ResourceState v1alpha1.ResourceState
 
 	// DeletionTimestamp is the parsed timestamp coming from the content of
-	// the deletion.internal.workload.kcp.dev/<syncTargetKey> annotation.
+	// the deletion.internal.workload.kcp.io/<syncTargetKey> annotation.
 	// It expresses the timestamped intent that a resource should be removed
 	// the given SyncTarget
 	DeletionTimestamp *metav1.Time
 
 	// Finalizers is the list of "soft" finalizers defined for this resource
 	// and this SyncTarget.
-	// It is read on the finalizers.workload.kcp.dev/<syncTargetKey> annotation.
+	// It is read on the finalizers.workload.kcp.io/<syncTargetKey> annotation.
 	Finalizers string
 }
 

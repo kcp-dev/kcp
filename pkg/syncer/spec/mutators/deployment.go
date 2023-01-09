@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,13 +38,13 @@ import (
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
 
 type DeploymentMutator struct {
-	upstreamURL                  *url.URL
-	listSecrets                  ListSecretFunc
-	serviceLister                listerscorev1.ServiceLister
-	syncTargetLogicalClusterName logicalcluster.Name
-	syncTargetUID                types.UID
-	syncTargetName               string
-	dnsNamespace                 string
+	upstreamURL           *url.URL
+	listSecrets           ListSecretFunc
+	serviceLister         listerscorev1.ServiceLister
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetName        string
+	dnsNamespace          string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -56,17 +56,16 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 }
 
 func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
-	syncTargetLogicalClusterName logicalcluster.Name,
+	syncTargetClusterName logicalcluster.Name,
 	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
-
 	return &DeploymentMutator{
-		upstreamURL:                  upstreamURL,
-		listSecrets:                  secretLister,
-		serviceLister:                serviceLister,
-		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		syncTargetUID:                syncTargetUID,
-		syncTargetName:               syncTargetName,
-		dnsNamespace:                 dnsNamespace,
+		upstreamURL:           upstreamURL,
+		listSecrets:           secretLister,
+		serviceLister:         serviceLister,
+		syncTargetClusterName: syncTargetClusterName,
+		syncTargetUID:         syncTargetUID,
+		syncTargetName:        syncTargetName,
+		dnsNamespace:          dnsNamespace,
 	}
 }
 
@@ -93,7 +92,7 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		return fmt.Errorf("error listing secrets for workspace %s: %w", upstreamLogicalName.String(), err)
 	}
 
-	var secretList []*unstructured.Unstructured
+	secretList := make([]*unstructured.Unstructured, 0, len(rawSecretList))
 	for i := range rawSecretList {
 		secretList = append(secretList, rawSecretList[i].(*unstructured.Unstructured))
 	}
@@ -281,7 +280,7 @@ func (dm *DeploymentMutator) getDNSIPForWorkspace(workspace logicalcluster.Name)
 	return ip, nil
 }
 
-// resolveDownwardAPIFieldRefEnv replaces the downwardAPI FieldRef EnvVars with the value from the deployment, right now it only replaces the metadata.namespace
+// resolveDownwardAPIFieldRefEnv replaces the downwardAPI FieldRef EnvVars with the value from the deployment, right now it only replaces the metadata.namespace.
 func resolveDownwardAPIFieldRefEnv(envs []corev1.EnvVar, deployment appsv1.Deployment) []corev1.EnvVar {
 	var result []corev1.EnvVar
 	for _, env := range envs {
@@ -297,7 +296,7 @@ func resolveDownwardAPIFieldRefEnv(envs []corev1.EnvVar, deployment appsv1.Deplo
 	return result
 }
 
-// findEnv finds an env in a list of envs
+// findEnv finds an env in a list of envs.
 func findEnv(envs []corev1.EnvVar, name string) (bool, int) {
 	for i := range envs {
 		if envs[i].Name == name {
@@ -307,7 +306,7 @@ func findEnv(envs []corev1.EnvVar, name string) (bool, int) {
 	return false, 0
 }
 
-// updateEnv updates an env from a list of envs
+// updateEnv updates an env from a list of envs.
 func updateEnv(envs []corev1.EnvVar, overrideEnv corev1.EnvVar) []corev1.EnvVar {
 	found, i := findEnv(envs, overrideEnv.Name)
 	if found {
@@ -319,7 +318,7 @@ func updateEnv(envs []corev1.EnvVar, overrideEnv corev1.EnvVar) []corev1.EnvVar 
 	return envs
 }
 
-// findVolumeMount finds a volume mount in a list of volume mounts
+// findVolumeMount finds a volume mount in a list of volume mounts.
 func findVolumeMount(volumeMounts []corev1.VolumeMount, name string) (bool, int) {
 	for i := range volumeMounts {
 		if volumeMounts[i].Name == name {
@@ -329,7 +328,7 @@ func findVolumeMount(volumeMounts []corev1.VolumeMount, name string) (bool, int)
 	return false, 0
 }
 
-// updateVolumeMount updates a volume mount from a list of volume mounts
+// updateVolumeMount updates a volume mount from a list of volume mounts.
 func updateVolumeMount(volumeMounts []corev1.VolumeMount, overrideVolumeMount corev1.VolumeMount) []corev1.VolumeMount {
 	found, i := findVolumeMount(volumeMounts, overrideVolumeMount.Name)
 	if found {

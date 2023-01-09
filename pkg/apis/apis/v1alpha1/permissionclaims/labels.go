@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"math/big"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -34,7 +34,7 @@ func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string
 		return "", "", err
 	}
 	claimHash := toBase62(sha256.Sum224(bytes))
-	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Join(exportName).String())))
+	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Path().Join(exportName).String())))
 
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + exportHash, claimHash, nil
 }
@@ -43,14 +43,14 @@ func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string
 // on APIBindings that point to the given APIExport and the binding has not accepted a claim to it.
 func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string) (string, string) {
 	claimHash := toBase62([28]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7})
-	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Join(exportName).String())))
+	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Path().Join(exportName).String())))
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + exportHash, claimHash
 }
 
-// ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.dev/export label
+// ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.io/export label
 // on APIBindings to filter them by export.
 func ToAPIBindingExportLabelValue(clusterName logicalcluster.Name, exportName string) string {
-	return toBase62(sha256.Sum224([]byte(clusterName.Join(exportName).String())))
+	return toBase62(sha256.Sum224([]byte(clusterName.Path().Join(exportName).String())))
 }
 
 func toBase62(hash [28]byte) string {

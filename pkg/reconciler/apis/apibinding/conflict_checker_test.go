@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -34,7 +34,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	newAPIBinding := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("newBinding").
-		WithWorkspaceReference("root:org:exportWS", "export0").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export0").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export0-schema1", "e0-s1").BoundAPIResource,
 		).
@@ -43,7 +43,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	existingBinding1 := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("existing1").
-		WithWorkspaceReference("root:org:exportWS", "export1").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export1").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export1-schema1", "e1-s1").BoundAPIResource,
 			new(boundAPIResourceBuilder).WithSchema("export1-schema2", "e1-s2").BoundAPIResource,
@@ -53,7 +53,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	existingBinding2 := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("existing2").
-		WithWorkspaceReference("root:org:exportWS", "export2").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export2").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).WithSchema("export2-schema1", "e2-s1").BoundAPIResource,
 			new(boundAPIResourceBuilder).WithSchema("export2-schema2", "e2-s2").BoundAPIResource,
@@ -96,7 +96,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 				existingBinding2,
 			}, nil
 		},
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExports[name], nil
 		},
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {

@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
@@ -37,30 +37,22 @@ type TenancyV1alpha1ClusterClient struct {
 	*kcptesting.Fake
 }
 
-func (c *TenancyV1alpha1ClusterClient) Cluster(cluster logicalcluster.Name) tenancyv1alpha1.TenancyV1alpha1Interface {
-	if cluster == logicalcluster.Wildcard {
+func (c *TenancyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) tenancyv1alpha1.TenancyV1alpha1Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return &TenancyV1alpha1Client{Fake: c.Fake, Cluster: cluster}
+	return &TenancyV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaces() kcptenancyv1alpha1.ClusterWorkspaceClusterInterface {
-	return &clusterWorkspacesClusterClient{Fake: c.Fake}
-}
-
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaceTypes() kcptenancyv1alpha1.ClusterWorkspaceTypeClusterInterface {
-	return &clusterWorkspaceTypesClusterClient{Fake: c.Fake}
-}
-
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaceShards() kcptenancyv1alpha1.ClusterWorkspaceShardClusterInterface {
-	return &clusterWorkspaceShardsClusterClient{Fake: c.Fake}
+func (c *TenancyV1alpha1ClusterClient) WorkspaceTypes() kcptenancyv1alpha1.WorkspaceTypeClusterInterface {
+	return &workspaceTypesClusterClient{Fake: c.Fake}
 }
 
 var _ tenancyv1alpha1.TenancyV1alpha1Interface = (*TenancyV1alpha1Client)(nil)
 
 type TenancyV1alpha1Client struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *TenancyV1alpha1Client) RESTClient() rest.Interface {
@@ -68,14 +60,6 @@ func (c *TenancyV1alpha1Client) RESTClient() rest.Interface {
 	return ret
 }
 
-func (c *TenancyV1alpha1Client) ClusterWorkspaces() tenancyv1alpha1.ClusterWorkspaceInterface {
-	return &clusterWorkspacesClient{Fake: c.Fake, Cluster: c.Cluster}
-}
-
-func (c *TenancyV1alpha1Client) ClusterWorkspaceTypes() tenancyv1alpha1.ClusterWorkspaceTypeInterface {
-	return &clusterWorkspaceTypesClient{Fake: c.Fake, Cluster: c.Cluster}
-}
-
-func (c *TenancyV1alpha1Client) ClusterWorkspaceShards() tenancyv1alpha1.ClusterWorkspaceShardInterface {
-	return &clusterWorkspaceShardsClient{Fake: c.Fake, Cluster: c.Cluster}
+func (c *TenancyV1alpha1Client) WorkspaceTypes() tenancyv1alpha1.WorkspaceTypeInterface {
+	return &workspaceTypesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

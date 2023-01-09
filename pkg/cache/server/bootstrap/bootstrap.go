@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
@@ -36,17 +36,18 @@ import (
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
 // We use the same name as the KCP for symmetry.
-var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
+var SystemCRDLogicalCluster = logicalcluster.Name("system:system-crds")
 
-// SystemCacheServerShard holds a default shard name
+// SystemCacheServerShard holds a default shard name.
 const SystemCacheServerShard = "system:cache:server"
 
 func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface) error {
 	crds := []*apiextensionsv1.CustomResourceDefinition{}
 	for _, gr := range []struct{ group, resource string }{
-		{"apis.kcp.dev", "apiresourceschemas"},
-		{"apis.kcp.dev", "apiexports"},
-		{"tenancy.kcp.dev", "clusterworkspaceshards"},
+		{"apis.kcp.io", "apiresourceschemas"},
+		{"apis.kcp.io", "apiexports"},
+		{"core.kcp.io", "shards"},
+		{"tenancy.kcp.io", "workspacetypes"},
 	} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		if err := configcrds.Unmarshal(fmt.Sprintf("%s_%s.yaml", gr.group, gr.resource), crd); err != nil {
@@ -69,7 +70,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 	ctx = cacheclient.WithShardInContext(ctx, SystemCacheServerShard)
 	return wait.PollInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		for _, crd := range crds {
-			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).ApiextensionsV1().CustomResourceDefinitions(), crd)
+			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster.Path()).ApiextensionsV1().CustomResourceDefinitions(), crd)
 			if err != nil {
 				logging.WithObject(logger, crd).Error(err, "failed to create CustomResourceDefinition")
 				return false, nil

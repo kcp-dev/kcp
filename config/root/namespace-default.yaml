@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: default
   annotations:
-    "bootstrap.kcp.dev/create-only": "true"
+    "bootstrap.kcp.io/create-only": "true"

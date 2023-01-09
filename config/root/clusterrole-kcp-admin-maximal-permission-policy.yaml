@@ -3,6 +3,6 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:kcp-admin:maximal-permission-policy
 rules:
-  - apiGroups: ["tenancy.kcp.dev"]
+  - apiGroups: ["tenancy.kcp.io"]
     verbs: ["*"]
     resources: ["*"]

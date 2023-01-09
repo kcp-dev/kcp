@@ -44,7 +44,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -82,7 +82,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
 	// bootstrap non-crd resources
-	var transformers []TransformFileFunc
+	transformers := make([]TransformFileFunc, 0, len(opts))
 	for _, opt := range opts {
 		transformers = append(transformers, opt.TransformFile)
 	}
@@ -155,8 +155,8 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	return apimachineryerrors.NewAggregate(errs)
 }
 
-const annotationCreateOnlyKey = "bootstrap.kcp.dev/create-only"
-const annotationBattery = "bootstrap.kcp.dev/battery"
+const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
+const annotationBattery = "bootstrap.kcp.io/battery"
 
 func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.String) error {
 	type Input struct {
@@ -249,10 +249,10 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 				Name: exportName,
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       tenancyv1alpha1.RootCluster.String(),
-						ExportName: exportName,
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: core.RootCluster.Path().String(),
+						Name: exportName,
 					},
 				},
 			},

@@ -24,14 +24,15 @@ package informers
 import (
 	"fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -66,10 +67,10 @@ func (f *genericClusterInformer) Lister() kcpcache.GenericClusterLister {
 }
 
 // Cluster scopes to a GenericInformer.
-func (f *genericClusterInformer) Cluster(cluster logicalcluster.Name) GenericInformer {
+func (f *genericClusterInformer) Cluster(clusterName logicalcluster.Name) GenericInformer {
 	return &genericInformer{
-		informer: f.Informer().Cluster(cluster),
-		lister:   f.Lister().ByCluster(cluster),
+		informer: f.Informer().Cluster(clusterName),
+		lister:   f.Lister().ByCluster(clusterName),
 	}
 }
 
@@ -92,12 +93,12 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericClusterInformer, error) {
 	switch resource {
-	// Group=apiresource.kcp.dev, Version=V1alpha1
+	// Group=apiresource.kcp.io, Version=V1alpha1
 	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().APIResourceImports().Informer()}, nil
 	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()}, nil
-	// Group=apis.kcp.dev, Version=V1alpha1
+	// Group=apis.kcp.io, Version=V1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIBindings().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"):
@@ -106,27 +107,28 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIExportEndpointSlices().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIResourceSchemas().Informer()}, nil
-	// Group=scheduling.kcp.dev, Version=V1alpha1
+	// Group=core.kcp.io, Version=V1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().LogicalClusters().Informer()}, nil
+	case corev1alpha1.SchemeGroupVersion.WithResource("shards"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().Shards().Informer()}, nil
+	// Group=scheduling.kcp.io, Version=V1alpha1
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().Locations().Informer()}, nil
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("placements"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().Placements().Informer()}, nil
-	// Group=tenancy.kcp.dev, Version=V1alpha1
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaces().Informer()}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer()}, nil
-	// Group=tenancy.kcp.dev, Version=V1beta1
+	// Group=tenancy.kcp.io, Version=V1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().WorkspaceTypes().Informer()}, nil
+	// Group=tenancy.kcp.io, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1beta1().Workspaces().Informer()}, nil
-	// Group=topology.kcp.dev, Version=V1alpha1
+	// Group=topology.kcp.io, Version=V1alpha1
 	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitions"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Topology().V1alpha1().Partitions().Informer()}, nil
 	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Topology().V1alpha1().PartitionSets().Informer()}, nil
-	// Group=workload.kcp.dev, Version=V1alpha1
+	// Group=workload.kcp.io, Version=V1alpha1
 	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().SyncTargets().Informer()}, nil
 	}
@@ -138,14 +140,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 // TODO extend this to unknown resources with a client pool
 func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=apiresource.kcp.dev, Version=V1alpha1
+	// Group=apiresource.kcp.io, Version=V1alpha1
 	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
 		informer := f.Apiresource().V1alpha1().APIResourceImports().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
 		informer := f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=apis.kcp.dev, Version=V1alpha1
+	// Group=apis.kcp.io, Version=V1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
 		informer := f.Apis().V1alpha1().APIBindings().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
@@ -158,35 +160,36 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		informer := f.Apis().V1alpha1().APIResourceSchemas().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=scheduling.kcp.dev, Version=V1alpha1
+	// Group=core.kcp.io, Version=V1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
+		informer := f.Core().V1alpha1().LogicalClusters().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case corev1alpha1.SchemeGroupVersion.WithResource("shards"):
+		informer := f.Core().V1alpha1().Shards().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=scheduling.kcp.io, Version=V1alpha1
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"):
 		informer := f.Scheduling().V1alpha1().Locations().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("placements"):
 		informer := f.Scheduling().V1alpha1().Placements().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=tenancy.kcp.dev, Version=V1alpha1
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"):
-		informer := f.Tenancy().V1alpha1().ClusterWorkspaces().Informer()
+	// Group=tenancy.kcp.io, Version=V1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"):
+		informer := f.Tenancy().V1alpha1().WorkspaceTypes().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
-		informer := f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()
-		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"):
-		informer := f.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer()
-		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=tenancy.kcp.dev, Version=V1beta1
+	// Group=tenancy.kcp.io, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		informer := f.Tenancy().V1beta1().Workspaces().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=topology.kcp.dev, Version=V1alpha1
+	// Group=topology.kcp.io, Version=V1alpha1
 	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitions"):
 		informer := f.Topology().V1alpha1().Partitions().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
 		informer := f.Topology().V1alpha1().PartitionSets().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	// Group=workload.kcp.dev, Version=V1alpha1
+	// Group=workload.kcp.io, Version=V1alpha1
 	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
 		informer := f.Workload().V1alpha1().SyncTargets().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil

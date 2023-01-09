@@ -75,7 +75,7 @@ const (
 	// Any annotation with this prefix will be continuously synced to all the APIBindings bound to
 	// this APIExport. If the annotation is removed from the APIExport, it will also be removed from
 	// all APIBindings bound to this APIExport.
-	AnnotationAPIExportExtraKeyPrefix = "extra.apis.kcp.dev/"
+	AnnotationAPIExportExtraKeyPrefix = "extra.apis.kcp.io/"
 )
 
 func (in *APIExport) GetConditions() conditionsv1alpha1.Conditions {
@@ -89,7 +89,7 @@ func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
 const (
 	// MaximalPermissionPolicyRBACUserGroupPrefix is the prefix for the user and group names
 	// when verifying the APIExport.spec.maximalPermissionPolicy.
-	MaximalPermissionPolicyRBACUserGroupPrefix = "apis.kcp.dev:binding:"
+	MaximalPermissionPolicyRBACUserGroupPrefix = "apis.kcp.io:binding:"
 )
 
 // APIExportSpec defines the desired state of APIExport.
@@ -135,14 +135,14 @@ type APIExportSpec struct {
 	//
 	// The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in
 	// a workspace that binds to this APIExport via an APIBinding is additionally checked against
-	// these rules, with the user name and the groups prefixed with `apis.kcp.dev:binding:`.
+	// these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.
 	//
 	// For example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to
 	// this APIExport in another workspace root:org:ws. Then a request in that workspace
 	// against a resource of this APIExport is authorized as every other request in that workspace,
 	// but in addition the RBAC policy here in the APIExport workspace has to grant access to the
-	// user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated`
-	// and `apis.kcp.dev:binding:a-team`.
+	// user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated`
+	// and `apis.kcp.io:binding:a-team`.
 	//
 	// +optional
 	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
@@ -185,11 +185,11 @@ type MaximalPermissionPolicy struct {
 // that checks RBAC in the workspace of the API Export.
 //
 // In order to avoid conflicts the user and group name will be prefixed
-// with "apis.kcp.dev:binding:".
+// with "apis.kcp.io:binding:".
 type LocalAPIExportPolicy struct{}
 
 const (
-	APIExportPermissionClaimLabelPrefix = "claimed.internal.apis.kcp.dev/"
+	APIExportPermissionClaimLabelPrefix = "claimed.internal.apis.kcp.io/"
 )
 
 // PermissionClaim identifies an object by GR and identity hash.
@@ -197,6 +197,7 @@ const (
 // request and that a consumer may accept and allow the service provider access to.
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.all) && self.all) != (has(self.resourceSelector) && size(self.resourceSelector) > 0)",message="either \"all\" or \"resourceSelector\" must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.group) || self.group != \"core.kcp.io\" || self.resource != \"logicalclusters\" || (has(self.identityHash) && self.identityHash != \"\")",message="logicalclusters cannot be claimed"
 type PermissionClaim struct {
 	GroupResource `json:","`
 
@@ -291,7 +292,8 @@ type APIExportStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
-	// This field will get deprecated in favor of APIExportEndpointSlice.
+	//
+	// Deprecated: use APIExportEndpointSlice.status.endpoints instead
 	//
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`

@@ -30,7 +30,7 @@ import (
 func TestCreateFromFS(t *testing.T) {
 	tests := []struct {
 		name    string
-		ctx     context.Context
+		ctx     context.Context //nolint:containedctx
 		client  apiextensionsv1client.CustomResourceDefinitionInterface
 		fs      embed.FS
 		grs     []metav1.GroupResource

@@ -26,7 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -65,7 +65,7 @@ func (c *mockedClusterClient) Resource(resource schema.GroupVersionResource) kcp
 	}
 }
 
-func (c *mockedClusterClient) Cluster(cluster logicalcluster.Name) dynamic.Interface {
+func (c *mockedClusterClient) Cluster(cluster logicalcluster.Path) dynamic.Interface {
 	return &dynamicClient{
 		client:           c.client,
 		lcluster:         cluster,
@@ -77,7 +77,7 @@ type mockedResourceClusterClient struct {
 	resourceClient
 }
 
-func (c *mockedResourceClusterClient) Cluster(lcluster logicalcluster.Name) dynamic.NamespaceableResourceInterface {
+func (c *mockedResourceClusterClient) Cluster(lcluster logicalcluster.Path) dynamic.NamespaceableResourceInterface {
 	return &namespaceableResourceClient{
 		resourceClient: resourceClient{
 			resourceInterface: c.client.Resource(c.resource),
@@ -99,7 +99,7 @@ func (c *mockedResourceClusterClient) Watch(ctx context.Context, opts metav1.Lis
 
 type dynamicClient struct {
 	client           *fake.FakeDynamicClient
-	lcluster         logicalcluster.Name
+	lcluster         logicalcluster.Path
 	lclusterRecorder func(lcluster string)
 }
 
@@ -137,7 +137,7 @@ func (c *namespaceableResourceClient) Namespace(namespace string) dynamic.Resour
 type resourceClient struct {
 	resourceInterface dynamic.ResourceInterface
 	client            *fake.FakeDynamicClient
-	lcluster          logicalcluster.Name
+	lcluster          logicalcluster.Path
 	resource          schema.GroupVersionResource
 	namespace         string
 	lclusterRecorder  func(lcluster string)
@@ -268,9 +268,8 @@ func (rb resourceBuilder) cluster(cluster string) resourceBuilder {
 		metadata := r.Object["metadata"].(map[string]interface{})
 		if _, exists := metadata["annotations"]; !exists {
 			metadata["annotations"] = map[string]interface{}{}
-
 		}
-		metadata["annotations"].(map[string]interface{})["kcp.dev/cluster"] = cluster
+		metadata["annotations"].(map[string]interface{})["kcp.io/cluster"] = cluster
 		return r
 	}
 }
@@ -303,7 +302,7 @@ func TestResourceTransformer(t *testing.T) {
 		lcluster                    string
 		gvr                         schema.GroupVersionResource
 		availableResources          []runtime.Object
-		action                      func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error)
+		action                      func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error)
 		after                       func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error)
 		before                      func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error)
 		expectedResult              interface{}
@@ -317,7 +316,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "create - success",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Cluster(lcluster).Resource(gvr).Create(ctx, resource("group/version", "Resource", "aThing")(), metav1.CreateOptions{})
 			},
 			before: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -361,7 +360,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Create(ctx, resource("group/version", "Resource", "aThing")(), metav1.CreateOptions{})
 			},
 			before: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -399,7 +398,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Update(ctx, resource("group/version", "Resource", "aThing")(), metav1.UpdateOptions{})
 			},
 			before: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -445,7 +444,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).UpdateStatus(ctx, resource("group/version", "Resource", "aThing")(), metav1.UpdateOptions{})
 			},
 			before: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -491,7 +490,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "update - not found",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Update(ctx, resource("group/version", "Resource", "aThing")(), metav1.UpdateOptions{})
 			},
 			before: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -529,7 +528,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Get(ctx, "aThing", metav1.GetOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -559,7 +558,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "get - not found",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Get(ctx, "aThing", metav1.GetOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -584,7 +583,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing").cluster("cluster1")(),
 				resource("group/version", "Resource", "aThingMore").cluster("cluster2")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -634,7 +633,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing").cluster("cluster1")(),
 				resource("group/version", "Resource", "aThingMore").cluster("cluster2")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -687,7 +686,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing")(),
 				resource("group/version", "Resource", "aThingMore")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).List(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -738,7 +737,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing")(),
 				resource("group/version", "Resource", "aThingMore")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Cluster(lcluster).Resource(gvr).List(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -790,7 +789,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThingMore").ns("aNamespace")(),
 				resource("group/version", "Resource", "aThingIgnored").ns("aDistinctNamespace")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Namespace("aNamespace").List(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -841,7 +840,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return nil, transformingClient.Resource(gvr).Cluster(lcluster).Delete(context.Background(), "aThing", metav1.DeleteOptions{}, "")
 			},
 			expectedClientAction: clienttesting.DeleteActionImpl{
@@ -857,7 +856,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "delete - notfound",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return nil, transformingClient.Resource(gvr).Cluster(lcluster).Namespace("aNamespace").Delete(ctx, "aThing", metav1.DeleteOptions{})
 			},
 			expectedClientAction: clienttesting.DeleteActionImpl{
@@ -878,7 +877,7 @@ func TestResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				deleterWithResult, _ := transformingClient.Resource(gvr).Cluster(lcluster).(clientdynamic.DeleterWithResults)
 				deleteresult, _, err := deleterWithResult.DeleteWithResult(context.Background(), "aThing", metav1.DeleteOptions{})
 				return deleteresult, err
@@ -910,7 +909,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "delete with result - notfound",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				deleterWithResult, _ := transformingClient.Resource(gvr).Cluster(lcluster).Namespace("aNamespace").(clientdynamic.DeleterWithResults)
 				deleteresult, _, err := deleterWithResult.DeleteWithResult(context.Background(), "aThing", metav1.DeleteOptions{}, "")
 				return deleteresult, err
@@ -934,7 +933,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing")(),
 				resource("group/version", "Resource", "aThingMore")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return nil, transformingClient.Resource(gvr).Cluster(lcluster).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 			},
 			expectedClientAction: clienttesting.DeleteCollectionActionImpl{
@@ -954,7 +953,7 @@ func TestResourceTransformer(t *testing.T) {
 				resource("group/version", "Resource", "aThing")(),
 				resource("group/version", "Resource", "aThingMore")(),
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				deleterWithResult, _ := transformingClient.Resource(gvr).Cluster(lcluster).(clientdynamic.DeleterWithResults)
 				deleteresult, err := deleterWithResult.DeleteCollectionWithResult(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 				return deleteresult, err
@@ -1012,7 +1011,7 @@ func TestResourceTransformer(t *testing.T) {
 					},
 				},
 			},
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Patch(context.Background(), "aThing", types.JSONPatchType, []byte(""), metav1.PatchOptions{})
 			},
 			expectedClientAction: nil,
@@ -1021,7 +1020,7 @@ func TestResourceTransformer(t *testing.T) {
 		{
 			name: "watch cross cluster - success",
 			gvr:  gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Watch(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -1038,6 +1037,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1099,7 +1100,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "watch in cluster - success with filtering",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Watch(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -1119,6 +1120,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "cluster1",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1178,7 +1181,7 @@ func TestResourceTransformer(t *testing.T) {
 			name:     "watch in cluster - failure in transformer",
 			lcluster: "cluster1",
 			gvr:      gvr("group", "version", "resources"),
-			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Name, gvr schema.GroupVersionResource) (result interface{}, err error) {
+			action: func(ctx context.Context, transformingClient kcpdynamic.ClusterInterface, lcluster logicalcluster.Path, gvr schema.GroupVersionResource) (result interface{}, err error) {
 				return transformingClient.Resource(gvr).Cluster(lcluster).Watch(ctx, metav1.ListOptions{})
 			},
 			after: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -1196,6 +1199,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "cluster1",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1277,7 +1282,7 @@ func TestResourceTransformer(t *testing.T) {
 			transformingClient := WithResourceTransformer(clusterClient, rt)
 			ctx := context.Background()
 
-			result, err := test.action(ctx, transformingClient, logicalcluster.New(test.lcluster), test.gvr)
+			result, err := test.action(ctx, transformingClient, logicalcluster.NewPath(test.lcluster), test.gvr)
 
 			if test.expectedError != "" {
 				require.EqualError(t, err, test.expectedError, "error is wrong")
@@ -1332,6 +1337,8 @@ func watchRestrictionsFromListOptions(options metav1.ListOptions) clienttesting.
 }
 
 func checkWatchEvents(t *testing.T, watcher watch.Interface, addEvents func(), expectedEvents []watch.Event) {
+	t.Helper()
+
 	watchingStarted := make(chan bool, 1)
 	go func() {
 		<-watchingStarted

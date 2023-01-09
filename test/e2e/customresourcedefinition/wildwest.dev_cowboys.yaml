@@ -5,7 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
-    apis.kcp.dev/bound-crd: t
+    apis.kcp.io/bound-crd: t
   creationTimestamp: null
   name: cowboys.wildwest.dev
 spec:

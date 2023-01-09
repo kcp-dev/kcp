@@ -20,7 +20,7 @@ import (
 	"time"
 
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -34,7 +34,7 @@ type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kcp
 // to the kube API server via SubjectAccessReview.
 func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface) (authorizer.Authorizer, error) {
 	delegatingAuthorizerConfig := &authorizerfactory.DelegatingAuthorizerConfig{
-		SubjectAccessReviewClient: client.Cluster(clusterName).AuthorizationV1(),
+		SubjectAccessReviewClient: client.Cluster(clusterName.Path()).AuthorizationV1(),
 		AllowCacheTTL:             5 * time.Minute,
 		DenyCacheTTL:              30 * time.Second,
 		WebhookRetryBackoff:       options.DefaultAuthWebhookRetryBackoff(),

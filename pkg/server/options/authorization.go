@@ -36,7 +36,7 @@ type Authorization struct {
 	// paths or end in * in which case prefix-match is applied. A leading / is optional.
 	AlwaysAllowPaths []string
 
-	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is system:masters.
+	// AlwaysAllowGroups are groups which are allowed to take any actions.  In kube, this is privileged system group.
 	AlwaysAllowGroups []string
 }
 
@@ -49,13 +49,13 @@ func NewAuthorization() *Authorization {
 	}
 }
 
-// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups
+// WithAlwaysAllowGroups appends the list of paths to AlwaysAllowGroups.
 func (s *Authorization) WithAlwaysAllowGroups(groups ...string) *Authorization {
 	s.AlwaysAllowGroups = append(s.AlwaysAllowGroups, groups...)
 	return s
 }
 
-// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths
+// WithAlwaysAllowPaths appends the list of paths to AlwaysAllowPaths.
 func (s *Authorization) WithAlwaysAllowPaths(paths ...string) *Authorization {
 	s.AlwaysAllowPaths = append(s.AlwaysAllowPaths, paths...)
 	return s
@@ -84,7 +84,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	workspaceLister := kcpinformer.Core().V1alpha1().LogicalClusters().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -100,26 +100,42 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 		authorizers = append(authorizers, a)
 	}
 
-	// kcp authorizers
+	// kcp authorizers, these are evaluated in reverse order
+	// TODO: link the markdown
+
+	// bootstrap rules defined once for every workspace
 	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(informer)
-	bootstrapAuth = authz.NewDecorator(bootstrapAuth, "bootstrap.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	bootstrapAuth = authz.NewDecorator("bootstrap.authorization.kcp.io", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	// resolves RBAC resources in the workspace
 	localAuth, localResolver := authz.NewLocalAuthorizer(informer)
-	localAuth = authz.NewDecorator(localAuth, "local.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	localAuth = authz.NewDecorator("local.authorization.kcp.io", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	// everything below - skipped for Deep SAR
+
+	// enforce maximal permission policy
 	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
-	maxPermissionPolicyAuth = authz.NewDecorator(maxPermissionPolicyAuth, "maxpermissionpolicy.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.io", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	// protect status updates to apiexport and apibinding
 	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
-	systemCRDAuth = authz.NewDecorator(systemCRDAuth, "systemcrd.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	systemCRDAuth = authz.NewDecorator("systemcrd.authorization.kcp.io", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
+	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
+	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
+	// mean nothing unless they also have `verb=access` on `/`
 	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
-	contentAuth = authz.NewDecorator(contentAuth, "content.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	contentAuth = authz.NewDecorator("content.authorization.kcp.io", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	topLevelAuth := authz.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, contentAuth)
-	topLevelAuth = authz.NewDecorator(topLevelAuth, "toplevel.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
+	// workspaces are annotated to list the groups required on users wishing to access the workspace -
+	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
+	// by child workspaces; this gives administrators of an org control over which users can be given access
+	// to content in sub-workspaces
+	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(workspaceLister, contentAuth)
+	requiredGroupsAuth = authz.NewDecorator("requiredgroups.authorization.kcp.io", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
 
-	authorizers = append(authorizers, topLevelAuth)
+	authorizers = append(authorizers, requiredGroupsAuth)
 
 	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)

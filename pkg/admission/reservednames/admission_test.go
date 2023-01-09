@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func createAttr(name string, obj runtime.Object, kind, resource string) admission.Attributes {
@@ -52,33 +53,22 @@ func TestAdmission(t *testing.T) {
 		attr admission.Attributes
 		want error
 	}{
-		"ForbiddenRootCW": {
-			attr: createAttr("root", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-			want: field.Invalid(field.NewPath("metadata").Child("name"), "root", "name is reserved"),
-		},
-		"ForbiddenSystemCW": {
-			attr: createAttr("system", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-			want: field.Invalid(field.NewPath("metadata").Child("name"), "system", "name is reserved"),
-		},
-		"ValidCW": {
-			attr: createAttr("cool-cw", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "clusterworkspaces"),
-		},
 		"ForbiddenAnyCWT": {
-			attr: createAttr("any", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("any", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "any", "name is reserved"),
 		},
 		"ForbiddenSystemCWT": {
-			attr: createAttr("system", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("system", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 			want: field.Invalid(field.NewPath("metadata").Child("name"), "system", "name is reserved"),
 		},
 		"ValidCWT": {
-			attr: createAttr("cool-cwt", &tenancyv1alpha1.ClusterWorkspaceType{}, "ClusterWorkspaceType", "clusterworkspacetypes"),
+			attr: createAttr("cool-cwt", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 		},
 		"NotApplicableResource": {
-			attr: createAttr("root", &tenancyv1alpha1.ClusterWorkspace{}, "ClusterWorkspace", "notacworcwt"),
+			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "ClusterWorkspace", "notacworcwt"),
 		},
 		"NotApplicableKind": {
-			attr: createAttr("root", &tenancyv1alpha1.ClusterWorkspace{}, "NotaCWorCWT", "clusterworkspaces"),
+			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaCWorCWT", "workspaces"),
 		},
 	}
 	for name, tc := range cases {

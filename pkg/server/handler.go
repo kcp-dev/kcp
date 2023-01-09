@@ -49,7 +49,6 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 var (
@@ -103,11 +102,9 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 	})
 }
 
-// WithWorkspaceProjection maps the personal virtual workspace "workspaces" resource into the cluster
-// workspace URL space. This means you can do `kubectl get workspaces` from an org workspace.
-func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
-	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
-	getHomeWorkspaceRequestPath := path.Join(toRedirectPath, "~")
+// WithClusterWorkspaceProjection workspaces to clusterworkspaces.
+func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
+	toRedirectPath := path.Join("/apis", tenancyv1alpha1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces")
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		logger := klog.FromContext(req.Context())
@@ -117,22 +114,15 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		if cluster.Name == tenancyv1alpha1.RootCluster && req.URL.Path == getHomeWorkspaceRequestPath {
-			// Do not rewrite URL to point to the `workspaces` virtual workspace if we are in the special case
-			// of a `kubectl get workspace ~` request which returns the Home workspace definition of the
-			// current user.
-			// This special request is managed later in the handler chain by the home workspace handler.
+		if !strings.HasPrefix(req.URL.Path, toRedirectPath+"/") && req.URL.Path != toRedirectPath {
 			apiHandler.ServeHTTP(w, req)
 			return
 		}
 
-		if strings.HasPrefix(req.URL.Path, toRedirectPath) {
-			newPath := path.Join("/services/workspaces", cluster.Name.String(), req.URL.Path)
-			logger = logger.WithValues("from", path.Join(cluster.Name.Path(), req.URL.Path), "to", newPath)
-			logger.V(4).Info("rewriting path")
-			req.URL.Path = newPath
-		}
-
+		newPath := path.Join("/services/clusterworkspaces", cluster.Name.String(), req.URL.Path)
+		logger = logger.WithValues("from", path.Join(cluster.Name.Path().RequestPath(), req.URL.Path), "to", newPath)
+		logger.V(4).Info("rewriting path")
+		req.URL.Path = newPath
 		apiHandler.ServeHTTP(w, req)
 	}
 }
@@ -341,7 +331,7 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 			// server handle it.
 			crdName := requestInfo.Resource + ".core"
 
-			clusterName, err := request.ClusterNameFrom(req.Request.Context())
+			clusterName, wildcard, err := request.ClusterNameOrWildcardFrom(req.Request.Context())
 			if err != nil {
 				responsewriters.ErrorNegotiated(
 					apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
@@ -349,6 +339,10 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, res.ResponseWriter, req.Request,
 				)
 				return
+			}
+			if wildcard {
+				// this is the only case where wildcard works for a list because this is our special CRD lister that handles it.
+				clusterName = "*"
 			}
 
 			if _, err := crdLister.Cluster(clusterName).Get(req.Request.Context(), crdName); err == nil {
@@ -365,7 +359,7 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 }
 
 func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClusterLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
-	clusterName, err := request.ClusterNameFrom(ctx)
+	clusterName, wildcard, err := request.ClusterNameOrWildcardFrom(ctx)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
@@ -373,6 +367,11 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClus
 		)
 		return
 	}
+	if wildcard {
+		// this is the only case where wildcard works for a list because this is our special CRD lister that handles it.
+		clusterName = "*"
+	}
+
 	// Get all the CRDs to see if any of them are in v1
 	crds, err := crdLister.Cluster(clusterName).List(ctx, labels.Everything())
 	if err != nil {

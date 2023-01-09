@@ -24,86 +24,86 @@ source_repositories:
     cr_paths:
       - docs/cr
     metadata:
-      apiresourceimports.apiresource.kcp.dev:
+      apiresourceimports.apiresource.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apiresource
-      negotiatedapiresources.apiresource.kcp.dev:
+      negotiatedapiresources.apiresource.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apiresource
-      apibindings.apis.kcp.dev:
+      apibindings.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
-      apiexports.apis.kcp.dev:
+      apiexports.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
-      apiresourceschemas.apis.kcp.dev:
+      apiresourceschemas.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
-      apiexportendpointslices.apis.kcp.dev:
+      apiexportendpointslices.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
-      locations.scheduling.kcp.dev:
+      locations.scheduling.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - schuduling
           - location
-      placements.scheduling.kcp.dev:
+      placements.scheduling.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - scheduling
           - placements
-      clusterworkspaces.tenancy.kcp.dev:
+      clusterworkspaces.tenancy.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - tenancy
           - workspaces
-      clusterworkspaceshards.tenancy.kcp.dev:
+      shards.tenancy.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - tenancy
           - workspaces
           - shards
-      clusterworkspacetypes.tenancy.kcp.dev:
+      workspacetypes.tenancy.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - tenancy
           - workspaces
           - types
-      workspaces.tenancy.kcp.dev:
+      workspaces.tenancy.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - tenancy
           - workspaces
-      synctargets.workload.kcp.dev:
+      synctargets.workload.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - workload
           - synctargets
-      partitions.apis.kcp.dev:
+      partitions.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - topology
-      partitionsets.apis.kcp.dev:
+      partitionsets.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:

@@ -20,7 +20,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -34,22 +34,32 @@ import (
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	kubernetesinformers "k8s.io/client-go/informers"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
 
 const (
-	PluginName = "apis.kcp.dev/ValidatingWebhook"
+	PluginName = "apis.kcp.io/ValidatingWebhook"
 )
 
 type Plugin struct {
 	// Using validating plugin, for the dispatcher to use.
 	// This plugins admit function will never be called.
 	validating.Plugin
-	webhook.WebhookDispatcher
+	*webhook.WebhookDispatcher
 }
 
+var (
+	_ = admission.ValidationInterface(&Plugin{})
+	_ = admission.InitializationValidator(&Plugin{})
+	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+)
+
 func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
-	p := &Plugin{Plugin: validating.Plugin{Webhook: &generic.Webhook{}}}
+	p := &Plugin{
+		Plugin:            validating.Plugin{Webhook: &generic.Webhook{}},
+		WebhookDispatcher: webhook.NewWebhookDispatcher(),
+	}
 	p.WebhookDispatcher.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
 
 	dispatcherFactory := validating.NewValidatingDispatcher(&p.Plugin)
@@ -102,8 +112,8 @@ func Register(plugins *admission.Plugins) {
 	})
 }
 
-func (a *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
-	return a.WebhookDispatcher.Dispatch(ctx, attr, o)
+func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
+	return p.WebhookDispatcher.Dispatch(ctx, attr, o)
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.

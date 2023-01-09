@@ -68,7 +68,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 	}}, nil
 }
 
-// NewConfig returns a new Config for the given options
+// NewConfig returns a new Config for the given options.
 func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 	c := &Config{
 		Options: opts,

@@ -26,8 +26,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -117,7 +117,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, name)
 
-	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return nil, err
@@ -248,7 +248,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
 	upstreamLogicalCluster := logicalcluster.From(upstreamObj)
-	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
+	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
 	b, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
@@ -296,7 +296,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	return nil
 }
 
-// TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic
+// TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic.
 func (c *Controller) clusterWideCollisionCheck(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
 	// Check if the resource already exists, if so check if it has the correct namespace locator.
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
@@ -319,7 +319,7 @@ func (c *Controller) clusterWideCollisionCheck(ctx context.Context, gvr schema.G
 	if !exists {
 		return fmt.Errorf("(cluster-wide resource collision) resource %s has no namespace locator", unstrResource.GetName())
 	}
-	if nsLocator.Workspace != c.syncTargetWorkspace {
+	if nsLocator.ClusterName != c.syncTargetClusterName {
 		return fmt.Errorf("(cluster-wide resource collision) resource %s already exists, but has a different namespace locator annotation: %+v", unstrResource.GetName(), nsLocator)
 	}
 
@@ -338,7 +338,7 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	}
 
 	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
+	// as the virtual workspace will set the deletionTimestamp() on the location view by a transformation.
 	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
 
 	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
@@ -347,11 +347,11 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		namespace := upstreamObjCopy.GetNamespace()
-		logicalCluster := logicalcluster.From(upstreamObjCopy)
+		clusterName := logicalcluster.From(upstreamObjCopy)
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.upstreamClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "Failed adding finalizer on upstream upstreamresource")
 			return false, err
 		}
@@ -372,7 +372,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	transformedName := getTransformedName(downstreamObj)
 
 	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
+	// as the virtual workspace will set the deletionTimestamp() on the location view by a transformation.
 	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
 
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
@@ -398,10 +398,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
-					return err
-				}
-				return nil
+				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName())
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err
@@ -429,12 +426,12 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// Strip cluster name annotation
 	downstreamAnnotations := downstreamObj.GetAnnotations()
 	delete(downstreamAnnotations, logicalcluster.AnnotationKey)
-	//TODO(jmprusi): To be removed when switching to the syncer Virtual Workspace transformations.
+	// TODO(jmprusi): To be removed when switching to the syncer Virtual Workspace transformations.
 	delete(downstreamAnnotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetKey)
 	// If the resource is cluster-scoped, we need to add the namespaceLocator annotation to get be able to
 	// find out the upstream resource from the downstream resource.
 	if downstreamNamespace == "" {
-		namespaceLocator := shared.NewNamespaceLocator(upstreamObjLogicalCluster, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, "")
+		namespaceLocator := shared.NewNamespaceLocator(upstreamObjLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, "")
 		namespaceLocatorJSONBytes, err := json.Marshal(namespaceLocator)
 		if err != nil {
 			return err

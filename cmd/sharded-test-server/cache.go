@@ -40,11 +40,11 @@ import (
 )
 
 func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-chan error, string, error) {
-	red := color.New(color.BgHiRed, color.FgHiWhite).SprintFunc()
-	inverse := color.New(color.BgHiWhite, color.FgHiRed).SprintFunc()
+	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
+	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
-		lineprefix.Prefix(red(strings.ToUpper("cache"))),
-		lineprefix.Color(color.New(color.FgHiRed)),
+		lineprefix.Prefix(cyan(strings.ToUpper("cache"))),
+		lineprefix.Color(color.New(color.FgHiCyan)),
 	)
 	loggerOut := lineprefix.New(
 		lineprefix.Prefix(inverse(strings.ToUpper("cache"))),
@@ -61,7 +61,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-cha
 		fmt.Sprintf("--secure-port=%d", cachePort),
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
 	logFilePath := filepath.Join(logDirPath, ".kcp-cache", "out.log")
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {

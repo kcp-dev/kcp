@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,15 +50,17 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	clusterName := logicalcluster.From(apiBinding)
 
-	if apiBinding.Spec.Reference.Workspace == nil {
+	if apiBinding.Spec.Reference.Export == nil {
 		return nil
 	}
 
-	exportClusterName := apiBinding.Spec.Reference.Workspace.Path
-	exportName := apiBinding.Spec.Reference.Workspace.ExportName
-	apiExport, err := c.getAPIExport(logicalcluster.New(exportClusterName), exportName)
+	exportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if exportPath.Empty() {
+		exportPath = logicalcluster.From(apiBinding).Path()
+	}
+	apiExport, err := c.getAPIExport(exportPath, apiBinding.Spec.Reference.Export.Name)
 	if err != nil {
-		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportClusterName, "apiExportName", exportName)
+		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportPath, "apiExportName", apiBinding.Spec.Reference.Export.Name)
 		return nil // nothing we can do
 	}
 
@@ -146,7 +148,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			logger.V(4).Info("patching to get claim labels updated")
 
 			// Empty patch, allowing the admission plugin to update the resource to the correct labels
-			err = c.patchGenericObject(ctx, u, gvr, clusterName)
+			err = c.patchGenericObject(ctx, u, gvr, clusterName.Path())
 			if err != nil {
 				patchErr := fmt.Errorf("error patching %q %s|%s/%s: %w", gvr, clusterName, u.GetNamespace(), u.GetName(), err)
 				claimErrs = append(claimErrs, patchErr)
@@ -163,7 +165,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		}
 	}
 
-	var unexpectedOrInvalidErrors []error
+	unexpectedOrInvalidErrors := make([]error, 0, unexpectedClaims.Len())
 	for _, s := range unexpectedClaims.List() {
 		claim := claimFromSetKey(s)
 		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))
@@ -255,7 +257,7 @@ func (c *controller) getInformerForGroupResource(group, resource string) (kcpkub
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)
 }
 
-func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
+func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Path) error {
 	_, err := c.dynamicClusterClient.
 		Cluster(lc).
 		Resource(gvr).

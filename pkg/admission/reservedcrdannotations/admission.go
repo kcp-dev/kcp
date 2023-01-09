@@ -22,6 +22,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -32,7 +34,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/ReservedCRDAnnotations"
+	PluginName = "apis.kcp.io/ReservedCRDAnnotations"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -66,11 +68,12 @@ func (o *reservedCRDAnnotations) Validate(ctx context.Context, a admission.Attri
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	clusterName, err := request.ClusterNameFrom(ctx)
+	cluster, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
-	if clusterName == apibinding.ShadowWorkspaceName {
+	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove when ClusterFromfrom returns a tenancy.Name
+	if clusterName == apibinding.SystemBoundCRDsClusterName {
 		return nil
 	}
 

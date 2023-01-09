@@ -22,52 +22,52 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	NamespaceLocatorAnnotation = "kcp.dev/namespace-locator"
+	NamespaceLocatorAnnotation = "kcp.io/namespace-locator"
 )
 
 // NamespaceLocator stores a logical cluster and namespace and is used
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
-	SyncTarget SyncTargetLocator   `json:"syncTarget"`
-	Workspace  logicalcluster.Name `json:"workspace,omitempty"`
-	Namespace  string              `json:"namespace"`
+	SyncTarget  SyncTargetLocator   `json:"syncTarget"`
+	ClusterName logicalcluster.Name `json:"cluster,omitempty"`
+	Namespace   string              `json:"namespace"`
 }
 
 type SyncTargetLocator struct {
-	Workspace      string    `json:"workspace,omitempty"`
+	ClusterName    string    `json:"cluster,omitempty"`
 	DeprecatedPath string    `json:"path,omitempty"`
 	Name           string    `json:"name"`
 	UID            types.UID `json:"uid"`
 }
 
-func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocator(workspace, syncTargetClusterName logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
-			Workspace: syncTargetWorkspace.String(),
-			Name:      syncTargetName,
-			UID:       syncTargetUID,
+			ClusterName: syncTargetClusterName.String(),
+			Name:        syncTargetName,
+			UID:         syncTargetUID,
 		},
-		Workspace: workspace,
-		Namespace: upstreamNamespace,
+		ClusterName: workspace,
+		Namespace:   upstreamNamespace,
 	}
 }
 
-func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocatorV060(workspace, syncTargetClusterName logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
-			DeprecatedPath: syncTargetWorkspace.String(),
+			DeprecatedPath: syncTargetClusterName.String(),
 			Name:           syncTargetName,
 			UID:            syncTargetUID,
 		},
-		Workspace: workspace,
-		Namespace: upstreamNamespace,
+		ClusterName: workspace,
+		Namespace:   upstreamNamespace,
 	}
 }
 
@@ -82,8 +82,8 @@ func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, b
 	}
 
 	// get us from v0.6.0 locators (using syncTarget.path) to v0.6.1+ (using syncTarget.workspace)
-	if locator.SyncTarget.Workspace == "" {
-		locator.SyncTarget.Workspace = locator.SyncTarget.DeprecatedPath
+	if locator.SyncTarget.ClusterName == "" {
+		locator.SyncTarget.ClusterName = locator.SyncTarget.DeprecatedPath
 	}
 	locator.SyncTarget.DeprecatedPath = ""
 

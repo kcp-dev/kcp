@@ -214,11 +214,7 @@ func generateClientAndServerCerts(hosts []string, dir string) error {
 	if err := ecPrivateKeyToFile(clientKey, filepath.Join(dir, "client", "key.pem")); err != nil {
 		return err
 	}
-	if err := certToFile(clientTemplate, caTemplate, &clientKey.PublicKey, caKey, filepath.Join(dir, "client", "cert.pem")); err != nil {
-		return err
-	}
-
-	return nil
+	return certToFile(clientTemplate, caTemplate, &clientKey.PublicKey, caKey, filepath.Join(dir, "client", "cert.pem"))
 }
 
 func certToFile(template *x509.Certificate, parent *x509.Certificate, publicKey *ecdsa.PublicKey, privateKey *ecdsa.PrivateKey, path string) error {

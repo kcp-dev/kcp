@@ -114,7 +114,8 @@ func ValidateAPIResourceSchemaSpec(ctx context.Context, spec *apisv1alpha1.APIRe
 	storageFlagCount := 0
 	versionsMap := map[string]bool{}
 	uniqueNames := true
-	for i, version := range spec.Versions {
+	for i := range spec.Versions {
+		version := spec.Versions[i]
 		if version.Storage {
 			storageFlagCount++
 		}

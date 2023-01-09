@@ -27,7 +27,7 @@ import (
 
 // getSyncerViewFields builds a map whose keys are the summarizing field paths,
 // and values are the overriding values of the corresponding fields for this SyncTarget.
-// This map is built from the value of the diff.syncer.internal.kcp.dev/<syncTargetKey> annotation.
+// This map is built from the value of the diff.syncer.internal.kcp.io/<syncTargetKey> annotation.
 func getSyncerViewFields(upstreamResource *unstructured.Unstructured, syncTargetKey string) (map[string]interface{}, error) {
 	annotations := upstreamResource.GetAnnotations()
 	var syncerViewAnnotationValue string
@@ -46,14 +46,14 @@ func getSyncerViewFields(upstreamResource *unstructured.Unstructured, syncTarget
 		return nil, nil
 	}
 
-	var result map[string]interface{} = make(map[string]interface{}, 1)
+	result := make(map[string]interface{}, 1)
 	if err := json.Unmarshal([]byte(syncerViewAnnotationValue), &result); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// setSyncerViewFields unmarshalls into the diff.syncer.internal.kcp.dev/<syncTargetKey> annotation
+// setSyncerViewFields unmarshalls into the diff.syncer.internal.kcp.io/<syncTargetKey> annotation
 // a map whose keys are summarizing field keys, and values are the overridden values of the corresponding
 // fields for this SyncTarget.
 func setSyncerViewFields(kcpResource *unstructured.Unstructured, syncTargetKey string, syncerViewFieldValues map[string]interface{}) error {

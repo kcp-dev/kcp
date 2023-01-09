@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/PermissionClaims"
+	PluginName = "apis.kcp.io/PermissionClaims"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -112,7 +112,6 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 	u.SetLabels(labels)
 
 	return nil
-
 }
 
 func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -168,6 +167,7 @@ func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformer
 
 	m.permissionClaimLabeler = permissionclaim.NewLabeler(
 		f.Apis().V1alpha1().APIBindings(),
+		f.Apis().V1alpha1().APIExports(),
 	)
 }
 

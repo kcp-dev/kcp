@@ -129,16 +129,17 @@ var (
 		"tracing-config-file", // File with apiserver tracing configuration.
 
 		// KCP flags
-		"profiler-address",            // [Address]:port to bind the profiler to
-		"root-directory",              // Root directory.
-		"shard-base-url",              // Base URL to this kcp shard. Defaults to external address.
-		"shard-external-url",          // URL used by outside clients to talk to this kcp shard. Defaults to external address.
-		"shard-virtual-workspace-url", // An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.
-		"shard-name",                  // A name of this kcp shard.
-		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
-		"root-shard-kubeconfig-file",  // Kubeconfig holding admin(!) credentials to the root kcp shard.
-		"experimental-bind-free-port", // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
-		"batteries-included",          // A list of batteries included (= default objects that might be unwanted in production, but very helpful in trying out kcp or development).
+		"profiler-address",                 // [Address]:port to bind the profiler to
+		"root-directory",                   // Root directory.
+		"shard-base-url",                   // Base URL to this kcp shard. Defaults to external address.
+		"shard-external-url",               // URL used by outside clients to talk to this kcp shard. Defaults to external address.
+		"shard-virtual-workspace-url",      // An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.
+		"shard-name",                       // A name of this kcp shard.
+		"shard-kubeconfig-file",            // Kubeconfig holding admin(!) credentials to peer kcp shards.
+		"root-shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to the root kcp shard.
+		"experimental-bind-free-port",      // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
+		"batteries-included",               // A list of batteries included (= default objects that might be unwanted in production, but very helpful in trying out kcp or development).
+		"logical-cluster-admin-kubeconfig", // Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client.
 
 		// secure serving flags
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.
@@ -179,13 +180,7 @@ var (
 		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 
 		// KCP Cache Server flags
-		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loop back configuration).
-		"run-cache-server",             // If set to true it runs the cache server with this instance (default false).
-
-		// KCP Virtual Workspaces flags
-		"virtual-workspaces-workspaces.authorization-cache.jitter-factor", // Jitter factor for cache re-sync. Leave unset to use a default factor.
-		"virtual-workspaces-workspaces.authorization-cache.resync-period", // Period for cache re-sync.
-		"virtual-workspaces-workspaces.authorization-cache.sliding",       // Whether or not to take into account sync duration in period calculations.
+		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
 
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.

@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -32,9 +32,8 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
-// Typical Usage of a DynamicVirtualWorkspace
+// Typical Usage of a DynamicVirtualWorkspace.
 func Example() {
-
 	var someAPIDefinitionSetGetter apidefinition.APIDefinitionSetGetter
 	readyCh := make(chan struct{})
 
@@ -68,14 +67,13 @@ func Example() {
 		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-
 			// Initialize the implementation of the APIDefinitionSetGetter
 
 			someAPIDefinitionSetGetter = newAPIDefinitionSetGetter()
 
 			// Setup some controller that will add APIDefinitions on demand
 
-			someController := setupController(func(logicalClusterName logicalcluster.Name, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error) {
+			someController := setupController(func(logicalClusterName logicalcluster.Path, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error) {
 				// apiserver.CreateServingInfoFor() creates and initializes all the required information to serve an API
 				return apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, someRestProviderFunc)
 			})
@@ -83,7 +81,6 @@ func Example() {
 			// Start the controllers in a PostStartHook
 
 			if err := mainConfig.AddPostStartHook("SomeDynamicVirtualWorkspacePostStartHook", func(hookContext genericapiserver.PostStartHookContext) error {
-
 				// Wait for required informers to be synced
 
 				someController.Start()
@@ -107,7 +104,7 @@ type someController interface {
 
 // CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
 // (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Path, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error)
 
 func setupController(createAPIDefinition CreateAPIDefinitionFunc) someController {
 	return nil

@@ -122,14 +122,14 @@ func TestAdmission(t *testing.T) {
 			),
 		},
 		{
-			testName: "added kcp.dev label",
+			testName: "added kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "bar",
+							"foo":         "changed",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -144,17 +144,17 @@ func TestAdmission(t *testing.T) {
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "added empty kcp.dev label",
+			testName: "added empty kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "",
+							"foo":         "changed",
+							"some.kcp.io": "",
 						},
 					},
 				},
@@ -169,10 +169,10 @@ func TestAdmission(t *testing.T) {
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "deleted kcp.dev label",
+			testName: "deleted kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -186,18 +186,18 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "bar",
+							"foo":         "bar",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "deleted empty kcp.dev label",
+			testName: "deleted empty kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -211,25 +211,25 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "",
+							"foo":         "bar",
+							"some.kcp.io": "",
 						},
 					},
 				},
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "created kcp.dev label",
+			testName: "created kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "new",
-							"some.kcp.dev": "new",
+							"foo":         "new",
+							"some.kcp.io": "new",
 						},
 					},
 				},
@@ -237,17 +237,17 @@ func TestAdmission(t *testing.T) {
 				admission.Create,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "created kcp.dev label as system:masters",
+			testName: "created kcp.io label as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "new",
-							"some.kcp.dev": "new",
+							"foo":         "new",
+							"some.kcp.io": "new",
 						},
 					},
 				},
@@ -257,14 +257,14 @@ func TestAdmission(t *testing.T) {
 			),
 		},
 		{
-			testName: "changed kcp.dev label",
+			testName: "changed kcp.io label",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "changed",
+							"foo":         "changed",
+							"some.kcp.io": "changed",
 						},
 					},
 				},
@@ -272,25 +272,25 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "bar",
+							"foo":         "bar",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved label: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved label: \"some.kcp.io\"",
 		},
 		{
-			testName: "changed label preserving kcp.dev labels",
+			testName: "changed label preserving kcp.io labels",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "bar",
+							"foo":         "changed",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -298,8 +298,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "bar",
+							"foo":         "bar",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -308,14 +308,14 @@ func TestAdmission(t *testing.T) {
 			),
 		},
 		{
-			testName: "added kcp.dev label as system:masters",
+			testName: "added kcp.io label as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "bar",
+							"foo":         "changed",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -340,8 +340,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":                 "changed",
-							"foo.kcp.dev/allowed": "added",
+							"foo":                "changed",
+							"foo.kcp.io/allowed": "added",
 						},
 					},
 				},
@@ -372,8 +372,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":                 "bar",
-							"foo.kcp.dev/allowed": "bar",
+							"foo":                "bar",
+							"foo.kcp.io/allowed": "bar",
 						},
 					},
 				},
@@ -388,8 +388,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":                 "changed",
-							"foo.kcp.dev/allowed": "changed",
+							"foo":                "changed",
+							"foo.kcp.io/allowed": "changed",
 						},
 					},
 				},
@@ -397,8 +397,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":                 "bar",
-							"foo.kcp.dev/allowed": "bar",
+							"foo":                "bar",
+							"foo.kcp.io/allowed": "bar",
 						},
 					},
 				},
@@ -413,8 +413,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":                 "changed",
-							"foo.kcp.dev/allowed": "bar",
+							"foo":                "changed",
+							"foo.kcp.io/allowed": "bar",
 						},
 					},
 				},
@@ -445,8 +445,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":                 "bar",
-							"foo.kcp.dev/allowed": "bar",
+							"foo":                "bar",
+							"foo.kcp.io/allowed": "bar",
 						},
 					},
 				},
@@ -461,8 +461,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":                 "changed",
-							"foo.kcp.dev/allowed": "changed",
+							"foo":                "changed",
+							"foo.kcp.io/allowed": "changed",
 						},
 					},
 				},
@@ -470,8 +470,8 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Labels: map[string]string{
-							"foo":                 "bar",
-							"foo.kcp.dev/allowed": "bar",
+							"foo":                "bar",
+							"foo.kcp.io/allowed": "bar",
 						},
 					},
 				},
@@ -503,14 +503,14 @@ func TestAdmission(t *testing.T) {
 			),
 		},
 		{
-			testName: "added kcp.dev annotation",
+			testName: "added kcp.io annotation",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Annotations: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "bar",
+							"foo":         "changed",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -525,10 +525,10 @@ func TestAdmission(t *testing.T) {
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.io\"",
 		},
 		{
-			testName: "deleted kcp.dev annotation",
+			testName: "deleted kcp.io annotation",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -542,25 +542,25 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Annotations: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "bar",
+							"foo":         "bar",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.io\"",
 		},
 		{
-			testName: "changed kcp.dev annotation",
+			testName: "changed kcp.io annotation",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Annotations: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "changed",
+							"foo":         "changed",
+							"some.kcp.io": "changed",
 						},
 					},
 				},
@@ -568,25 +568,25 @@ func TestAdmission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "bar",
 						Annotations: map[string]string{
-							"foo":          "bar",
-							"some.kcp.dev": "bar",
+							"foo":         "bar",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
 				admission.Update,
 				&user.DefaultInfo{},
 			),
-			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.dev\"",
+			wantErr: "forbidden: modification of reserved annotation: \"some.kcp.io\"",
 		},
 		{
-			testName: "added kcp.dev annotation as system:masters",
+			testName: "added kcp.io annotation as privileged system user",
 			attr: newAttr(
 				&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 						Labels: map[string]string{
-							"foo":          "changed",
-							"some.kcp.dev": "bar",
+							"foo":         "changed",
+							"some.kcp.io": "bar",
 						},
 					},
 				},
@@ -608,8 +608,8 @@ func TestAdmission(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			plugin := &reservedMetadata{
 				Handler:             admission.NewHandler(admission.Create, admission.Update),
-				annotationAllowList: []string{"foo.kcp.dev/allowed"},
-				labelAllowList:      []string{"foo.kcp.dev/allowed"},
+				annotationAllowList: []string{"foo.kcp.io/allowed"},
+				labelAllowList:      []string{"foo.kcp.io/allowed"},
 			}
 			var ctx context.Context
 

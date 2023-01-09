@@ -20,7 +20,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -34,25 +34,33 @@ import (
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
 
 const (
-	PluginName = "apis.kcp.dev/MutatingWebhook"
+	PluginName = "apis.kcp.io/MutatingWebhook"
 )
 
 type Plugin struct {
 	// Using validating plugin, for the dispatcher to use.
 	// This plugins admit function will never be called.
 	mutating.Plugin
-	webhook.WebhookDispatcher
+	*webhook.WebhookDispatcher
 }
 
-var _ admission.MutationInterface = &Plugin{}
+var (
+	_ = admission.MutationInterface(&Plugin{})
+	_ = admission.InitializationValidator(&Plugin{})
+	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+)
 
-func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
-	p := &Plugin{Plugin: mutating.Plugin{Webhook: &generic.Webhook{}}}
-	p.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
+func NewMutatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
+	p := &Plugin{
+		Plugin:            mutating.Plugin{Webhook: &generic.Webhook{}},
+		WebhookDispatcher: webhook.NewWebhookDispatcher(),
+	}
+	p.WebhookDispatcher.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
 
 	dispatcherFactory := mutating.NewMutatingDispatcher(&p.Plugin)
 
@@ -100,12 +108,12 @@ func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(configFile io.Reader) (admission.Interface, error) {
-		return NewValidatingAdmissionWebhook(configFile)
+		return NewMutatingAdmissionWebhook(configFile)
 	})
 }
 
-func (a *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
-	return a.WebhookDispatcher.Dispatch(ctx, attr, o)
+func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
+	return p.WebhookDispatcher.Dispatch(ctx, attr, o)
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.

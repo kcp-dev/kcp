@@ -74,5 +74,4 @@ func (m *namespaceRewriter) Rewrite(ctx context.Context, state request.Request) 
 		&coredns.NameRewriterResponseRule{RemapStringRewriter: rewriter},
 		&coredns.ValueRewriterResponseRule{RemapStringRewriter: rewriter},
 	}
-
 }

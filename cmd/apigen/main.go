@@ -44,7 +44,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 const (
@@ -300,7 +300,7 @@ func resolveLatestAPIResourceSchemas(logger logr.Logger, previous, current map[m
 }
 
 // compareSchemas compares JSON Schemas by unmarshalling them and comparing their values, instead
-// of comparing their raw []byte() representations, as those are not semantically meaningful
+// of comparing their raw []byte() representations, as those are not semantically meaningful.
 func compareSchemas() cmp.Option {
 	return cmp.FilterPath(func(path cmp.Path) bool {
 		return path.String() == "Versions.Schema.Raw"
@@ -319,15 +319,17 @@ func compareSchemas() cmp.Option {
 func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
 	byExport := map[string][]string{}
 	for gr, apiResourceSchema := range allSchemas {
-		if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
+		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
+			continue
+		} else if gr.Group == core.GroupName && gr.Resource == "shards" {
 			// we export shards by themselves, not with the rest of the tenancy group
-			byExport["shards."+tenancy.GroupName] = []string{apiResourceSchema.Name}
+			byExport["shards."+core.GroupName] = []string{apiResourceSchema.Name}
 		} else {
 			byExport[gr.Group] = append(byExport[gr.Group], apiResourceSchema.Name)
 		}
 	}
 
-	var exports []*apisv1alpha1.APIExport
+	exports := make([]*apisv1alpha1.APIExport, 0, len(byExport))
 	for exportName, schemas := range byExport {
 		sort.Strings(schemas)
 
@@ -395,7 +397,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	}
 
 	logger.Info("Pruning output directory.")
-	if err := filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
+	return filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -417,9 +419,5 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 			}
 		}
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }

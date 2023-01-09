@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +141,7 @@ func TestValidate(t *testing.T) {
 			attr: createAttr(
 				newAPIBinding().APIBinding,
 			),
-			expectedErrors: []string{"finalizer apis.kcp.dev/apibinding-finalizer is required"},
+			expectedErrors: []string{"finalizer apis.kcp.io/apibinding-finalizer is required"},
 		},
 		{
 			name: "Create: passes with finalizer",
@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name: "Update: passes without finalizer as system:masters on delete",
+			name: "Update: passes without finalizer as privileged system user on delete",
 			attr: updateAttrWithUserInfo(
 				newAPIBinding().withDeletionTimestamp(time.Now()).APIBinding,
 				newAPIBinding().withFinalizer(apibindingdeletion.APIBindingFinalizer).APIBinding,
@@ -165,7 +165,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withDeletionTimestamp(time.Now()).APIBinding,
 				newAPIBinding().withFinalizer(apibindingdeletion.APIBindingFinalizer).APIBinding,
 			),
-			expectedErrors: []string{"removing the finalizer apis.kcp.dev/apibinding-finalizer is forbidden"},
+			expectedErrors: []string{"removing the finalizer apis.kcp.io/apibinding-finalizer is forbidden"},
 		},
 	}
 

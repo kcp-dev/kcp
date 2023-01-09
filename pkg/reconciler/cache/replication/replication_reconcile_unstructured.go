@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,9 +41,9 @@ import (
 //     - the localObject was deleted
 //  3. modification of the object to match the original/local object
 //     happens when either of the following is true:
-//      - the localObject's metadata doesn't match the cacheObject
-//      - the localObject's spec doesn't match the cacheObject
-//      - the localObject's status doesn't match the cacheObject
+//     - the localObject's metadata doesn't match the cacheObject
+//     - the localObject's spec doesn't match the cacheObject
+//     - the localObject's status doesn't match the cacheObject
 func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
 	if localObject == nil {
 		return c.handleObjectDeletion(ctx, cluster, gvr, cacheObject)
@@ -62,7 +62,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 		}
 		annotations[genericrequest.AnnotationKey] = c.shardName
 		localObject.SetAnnotations(annotations)
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
+		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
 		return err
 	}
 
@@ -79,7 +79,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 	}
 
 	if metaChanged || remainingChanged {
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
+		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
 		return err
 	}
 	return nil
@@ -90,12 +90,12 @@ func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcl
 		return nil // the cached object already removed
 	}
 	if cacheObject.GetDeletionTimestamp() == nil {
-		return c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
+		return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }
 
-// ensureMeta changes unstructuredCacheObject's metadata to match unstructuredLocalObject's metadata except the ResourceVersion and the shard annotation fields
+// ensureMeta changes unstructuredCacheObject's metadata to match unstructuredLocalObject's metadata except the ResourceVersion and the shard annotation fields.
 func ensureMeta(cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) (changed bool, err error) {
 	cacheObjMetaRaw, hasCacheObjMetaRaw, err := unstructured.NestedFieldNoCopy(cacheObject.Object, "metadata")
 	if err != nil {

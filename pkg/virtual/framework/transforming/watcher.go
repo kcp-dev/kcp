@@ -57,12 +57,12 @@ func (w *transformingWatcher) start() {
 	}()
 }
 
-// Stop implements Interface
+// Stop implements Interface.
 func (w *transformingWatcher) Stop() {
 	w.source.Stop()
 }
 
-// ResultChan implements Interface
+// ResultChan implements Interface.
 func (w *transformingWatcher) ResultChan() <-chan watch.Event {
 	return w.transformedCh
 }

@@ -27,7 +27,7 @@ import (
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
@@ -39,6 +39,7 @@ func main() {
 	logDirPath := flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
+	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
@@ -54,13 +55,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
@@ -73,18 +74,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create requestheader-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create requestheader-ca: %w", err)
 	}
 	_, err = requestHeaderCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
-		&user.DefaultInfo{Name: "kcp-front-proxy"},
+		&kuser.DefaultInfo{Name: "kcp-front-proxy"},
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create requestheader client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create requestheader client cert: %w", err)
 	}
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
@@ -96,39 +95,50 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create client-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
 	_, err = clientCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
 		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
-		&user.DefaultInfo{
+		&kuser.DefaultInfo{
 			Name:   "kcp-admin",
-			Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpAdminGroup},
+			Groups: []string{bootstrap.SystemKcpAdminGroup},
 		},
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create kcp-admin client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create kcp-admin client cert: %w", err)
+	}
+
+	// client cert for logical-cluster-admin
+	_, err = clientCA.MakeClientCertificate(
+		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "logical-cluster-admin",
+			Groups: []string{bootstrap.SystemLogicalClusterAdmin},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create kcp-logical-cluster client cert: %w", err)
 	}
 
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
 	// so that it can make wildcard requests against shards
-	// for now we will use the privileged system:masters group to bypass the authz stack
-	// create system:masters client cert to connect to shards
+	// for now we will use the privileged system group to bypass the authz stack
+	// create privileged system user client cert to connect to shards
 	_, err = clientCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.key"),
-		&user.DefaultInfo{
+		&kuser.DefaultInfo{
 			Name:   "shard-admin",
-			Groups: []string{"system:masters"},
+			Groups: []string{kuser.SystemPrivilegedGroup},
 		},
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create front proxy shard admin client cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create front proxy shard admin client cert: %w", err)
 	}
 
 	// create server CA to be used to sign shard serving certs
@@ -140,8 +150,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		fmt.Printf("failed to create serving-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create serving-ca: %w", err)
 	}
 
 	// create service account signing and verification key
@@ -152,8 +161,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		"kcp-service-account-signing-ca",
 		365,
 	); err != nil {
-		fmt.Printf("failed to create service-account-signing-ca: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create service-account-signing-ca: %w", err)
 	}
 
 	// find external IP to put into certs as valid IPs
@@ -169,16 +177,18 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
-	if sets.NewString(shardFlags...).Has("--run-cache-server=true") {
-		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
-		if err != nil {
-			return fmt.Errorf("error starting the cache server: %w", err)
-		}
-		cacheServerConfigPath = configPath
-		go func() {
-			err := <-cacheServerCh
-			cacheServerErrCh <- indexErrTuple{0, err}
-		}()
+	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
+	if err != nil {
+		return fmt.Errorf("error starting the cache server: %w", err)
+	}
+	cacheServerConfigPath = configPath
+	go func() {
+		err := <-cacheServerCh
+		cacheServerErrCh <- indexErrTuple{0, err}
+	}()
+
+	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
 	}
 
 	// start shards
@@ -188,7 +198,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if err != nil {
 			return err
 		}
-		if err := shard.Start(ctx); err != nil {
+		if err := shard.Start(ctx, quiet); err != nil {
 			return err
 		}
 		shards = append(shards, shard)
@@ -220,8 +230,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err := writeShardKubeConfig(workDirPath); err != nil {
 		return err
 	}
+
 	// start front-proxy
-	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort); err != nil {
+	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
 		return err
 	}
 

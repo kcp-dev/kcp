@@ -36,7 +36,6 @@ import (
 func KcpCliPluginCommand() []string {
 	if NoGoRunEnvSet() {
 		return []string{"kubectl", "kcp"}
-
 	} else {
 		cmdPath := filepath.Join(RepositoryDir(), "cmd", "kubectl-kcp")
 		return []string{"go", "run", cmdPath}
@@ -46,6 +45,8 @@ func KcpCliPluginCommand() []string {
 // RunKcpCliPlugin runs the kcp workspace plugin with the provided subcommand and
 // returns the combined stderr and stdout output.
 func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) []byte {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -73,6 +74,8 @@ func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) [
 // KubectlApply runs kubectl apply -f with the supplied input piped to stdin and returns
 // the combined stderr and stdout output.
 func KubectlApply(t *testing.T, kubeconfigPath string, input []byte) []byte {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -99,6 +102,8 @@ func KubectlApply(t *testing.T, kubeconfigPath string, input []byte) []byte {
 
 // Kubectl runs kubectl with the given arguments and returns the combined stderr and stdout.
 func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 

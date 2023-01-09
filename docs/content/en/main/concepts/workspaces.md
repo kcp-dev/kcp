@@ -22,30 +22,51 @@ Workspaces are represented to the user via the Workspace kind, e.g.
 
 ```yaml
 kind: Workspace
-apiVersion: tenancy.kcp.dev/v1beta1
+apiVersion: tenancy.kcp.io/v1beta1
 spec:
   type: Universal
 status:
   url: https://kcp.example.com/clusters/myapp
 ```
 
-There is a 3-level hierarchy of workspaces:
+There are different types of workspaces, and workspaces are arranged
+in a tree.  Each type of workspace may restrict the types of its
+children and may restrict the types it may be a child of; a
+parent-child relationship is allowed if and only if the parent allows
+the child and the child allows the parent.  The kcp binary has a
+built-in set of workspace types, and the admin may create objects that
+define additional types.
 
-- **Enduser Workspaces** are workspaces holding enduser resources, e.g.
-  applications with services, secrets, configmaps, deployments, etc.
-- **Organization Workspaces** are workspaces holding organizational data,
-  e.g. definitions of enduser workspaces, roles, policies, accounting data.
-- **Root Workspace** is a singleton holding cross-organizational data and
-  the definition of the organizations.
+- **Root Workspace** is a singleton.  It holds some data that applies
+  to all workspaces, such as the set of defined workspace types
+  (objects of type `WorkspaceType`).
+- **HomeRoot Workspace** is normally a singleton, holding the branch
+  of workspaces that contains the user home workspaces as descendants.
+  Can only be a child of the root workspace, and can only have
+  HomeBucket children.
+- **HomeBucket Workspace** are intermediate vertices in the hierarhcy
+  between the HomeRoot and the user home workspaces.  Can be a child
+  of the root or another HomeBucket workspace.  Allowed children are
+  home and HomeBucket workspaces.
+- **Home Workspace** is a user's home workspace.  These hold user
+  resources such as applications with services, secrets, configmaps,
+  deployments, etc.  Can only be a child of a HomeBucket workspace.
+- **Organization Workspace** are workspaces holding organizational
+  data, e.g. definitions of user workspaces, roles, policies,
+  accounting data.  Can only be a child of root.
+- **Team Workspace** can only be a child of an Organization workspace.
+- **Universal Workspace** is a basic type of workspace with no
+  particular nature.  Has no restrictions on parent or child workspace
+  types.
 
 ## ClusterWorkspaces
 
 ClusterWorkspaces define traditional etcd-based, CRD enabled workspaces, available
 under `/clusters/<parent-workspace-name>:<cluster-workspace-name>`. E.g. organization
-workspaces are accessible at `/clusters/root:<org-name>`. An enduser workspace is
-accessible at `/clusters/<org-name>:<enduser-workspace-name>`.
+workspaces are accessible at `/clusters/root:<org-name>`. A user workspace is
+accessible at `/clusters/root:users:<bucket-d1>:..:<bucket-dN>:<user-workspace-name>`.
 
-ClusterWorkspaces have a type. A type is defined by a ClusterWorkspaceType. A type
+ClusterWorkspaces have a type. A type is defined by a WorkspaceType. A type
 defines initializers. They are set on new ClusterWorkspace objects and block the
 cluster workspace from leaving the initializing phase. Both system components and
 3rd party components can use initializers to customize ClusterWorkspaces on creation,
@@ -53,12 +74,12 @@ e.g. to bootstrap resources inside the workspace, or to set up permission in its
 
 A cluster workspace of type `Universal` is a workspace without further initialization
 or special properties by default, and it can be used without a corresponding
-ClusterWorkspaceType object (though one can be added and its initializers will be
+WorkspaceType object (though one can be added and its initializers will be
 applied). ClusterWorkSpaces of type `Organization` are described in the next section.
 
 {{% alert title="Note" color="primary" %}}
 In order to create cluster workspaces of a given type (including `Universal`)
-you must have `use` permissions against the `clusterworkspacetypes` resources with the
+you must have `use` permissions against the `workspacetypes` resources with the
 lower-case name of the cluster workspace type (e.g. `universal`). All `system:authenticated`
 users inherit this permission automatically for type `Universal`.
 {{% /alert %}}
@@ -74,20 +95,14 @@ User home workspaces are an optional feature of kcp. If enabled (through `--enab
 virtual `Workspace` called `~` in the root workspace. It is used by `kubectl ws` to derive the full path to the user
 home workspace, similar to how Unix `cd ~` move the users to their home.
 
-The full path for a user's home workspace has a number of parts: `<prefix>:(<bucket>)+<user-name>`. Buckets are used to
-ensure that ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
+The full path for a user's home workspace has a number of parts: `<prefix>(:<bucket>)+:<user-name>`. Buckets are used to
+ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
 derived from the user name (via some hash). Example for user `adam` when using default configuration:
 `root:users:a8:f1:adam`.
 
 User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
 the system to only incur the cost of these workspaces when they are needed. Only users of the configured
 home-creator-groups (default `system:authenticated`) will have a home workspace.
-
-The following cluster workspace types are created internally to support User Home Workspaces:
-
-- `homeroot`: the workspace that will contain all the Home workspaces, spread across buckets. - Can contain only Homebucket workspaces
-- `homebucket`: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
-- `home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
 
 ### Bucket configuration options
 
@@ -136,7 +151,7 @@ Organization workspaces are ClusterWorkspaces of type `Organization`, defined in
 root workspace. Organization workspaces are accessible at `/clusters/root:<org-name>`.
 
 {{% alert title="Note" color="primary" %}}
-The organization ClusterWorkspaceType can only be created in the root workspace
+The organization WorkspaceType can only be created in the root workspace
 verified through admission.
 {{% /alert %}}
 

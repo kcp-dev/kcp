@@ -175,6 +175,10 @@ spec:
         env:
         - name: EXTERNAL_HOSTNAME
           value: kcp
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.memory
         livenessProbe:
           failureThreshold: 3
           httpGet:

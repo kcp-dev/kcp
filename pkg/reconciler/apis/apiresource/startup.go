@@ -40,7 +40,7 @@ func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
 	return o
 }
 
-// Options are the options for the cluster controller
+// Options are the options for the cluster controller.
 type Options struct {
 	AutoPublishAPIs bool
 	NumThreads      int
