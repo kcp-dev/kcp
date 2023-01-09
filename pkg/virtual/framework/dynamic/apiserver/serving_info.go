@@ -182,7 +182,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 
 	table, err := tableconvertor.New(apiResourceVersion.AdditionalPrinterColumns)
 	if err != nil {
-		klog.V(2).Infof("The CRD for %s|%s has an invalid printer specification, falling back to default printing: %v", logicalcluster.From(apiResourceSchema), gvk.String(), err)
+		klog.Background().V(2).WithValues("cluster", logicalcluster.From(apiResourceSchema), "gvk", gvk, "err", err).Info("the CRD has an invalid printer specification, falling back to default printing")
 	}
 
 	storage, subresourceStorages := restProvider(

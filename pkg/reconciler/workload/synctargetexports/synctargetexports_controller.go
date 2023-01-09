@@ -18,18 +18,15 @@ package synctargetexports
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -43,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	workloadv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
@@ -50,6 +48,8 @@ import (
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -77,6 +77,7 @@ func NewController(
 		apiExportLister:      apiExportInformer.Lister(),
 		resourceSchemaLister: apiResourceSchemaInformer.Lister(),
 		apiImportLister:      apiResourceImportInformer.Lister(),
+		commit:               committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
 	}
 
 	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
@@ -90,9 +91,11 @@ func NewController(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
 	// Watch for events related to SyncTargets
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, "") },
+		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger, "") },
 		UpdateFunc: func(old, obj interface{}) {
 			oldCluster := old.(*workloadv1alpha1.SyncTarget)
 			newCluster := obj.(*workloadv1alpha1.SyncTarget)
@@ -100,33 +103,35 @@ func NewController(
 			// only enqueue when syncedResource or supportedAPIExported are changed.
 			if !equality.Semantic.DeepEqual(oldCluster.Spec.SupportedAPIExports, newCluster.Spec.SupportedAPIExports) ||
 				!equality.Semantic.DeepEqual(oldCluster.Status.SyncedResources, newCluster.Status.SyncedResources) {
-				c.enqueueSyncTarget(obj, "")
+				c.enqueueSyncTarget(obj, logger, "")
 			}
 		},
 		DeleteFunc: func(obj interface{}) {},
 	})
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 	})
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 	})
 
 	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueAPIResourceImport,
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIResourceImport(obj, logger)
+		},
 		UpdateFunc: func(old, obj interface{}) {
 			oldImport := old.(*apiresourcev1alpha1.APIResourceImport)
 			newImport := obj.(*apiresourcev1alpha1.APIResourceImport)
 
 			// only enqueue when spec is changed.
 			if oldImport.Generation != newImport.Generation {
-				c.enqueueAPIResourceImport(obj)
+				c.enqueueAPIResourceImport(obj, logger)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {},
@@ -134,6 +139,13 @@ func NewController(
 
 	return c, nil
 }
+
+type SyncTarget = workloadv1alpha1.SyncTarget
+type SyncTargetSpec = workloadv1alpha1.SyncTargetSpec
+type SyncTargetStatus = workloadv1alpha1.SyncTargetStatus
+type Patcher = workloadv1alpha1client.SyncTargetInterface
+type Resource = committer.Resource[*SyncTargetSpec, *SyncTargetStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 type Controller struct {
 	queue            workqueue.RateLimitingInterface
@@ -145,20 +157,22 @@ type Controller struct {
 	apiExportLister      apisv1alpha1listers.APIExportClusterLister
 	resourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
 	apiImportLister      apiresourcev1alpha1listers.APIResourceImportClusterLister
+
+	commit CommitFunc
 }
 
-func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
+func (c *Controller) enqueueSyncTarget(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).Infof("Queueing SyncTarget %q%s", key, logSuffix)
+	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing SyncTarget%s", logSuffix))
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
+func (c *Controller) enqueueAPIResourceImport(obj interface{}, logger logr.Logger) {
 	apiImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport)
 	if !ok {
 		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIResourceImport, but is %T", obj))
@@ -168,11 +182,11 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	lcluster := logicalcluster.From(apiImport)
 	key := kcpcache.ToClusterAwareKey(lcluster.String(), "", apiImport.Spec.Location)
 
-	klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
+	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name))
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
+func (c *Controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
 	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 		obj = d.Obj
 	}
@@ -207,12 +221,12 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 			runtime.HandleError(err)
 			continue
 		}
-		c.enqueueSyncTarget(syncTarget, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
+		c.enqueueSyncTarget(syncTarget, logger, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
 	}
 }
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
-func (c *Controller) enqueueAPIResourceSchema(obj interface{}) {
+func (c *Controller) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -226,7 +240,7 @@ func (c *Controller) enqueueAPIResourceSchema(obj interface{}) {
 	}
 
 	for _, obj := range apiExports {
-		c.enqueueAPIExport(obj, fmt.Sprintf(" because of APIResourceSchema %s", key))
+		c.enqueueAPIExport(obj, logger, fmt.Sprintf(" because of APIResourceSchema %s", key))
 	}
 }
 
@@ -235,8 +249,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting workers", "controller", ControllerName)
-	defer klog.InfoS("Stopping workers", "controller", ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -258,6 +274,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -273,6 +293,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
@@ -282,13 +303,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	syncTarget, err := c.syncTargetLister.Cluster(cluster).Get(name)
 	if err != nil {
-		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
+		logger.Error(err, "failed to get syncTarget")
 		return nil
 	}
 
-	klog.Infof("Processing syncTarget %q", key)
-
 	currentSyncTarget := syncTarget.DeepCopy()
+
+	logger = logging.WithObject(logger, currentSyncTarget)
+	ctx = klog.NewContext(ctx, logger)
 
 	exportReconciler := &exportReconciler{
 		getAPIExport:      c.getAPIExport,
@@ -309,50 +331,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		errs = append(errs, err)
 	}
 
-	if len(errs) > 0 {
-		return errors.NewAggregate(errs)
+	// If the object being reconciled changed as a result, update it.
+	oldResource := &Resource{ObjectMeta: syncTarget.ObjectMeta, Spec: &syncTarget.Spec, Status: &syncTarget.Status}
+	newResource := &Resource{ObjectMeta: currentSyncTarget.ObjectMeta, Spec: &currentSyncTarget.Spec, Status: &currentSyncTarget.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	if equality.Semantic.DeepEqual(syncTarget.Status.SyncedResources, currentSyncTarget.Status.SyncedResources) {
-		return nil
-	}
-
-	oldData, err := json.Marshal(workloadv1alpha1.SyncTarget{
-		Status: workloadv1alpha1.SyncTargetStatus{
-			SyncedResources: syncTarget.Status.SyncedResources,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for placement %s: %w", key, err)
-	}
-
-	newData, err := json.Marshal(workloadv1alpha1.SyncTarget{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:             syncTarget.UID,
-			ResourceVersion: syncTarget.ResourceVersion,
-		}, // to ensure they appear in the patch as preconditions
-		Status: workloadv1alpha1.SyncTargetStatus{
-			SyncedResources: currentSyncTarget.Status.SyncedResources,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for LocationDomain %s: %w", key, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		klog.Errorf("Failed to create merge patch for syncTarget %q because: %v", key, err)
-		return err
-	}
-
-	clusterName := logicalcluster.From(currentSyncTarget)
-	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
-	if _, err := c.kcpClusterClient.Cluster(clusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
-		klog.Errorf("failed to patch sync target status: %v", err)
-		return err
-	}
-
-	return nil
+	return errors.NewAggregate(errs)
 }
 
 func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {

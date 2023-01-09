@@ -226,7 +226,7 @@ func toQueueElementType(oldObj, obj interface{}) (theType queueElementType, gvr 
 		tombstone := typedObj
 		theType, gvr, oldMeta, newMeta, oldStatus, newStatus = toQueueElementType(nil, tombstone.Obj)
 		if theType == "" {
-			klog.Errorf("Tombstone contained object that is not expected %#v", obj)
+			klog.Background().WithValues("unexpectedObject", obj).Error(nil, "tombstone contained object that is not expected")
 		}
 	}
 	return

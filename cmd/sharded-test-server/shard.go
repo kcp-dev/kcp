@@ -29,9 +29,11 @@ import (
 )
 
 func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string) (*shard.Shard, error) {
+	logger := klog.FromContext(ctx).WithValues("shard", n)
+
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
-	klog.Infof("Creating shard server %d serving cert with hostnames %v", n, hostnames)
+	logger.WithValues("hostnames", hostnames).Info("creating shard server serving cert with hostnames")
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
@@ -40,7 +42,7 @@ func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, h
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
-	klog.Infof("Creating extra serving certs in .kcp with hostnames %v to be used by e2e webhooks", hostnames)
+	logger.WithValues("hostnames", hostnames).Info("creating extra serving certs in .kcp with hostnames to be used by e2e webhooks")
 	cert, err = servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)

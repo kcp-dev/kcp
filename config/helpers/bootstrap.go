@@ -88,7 +88,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	}
 	return wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, batteriesIncluded, fs, transformers...); err != nil {
-			klog.Infof("Failed to bootstrap resources, retrying: %v", err)
+			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
 			// invalidate cache if resources not found
 			// xref: https://github.com/kcp-dev/kcp/issues/655
 			cache.Invalidate()
@@ -159,6 +159,7 @@ const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
 const annotationBattery = "bootstrap.kcp.io/battery"
 
 func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.String) error {
+	logger := klog.FromContext(ctx)
 	type Input struct {
 		Batteries map[string]bool
 	}
@@ -196,7 +197,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			}
 		}
 		if !included {
-			klog.V(4).Infof("Skipping %s because %s is/are not among included batteries %s", u.GetName(), v, batteriesIncluded)
+			logger.V(4).WithValues("resource", u.GetName(), "batteriesRequired", v, "batteriesIncluded", batteriesIncluded).Info("skipping resource because required batteries are not among included batteries")
 			return nil
 		}
 	}
@@ -213,13 +214,10 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			if err != nil {
 				return err
 			}
+			logger := logging.WithObject(logger, existing)
 
 			if _, exists := existing.GetAnnotations()[annotationCreateOnlyKey]; exists {
-				klog.Infof(
-					"Skipping update of %s %s because it has the create-only annotation",
-					gvk,
-					tenancyhelper.QualifiedObjectName(existing),
-				)
+				logger.Info("skipping update of object because it has the create-only annotation")
 
 				return nil
 			}
@@ -228,14 +226,14 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, tenancyhelper.QualifiedObjectName(existing), err)
 			} else {
-				klog.Infof("Updated %s %s", gvk, tenancyhelper.QualifiedObjectName(existing))
+				logger.Info("updated object")
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s %s", gvk.Kind, tenancyhelper.QualifiedObjectName(upserted))
+	logging.WithObject(logger, upserted).Info("upserted object")
 
 	return nil
 }

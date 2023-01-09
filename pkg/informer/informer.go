@@ -176,9 +176,9 @@ func NewGenericDiscoveringDynamicSharedInformerFactory[Informer cache.SharedInde
 		for change := range changes {
 			select {
 			case f.updateCh <- change:
-				klog.V(4).InfoS("Enqueued update notification for dynamic informer recalculation")
+				klog.Background().V(4).Info("enqueued update notification for dynamic informer recalculation")
 			default:
-				klog.V(5).InfoS("Dropping update notification for dynamic informer recalculation because a notification is already pending")
+				klog.Background().V(5).Info("dropping update notification for dynamic informer recalculation because a notification is already pending")
 			}
 		}
 	}()
@@ -311,7 +311,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		return inf
 	}
 
-	klog.V(2).Infof("Adding dynamic informer for %q", gvr)
+	klog.Background().V(2).WithValues("gvr", gvr).Info("adding dynamic informer for gvr")
 
 	indexers := cache.Indexers{}
 	for k, v := range d.indexers {
@@ -426,6 +426,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 // StartWorker starts the worker that waits for notifications that informer updates are needed. This call is blocking,
 // stopping when ctx.Done() is closed.
 func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) StartWorker(ctx context.Context) {
+	logger := klog.FromContext(ctx)
 	defer func() {
 		d.informersLock.Lock()
 
@@ -437,7 +438,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	}()
 
 	if !cache.WaitForNamedCacheSync("kcp-ddsif-gvr-source", ctx.Done(), d.gvrSource.Ready) {
-		klog.Errorf("GVR source never synced")
+		logger.Error(nil, "GVR source never synced")
 		return
 	}
 
@@ -448,14 +449,14 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	// watch events for CRDs can come in quickly, this effectively "batches" them, so we aren't recalculating the
 	// informers for each watch event in a tightly grouped set of events.
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		klog.V(5).InfoS("Waiting for notification")
+		logger.V(5).Info("waiting for notification")
 		select {
 		case <-ctx.Done():
 			return
 		case <-d.updateCh:
 		}
 
-		klog.V(5).InfoS("Notification received")
+		logger.V(5).Info("notification received")
 		d.updateInformers()
 	}, time.Second)
 }
@@ -479,7 +480,8 @@ func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular 
 }
 
 func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) updateInformers() {
-	klog.V(5).InfoS("Determining dynamic informer additions and removals")
+	logger := klog.Background()
+	logger.V(5).Info("determining dynamic informer additions and removals")
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
@@ -503,7 +505,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	d.informersLock.RUnlock()
 
 	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
-		klog.V(5).InfoS("No changes")
+		logger.V(5).Info("no changes")
 		return
 	}
 
@@ -515,7 +517,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	// the write lock
 	informersToAdd, informersToRemove = d.calculateInformersLockHeld(latest)
 	if len(informersToAdd) == 0 && len(informersToRemove) == 0 {
-		klog.V(5).InfoS("No changes")
+		logger.V(5).Info("no changes")
 		return
 	}
 
@@ -537,16 +539,17 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 
 	for i := range informersToRemove {
 		gvr := informersToRemove[i]
+		logger := logger.WithValues("gvr", gvr)
 
-		klog.V(2).Infof("Removing dynamic informer for %q", gvr)
+		logger.V(2).Info("removing dynamic informer for gvr")
 
 		stop, ok := d.informerStops[gvr]
 		if ok {
-			klog.V(4).Infof("Closing stop channel for dynamic informer for %q", gvr)
+			logger.V(4).Info("closing stop channel for dynamic informer for gvr")
 			close(stop)
 		}
 
-		klog.V(4).Infof("Removing dynamic informer from maps for %q", gvr)
+		logger.V(4).Info("removing dynamic informer from maps for gvr")
 		delete(d.informers, gvr)
 		delete(d.informerStops, gvr)
 		delete(d.startedInformers, gvr)
@@ -561,12 +564,13 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	defer d.subscribersLock.Unlock()
 
 	for id, ch := range d.subscribers {
-		klog.V(4).InfoS("Attempting to notify discovery subscriber", "id", id)
+		logger := logger.WithValues("id", id)
+		logger.V(4).Info("attempting to notify discovery subscriber")
 		select {
 		case ch <- struct{}{}:
-			klog.V(4).InfoS("Successfully notified discovery subscriber", "id", id)
+			logger.V(4).Info("successfully notified discovery subscriber")
 		default:
-			klog.V(4).InfoS("Unable to notify discovery subscriber - channel full", "id", id)
+			logger.V(4).Info("unable to notify discovery subscriber - channel full")
 		}
 	}
 }
@@ -896,9 +900,9 @@ func (s *crdGVRSource) Subscribe() <-chan struct{} {
 	notifyChange := func() {
 		select {
 		case changes <- struct{}{}:
-			klog.V(4).InfoS("Enqueued CRD change notification")
+			klog.Background().V(4).Info("enqueued CRD change notification")
 		default:
-			klog.V(5).InfoS("Dropping CRD change notification because a notification is already pending")
+			klog.Background().V(5).Info("dropping CRD change notification because a notification is already pending")
 		}
 	}
 

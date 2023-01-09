@@ -395,7 +395,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if !objLocations.Equal(nsLocations) || !reflect.DeepEqual(objDeleting, nsDeleting) {
 				c.enqueueResource(gvr, obj)
 
-				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
+				if len(enqueuedResources) < 10 {
 					enqueuedResources = append(enqueuedResources, u.GetName())
 				}
 

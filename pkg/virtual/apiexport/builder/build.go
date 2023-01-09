@@ -137,7 +137,7 @@ func BuildVirtualWorkspace(
 					"apiexports":         wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						klog.Errorf("informer not synced")
+						klog.Background().Error(nil, "informer not synced")
 						return nil
 					}
 				}

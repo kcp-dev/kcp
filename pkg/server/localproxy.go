@@ -90,6 +90,7 @@ func WithLocalProxy(
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+		logger := klog.FromContext(ctx)
 
 		path, newURL, foundInIndex, err := filters.ClusterPathFromAndStrip(req)
 		if err != nil {
@@ -134,7 +135,7 @@ func WithLocalProxy(
 		// lookup in our local, potentially partial index
 		requestShardName, rewrittenClusterName, foundInIndex := indexState.Lookup(path)
 		if foundInIndex && requestShardName != shardName {
-			klog.Infof("Cluster %q is not on this shard, but on %q", cluster.Name, requestShardName)
+			logger.WithValues("cluster", cluster.Name, "requestedShard", requestShardName, "actualShard", shardName).Info("cluster is not on this shard, but on another")
 
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
 			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
@@ -147,14 +148,14 @@ func WithLocalProxy(
 		if !isName && !foundInIndex {
 			// No rewrite, depend on the handler chain to do the right thing, like 403 or 404.
 			cluster.Name = logicalcluster.Name(path.String())
-			klog.Infof("Cluster %q not found", cluster.Name)
+			logger.WithValues("cluster", cluster.Name).Info("cluster not found")
 			handler.ServeHTTP(w, req.WithContext(request.WithCluster(ctx, cluster)))
 			return
 		}
 
 		if foundInIndex {
 			if rewrittenClusterName.Path() != path {
-				klog.FromContext(ctx).V(4).Info("Rewriting cluster", "from", path, "to", rewrittenClusterName)
+				logger.WithValues("from", path, "to", rewrittenClusterName).V(4).Info("rewriting cluster")
 			}
 			cluster.Name = rewrittenClusterName
 		} else {

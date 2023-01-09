@@ -41,6 +41,7 @@ func (m *namespaceRewriter) updateFromConfigmap(ctx context.Context, cm *corev1.
 
 // Rewrite the current request by replacing logical namespace to physical namespace (when applicable).
 func (m *namespaceRewriter) Rewrite(ctx context.Context, state request.Request) rewrite.ResponseRules {
+	logger := klog.FromContext(ctx)
 	name := state.Name()
 
 	parts := strings.SplitN(name, ".", 3)
@@ -65,7 +66,7 @@ func (m *namespaceRewriter) Rewrite(ctx context.Context, state request.Request) 
 	// The ly namespace might not contain a bit service, and will fail to be properly resolved.
 	replacement := parts[0] + "." + targetNs + "." + parts[2]
 
-	klog.V(4).Info("rewriting dns name", "before", name, "after", replacement)
+	logger.V(4).WithValues("before", name, "after", replacement).Info("rewriting dns name")
 
 	state.Req.Question[0].Name = replacement
 

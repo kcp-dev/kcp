@@ -612,7 +612,7 @@ func GetCAFromBytes(certBytes, keyBytes []byte) (*CA, error) {
 
 // if serialFile is empty, a RandomSerialGenerator will be used
 func MakeSelfSignedCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, error) {
-	klog.V(2).Infof("Generating new CA for %s cert, and key in %s, %s", name, certFile, keyFile)
+	klog.Background().V(2).WithValues("certName", name, "certFile", certFile, "keyFile", keyFile).Info("generating new CA for cert")
 
 	caConfig, err := MakeSelfSignedCAConfig(name, expireDays)
 	if err != nil {
@@ -728,7 +728,7 @@ func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertifi
 	missingIps := ipsNotInSlice(ips, cert.IPAddresses)
 	missingDns := stringsNotInSlice(dns, cert.DNSNames)
 	if len(missingIps) == 0 && len(missingDns) == 0 {
-		klog.V(4).Infof("Found existing server certificate in %s", certFile)
+		klog.Background().V(4).WithValues("certFile", certFile).Info("found existing server certificate")
 		return server, nil
 	}
 
@@ -736,7 +736,7 @@ func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertifi
 }
 
 func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.String, expireDays int) (*TLSCertificateConfig, error) {
-	klog.V(4).Infof("Generating server certificate in %s, key in %s", certFile, keyFile)
+	klog.Background().V(4).WithValues("certFile", certFile, "keyFile", keyFile).Info("generating server certificate")
 
 	server, err := ca.MakeServerCert(hostnames, expireDays)
 	if err != nil {
@@ -805,7 +805,7 @@ func (ca *CA) EnsureClientCertificate(certFile, keyFile string, u user.Info, exp
 }
 
 func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expireDays int) (*TLSCertificateConfig, error) {
-	klog.V(4).Infof("Generating client cert in %s and key in %s", certFile, keyFile)
+	klog.Background().V(4).WithValues("certFile", certFile, "keyFile", keyFile).Info("generating client cert")
 	// ensure parent dirs
 	if err := os.MkdirAll(filepath.Dir(certFile), os.FileMode(0755)); err != nil {
 		return nil, err

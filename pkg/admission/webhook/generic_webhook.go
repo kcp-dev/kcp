@@ -136,11 +136,11 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	} else if isAPIBinding {
 		whAccessor = p.hookSource.Webhooks(workspace)
 		attr.SetCluster(workspace)
-		klog.V(7).Infof("restricting call to api registration hooks in cluster: %v", workspace)
+		klog.FromContext(ctx).V(7).WithValues("cluster", workspace).Info("restricting call to api registration hooks in cluster")
 	} else {
 		whAccessor = p.hookSource.Webhooks(lcluster)
 		attr.SetCluster(lcluster)
-		klog.V(7).Infof("restricting call to hooks in cluster: %v", lcluster)
+		klog.FromContext(ctx).V(7).WithValues("cluster", lcluster).Info("restricting call to hooks in cluster")
 	}
 
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
