@@ -54,7 +54,7 @@ const (
 )
 
 // NewAPIBinder returns a new controller which instantiates APIBindings and waits for them to be fully bound
-// in new ClusterWorkspaces.
+// in new Workspaces.
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
@@ -154,7 +154,7 @@ func NewAPIBinder(
 type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
 
 // APIBinder is a controller which instantiates APIBindings and waits for them to be fully bound
-// in new ClusterWorkspaces.
+// in new Workspaces.
 type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
@@ -212,25 +212,25 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	b.enqueueLogicalCluster(logicalCluster, logger)
 }
 
-// enqueueWorkspaceTypes enqueues all clusterworkspaces (which are only those that are initializing, because of
+// enqueueWorkspaceTypes enqueues all workspaces (which are only those that are initializing, because of
 // how the informer is supposed to be configured) whenever a workspacetype changes. If a workspacetype
 // had a typo in the default set of apibindings, there is a chance the requeuing here would pick up a fix.
 //
 // TODO(sttts): this cannot work in a sharded environment.
 func (b *APIBinder) enqueueWorkspaceTypes(obj interface{}, logger logr.Logger) {
-	cwt, ok := obj.(*tenancyv1alpha1.WorkspaceType)
+	wt, ok := obj.(*tenancyv1alpha1.WorkspaceType)
 	if !ok {
 		runtime.HandleError(fmt.Errorf("obj is supposed to be a WorkspaceType, but is %T", obj))
 		return
 	}
 
-	if len(cwt.Spec.DefaultAPIBindings) == 0 {
+	if len(wt.Spec.DefaultAPIBindings) == 0 {
 		return
 	}
 
 	list, err := b.listLogicalClusters()
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("error listing clusterworkspaces: %w", err))
+		runtime.HandleError(fmt.Errorf("error listing workspaces: %w", err))
 	}
 
 	for _, ws := range list {

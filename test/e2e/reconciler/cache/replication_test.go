@@ -274,7 +274,7 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 
 	t.Logf("Create source Shard %s/%s on the root shard for replication", clusterName, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		cws := &corev1alpha1.Shard{
+		wShard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: resourceName,
 			},
@@ -282,9 +282,9 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 				BaseURL: "https://base.kcp.test.dev",
 			},
 		}
-		cws, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Create(ctx, cws, metav1.CreateOptions{})
-		resourceName = cws.Name
-		scenario.resourceName = cws.Name
+		wShard, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Create(ctx, wShard, metav1.CreateOptions{})
+		resourceName = wShard.Name
+		scenario.resourceName = wShard.Name
 		return err
 	})
 	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", clusterName, resourceName)
@@ -292,12 +292,12 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 
 	t.Logf("Change the spec on source Shard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
 	scenario.UpdateSourceResource(ctx, t, clusterName.Path(), func(res runtime.Object) error {
-		cws, ok := res.(*corev1alpha1.Shard)
+		wShard, ok := res.(*corev1alpha1.Shard)
 		if !ok {
 			return fmt.Errorf("%T is not *Shard", res)
 		}
-		cws.Spec.BaseURL = "https://kcp.test.dev"
-		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, cws, metav1.UpdateOptions{})
+		wShard.Spec.BaseURL = "https://kcp.test.dev"
+		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, wShard, metav1.UpdateOptions{})
 		return err
 	})
 	scenario.VerifyReplication(ctx, t, clusterName.Path())
@@ -307,11 +307,11 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 		if err := scenario.ChangeMetadataFor(res); err != nil {
 			return err
 		}
-		cws, ok := res.(*corev1alpha1.Shard)
+		wShard, ok := res.(*corev1alpha1.Shard)
 		if !ok {
 			return fmt.Errorf("%T is not *Shard", res)
 		}
-		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, cws, metav1.UpdateOptions{})
+		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, wShard, metav1.UpdateOptions{})
 		return err
 	})
 	scenario.VerifyReplication(ctx, t, clusterName.Path())
@@ -331,7 +331,7 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 
 	t.Logf("Create source Shard %s/%s on the root shard for replication", cluster, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		cws := &corev1alpha1.Shard{
+		wShard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: resourceName,
 			},
@@ -339,9 +339,9 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 				BaseURL: "https://base.kcp.test.dev",
 			},
 		}
-		cws, err := kcpShardClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Create(ctx, cws, metav1.CreateOptions{})
-		resourceName = cws.Name
-		scenario.resourceName = cws.Name
+		wShard, err := kcpShardClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Create(ctx, wShard, metav1.CreateOptions{})
+		resourceName = wShard.Name
+		scenario.resourceName = wShard.Name
 		return err
 	})
 	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", cluster, resourceName)
@@ -353,12 +353,12 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 
 	t.Logf("Update cached Shard %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
 	scenario.UpdateCachedResource(ctx, t, cluster.Path(), func(res runtime.Object) error {
-		cachedCws, ok := res.(*corev1alpha1.Shard)
+		cachedWShard, ok := res.(*corev1alpha1.Shard)
 		if !ok {
 			return fmt.Errorf("%T is not *Shard", res)
 		}
-		cachedCws.Spec.BaseURL = "https://base2.kcp.test.dev"
-		_, err := cacheKcpClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedCws, metav1.UpdateOptions{})
+		cachedWShard.Spec.BaseURL = "https://base2.kcp.test.dev"
+		_, err := cacheKcpClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedWShard, metav1.UpdateOptions{})
 		return err
 	})
 	t.Logf("Verify that the cached Shard %s/%s was brought back by the replication controller after an update", cluster, resourceName)

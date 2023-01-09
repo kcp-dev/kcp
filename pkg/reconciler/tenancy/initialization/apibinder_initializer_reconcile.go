@@ -47,21 +47,21 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	if !found {
 		return nil
 	}
-	cwtCluster, cwtName := logicalcluster.NewPath(annotationValue).Split()
-	if cwtCluster.Empty() {
+	wtCluster, wtName := logicalcluster.NewPath(annotationValue).Split()
+	if wtCluster.Empty() {
 		return nil
 	}
 	logger := klog.FromContext(ctx).WithValues(
-		"workspacetype.path", cwtCluster.String(),
-		"workspacetype.name", cwtName,
+		"workspacetype.path", wtCluster.String(),
+		"workspacetype.name", wtName,
 	)
 
 	var errors []error
 	clusterName := logicalcluster.From(logicalCluster)
 	logger.V(2).Info("initializing APIBindings for workspace")
 
-	// Start with the WorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getWorkspaceType(cwtCluster, cwtName)
+	// Start with the WorkspaceType specified by the Workspace
+	leafWT, err := b.getWorkspaceType(wtCluster, wtName)
 	if err != nil {
 		logger.Error(err, "error getting WorkspaceType")
 
@@ -71,7 +71,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting WorkspaceType %s|%s: %v",
-			cwtCluster.String(), cwtName,
+			wtCluster.String(), wtName,
 			err,
 		)
 
@@ -79,7 +79,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	}
 
 	// Get all the transitive WorkspaceTypes
-	cwts, err := b.transitiveTypeResolver.Resolve(leafCWT)
+	wts, err := b.transitiveTypeResolver.Resolve(leafWT)
 	if err != nil {
 		logger.Error(err, "error resolving transitive types")
 
@@ -88,7 +88,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
-			"error resolving transitive set of cluster workspace types: %v",
+			"error resolving transitive set of workspace types: %v",
 			err,
 		)
 
@@ -118,14 +118,14 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]struct{}{}
 	someExportsMissing := false
 
-	for _, cwt := range cwts {
-		logger := logging.WithObject(logger, cwt)
+	for _, wt := range wts {
+		logger := logging.WithObject(logger, wt)
 		logger.V(2).Info("attempting to initialize APIBindings")
 
-		for i := range cwt.Spec.DefaultAPIBindings {
-			exportRef := cwt.Spec.DefaultAPIBindings[i]
+		for i := range wt.Spec.DefaultAPIBindings {
+			exportRef := wt.Spec.DefaultAPIBindings[i]
 			if exportRef.Path == "" {
-				exportRef.Path = logicalcluster.From(cwt).String()
+				exportRef.Path = logicalcluster.From(wt).String()
 			}
 			apiExport, err := b.getAPIExport(logicalcluster.NewPath(exportRef.Path), exportRef.Export)
 			if err != nil {
@@ -136,7 +136,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				continue
 			}
 
-			// Keep track of unique set of expected exports across all CWTs
+			// Keep track of unique set of expected exports across all WTs
 			requiredExportRefs[exportRef] = struct{}{}
 
 			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.Export)

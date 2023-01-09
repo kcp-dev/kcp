@@ -98,7 +98,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Install the Cowboy resources into logical clusters")
 	for _, clusterName := range logicalClusters {
-		t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", clusterName)
+		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", clusterName)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, clusterName.Path(), crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
 	}
@@ -215,7 +215,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Install the Cowboy resources into logical clusters")
 	for _, logicalCluster := range logicalClusters {
-		t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", logicalCluster)
+		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", logicalCluster)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, logicalCluster.Path(), crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
 	}

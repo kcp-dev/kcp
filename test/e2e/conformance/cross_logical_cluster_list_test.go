@@ -75,16 +75,16 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	for i, clusterName := range logicalClusters {
 		clusterName := clusterName // shadow
 
-		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", clusterName)
+		t.Logf("Creating Workspace CRs in logical cluster %s", clusterName)
 		sourceWorkspace := &tenancyv1beta1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("ws-%d", i),
 			},
 		}
-		cws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+		ws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating source workspace")
 
-		expectedWorkspaces.Insert(logicalcluster.From(cws).String())
+		expectedWorkspaces.Insert(logicalcluster.From(ws).String())
 		server.Artifact(t, func() (runtime.Object, error) {
 			obj, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			return obj, err

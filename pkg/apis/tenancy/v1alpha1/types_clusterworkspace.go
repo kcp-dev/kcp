@@ -22,8 +22,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// WorkspaceTypeReference is a globally unique, fully qualified reference to a
-// cluster workspace type.
+// WorkspaceTypeReference is a globally unique, fully qualified reference to a workspace type.
 type WorkspaceTypeReference struct {
 	// name is the name of the WorkspaceType
 	//

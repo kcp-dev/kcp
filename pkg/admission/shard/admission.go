@@ -60,20 +60,20 @@ func (o *shard) Admit(_ context.Context, a admission.Attributes, _ admission.Obj
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cws := &corev1alpha1.Shard{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cws); err != nil {
+	wShard := &corev1alpha1.Shard{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, wShard); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Shard: %w", err)
 	}
 
-	if cws.Spec.ExternalURL == "" {
-		cws.Spec.ExternalURL = cws.Spec.BaseURL
+	if wShard.Spec.ExternalURL == "" {
+		wShard.Spec.ExternalURL = wShard.Spec.BaseURL
 	}
 
-	if cws.Spec.VirtualWorkspaceURL == "" {
-		cws.Spec.VirtualWorkspaceURL = cws.Spec.BaseURL
+	if wShard.Spec.VirtualWorkspaceURL == "" {
+		wShard.Spec.VirtualWorkspaceURL = wShard.Spec.BaseURL
 	}
 
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cws)
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(wShard)
 	if err != nil {
 		return err
 	}

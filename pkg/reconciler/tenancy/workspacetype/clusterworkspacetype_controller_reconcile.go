@@ -33,10 +33,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 )
 
-func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.WorkspaceType) {
-	if err := c.updateVirtualWorkspaceURLs(ctx, cwt); err != nil {
+func (c *controller) reconcile(ctx context.Context, wt *tenancyv1alpha1.WorkspaceType) {
+	if err := c.updateVirtualWorkspaceURLs(ctx, wt); err != nil {
 		conditions.MarkFalse(
-			cwt,
+			wt,
 			tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady,
 			tenancyv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -44,15 +44,15 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Workspa
 		)
 	} else {
 		conditions.MarkTrue(
-			cwt,
+			wt,
 			tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady,
 		)
 	}
 
-	conditions.SetSummary(cwt)
+	conditions.SetSummary(wt)
 }
 
-func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenancyv1alpha1.WorkspaceType) error {
+func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancyv1alpha1.WorkspaceType) error {
 	logger := klog.FromContext(ctx)
 	shards, err := c.listShards()
 	if err != nil {
@@ -76,16 +76,16 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenanc
 			u.Path,
 			virtualworkspacesoptions.DefaultRootPathPrefix,
 			initializingworkspaces.VirtualWorkspaceName,
-			string(initialization.InitializerForType(cwt)),
+			string(initialization.InitializerForType(wt)),
 		)
 
 		desiredURLs.Insert(u.String())
 	}
 
-	cwt.Status.VirtualWorkspaces = nil
+	wt.Status.VirtualWorkspaces = nil
 
 	for _, u := range desiredURLs.List() {
-		cwt.Status.VirtualWorkspaces = append(cwt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
+		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
 			URL: u,
 		})
 	}

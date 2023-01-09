@@ -152,7 +152,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		cwt, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
+		wt, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: workspacetypeNames[name],
 			},
@@ -163,9 +163,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, cwt.Name, metav1.GetOptions{})
+			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, wt.Name, metav1.GetOptions{})
 		})
-		workspacetypes[name] = cwt
+		workspacetypes[name] = wt
 	}
 
 	t.Log("Wait for WorkspaceTypes to have their type extensions resolved")
@@ -174,10 +174,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		cwtName := workspacetypes[name].Name
+		wtName := workspacetypes[name].Name
 		framework.EventuallyReady(t, func() (conditions.Getter, error) {
-			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-		}, "could not wait for readiness on WorkspaceType %s|%s", clusterName.String(), cwtName)
+			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
+		}, "could not wait for readiness on WorkspaceType %s|%s", clusterName.String(), wtName)
 	}
 
 	t.Log("Create workspaces using the new types, which will get stuck in initializing")
@@ -219,23 +219,23 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		workspacesByType[tenancyv1alpha1.ObjectName(workspaces.Items[i].Spec.Type.Name)] = workspaces.Items[i]
 	}
 
-	t.Log("Wait for cluster workspace types to have virtual workspace URLs published")
+	t.Log("Wait for workspace types to have virtual workspace URLs published")
 	for _, initializer := range []string{
 		"alpha",
 		"beta",
 		"gamma",
 	} {
-		var cwt *tenancyv1alpha1.WorkspaceType
+		var wt *tenancyv1alpha1.WorkspaceType
 		require.Eventually(t, func() bool {
-			cwt, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, workspacetypes[initializer].Name, metav1.GetOptions{})
+			wt, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(clusterName.Path()).WorkspaceTypes().Get(ctx, workspacetypes[initializer].Name, metav1.GetOptions{})
 			require.NoError(t, err)
-			if len(cwt.Status.VirtualWorkspaces) == 0 {
-				t.Logf("cluster workspace type %q|%q does not have virtual workspace URLs published yet", logicalcluster.From(cwt), cwt.Name)
+			if len(wt.Status.VirtualWorkspaces) == 0 {
+				t.Logf("workspace type %q|%q does not have virtual workspace URLs published yet", logicalcluster.From(wt), wt.Name)
 				return false
 			}
 			return true
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
-		workspacetypes[initializer] = cwt
+		workspacetypes[initializer] = wt
 	}
 
 	t.Log("Create clients through the virtual workspace")
@@ -294,16 +294,16 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		cwt := workspacetypes[initializer]
+		wt := workspacetypes[initializer]
 		role, err := kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: string(initialization.InitializerForType(cwt)) + "-initializer",
+				Name: string(initialization.InitializerForType(wt)) + "-initializer",
 			},
 			Rules: []rbacv1.PolicyRule{
 				{
 					Verbs:         []string{"initialize"},
 					Resources:     []string{"workspacetypes"},
-					ResourceNames: []string{cwt.Name},
+					ResourceNames: []string{wt.Name},
 					APIGroups:     []string{"tenancy.kcp.io"},
 				},
 			},

@@ -68,29 +68,29 @@ func (o *workspacetype) Validate(ctx context.Context, a admission.Attributes, _ 
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cwt := &tenancyv1alpha1.WorkspaceType{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cwt); err != nil {
+	wt := &tenancyv1alpha1.WorkspaceType{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, wt); err != nil {
 		return fmt.Errorf("failed to convert unstructured to WorkspaceType: %w", err)
 	}
 
-	if cwt.Name == "root" && clusterName != core.RootCluster {
+	if wt.Name == "root" && clusterName != core.RootCluster {
 		return admission.NewForbidden(a, fmt.Errorf("root workspace type can only be created in root cluster"))
 	}
 
-	if cwt.Spec.DefaultChildWorkspaceType != nil && cwt.Spec.DefaultChildWorkspaceType.Path == "" {
+	if wt.Spec.DefaultChildWorkspaceType != nil && wt.Spec.DefaultChildWorkspaceType.Path == "" {
 		return admission.NewForbidden(a, fmt.Errorf(".spec.defaultChildWorkspaceType.path must be set"))
 	}
 
-	if cwt.Spec.LimitAllowedChildren != nil {
-		for i, t := range cwt.Spec.LimitAllowedChildren.Types {
+	if wt.Spec.LimitAllowedChildren != nil {
+		for i, t := range wt.Spec.LimitAllowedChildren.Types {
 			if t.Path == "" {
 				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedChildren.types[%d].path must be set", i))
 			}
 		}
 	}
 
-	if cwt.Spec.LimitAllowedParents != nil {
-		for i, t := range cwt.Spec.LimitAllowedParents.Types {
+	if wt.Spec.LimitAllowedParents != nil {
+		for i, t := range wt.Spec.LimitAllowedParents.Types {
 			if t.Path == "" {
 				return admission.NewForbidden(a, fmt.Errorf(".spec.limitAllowedParents.types[%d].path must be set", i))
 			}

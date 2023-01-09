@@ -157,7 +157,7 @@ func (c *controller) enqueue(obj interface{}) {
 	if logObj, ok := obj.(logging.Object); ok {
 		logger = logging.WithObject(logger, logObj)
 	}
-	logger.V(2).Info(fmt.Sprintf("queueing ClusterWorkspace because of %T", obj))
+	logger.V(2).Info(fmt.Sprintf("queueing Workspace because of %T", obj))
 	c.queue.Add(key)
 }
 

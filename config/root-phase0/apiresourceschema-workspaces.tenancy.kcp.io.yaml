@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230106-48fd7f1e.workspaces.tenancy.kcp.io
+  name: v230109-7504f774.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -61,7 +61,7 @@ spec:
           type: object
         spec:
           default: {}
-          description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
+          description: WorkspaceSpec holds the desired state of the Workspace.
           properties:
             URL:
               description: "URL is the address under which the Kubernetes-cluster-like
@@ -167,7 +167,7 @@ spec:
           description: WorkspaceStatus communicates the observed state of the Workspace.
           properties:
             conditions:
-              description: Current processing state of the ClusterWorkspace.
+              description: Current processing state of the Workspace.
               items:
                 description: Condition defines an observation of a object operational
                   state.

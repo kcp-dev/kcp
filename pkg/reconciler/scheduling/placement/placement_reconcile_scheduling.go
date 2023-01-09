@@ -31,8 +31,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// placementReconciler watches namespaces within a cluster workspace and assigns those to location from
-// the location domain of the cluster workspace.
+// placementReconciler watches namespaces within a workspace and assigns those to location from
+// the location domain of the workspace.
 type placementReconciler struct {
 	listLocationsByPath func(path logicalcluster.Path) ([]*schedulingv1alpha1.Location, error)
 }

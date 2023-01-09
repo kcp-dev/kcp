@@ -35,7 +35,7 @@ import (
 const logicalClusterDeletionMonitorControllerName = "kcp-kubequota-logical-cluster-deletion-monitor"
 
 // logicalClusterDeletionMonitor monitors LogicalClusters and terminates QuotaAdmission for a logical cluster
-// when its corresponding ClusterWorkspace is deleted.
+// when its corresponding workspace is deleted.
 type logicalClusterDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
 	stopFunc func(name logicalcluster.Name)
