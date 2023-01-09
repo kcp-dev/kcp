@@ -153,7 +153,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 	}}, nil
 }
 
-const kcpBootstrapperUserName = "system:kcp:bootstrapper"
+const KcpBootstrapperUserName = "system:kcp:bootstrapper"
 
 func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c := &Config{
@@ -295,7 +295,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	}
 
 	bootstrapConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
+	bootstrapConfig.Impersonate.UserName = KcpBootstrapperUserName
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 	bootstrapConfig = rest.AddUserAgent(bootstrapConfig, "kcp-bootstrapper")
 

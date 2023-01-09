@@ -29,22 +29,32 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 
+	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/pkg/server"
 )
 
-type ClusterWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+type ClusterWorkspaceOption interface {
+	PrivilegedClusterWorkspaceOption | UnprivilegedClusterWorkspaceOption
+}
 
-func WithRootShard() ClusterWorkspaceOption {
+type PrivilegedClusterWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+
+type UnprivilegedClusterWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+
+func WithRootShard() UnprivilegedClusterWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
-func WithShard(name string) ClusterWorkspaceOption {
+func WithShard(name string) UnprivilegedClusterWorkspaceOption {
 	return WithLocation(tenancyv1beta1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"name": name,
@@ -52,22 +62,35 @@ func WithShard(name string) ClusterWorkspaceOption {
 	}})
 }
 
-func WithLocation(c tenancyv1beta1.WorkspaceLocation) ClusterWorkspaceOption {
+func WithLocation(c tenancyv1beta1.WorkspaceLocation) UnprivilegedClusterWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		ws.Spec.Location = &c
 	}
 }
 
-func WithRequiredGroups(groups ...string) ClusterWorkspaceOption {
+// WithRequiredGroups is a privileged action, so we return a privileged option type, and only the helpers that
+// use the system:master config can consume this. However, workspace initialization requires a valid user annotation
+// on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
+// end up needing to hard-code something conceivable.
+func WithRequiredGroups(groups ...string) PrivilegedClusterWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		if ws.Annotations == nil {
 			ws.Annotations = map[string]string{}
 		}
 		ws.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
+		userInfo, err := workspace.WorkspaceOwnerAnnotationValue(&user.DefaultInfo{
+			Name:   server.KcpBootstrapperUserName,
+			Groups: []string{user.AllAuthenticated, bootstrappolicy.SystemKcpWorkspaceBootstrapper},
+		})
+		if err != nil {
+			// should never happen
+			panic(err)
+		}
+		ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
 	}
 }
 
-func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) ClusterWorkspaceOption {
+func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedClusterWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 			Name: name,
@@ -76,22 +99,18 @@ func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) 
 	}
 }
 
-func WithName(s string, formatArgs ...interface{}) ClusterWorkspaceOption {
+func WithName(s string, formatArgs ...interface{}) UnprivilegedClusterWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		ws.Name = fmt.Sprintf(s, formatArgs...)
 		ws.GenerateName = ""
 	}
 }
 
-func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...ClusterWorkspaceOption) *tenancyv1beta1.Workspace {
+func NewWorkspaceFixtureObject[O ClusterWorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-
-	cfg := server.RootShardSystemMasterBaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
-	require.NoError(t, err, "failed to construct client for server")
 
 	tmpl := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,6 +154,7 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 	})
 
 	Eventually(t, func() (bool, string) {
+		var err error
 		ws, err = clusterClient.Cluster(parent).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
 		require.NoError(t, err, "failed to get workspace %s", parent.Join(ws.Name))
@@ -145,6 +165,7 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
 	Eventually(t, func() (bool, string) {
+		var err error
 		_, err = clusterClient.Cluster(parent.Join(ws.Name)).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
 		require.NoError(t, err, "failed to get LogicalCluster %s", parent.Join(ws.Name).Join(corev1alpha1.LogicalClusterName))
@@ -155,19 +176,40 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...UnprivilegedClusterWorkspaceOption) (clusterName logicalcluster.Name) {
 	t.Helper()
-	ws := NewWorkspaceFixtureObject(t, server, orgClusterName, options...)
+
+	cfg := server.BaseConfig(t)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
+
+	ws := NewWorkspaceFixtureObject(t, clusterClient, orgClusterName, options...)
 	return logicalcluster.Name(ws.Spec.Cluster)
 }
 
-func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) *tenancyv1beta1.Workspace {
+func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...UnprivilegedClusterWorkspaceOption) *tenancyv1beta1.Workspace {
 	t.Helper()
-	return NewWorkspaceFixtureObject(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
+
+	cfg := server.BaseConfig(t)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
+
+	return NewWorkspaceFixtureObject(t, clusterClient, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
 	t.Helper()
 	org := NewOrganizationFixtureObject(t, server, options...)
+	return logicalcluster.Name(org.Spec.Cluster)
+}
+
+func NewPrivilegedOrganizationFixture[O ClusterWorkspaceOption](t *testing.T, server RunningServer, options ...O) (orgClusterName logicalcluster.Name) {
+	t.Helper()
+
+	cfg := server.RootShardSystemMasterBaseConfig(t)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct client for server")
+
+	org := NewWorkspaceFixtureObject(t, clusterClient, core.RootCluster.Path(), append(options, O(WithType(core.RootCluster.Path(), "organization")))...)
 	return logicalcluster.Name(org.Spec.Cluster)
 }

@@ -192,7 +192,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				t.Helper()
 
 				org := framework.NewOrganizationFixtureObject(t, server, framework.WithRootShard())
-				orgClusterName := logicalcluster.Name(org.Status.Cluster)
+				orgClusterName := logicalcluster.Name(org.Spec.Cluster)
 
 				t.Logf("Should have finalizer in org workspace")
 				require.Eventually(t, func() bool {
@@ -201,9 +201,13 @@ func TestWorkspaceDeletion(t *testing.T) {
 					return len(orgWorkspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+				cfg := server.RunningServer.BaseConfig(t)
+				clusterClient, err := kcpclientset.NewForConfig(cfg)
+				require.NoError(t, err, "failed to construct client for server")
+
 				t.Logf("Create a workspace with in the org workspace")
-				ws := framework.NewWorkspaceFixtureObject(t, server.RunningServer, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithRootShard())
-				wsClusterName := logicalcluster.Name(ws.Status.Cluster)
+				ws := framework.NewWorkspaceFixtureObject(t, clusterClient, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithRootShard())
+				wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {
@@ -219,7 +223,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					},
 				}
 
-				_, err := server.kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+				_, err = server.kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns in workspace root:%s", ws)
 
 				_, err = server.kubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})

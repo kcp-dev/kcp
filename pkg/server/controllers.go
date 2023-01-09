@@ -504,7 +504,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	bootstrapConfig := rest.CopyConfig(config)
 	universalControllerName := fmt.Sprintf("%s-%s", bootstrap.ControllerNameBase, "universal")
 	bootstrapConfig = rest.AddUserAgent(bootstrapConfig, universalControllerName)
-	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
+	bootstrapConfig.Impersonate.UserName = KcpBootstrapperUserName
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(bootstrapConfig)
