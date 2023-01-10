@@ -12,6 +12,12 @@
         - any
 
 - op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/limitAllowedParents/oneOf
+  value:
+  - required: ["none"]
+  - required: ["types"]
+
+- op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/limitAllowedChildren/oneOf
   value:
   - required: ["none"]

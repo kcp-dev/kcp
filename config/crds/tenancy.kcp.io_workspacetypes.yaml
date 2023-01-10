@@ -179,6 +179,11 @@ spec:
                 description: limitAllowedParents specifies constraints for the parent
                   workspace that workspaces of this type are created in. These are
                   in addition to parent constraints of types this one extends.
+                oneOf:
+                - required:
+                  - none
+                - required:
+                  - types
                 properties:
                   none:
                     description: none means that no type matches.

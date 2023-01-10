@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230109-7504f774.workspacetypes.tenancy.kcp.io
+  name: v230110-89146c99.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -176,6 +176,11 @@ spec:
               description: limitAllowedParents specifies constraints for the parent
                 workspace that workspaces of this type are created in. These are in
                 addition to parent constraints of types this one extends.
+              oneOf:
+              - required:
+                - none
+              - required:
+                - types
               properties:
                 none:
                   description: none means that no type matches.

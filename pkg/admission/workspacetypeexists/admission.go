@@ -453,7 +453,14 @@ func (r *transitiveTypeResolver) resolve(wt *tenancyv1alpha1.WorkspaceType, seen
 func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.WorkspaceType, parentType, childType logicalcluster.Path) error {
 	var errs []error
 	for _, childAlias := range childAliases {
-		if childAlias.Spec.LimitAllowedParents == nil || len(childAlias.Spec.LimitAllowedParents.Types) == 0 {
+		if childAlias.Spec.LimitAllowedParents == nil {
+			continue
+		}
+		if childAlias.Spec.LimitAllowedParents.None {
+			errs = append(errs, fmt.Errorf("workspace type %s cannot have any parent", childType))
+			continue
+		}
+		if len(childAlias.Spec.LimitAllowedParents.Types) == 0 {
 			continue
 		}
 
@@ -487,11 +494,15 @@ func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.Works
 func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.WorkspaceType, parentType, childType logicalcluster.Path) error {
 	var errs []error
 	for _, parentAlias := range parentAliases {
-		if parentAlias.Spec.LimitAllowedChildren == nil || len(parentAlias.Spec.LimitAllowedChildren.Types) == 0 {
+		if parentAlias.Spec.LimitAllowedChildren == nil {
 			continue
 		}
 		if parentAlias.Spec.LimitAllowedChildren.None {
-			return fmt.Errorf("workspace type %s cannot have any children", parentType)
+			errs = append(errs, fmt.Errorf("workspace type %s cannot have any child", parentType))
+			continue
+		}
+		if len(parentAlias.Spec.LimitAllowedChildren.Types) == 0 {
+			continue
 		}
 
 		qualifiedParent := canonicalPathFrom(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name)))

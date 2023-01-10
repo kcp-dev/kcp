@@ -677,6 +677,15 @@ func TestValidateAllowedParents(t *testing.T) {
 			wantErr: "workspace type root:a only allows [root:b] parent workspaces, but parent type root:c only implements []",
 		},
 		{
+			name:       "no parents allowed",
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:c"),
+			childAliases: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:a").disallowingParent().WorkspaceType,
+			},
+			wantErr: "workspace type root:a cannot have any parent",
+		},
+		{
 			name:       "no parents, any allowed parent",
 			childType:  logicalcluster.NewPath("root:a"),
 			parentType: logicalcluster.NewPath("root:b"),
