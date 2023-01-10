@@ -227,12 +227,14 @@ func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalclus
 
 	delegate := k.delegates[clusterName]
 
+	logger := klog.Background().WithValues("clusterName", clusterName)
+
 	if delegate == nil {
-		klog.V(3).InfoS("Received event to stop quota admission for logical cluster, but it wasn't in the map", "clusterName", clusterName)
+		logger.V(3).Info("received event to stop quota admission for logical cluster, but it wasn't in the map")
 		return
 	}
 
-	klog.V(2).InfoS("Stopping quota admission for logical cluster", "clusterName", clusterName)
+	logger.V(2).Info("stopping quota admission for logical cluster")
 
 	delete(k.delegates, clusterName)
 	delegate.stop()

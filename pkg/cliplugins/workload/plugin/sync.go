@@ -612,7 +612,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, 20*time.Second, func(ctx context.Context) (bool, error) {
 		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, sa.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.V(5).Infof("failed to retrieve ServiceAccount: %v", err)
+			klog.FromContext(ctx).V(5).WithValues("err", err).Info("failed to retrieve ServiceAccount")
 			return false, nil
 		}
 		if len(serviceAccount.Secrets) == 0 {

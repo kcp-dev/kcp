@@ -51,7 +51,7 @@ func init() {
 
 	kcmDefaults, err = kcmoptions.NewKubeControllerManagerOptions()
 	if err != nil {
-		klog.Fatal(err)
+		panic(err)
 	}
 }
 

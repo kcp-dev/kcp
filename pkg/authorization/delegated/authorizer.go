@@ -42,7 +42,7 @@ func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kcpkubernete
 
 	authz, err := delegatingAuthorizerConfig.New()
 	if err != nil {
-		klog.Errorf("error creating authorizer from delegating authorizer config: %v", err)
+		klog.Background().Error(err, "error creating authorizer from delegating authorizer config")
 		return nil, err
 	}
 

@@ -77,7 +77,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)
 			if err != nil {
-				logger.Error(err, "failed to unmarshal workspace owner annotation", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value)
+				logger.WithValues(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value).Error(err, "failed to unmarshal workspace owner annotation")
 				delete(logicalCluster.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {

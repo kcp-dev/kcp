@@ -79,7 +79,7 @@ func NewListener(client *http.Client, url string) (*Listener, error) {
 	for attempts := 5; attempts > 0; attempts-- {
 		c, err = ln.dial()
 		if err != nil {
-			klog.V(5).Infof("Can not create control connection %v", err)
+			klog.Background().V(5).WithValues("err", err).Info("can not create control connection")
 			// Add some randomness to prevent creating a Thundering Herd
 			jitter := time.Duration(rand.Int63n(int64(sleep)))
 			sleep = 2*sleep + jitter/2
@@ -154,18 +154,19 @@ func (ln *Listener) dial() (net.Conn, error) {
 	pr, pw := io.Pipe()
 	req, err := http.NewRequest(http.MethodGet, connect, pr) //nolint:noctx
 	if err != nil {
-		klog.V(5).Infof("Can not create request %v", err)
+		klog.Background().V(5).WithValues("err", err).Info("can not create request")
 		return nil, err
 	}
 
-	klog.V(5).Infof("Listener creating connection to %s", connect)
+	logger := klog.Background().WithValues("address", connect)
+	logger.V(5).Info("listener creating connection to address")
 	res, err := ln.client.Do(req) //nolint:bodyclose // Seems we're returning the connection with res.Body, caller closes it?
 	if err != nil {
-		klog.V(5).Infof("Can not connect to %s request %v, retry %d", connect, err)
+		logger.V(5).WithValues("err", err).Info("can not connect to address")
 		return nil, err
 	}
 	if res.StatusCode != http.StatusOK {
-		klog.V(5).Infof("Status code %d on request %v, retry %d", res.StatusCode, connect)
+		logger.V(5).WithValues("statusCode", res.StatusCode).Info("status code on request")
 		return nil, fmt.Errorf("status code %d", res.StatusCode)
 	}
 
@@ -177,7 +178,7 @@ func (ln *Listener) grabConn() {
 	// create a new connection
 	c, err := ln.dial()
 	if err != nil {
-		klog.V(5).Infof("Can not create connection %v", err)
+		klog.Background().V(5).WithValues("err", err).Info("can not create connection")
 		ln.sendMessage(controlMsg{Command: "pickup-failed", ConnPath: "", Err: err.Error()})
 		return
 	}
@@ -207,7 +208,7 @@ func (ln *Listener) Accept() (net.Conn, error) {
 		}
 		return nil, ErrListenerClosed
 	}
-	klog.V(5).Infof("Accept connection")
+	klog.Background().V(5).Info("accepted connection")
 	return c, nil
 }
 

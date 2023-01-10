@@ -41,7 +41,8 @@ func NewServer(config CompletedConfig) *Server {
 
 // Run starts the embedded etcd server. It blocks until it is ready for up to a minute.
 func (s *Server) Run(ctx context.Context) error {
-	klog.Info("Starting embedded etcd server")
+	logger := klog.FromContext(ctx)
+	logger.Info("Starting embedded etcd server")
 	e, err := embed.StartEtcd(s.config.Config.Config)
 	if err != nil {
 		return err
