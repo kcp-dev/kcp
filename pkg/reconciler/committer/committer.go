@@ -55,7 +55,8 @@ type CommitFunc[Sp any, St any] func(context.Context, *Resource[Sp, St], *Resour
 // NewCommitter returns a function that can patch instances of R based on meta,
 // spec or status changes using a cluster-aware patcher.
 func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) CommitFunc[Sp, St] {
-	focusType := fmt.Sprintf("%T", *new(R))
+	r := new(R)
+	focusType := fmt.Sprintf("%T", *r)
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		return withPatchAndSubResources(ctx, focusType, old, obj,
 			func(patchBytes []byte, subresources []string) error {
@@ -69,7 +70,8 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 // NewCommitterScoped returns a function that can patch instances of R based on
 // meta, spec or status changes using a patcher scoped to a specific cluster.
 func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher Patcher[R]) CommitFunc[Sp, St] {
-	focusType := fmt.Sprintf("%T", *new(R))
+	r := new(R)
+	focusType := fmt.Sprintf("%T", *r)
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		return withPatchAndSubResources(ctx, focusType, old, obj,
 			func(patchBytes []byte, subresources []string) error {
