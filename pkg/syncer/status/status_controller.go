@@ -26,6 +26,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,24 +77,26 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 		downstreamClient: downstreamClient,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			lister, known, synced := ddsifForDownstream.Lister(gvr)
-			if !known {
+			informers, notSynced := ddsifForDownstream.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory - should retry", gvr)
+				}
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
-			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory - should retry", gvr)
-			}
-			return lister, nil
+			return informer.Lister(), nil
 		},
 		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
-			lister, known, synced := ddsifForUpstreamSyncer.Lister(gvr)
-			if !known {
+			informers, notSynced := ddsifForUpstreamSyncer.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory -  should retry", gvr)
+				}
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
-			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory -  should retry", gvr)
-			}
-			return lister, nil
+			return informer.Lister(), nil
 		},
 
 		syncTargetName:            syncTargetName,
@@ -105,16 +108,18 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
+	namespaceGVR := corev1.SchemeGroupVersion.WithResource("namespaces")
+
 	ddsifForDownstream.AddEventHandler(
 		ddsif.GVREventHandlerFuncs{
 			AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				c.AddToQueue(gvr, obj, logger)
 			},
 			UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				oldUnstrob := oldObj.(*unstructured.Unstructured)
@@ -125,7 +130,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				}
 			},
 			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				c.AddToQueue(gvr, obj, logger)

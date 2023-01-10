@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
@@ -66,23 +65,6 @@ const (
 	heartbeatInterval = 20 * time.Second
 )
 
-type FilteredGVRSource struct {
-	ddsif.GVRSource
-	skipGVR func(gvr schema.GroupVersionResource) bool
-}
-
-func (s *FilteredGVRSource) GVRs() map[schema.GroupVersionResource]ddsif.GVRPartialMetadata {
-	gvrs := s.GVRSource.GVRs()
-	filteredGVRs := make(map[schema.GroupVersionResource]ddsif.GVRPartialMetadata, len(gvrs))
-	for gvr, metadata := range gvrs {
-		if s.skipGVR(gvr) {
-			continue
-		}
-		filteredGVRs[gvr] = metadata
-	}
-	return filteredGVRs
-}
-
 // SyncerConfig defines the syncer configuration that is guaranteed to
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
@@ -124,6 +106,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// TODO(david): But the complete implementation should setup a SyncTarget informer, create spec and status syncer for every URLs found in the
 	// TODO(david): Status.SyncerVirtualWorkspaceURLs slice, and update them each time this list changes.
 	var syncerVirtualWorkspaceURL string
+	var upsyncerVirtualWorkspaceURL string
 	// TODO(david): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(david): block until it hits the 10 minute overall test timeout.
@@ -150,6 +133,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			logger.Error(fmt.Errorf("SyncTarget should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs"), "error processing SyncTarget")
 		}
 		syncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].SyncerURL
+		upsyncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].UpsyncerURL
 		return true, nil
 	})
 	if err != nil {
@@ -158,17 +142,15 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 	upstreamConfig.Host = syncerVirtualWorkspaceURL
-	rest.AddUserAgent(upstreamConfig, "kcp#spec-syncer/"+kcpVersion)
-
+	rest.AddUserAgent(upstreamConfig, "kcp#syncing/"+kcpVersion)
 	upstreamSyncerClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	if err != nil {
 		return err
 	}
 
 	upstreamUpsyncConfig := rest.CopyConfig(cfg.UpstreamConfig)
-	// Upsyncing to Virtual Workspace for upsyncing
-	upstreamUpsyncConfig.Host = strings.Replace(syncerVirtualWorkspaceURL, "/services/syncer", "/services/upsyncer", 1)
-	upstreamUpsyncConfig.UserAgent = "kcp#upsyncer/" + kcpVersion
+	upstreamUpsyncConfig.Host = upsyncerVirtualWorkspaceURL
+	rest.AddUserAgent(upstreamUpsyncConfig, "kcp#upsyncing/"+kcpVersion)
 	upstreamUpsyncerClusterClient, err := kcpdynamic.NewForConfig(upstreamUpsyncConfig)
 	if err != nil {
 		return err
@@ -216,18 +198,18 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncerNamespaceInformerFactory to watch some DNS-related resources in the dns namespace
 	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 
-	discoveryClient, err := kcpdiscovery.NewForConfig(upstreamConfig)
+	upstreamSyncerDiscoveryClient, err := kcpdiscovery.NewForConfig(upstreamConfig)
 	if err != nil {
 		return err
 	}
 
-	resourceController, err := resourcesync.NewController(
+	syncTargetGVRSource, err := resourcesync.NewSyncTargetGVRSource(
 		logger,
-		discoveryClient.DiscoveryInterface,
+		upstreamSyncerDiscoveryClient.DiscoveryInterface,
 		upstreamSyncerClusterClient,
 		downstreamDynamicClient,
 		downstreamKubeClient,
-		kcpSyncTargetClient,
+		kcpSyncTargetClient.WorkloadV1alpha1().SyncTargets(),
 		kcpSyncTargetInformerFactory.Workload().V1alpha1().SyncTargets(),
 		cfg.SyncTargetName,
 		logicalcluster.From(syncTarget),
@@ -237,19 +219,18 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamSyncerClusterClient, nil, nil, resourceController, cache.Indexers{})
+	ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamSyncerClusterClient, nil, nil, syncTargetGVRSource, cache.Indexers{})
 	if err != nil {
 		return err
 	}
 
 	ddsifForUpstreamUpsyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamUpsyncerClusterClient, nil, nil,
-		&FilteredGVRSource{
-			resourceController,
-			func(gvr schema.GroupVersionResource) bool {
-				if gvr.Resource == "persistentvolumes" && gvr.Group == "" {
-					return false
-				}
-				return true
+		&filteredGVRSource{
+			GVRSource: syncTargetGVRSource,
+			keepGVR: func(gvr schema.GroupVersionResource) bool {
+				return gvr.Group == corev1.GroupName && (gvr.Resource == "persistentvolumes" ||
+					gvr.Resource == "pods" ||
+					gvr.Resource == "endpoints")
 			},
 		},
 		cache.Indexers{})
@@ -261,7 +242,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		func(o *metav1.ListOptions) {
 			o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
 		},
-		resourceController,
+		syncTargetGVRSource,
 		cache.Indexers{
 			indexers.ByNamespaceLocatorIndexName: indexers.IndexByNamespaceLocator,
 		},
@@ -302,6 +283,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
+	// Start and sync informer factories
 	var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
 	for _, alwaysRequired := range []string{"secrets", "namespaces"} {
 		gvr := corev1.SchemeGroupVersion.WithResource(alwaysRequired)
@@ -331,22 +313,29 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go ddsifForUpstreamUpsyncer.StartWorker(ctx)
 	go ddsifForDownstream.StartWorker(ctx)
 
+	// Start static controllers
 	go apiImporter.Start(klog.NewContext(ctx, logger.WithValues("resources", resources)), importPollInterval)
-	go resourceController.Start(ctx, 1)
+	go syncTargetGVRSource.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
 
+	// Create and start GVR-specific controllers through controller managers
 	upstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
 		"upstream-syncer",
 		controllermanager.InformerSource{
 			Subscribe: ddsifForUpstreamSyncer.Subscribe,
-			Informer: func(gvr schema.GroupVersionResource) (cache.SharedIndexInformer, bool, bool) {
-				return ddsifForUpstreamSyncer.Informer(gvr)
+			Informers: func() (informers map[schema.GroupVersionResource]cache.SharedIndexInformer, notSynced []schema.GroupVersionResource) {
+				genericInformers, notSynced := ddsifForUpstreamSyncer.Informers()
+				informers = make(map[schema.GroupVersionResource]cache.SharedIndexInformer, len(genericInformers))
+				for gvr, inf := range genericInformers {
+					informers[gvr] = inf.Informer()
+				}
+				return informers, notSynced
 			},
 		},
-		map[string]controllermanager.ControllerDefintion{},
+		map[string]controllermanager.ManagedController{},
 	)
 	go upstreamSyncerControllerManager.Start(ctx)
 
@@ -354,35 +343,53 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		"upstream-upsyncer",
 		controllermanager.InformerSource{
 			Subscribe: ddsifForUpstreamUpsyncer.Subscribe,
-			Informer: func(gvr schema.GroupVersionResource) (cache.SharedIndexInformer, bool, bool) {
-				return ddsifForUpstreamUpsyncer.Informer(gvr)
+			Informers: func() (informers map[schema.GroupVersionResource]cache.SharedIndexInformer, notSynced []schema.GroupVersionResource) {
+				genericInformers, notSynced := ddsifForUpstreamUpsyncer.Informers()
+				informers = make(map[schema.GroupVersionResource]cache.SharedIndexInformer, len(genericInformers))
+				for gvr, inf := range genericInformers {
+					informers[gvr] = inf.Informer()
+				}
+				return informers, notSynced
 			},
 		},
-		map[string]controllermanager.ControllerDefintion{},
+		map[string]controllermanager.ManagedController{},
 	)
 	go upstreamUpsyncerControllerManager.Start(ctx)
 
 	downstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
-		"downstream",
+		"downstream-syncer",
 		controllermanager.InformerSource{
 			Subscribe: ddsifForDownstream.Subscribe,
-			Informer:  ddsifForDownstream.Informer,
+			Informers: func() (informers map[schema.GroupVersionResource]cache.SharedIndexInformer, notSynced []schema.GroupVersionResource) {
+				genericInformers, notSynced := ddsifForDownstream.Informers()
+				informers = make(map[schema.GroupVersionResource]cache.SharedIndexInformer, len(genericInformers))
+				for gvr, inf := range genericInformers {
+					informers[gvr] = inf.Informer()
+				}
+				return informers, notSynced
+			},
 		},
-		map[string]controllermanager.ControllerDefintion{
+		map[string]controllermanager.ManagedController{
 			endpoints.ControllerName: {
 				RequiredGVRs: []schema.GroupVersionResource{
 					corev1.SchemeGroupVersion.WithResource("services"),
 					corev1.SchemeGroupVersion.WithResource("endpoints"),
 				},
-				NumThreads: 2,
-				Create: func(syncedInformers map[schema.GroupVersionResource]cache.SharedIndexInformer) (controllermanager.Controller, error) {
-					return endpoints.NewEndpointController(logger, downstreamDynamicClient, ddsifForDownstream, syncedInformers)
+				Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
+					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream)
+					if err != nil {
+						return nil, err
+					}
+					return func(ctx context.Context) {
+						endpointController.Start(ctx, 2)
+					}, nil
 				},
 			},
 		},
 	)
 	go downstreamSyncerControllerManager.Start(ctx)
 
+	// Start tunneler for POD access
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName)
 	}
@@ -409,4 +416,21 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}, heartbeatInterval)
 
 	return nil
+}
+
+type filteredGVRSource struct {
+	ddsif.GVRSource
+	keepGVR func(gvr schema.GroupVersionResource) bool
+}
+
+func (s *filteredGVRSource) GVRs() map[schema.GroupVersionResource]ddsif.GVRPartialMetadata {
+	gvrs := s.GVRSource.GVRs()
+	filteredGVRs := make(map[schema.GroupVersionResource]ddsif.GVRPartialMetadata, len(gvrs))
+	for gvr, metadata := range gvrs {
+		if !s.keepGVR(gvr) {
+			continue
+		}
+		filteredGVRs[gvr] = metadata
+	}
+	return filteredGVRs
 }

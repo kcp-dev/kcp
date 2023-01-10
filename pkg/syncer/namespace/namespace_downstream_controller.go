@@ -18,7 +18,6 @@ package namespace
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -99,11 +98,12 @@ func NewDownstreamController(
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
-			lister, known, synced := ddsifForUpstreamSyncer.Lister(namespaceGVR)
-			if !known || !synced {
-				return false, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
+			informer, err := ddsifForUpstreamSyncer.ForResource(namespaceGVR)
+			if err != nil {
+				return false, err
 			}
-			_, err := lister.ByCluster(clusterName).Get(upstreamNamespaceName)
+
+			_, err = informer.Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
@@ -113,31 +113,31 @@ func NewDownstreamController(
 			return true, nil
 		},
 		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
-			lister, known, synced := ddsifForDownstream.Lister(namespaceGVR)
-			if !known || !synced {
-				return nil, errors.New("informer should be up and synced for namespaces in the downstream informer factory")
+			informer, err := ddsifForDownstream.ForResource(namespaceGVR)
+			if err != nil {
+				return nil, err
 			}
-			return lister.Get(downstreamNamespaceName)
+			return informer.Lister().Get(downstreamNamespaceName)
 		},
 		listDownstreamNamespaces: func() ([]runtime.Object, error) {
-			lister, known, synced := ddsifForDownstream.Lister(namespaceGVR)
-			if !known || !synced {
-				return nil, errors.New("informer should be up and synced for namespaces in the downstream informer factory")
+			informer, err := ddsifForUpstreamSyncer.ForResource(namespaceGVR)
+			if err != nil {
+				return nil, err
 			}
-			return lister.List(labels.Everything())
+			return informer.Lister().List(labels.Everything())
 		},
 		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
-			listers, notSynced := ddsifForDownstream.Listers()
+			informers, notSynced := ddsifForDownstream.Informers()
 			if len(notSynced) > 0 {
 				return false, fmt.Errorf("some informers are still not synced in the downstream informer factory")
 			}
 
-			for gvr, lister := range listers {
+			for gvr, informer := range informers {
 				// Skip namespaces.
-				if gvr.Group == "" && gvr.Version == "v1" && gvr.Resource == "namespaces" {
+				if gvr == namespaceGVR {
 					continue
 				}
-				list, err := lister.ByNamespace(namespace).List(labels.Everything())
+				list, err := informer.Lister().ByNamespace(namespace).List(labels.Everything())
 				if err != nil {
 					return false, err
 				}

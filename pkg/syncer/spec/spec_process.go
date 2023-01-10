@@ -132,14 +132,14 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 
 		if len(downstreamNamespaces) == 1 {
-			namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
+			namespace := downstreamNamespaces[0]
 			logger.WithValues(DownstreamName, namespace.GetName()).V(4).Info("Found downstream namespace for upstream namespace")
 			downstreamNamespace = namespace.GetName()
 		} else if len(downstreamNamespaces) > 1 {
 			// This should never happen unless there's some namespace collision.
 			var namespacesCollisions []string
 			for _, namespace := range downstreamNamespaces {
-				namespacesCollisions = append(namespacesCollisions, namespace.(*unstructured.Unstructured).GetName())
+				namespacesCollisions = append(namespacesCollisions, namespace.GetName())
 			}
 			return nil, fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
 		} else {
@@ -264,12 +264,12 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		})
 	}
 
-	// Check if the namespace already exists, if not create it.
 	namespaceLister, err := c.getDownstreamLister(namespaceGVR)
 	if err != nil {
 		return err
 	}
 
+	// Check if the namespace already exists, if not create it.
 	namespace, err := namespaceLister.Get(newNamespace.GetName())
 	if apierrors.IsNotFound(err) {
 		_, err = namespaces.Create(ctx, newNamespace, metav1.CreateOptions{})

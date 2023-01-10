@@ -28,34 +28,50 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
 	ControllerNamePrefix = "syncer-controller-manager-"
 )
 
+// InformerSource is a dynamic source of informers per GVR,
+// which notifies when informers are added or removed for some GVR.
+// It is implemented by the DynamicSharedInformerFactory (in fact by
+// both the scoped or cluster-aware variants).
 type InformerSource struct {
+	// Subscribe registers for informer change notifications, returning a channel to which change notifications are sent.
+	// The id argument is the identifier of the subscriber, since there might be several subscribers subscribing
+	// to receive events from this InformerSource.
 	Subscribe func(id string) <-chan struct{}
-	Informer  func(gvr schema.GroupVersionResource) (informer cache.SharedIndexInformer, known, synced bool)
+
+	// Informers returns a map of per-resource-type SharedIndexInformers for all types that are
+	// known by this informer source, and that are synced.
+	//
+	// It also returns the list of informers that are known by this informer source, but sill not synced.
+	Informers func() (informers map[schema.GroupVersionResource]cache.SharedIndexInformer, notSynced []schema.GroupVersionResource)
 }
 
-type Controller interface {
-	Start(ctx context.Context, numThreads int)
-}
-
-type ControllerDefintion struct {
+// ManagedController defines a controller that should be managed by a ControllerManager,
+// to be started when the required GVRs are supported, and stopped when the required GVRs
+// are not supported anymore.
+type ManagedController struct {
 	RequiredGVRs []schema.GroupVersionResource
-	NumThreads   int
-	Create       func(syncedInformers map[schema.GroupVersionResource]cache.SharedIndexInformer) (Controller, error)
+	Create       CreateControllerFunc
 }
 
-func NewControllerManager(ctx context.Context, suffix string, informerSource InformerSource, controllers map[string]ControllerDefintion) *ControllerManager {
+type StartControllerFunc func(ctx context.Context)
+type CreateControllerFunc func(ctx context.Context) (StartControllerFunc, error)
+
+// NewControllerManager creates a new ControllerManager which will manage (create/start/stop) GVR-specific controllers according to informers
+// available in the provided InformerSource.
+func NewControllerManager(ctx context.Context, suffix string, informerSource InformerSource, controllers map[string]ManagedController) *ControllerManager {
 	controllerManager := ControllerManager{
-		name:                  ControllerNamePrefix + suffix,
-		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerNamePrefix+suffix),
-		informerSource:        informerSource,
-		controllerDefinitions: controllers,
-		startedControllers:    map[string]context.CancelFunc{},
+		name:               ControllerNamePrefix + suffix,
+		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerNamePrefix+suffix),
+		informerSource:     informerSource,
+		managedControllers: controllers,
+		startedControllers: map[string]context.CancelFunc{},
 	}
 
 	apisChanged := informerSource.Subscribe(controllerManager.name)
@@ -77,12 +93,19 @@ func NewControllerManager(ctx context.Context, suffix string, informerSource Inf
 	return &controllerManager
 }
 
+// ControllerManager is a component that manages (create/start/stop) GVR-specific controllers according to available GVRs.
+// It reacts to the changes of supported GVRs in a DiscoveringDynamicSharedInformerFactory
+// (the GVRs for which an informer has been automatically created, started and synced),
+// and starts / stops registered GVRs-specific controllers according to the GVRs they depend on.
+//
+// For example this allows starting PVC / PV controllers only when PVC / PV resources are exposed by the Syncer and UpSyncer
+// virtual workspaces, and Informers for them have been started and synced by the corresponding ddsif.
 type ControllerManager struct {
-	name                  string
-	queue                 workqueue.RateLimitingInterface
-	informerSource        InformerSource
-	controllerDefinitions map[string]ControllerDefintion
-	startedControllers    map[string]context.CancelFunc
+	name               string
+	queue              workqueue.RateLimitingInterface
+	informerSource     InformerSource
+	managedControllers map[string]ManagedController
+	startedControllers map[string]context.CancelFunc
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
@@ -110,63 +133,35 @@ func (c *ControllerManager) processNextWorkItem(ctx context.Context) bool {
 	}
 	defer c.queue.Done(key)
 
-	c.UpdateControllers(ctx)
+	c.process(ctx)
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *ControllerManager) UpdateControllers(ctx context.Context) {
+func (c *ControllerManager) process(ctx context.Context) {
 	logger := klog.FromContext(ctx)
-	controllersToStart := map[string]map[schema.GroupVersionResource]cache.SharedIndexInformer{}
+	controllersToStart := map[string]CreateControllerFunc{}
+	syncedInformers, notSynced := c.informerSource.Informers()
 controllerLoop:
-	for controllerName, controllerDefinition := range c.controllerDefinitions {
-		requiredGVRs := controllerDefinition.RequiredGVRs
-		informers := make(map[schema.GroupVersionResource]cache.SharedIndexInformer, len(requiredGVRs))
+	for controllerName, managedController := range c.managedControllers {
+		requiredGVRs := managedController.RequiredGVRs
 		for _, gvr := range requiredGVRs {
-			if informer, known, synced := c.informerSource.Informer(gvr); !known {
+			informer := syncedInformers[gvr]
+			if informer == nil {
+				if shared.ContainsGVR(notSynced, gvr) {
+					logger.V(2).Info("waiting for the informer to be synced before starting controller", "gvr", gvr, "controller", controllerName)
+					c.queue.AddAfter("resync", time.Second)
+					continue controllerLoop
+				}
+				// The informer doesn't even exist for this GVR.
+				// Let's ignore this controller for now: one of the required GVRs has no informer started
+				// (because it has not been found on the SyncTarget in the supported resources to sync).
+				// If this required GVR is supported later on, the updateControllers() method will be called
+				// again after an API change notification comes through the informerSource.
 				continue controllerLoop
-			} else if !synced {
-				logger.V(2).Info("waiting for the informer to be synced before starting controller", "gvr", gvr, "controller", controllerName)
-				c.queue.AddAfter("resync", time.Second)
-				continue controllerLoop
-			} else {
-				informers[gvr] = informer
 			}
 		}
-		controllersToStart[controllerName] = informers
-	}
-
-	// Create and start missing controllers that have their required GVRs synced
-	newlyStartedControllers := map[string]context.CancelFunc{}
-	for controllerName, informers := range controllersToStart {
-		if _, ok := c.startedControllers[controllerName]; ok {
-			// The controller is already started
-			continue
-		}
-		controllerDefinition, ok := c.controllerDefinitions[controllerName]
-		if !ok {
-			logger.V(2).Info("cannot find controller definition", "controller", controllerName)
-			continue
-		}
-
-		// Create the controller
-		controller, err := controllerDefinition.Create(informers)
-		if err != nil {
-			logger.Error(err, "error creating controller", "controller", controllerName)
-			continue
-		}
-
-		for _, informer := range informers {
-			if err := informer.GetStore().Resync(); err != nil {
-				logger.Error(err, "error resyncing informer controller", "controller", controllerName)
-				continue
-			}
-		}
-
-		// Start the controller
-		controllerContext, cancelFunc := context.WithCancel(ctx)
-		go controller.Start(controllerContext, controllerDefinition.NumThreads)
-		newlyStartedControllers[c.name] = cancelFunc
+		controllersToStart[controllerName] = managedController.Create
 	}
 
 	// Remove obsolete controllers that don't have their required GVRs anymore
@@ -181,8 +176,23 @@ controllerLoop:
 		delete(c.startedControllers, controllerName)
 	}
 
-	// Add missing controllers that were created and started above
-	for controllerName, cancelFunc := range newlyStartedControllers {
+	// Create and start missing controllers that have their required GVRs synced
+	for controllerName, create := range controllersToStart {
+		if _, ok := c.startedControllers[controllerName]; ok {
+			// The controller is already started
+			continue
+		}
+
+		// Create the controller
+		start, err := create(ctx)
+		if err != nil {
+			logger.Error(err, "failed creating controller", "controller", controllerName)
+			continue
+		}
+
+		// Start the controller
+		controllerContext, cancelFunc := context.WithCancel(ctx)
+		go start(controllerContext)
 		c.startedControllers[controllerName] = cancelFunc
 	}
 }

@@ -22,10 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -42,64 +39,68 @@ const (
 	ControllerName = "syncer-endpoint-controller"
 )
 
+// NewEndpointController returns new controller which would annotate Endpoints related to synced Services, so that those Endpoints
+// would be upsynced by the UpSyncer to the upstream KCP workspace.
+// This would be useful to enable components such as a KNative controller (running against the KCP workspace) to see the Endpoint,
+// and confirm that the related Service is effective.
 func NewEndpointController(
-	syncerLogger logr.Logger,
 	downstreamClient dynamic.Interface,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
-	syncedInformers map[schema.GroupVersionResource]cache.SharedIndexInformer,
-) (*EndpointController, error) {
+) (*controller, error) {
 	endpointsGVR := corev1.SchemeGroupVersion.WithResource("endpoints")
 
-	c := &EndpointController{
+	c := &controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
 
-	logger := logging.WithReconciler(syncerLogger, ControllerName)
-
-	endpointsInformer, ok := syncedInformers[endpointsGVR]
+	informers, _ := ddsifForDownstream.Informers()
+	endpointsInformer, ok := informers[endpointsGVR]
 	if !ok {
 		return nil, errors.New("endpoints informer should be available")
 	}
 
-	endpointsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.AddToQueue(obj, logger)
+			c.enqueue(obj)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.AddToQueue(newObj, logger)
+			c.enqueue(newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.AddToQueue(obj, logger)
+			c.enqueue(obj)
 		},
 	})
 
 	return c, nil
 }
 
-type EndpointController struct {
+type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func (c *EndpointController) AddToQueue(obj interface{}, logger logr.Logger) {
+func (c *controller) enqueue(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
-	logging.WithQueueKey(logger, key).V(2).Info("queueing", "key", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger.V(2).Info("queueing")
 	c.queue.Add(key)
 }
 
 // Start starts N worker processes processing work items.
-func (c *EndpointController) Start(ctx context.Context, numThreads int) {
+func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("Starting syncer workers")
-	defer logger.Info("Stopping syncer workers")
+	logger.Info("Starting controller")
+	defer func() {
+		logger.Info("Shutting down controller")
+	}()
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -109,12 +110,12 @@ func (c *EndpointController) Start(ctx context.Context, numThreads int) {
 }
 
 // startWorker processes work items until stopCh is closed.
-func (c *EndpointController) startWorker(ctx context.Context) {
+func (c *controller) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *EndpointController) processNextWorkItem(ctx context.Context) bool {
+func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	key, quit := c.queue.Get()
 	if quit {
@@ -142,7 +143,7 @@ func (c *EndpointController) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *EndpointController) process(ctx context.Context, key string) error {
+func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)

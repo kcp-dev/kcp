@@ -1179,13 +1179,13 @@ func TestSpecSyncerProcess(t *testing.T) {
 				<-downstreamDDSIFUpdated
 				t.Logf("%s: downstream ddsif synced", t.Name())
 
-				_, unsynced := ddsifForUpstreamSyncer.Listers()
+				_, unsynced := ddsifForUpstreamSyncer.Informers()
 				for _, gvr := range unsynced {
 					informer, _ := ddsifForUpstreamSyncer.ForResource(gvr)
 					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
 					t.Logf("%s: upstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
 				}
-				_, unsynced = ddsifForDownstream.Listers()
+				_, unsynced = ddsifForDownstream.Informers()
 				for _, gvr := range unsynced {
 					informer, _ := ddsifForDownstream.ForResource(gvr)
 					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)

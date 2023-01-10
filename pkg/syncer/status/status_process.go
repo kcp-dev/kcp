@@ -30,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -69,27 +68,15 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace, DownstreamName, downstreamName)
 
-	// get the downstream object
 	downstreamLister, err := c.getDownstreamLister(gvr)
 	if err != nil {
 		return err
 	}
 
-	var resourceExists bool
-	var downstreamObj runtime.Object
-
-	// to upstream
 	var namespaceLocator *shared.NamespaceLocator
 	var locatorExists bool
 
 	if downstreamNamespace != "" {
-		downstreamObj, err = downstreamLister.ByNamespace(downstreamNamespace).Get(downstreamName)
-		if err == nil {
-			resourceExists = true
-		} else if !apierrors.IsNotFound(err) {
-			return err
-		}
-
 		downstreamNamespaceLister, err := c.getDownstreamLister(namespaceGVR)
 		if err != nil {
 			return err
@@ -116,22 +103,27 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 			// that syncers for multiple logical clusters can coexist.
 			return nil
 		}
-	} else {
-		downstreamObj, err = downstreamLister.Get(downstreamName)
-		if err == nil {
-			resourceExists = true
-		} else if !apierrors.IsNotFound(err) {
-			return err
-		} else {
+	}
+
+	var resourceExists bool
+	obj, err := downstreamLister.ByNamespace(downstreamNamespace).Get(downstreamName)
+	if err == nil {
+		resourceExists = true
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	if downstreamNamespace == "" {
+		if !resourceExists {
 			// TODO(davidfestal): The downstream object doesn't exist, but we cannot remove the finalizer
 			// on the upstream resource since we dont have the locator to locate the upstream resource.
 			// That should be fixed.
 			return nil
 		}
 
-		objMeta, ok := downstreamObj.(metav1.Object)
+		objMeta, ok := obj.(metav1.Object)
 		if !ok {
-			logger.Info(fmt.Sprintf("Error: downstream cluster-wide resource expected to be metav1.Object, got %T", downstreamObj))
+			logger.Info(fmt.Sprintf("Error: downstream cluster-wide resource expected to be metav1.Object, got %T", obj))
 			return nil
 		}
 		namespaceLocator, locatorExists, err = shared.LocatorFromAnnotations(objMeta.GetAnnotations())
@@ -164,16 +156,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 
 	if !resourceExists {
 		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
-		if err != nil {
-			return err
-		}
 		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamLister, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamClusterName, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
-	u, ok := downstreamObj.(*unstructured.Unstructured)
+	u, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", downstreamObj)
+		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
 	return c.updateStatusInUpstream(ctx, gvr, upstreamLister, upstreamNamespace, upstreamName, upstreamClusterName, u)
 }

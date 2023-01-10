@@ -46,9 +46,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
+	syncerindexers "github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
@@ -72,7 +73,7 @@ type Controller struct {
 
 	getUpstreamLister                 func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
 	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
-	listDownstreamNamespacesByLocator func(jsonLocator string) ([]interface{}, error)
+	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
 
 	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
@@ -100,32 +101,34 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		downstreamNSCleaner: downstreamNSCleaner,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			lister, known, synced := ddsifForDownstream.Lister(gvr)
-			if !known {
+			informers, notSynced := ddsifForDownstream.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+				}
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
-			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
-			}
-			return lister, nil
+			return informer.Lister(), nil
 		},
 		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
-			lister, known, synced := ddsifForUpstreamSyncer.Lister(gvr)
-			if !known {
+			informers, notSynced := ddsifForUpstreamSyncer.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+				}
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
-			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
-			}
-			return lister, nil
+			return informer.Lister(), nil
 		},
 
-		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]interface{}, error) {
+		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
 			nsInformer, err := ddsifForDownstream.ForResource(namespaceGVR)
 			if err != nil {
 				return nil, err
 			}
-			return nsInformer.Informer().GetIndexer().ByIndex(indexers.ByNamespaceLocatorIndexName, jsonLocator)
+			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
 		},
 		syncTargetName:            syncTargetName,
 		syncTargetClusterName:     syncTargetClusterName,
@@ -136,16 +139,18 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
+	namespaceGVR := corev1.SchemeGroupVersion.WithResource("namespaces")
+
 	ddsifForUpstreamSyncer.AddEventHandler(
 		ddsif.GVREventHandlerFuncs{
 			AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				c.AddToQueue(gvr, obj, logger)
 			},
 			UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				oldUnstrob := oldObj.(*unstructured.Unstructured)
@@ -156,7 +161,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				}
 			},
 			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				c.AddToQueue(gvr, obj, logger)
@@ -167,7 +172,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	ddsifForDownstream.AddEventHandler(
 		ddsif.GVREventHandlerFuncs{
 			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if shared.IsNamespace(gvr) {
+				if gvr == namespaceGVR {
 					return
 				}
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -187,9 +192,9 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				// Handle namespaced resources
 				if namespace != "" {
 					// Use namespace lister
-					namespaceLister, known, synced := ddsifForDownstream.Lister(namespaceGVR)
-					if !known || !synced {
-						utilruntime.HandleError(errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory"))
+					namespaceLister, err := c.getDownstreamLister(namespaceGVR)
+					if err != nil {
+						utilruntime.HandleError(err)
 						return
 					}
 
@@ -245,8 +250,8 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	dnsServiceLister := syncerNamespaceInformerFactory.Core().V1().Services().Lister()
 
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
-		secretLister, known, synced := ddsifForUpstreamSyncer.Lister(corev1.SchemeGroupVersion.WithResource("secrets"))
-		if !known || !synced {
+		secretLister, err := c.getUpstreamLister(corev1.SchemeGroupVersion.WithResource("secrets"))
+		if err != nil {
 			return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
 		}
 		return secretLister.ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
