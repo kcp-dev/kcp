@@ -18,6 +18,7 @@ package upsync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -84,7 +85,7 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 			return err
 		}
 	} else {
-		_, err := c.downstreamClient.Resource(gvr).Get(context.TODO(), upstreamName, metav1.GetOptions{})
+		_, err := c.downstreamInformer.ForResource(gvr).Lister().Get(upstreamName)
 		if err != nil && k8serror.IsNotFound(err) {
 			// Downstream namespace not present; assume object is not present as well and return upstream object
 			// Prune resource upstream
@@ -137,6 +138,7 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		var nsObj runtime.Object
 		if nsObj, err = c.downstreamNamespaceLister.Get(downstreamNamespace); err != nil {
 			logger.Error(err, "Error getting downstream Namespace from downstream namespace lister", "ns", downstreamNamespace)
+			return err
 		}
 		nsMeta, ok := nsObj.(metav1.Object)
 		if !ok {
@@ -151,15 +153,16 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		if !locatorExists || upstreamLocator == nil {
 			return nil
 		}
-		downstreamObject, err = c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Get(ctx, downstreamName, metav1.GetOptions{})
+		downstreamObject, err = c.downstreamInformer.ForResource(gvr).Lister().ByNamespace(downstreamNamespace).Get(downstreamName)
 		if err != nil {
 			logger.Error(err, "Could not find the resource downstream")
 		}
-	}
-	if downstreamNamespace == "" {
-		downstreamObject, err = c.downstreamClient.Resource(gvr).Get(ctx, downstreamName, metav1.GetOptions{})
-		if err != nil {
+	} else {
+		downstreamObject, err = c.downstreamInformer.ForResource(gvr).Lister().Get(downstreamName)
+		if err != nil && k8serror.IsNotFound(err) {
 			logger.Error(err, "Could not find the resource downstream")
+			// Todo: Perform cleanup on the upstream resource
+			return nil
 		}
 		objMeta, ok := downstreamObject.(metav1.Object)
 		if !ok {
@@ -170,7 +173,8 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		}
 
 		if !locatorExists || upstreamLocator == nil {
-			return nil
+			logger.Error(err, "locator not found in the resource")
+			return errors.New("locator not found in the downstream resource")
 		}
 	}
 
@@ -199,6 +203,7 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		}
 		c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, resource, downstreamResource, "spec")
 		c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, resource, downstreamResource, "status")
+		return nil
 	} else {
 		resourceVersionUpstream = unstructuredUpstreamResource.GetAnnotations()[ResourceVersionAnnotation]
 	}

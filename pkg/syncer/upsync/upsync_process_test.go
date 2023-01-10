@@ -82,7 +82,7 @@ func TestUpsyncerprocess(t *testing.T) {
 		isUpstream             bool
 		updateType             []UpdateType
 	}{
-		"StatusSyncer upsyncs namespaced resources": {
+		"Upsyncer upsyncs namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "", map[string]string{
 				"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
@@ -100,9 +100,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			toResources:           []runtime.Object{},
 			resourceToProcessName: "test-pvc",
 			syncTargetName:        "us-west1",
-			expectActionsOnFrom: []clienttesting.Action{clienttesting.NewGetAction(schema.GroupVersionResource{Group: "",
-				Version:  "v1",
-				Resource: "persistentvolumeclaims"}, "test", "test-pvc")},
+			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
 				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", toUnstructured(t, getPVC("test-pvc", "test", "", map[string]string{
@@ -123,7 +121,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream: false,
 			updateType: []UpdateType{MetadataUpdate, SpecUpdate},
 		},
-		"StatusSyncer upsyncs cluster-wide resources": {
+		"Upsyncer upsyncs cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace:          nil,
 			gvr:                    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"},
@@ -137,7 +135,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			toResources:           []runtime.Object{},
 			resourceToProcessName: "test-pv",
 			syncTargetName:        "us-west1",
-			expectActionsOnFrom:   []clienttesting.Action{clienttesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, "", "test-pv")},
+			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", "test-pv"),
 				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", toUnstructured(t, getPV(getPVC("test", "test", "", map[string]string{
@@ -179,7 +177,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			},
 			resourceToProcessName: "test-pvc",
 			syncTargetName:        "us-west1",
-			expectActionsOnFrom:   []clienttesting.Action{clienttesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, "test", "test-pvc")},
+			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
 				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "metadata", "test",
@@ -212,7 +210,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			},
 			resourceToProcessName: "test-pv",
 			syncTargetName:        "us-west1",
-			expectActionsOnFrom:   []clienttesting.Action{clienttesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, "", "test-pv")},
+			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", "test-pv"),
 				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "metadata", "", toUnstructured(t, getPV(getPVC("test", "test", "", map[string]string{
@@ -270,9 +268,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			},
 			resourceToProcessName: "test-pv",
 			syncTargetName:        "us-west1",
-			expectActionsOnFrom: []clienttesting.Action{
-				clienttesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, "", "test-pv"),
-			},
+			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", "test-pv"),
 			},
