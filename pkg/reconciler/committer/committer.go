@@ -49,56 +49,54 @@ type Patcher[R runtime.Object] interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (R, error)
 }
 
-// NewCommitter returns a function that can patch instances of R based on meta, spec or status
-// changes using a cluster-aware patcher.
-func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", new(R))
+// CommitFunc is an alias to clean up type declarations.
+type CommitFunc[Sp any, St any] func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error
+
+// NewCommitter returns a function that can patch instances of R based on meta,
+// spec or status changes using a cluster-aware patcher.
+func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) CommitFunc[Sp, St] {
+	focusType := fmt.Sprintf("%T", *new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
-		logger := klog.FromContext(ctx)
-		clusterName := logicalcluster.From(old)
-
-		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
-		if err != nil {
-			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
-		}
-
-		if len(patchBytes) == 0 {
-			return nil
-		}
-
-		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
-		_, err = patcher.Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-		if err != nil {
-			return fmt.Errorf("failed to patch %s %s|%s: %w", focusType, clusterName, old.Name, err)
-		}
-
-		return nil
+		return withPatchAndSubResources(ctx, focusType, old, obj,
+			func(patchBytes []byte, subresources []string) error {
+				clusterName := logicalcluster.From(old)
+				_, err := patcher.Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+				return err
+			})
 	}
 }
 
-// NewCommitterScoped returns a function that can patch instances of R based on meta, spec or
-// status changes using a scoped patcher.
-func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", new(R))
+// NewCommitterScoped returns a function that can patch instances of R based on
+// meta, spec or status changes using a patcher scoped to a specific cluster.
+func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher Patcher[R]) CommitFunc[Sp, St] {
+	focusType := fmt.Sprintf("%T", *new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
-		logger := klog.FromContext(ctx)
-		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
-		if err != nil {
-			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
-		}
+		return withPatchAndSubResources(ctx, focusType, old, obj,
+			func(patchBytes []byte, subresources []string) error {
+				_, err := patcher.Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+				return err
+			})
+	}
+}
 
-		if len(patchBytes) == 0 {
-			return nil
-		}
+type patchFunc func([]byte, []string) error
 
-		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
-		_, err = patcher.Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-		if err != nil {
-			return fmt.Errorf("failed to patch %s %s: %w", focusType, old.Name, err)
-		}
+func withPatchAndSubResources[Sp any, St any](ctx context.Context, focusType string, old, obj *Resource[Sp, St], patch patchFunc) error {
+	logger := klog.FromContext(ctx)
+	patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
+	if err != nil {
+		return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
+	}
 
+	if len(patchBytes) == 0 {
 		return nil
 	}
+
+	logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
+	if err := patch(patchBytes, subresources); err != nil {
+		return fmt.Errorf("failed to patch %s %s: %w", focusType, old.Name, err)
+	}
+	return nil
 }
 
 func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([]byte, []string, error) {
@@ -110,6 +108,7 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 
 	// Simultaneous updates of spec and status are never allowed.
 	if specOrObjectMetaChanged && statusChanged {
+		// TODO(panic): remove panic and handle the error
 		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
 	}
 
