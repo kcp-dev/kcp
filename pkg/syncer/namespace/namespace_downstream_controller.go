@@ -120,7 +120,7 @@ func NewDownstreamController(
 			return informer.Lister().Get(downstreamNamespaceName)
 		},
 		listDownstreamNamespaces: func() ([]runtime.Object, error) {
-			informer, err := ddsifForUpstreamSyncer.ForResource(namespaceGVR)
+			informer, err := ddsifForDownstream.ForResource(namespaceGVR)
 			if err != nil {
 				return nil, err
 			}
