@@ -47,13 +47,10 @@ func TestDNSResolution(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	upstreamServer := framework.SharedKcpServer(t)
-
 	upstreamConfig := upstreamServer.BaseConfig(t)
 
 	orgWorkspace := framework.NewOrganizationFixture(t, upstreamServer)
-
 	locationWorkspace := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("location"))
-
 	workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-1"))
 	workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-2"))
 
