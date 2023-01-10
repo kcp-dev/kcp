@@ -110,7 +110,6 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 
 	// Simultaneous updates of spec and status are never allowed.
 	if specOrObjectMetaChanged && statusChanged {
-		// TODO(panic): remove panic and handle the error
 		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
 	}
 
