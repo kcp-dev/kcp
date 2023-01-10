@@ -227,7 +227,10 @@ func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.Clust
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports())
 	maximalPermissionAuth = authorization.NewDecorator("virtual.apiexport.maxpermissionpolicy.authorization.kcp.io", maximalPermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
+	permissionClaimAuth := virtualapiexportauth.NewPermissionClaimsAuthorizer(kcpinformers, maximalPermissionAuth)
+	permissionClaimAuth = authorization.NewDecorator("virtual.apiexport.permission.authorization.kcp.io", permissionClaimAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(permissionClaimAuth, kubeClusterClient)
 	apiExportsContentAuth = authorization.NewDecorator("virtual.apiexport.content.authorization.kcp.io", apiExportsContentAuth).AddAuditLogging().AddAnonymization()
 
 	return apiExportsContentAuth
