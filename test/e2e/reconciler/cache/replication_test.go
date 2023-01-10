@@ -181,8 +181,12 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 		"wild.wild.west",
 		"APIExport",
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-		&apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"}},
-		&apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"}, Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}}},
+		&apisv1alpha1.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
+		},
+		&apisv1alpha1.APIExport{
+			Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}},
+		},
 	)
 }
 
@@ -204,7 +208,9 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 				Name: "mangodb",
 			},
 		},
-		&apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo"}}},
+		&apisv1alpha1.APIExport{
+			Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo"}},
+		},
 	)
 }
 
@@ -221,8 +227,13 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 		"test-shard",
 		"Shard",
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"),
-		&corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "test-shard"}, Spec: corev1alpha1.ShardSpec{BaseURL: "https://base.kcp.test.dev"}},
-		&corev1alpha1.Shard{Spec: corev1alpha1.ShardSpec{BaseURL: "https://kcp.test.dev"}},
+		&corev1alpha1.Shard{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-shard"},
+			Spec:       corev1alpha1.ShardSpec{BaseURL: "https://base.kcp.test.dev"},
+		},
+		&corev1alpha1.Shard{
+			Spec: corev1alpha1.ShardSpec{BaseURL: "https://kcp.test.dev"},
+		},
 	)
 }
 
@@ -247,7 +258,9 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 				BaseURL: "https://base.kcp.test.dev",
 			},
 		},
-		&corev1alpha1.Shard{Spec: corev1alpha1.ShardSpec{BaseURL: "https://base2.kcp.test.dev"}},
+		&corev1alpha1.Shard{
+			Spec: corev1alpha1.ShardSpec{BaseURL: "https://base2.kcp.test.dev"},
+		},
 	)
 }
 
@@ -264,8 +277,13 @@ func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server fr
 		"replicate-workspace-type",
 		"WorkspaceType",
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
-		&tenancyv1alpha1.WorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type"}, Spec: tenancyv1alpha1.WorkspaceTypeSpec{}},
-		&tenancyv1alpha1.WorkspaceType{Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}}},
+		&tenancyv1alpha1.WorkspaceType{
+			ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type"},
+			Spec:       tenancyv1alpha1.WorkspaceTypeSpec{},
+		},
+		&tenancyv1alpha1.WorkspaceType{
+			Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}},
+		},
 	)
 }
 
@@ -282,16 +300,39 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 		"replicate-workspace-type-negative",
 		"WorkspaceType",
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
-		&tenancyv1alpha1.WorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type-negative"}, Spec: tenancyv1alpha1.WorkspaceTypeSpec{}},
-		&tenancyv1alpha1.WorkspaceType{Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}}},
+		&tenancyv1alpha1.WorkspaceType{
+			ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type-negative"},
+			Spec:       tenancyv1alpha1.WorkspaceTypeSpec{},
+		},
+		&tenancyv1alpha1.WorkspaceType{
+			Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}},
+		},
 	)
 }
 
 // replicateResource tests if the given resource is propagated to the cache server.
 // The test exercises creation, modification and removal of the resource.
+//
+// note that adding a new scenario requires providing a resource along with its type information
+// to this function, i.e.:
+//
+//	replicateResource(
+//	  ...
+//	  "root:org:rh", // clusterName
+//	  "my-awesome-resource" // resName
+//	  "APIExports", // kind
+//	  apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), // gvr
+//	  &apisv1alpha1.APIExport{...}, // the resource
+//	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
+//	)
 func replicateResource(ctx context.Context, t *testing.T,
 	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
-	clusterName logicalcluster.Name, resourceName string, kind string, gvr schema.GroupVersionResource, res runtime.Object, resWithModifiedSpec runtime.Object) {
+	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
+	resourceName string, /*a resource name*/
+	kind string, /*kind for the given resource*/
+	gvr schema.GroupVersionResource, /*gvr for the given resource*/
+	res runtime.Object, /*a strongly typed resource object that will be created*/
+	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
@@ -321,9 +362,27 @@ func replicateResource(ctx context.Context, t *testing.T,
 }
 
 // replicateResourceNegative checks if modified or even deleted cached resource will be reconciled to match the original object.
+//
+// note that adding a new scenario requires providing a resource along with its type information
+// to this function, i.e.:
+//
+//	replicateResourceNegative(
+//	  ...
+//	  "root:org:rh", // clusterName
+//	  "my-awesome-resource" // resName
+//	  "APIExports", // kind
+//	  apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), // gvr
+//	  &apisv1alpha1.APIExport{...}, // the resource
+//	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
+//	)
 func replicateResourceNegative(ctx context.Context, t *testing.T,
 	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
-	clusterName logicalcluster.Name, resourceName string, kind string, gvr schema.GroupVersionResource, res runtime.Object, resWithModifiedSpec runtime.Object) {
+	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
+	resourceName string, /*a resource name*/
+	kind string, /*kind for the given resource*/
+	gvr schema.GroupVersionResource, /*gvr for the given resource*/
+	res runtime.Object, /*a strongly typed resource object that will be created*/
+	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
 	org := framework.NewOrganizationFixture(t, server)
