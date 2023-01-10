@@ -61,6 +61,8 @@ var scenarios = []testScenario{
 	{"TestReplicateAPIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
 	{"TestReplicateShard", replicateShardScenario},
 	{"TestReplicateShardNegative", replicateShardNegativeScenario},
+	{"TestReplicateWorkspaceType", replicateWorkspaceTypeScenario},
+	{"TestReplicateWorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
@@ -246,6 +248,42 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 			},
 		},
 		&corev1alpha1.Shard{Spec: corev1alpha1.ShardSpec{BaseURL: "https://base2.kcp.test.dev"}},
+	)
+}
+
+// replicateWorkspaceTypeScenario tests if a WorkspaceType is propagated to the cache server.
+// The test exercises creation, modification and removal of the Shard object.
+func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+	t.Helper()
+	replicateResource(ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"replicate-workspace-type",
+		"WorkspaceType",
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
+		&tenancyv1alpha1.WorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type"}, Spec: tenancyv1alpha1.WorkspaceTypeSpec{}},
+		&tenancyv1alpha1.WorkspaceType{Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}}},
+	)
+}
+
+// replicateWorkspaceTypeNegativeScenario checks if modified or even deleted cached WorkspaceType will be reconciled to match the original object.
+func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+	t.Helper()
+	replicateResourceNegative(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"replicate-workspace-type-negative",
+		"WorkspaceType",
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
+		&tenancyv1alpha1.WorkspaceType{ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type-negative"}, Spec: tenancyv1alpha1.WorkspaceTypeSpec{}},
+		&tenancyv1alpha1.WorkspaceType{Spec: tenancyv1alpha1.WorkspaceTypeSpec{AdditionalWorkspaceLabels: map[string]string{"foo": "bar"}}},
 	)
 }
 
