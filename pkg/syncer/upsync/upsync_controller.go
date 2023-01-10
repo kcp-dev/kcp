@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -53,6 +54,7 @@ type Controller struct {
 	upstreamClient            kcpdynamic.ClusterInterface
 	downstreamClient          dynamic.Interface
 	downstreamNamespaceLister cache.GenericLister
+	downstreamInformer        dynamicinformer.DynamicSharedInformerFactory
 
 	getDownstreamLister func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 
@@ -62,18 +64,18 @@ type Controller struct {
 	syncTargetKey       string
 }
 
-type Keysource uint
-type UpdateType uint
+type Keysource string
+type UpdateType string
 
 const (
-	Upstream Keysource = iota
-	Downstream
+	Upstream   Keysource = "Upstream"
+	Downstream Keysource = "Downstream"
 )
 
 const (
-	SpecUpdate UpdateType = iota
-	StatusUpdate
-	MetadataUpdate
+	SpecUpdate     UpdateType = "Spec"
+	StatusUpdate   UpdateType = "Status"
+	MetadataUpdate UpdateType = "Meta"
 )
 
 // Upstream resource key generation
@@ -108,7 +110,27 @@ type queueKey struct {
 	// Differentiate between upstream and downstream keys
 	keysource Keysource
 	// Update type
-	updateType []UpdateType
+	updateType UpdateType
+}
+
+func updateTypeSlicetoString(update []UpdateType) UpdateType {
+	str := ""
+	for i, updateType := range update {
+		if i != 0 {
+			str += ","
+		}
+		str += string(updateType)
+	}
+	return UpdateType(str)
+}
+
+func updateTypeStringtoSlice(update UpdateType) []UpdateType {
+	str := strings.Split(string(update), ",")
+	updateType := make([]UpdateType, len(str))
+	for i, item := range str {
+		updateType[i] = UpdateType(item)
+	}
+	return updateType
 }
 
 func getUpdateType(oldObj *unstructured.Unstructured, newObj *unstructured.Unstructured) []UpdateType {
@@ -144,11 +166,13 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String())
+	updateTypeHashed := updateTypeSlicetoString(updateType)
 	c.queue.Add(
 		queueKey{
-			gvr:       gvr,
-			key:       key,
-			keysource: keysource,
+			gvr:        gvr,
+			key:        key,
+			keysource:  keysource,
+			updateType: updateTypeHashed,
 		},
 	)
 }
@@ -251,12 +275,14 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		keySource = "Upstream"
 	}
 
-	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String(), "Key for:", keySource)
+	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String(), "source", keySource)
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(1).Info("Processing key")
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, qk.gvr, qk.key, qk.keysource == Upstream, updateType); err != nil {
+	updateTypeArray := updateTypeStringtoSlice(updateType)
+
+	if err := c.process(ctx, qk.gvr, qk.key, qk.keysource == Upstream, updateTypeArray); err != nil {
 		runtime.HandleError(fmt.Errorf("%s failed to upsync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
