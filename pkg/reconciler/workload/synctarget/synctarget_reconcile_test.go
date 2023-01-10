@@ -19,7 +19,6 @@ package synctarget
 import (
 	"context"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -82,7 +81,8 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -91,15 +91,6 @@ func TestReconciler(t *testing.T) {
 		},
 		"SyncTarget and multiple Shards": {
 			workspaceShards: []*corev1alpha1.Shard{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "root",
-					},
-					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host/",
-					},
-				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root2",
@@ -118,6 +109,15 @@ func TestReconciler(t *testing.T) {
 						ExternalURL: "http://external-host-3/",
 					},
 				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root",
+					},
+					Spec: corev1alpha1.ShardSpec{
+						BaseURL:     "http://1.2.3.4/",
+						ExternalURL: "http://external-host-1/",
+					},
+				},
 			},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
@@ -151,13 +151,16 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							URL: "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							URL: "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -172,7 +175,7 @@ func TestReconciler(t *testing.T) {
 					},
 					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host/",
+						ExternalURL: "http://external-host-1/",
 					},
 				},
 				{
@@ -181,7 +184,7 @@ func TestReconciler(t *testing.T) {
 					},
 					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host/",
+						ExternalURL: "http://external-host-1/",
 					},
 				},
 				{
@@ -226,11 +229,13 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 
 						{
-							URL: "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -278,7 +283,7 @@ func TestReconciler(t *testing.T) {
 					},
 					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host/",
+						ExternalURL: "http://external-host-1/",
 					},
 				},
 			},
@@ -296,13 +301,16 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							URL: "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							URL: "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -324,7 +332,8 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							URL: "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -339,9 +348,6 @@ func TestReconciler(t *testing.T) {
 			if err != nil && !tc.expectError {
 				t.Errorf("unexpected error: %v", err)
 			}
-			sort.Slice(tc.expectedSyncTarget.Status.VirtualWorkspaces, func(i, j int) bool {
-				return tc.expectedSyncTarget.Status.VirtualWorkspaces[i].URL < tc.expectedSyncTarget.Status.VirtualWorkspaces[j].URL
-			})
 			if !reflect.DeepEqual(returnedSyncTarget, tc.expectedSyncTarget) {
 				t.Errorf("expected diff: %s", cmp.Diff(tc.expectedSyncTarget, returnedSyncTarget))
 			}

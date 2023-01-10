@@ -211,7 +211,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 	logicalCluster, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
-		logger.V(2).Info("ClusterWorkspace has been deleted")
+		logger.V(2).Info("Workspace has been deleted")
 		return nil
 	}
 	if deleteErr != nil {

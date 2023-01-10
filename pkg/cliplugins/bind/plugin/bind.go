@@ -106,7 +106,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 
 	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+		return fmt.Errorf("current URL %q does not point to workspace", config.Host)
 	}
 
 	binding := &apisv1alpha1.APIBinding{

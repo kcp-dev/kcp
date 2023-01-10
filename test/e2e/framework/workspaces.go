@@ -42,19 +42,19 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server"
 )
 
-type ClusterWorkspaceOption interface {
-	PrivilegedClusterWorkspaceOption | UnprivilegedClusterWorkspaceOption
+type WorkspaceOption interface {
+	PrivilegedWorkspaceOption | UnprivilegedWorkspaceOption
 }
 
-type PrivilegedClusterWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+type PrivilegedWorkspaceOption func(ws *tenancyv1beta1.Workspace)
 
-type UnprivilegedClusterWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+type UnprivilegedWorkspaceOption func(ws *tenancyv1beta1.Workspace)
 
-func WithRootShard() UnprivilegedClusterWorkspaceOption {
+func WithRootShard() UnprivilegedWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
-func WithShard(name string) UnprivilegedClusterWorkspaceOption {
+func WithShard(name string) UnprivilegedWorkspaceOption {
 	return WithLocation(tenancyv1beta1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"name": name,
@@ -62,9 +62,9 @@ func WithShard(name string) UnprivilegedClusterWorkspaceOption {
 	}})
 }
 
-func WithLocation(c tenancyv1beta1.WorkspaceLocation) UnprivilegedClusterWorkspaceOption {
+func WithLocation(w tenancyv1beta1.WorkspaceLocation) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
-		ws.Spec.Location = &c
+		ws.Spec.Location = &w
 	}
 }
 
@@ -72,7 +72,7 @@ func WithLocation(c tenancyv1beta1.WorkspaceLocation) UnprivilegedClusterWorkspa
 // use the system:master config can consume this. However, workspace initialization requires a valid user annotation
 // on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
 // end up needing to hard-code something conceivable.
-func WithRequiredGroups(groups ...string) PrivilegedClusterWorkspaceOption {
+func WithRequiredGroups(groups ...string) PrivilegedWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		if ws.Annotations == nil {
 			ws.Annotations = map[string]string{}
@@ -90,7 +90,7 @@ func WithRequiredGroups(groups ...string) PrivilegedClusterWorkspaceOption {
 	}
 }
 
-func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedClusterWorkspaceOption {
+func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 			Name: name,
@@ -99,14 +99,14 @@ func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) 
 	}
 }
 
-func WithName(s string, formatArgs ...interface{}) UnprivilegedClusterWorkspaceOption {
+func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1beta1.Workspace) {
 		ws.Name = fmt.Sprintf(s, formatArgs...)
 		ws.GenerateName = ""
 	}
 }
 
-func NewWorkspaceFixtureObject[O ClusterWorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
+func NewWorkspaceFixtureObject[O WorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -176,7 +176,7 @@ func NewWorkspaceFixtureObject[O ClusterWorkspaceOption](t *testing.T, clusterCl
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...UnprivilegedClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (clusterName logicalcluster.Name) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -187,7 +187,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	return logicalcluster.Name(ws.Spec.Cluster)
 }
 
-func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...UnprivilegedClusterWorkspaceOption) *tenancyv1beta1.Workspace {
+func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) *tenancyv1beta1.Workspace {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -197,13 +197,13 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 	return NewWorkspaceFixtureObject(t, clusterClient, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (orgClusterName logicalcluster.Name) {
 	t.Helper()
 	org := NewOrganizationFixtureObject(t, server, options...)
 	return logicalcluster.Name(org.Spec.Cluster)
 }
 
-func NewPrivilegedOrganizationFixture[O ClusterWorkspaceOption](t *testing.T, server RunningServer, options ...O) (orgClusterName logicalcluster.Name) {
+func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (orgClusterName logicalcluster.Name) {
 	t.Helper()
 
 	cfg := server.RootShardSystemMasterBaseConfig(t)

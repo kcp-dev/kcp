@@ -54,7 +54,7 @@ func TestCreate(t *testing.T) {
 		name   string
 		config clientcmdapi.Config
 
-		existingWorkspaces []string // existing cluster workspaces
+		existingWorkspaces []string // existing workspaces
 		markReady          bool
 
 		newWorkspaceName                 string

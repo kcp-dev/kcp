@@ -353,13 +353,13 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	return inf
 }
 
-// Listers returns a map of per-resource-type listers for all types that are
+// Informers returns a map of per-resource-type generic informers for all types that are
 // known by this informer factory, and that are synced.
 //
 // If any informers aren't synced, their GVRs are returned so that they can be
 // checked and processed later.
-func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) Listers() (listers map[schema.GroupVersionResource]Lister, notSynced []schema.GroupVersionResource) {
-	listers = map[schema.GroupVersionResource]Lister{}
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) Informers() (informers map[schema.GroupVersionResource]GenericInformer, notSynced []schema.GroupVersionResource) {
+	informers = map[schema.GroupVersionResource]GenericInformer{}
 
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
@@ -372,38 +372,10 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 			continue
 		}
 
-		listers[gvr] = informer.Lister()
+		informers[gvr] = informer
 	}
 
-	return listers, notSynced
-}
-
-// Lister returns a lister for the given resource-type, whether it is
-// known by this informer factory, and whether it is synced.
-func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) Lister(gvr schema.GroupVersionResource) (lister Lister, known, synced bool) {
-	d.informersLock.RLock()
-	defer d.informersLock.RUnlock()
-
-	informer, ok := d.informers[gvr]
-	if !ok {
-		return lister, false, false
-	}
-
-	return informer.Lister(), true, informer.Informer().HasSynced()
-}
-
-// Informer returns an informer for the given resource-type if it exists, whether it is
-// known by this informer factory, and whether it is synced.
-func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) Informer(gvr schema.GroupVersionResource) (informer Informer, known, synced bool) {
-	d.informersLock.RLock()
-	defer d.informersLock.RUnlock()
-
-	genericInformer, ok := d.informers[gvr]
-	if !ok {
-		return informer, false, false
-	}
-
-	return genericInformer.Informer(), true, genericInformer.Informer().HasSynced()
+	return informers, notSynced
 }
 
 // GVREventHandler is an event handler that includes the GroupVersionResource

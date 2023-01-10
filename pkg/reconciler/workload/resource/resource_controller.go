@@ -373,11 +373,11 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	logger = logger.WithValues("nsLocations", nsLocations.List())
 
 	logger.V(4).Info("getting listers")
-	listers, notSynced := c.ddsif.Listers()
+	informers, notSynced := c.ddsif.Informers()
 	var errs []error
-	for gvr, lister := range listers {
+	for gvr, informer := range informers {
 		logger = logger.WithValues("gvr", gvr.String())
-		objs, err := lister.ByCluster(clusterName).ByNamespace(ns.Name).List(labels.Everything())
+		objs, err := informer.Lister().ByCluster(clusterName).ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error listing %q in %s|%s: %w", gvr, clusterName, ns.Name, err))
 			continue
@@ -438,9 +438,9 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 func (c *Controller) enqueueSyncTargetKey(syncTargetKey string) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName).WithValues("syncTargetKey", syncTargetKey)
 
-	listers, _ := c.ddsif.Listers()
+	informers, _ := c.ddsif.Informers()
 	queued := map[string]int{}
-	for gvr := range listers {
+	for gvr := range informers {
 		inf, err := c.ddsif.ForResource(gvr)
 		if err != nil {
 			runtime.HandleError(err)

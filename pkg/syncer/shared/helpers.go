@@ -71,3 +71,12 @@ func GetDNSID(clusterName logicalcluster.Name, syncTargetUID types.UID, syncTarg
 
 	return fmt.Sprintf("kcp-dns-%s-%s-%s", syncTargetName, uid36hash[:8], workspace36hash[:8])
 }
+
+func ContainsGVR(gvrs []schema.GroupVersionResource, gvr schema.GroupVersionResource) bool {
+	for _, item := range gvrs {
+		if gvr == item {
+			return true
+		}
+	}
+	return false
+}

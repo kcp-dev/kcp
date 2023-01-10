@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspace
+package workspace
 
 import (
 	"context"
@@ -91,7 +91,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	universal := framework.NewWorkspaceFixtureObject(t, clusterClient, orgPath, framework.WithName("universal"))
 	universalPath := orgPath.Join(universal.Name)
 
-	cwtParent1 := &tenancyv1alpha1.WorkspaceType{
+	wtParent1 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "parent1",
 		},
@@ -109,7 +109,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 		},
 	}
 
-	cwtParent2 := &tenancyv1alpha1.WorkspaceType{
+	wtParent2 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "parent2",
 		},
@@ -123,7 +123,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 		},
 	}
 
-	cwt := &tenancyv1alpha1.WorkspaceType{
+	wt := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test",
 		},
@@ -150,16 +150,16 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	}
 
 	t.Logf("Creating WorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwtParent1, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating cwt parent1")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wtParent1, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating wt parent1")
 
 	t.Logf("Creating WorkspaceType parent2")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwtParent2, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating cwt parent2")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wtParent2, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating wt parent2")
 
 	t.Logf("Creating WorkspaceType test")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwt, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating cwt test")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wt, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating wt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly
 	_ = framework.NewWorkspaceFixture(t, server, universalPath, framework.WithType(universalPath, "test"), framework.WithName("init"))

@@ -66,7 +66,7 @@ func TestWorkspaceNamePattern(t *testing.T) {
 	require.True(t, strings.HasSuffix(namePattern, "$"), "cluster name pattern should start with ^")
 
 	namePattern = strings.Trim(namePattern, "^$")
-	require.Equal(t, fmt.Sprintf("^(%s:)*%s$", namePattern, namePattern), reClusterName.String(), "logical cluster regex should match ClusterWorkspace name pattern")
+	require.Equal(t, fmt.Sprintf("^(%s:)*%s$", namePattern, namePattern), reClusterName.String(), "logical cluster regex should match Workspace name pattern")
 }
 
 func TestReCluster(t *testing.T) {

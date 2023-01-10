@@ -111,7 +111,7 @@ spec:
                       not mentioned in without.
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
-                        qualified reference to a cluster workspace type.
+                        qualified reference to a workspace type.
                       properties:
                         name:
                           description: name is the name of the WorkspaceType
@@ -158,7 +158,7 @@ spec:
                       \n An empty list matches all types."
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
-                        qualified reference to a cluster workspace type.
+                        qualified reference to a workspace type.
                       properties:
                         name:
                           description: name is the name of the WorkspaceType
@@ -190,7 +190,7 @@ spec:
                       \n An empty list matches all types."
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
-                        qualified reference to a cluster workspace type.
+                        qualified reference to a workspace type.
                       properties:
                         name:
                           description: name is the name of the WorkspaceType

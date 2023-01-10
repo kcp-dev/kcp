@@ -301,19 +301,19 @@ func LogicalClustersInitializers(
 	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error),
 	typePath logicalcluster.Path, typeName string,
 ) ([]corev1alpha1.LogicalClusterInitializer, error) {
-	cwt, err := getWorkspaceType(typePath, typeName)
+	wt, err := getWorkspaceType(typePath, typeName)
 	if err != nil {
 		return nil, err
 	}
-	cwtAliases, err := resolver.Resolve(cwt)
+	wtAliases, err := resolver.Resolve(wt)
 	if err != nil {
 		return nil, err
 	}
 
-	initializers := make([]corev1alpha1.LogicalClusterInitializer, 0, len(cwtAliases))
+	initializers := make([]corev1alpha1.LogicalClusterInitializer, 0, len(wtAliases))
 
 	bindings := false
-	for _, alias := range cwtAliases {
+	for _, alias := range wtAliases {
 		if alias.Spec.Initializer {
 			initializers = append(initializers, initialization.InitializerForType(alias))
 		}

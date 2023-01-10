@@ -80,22 +80,18 @@ func NewController(
 
 	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-			if !ok {
-				return false
-			}
-
+			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueueCRD(obj)
+				c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition))
 			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueCRD(newObj)
+			UpdateFunc: func(_, obj interface{}) {
+				c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition))
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.enqueueCRD(obj)
+				c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition))
 			},
 		},
 	})
@@ -103,10 +99,10 @@ func NewController(
 	apiBindingInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.enqueueFromAPIBinding(oldObj, newObj)
+				c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.enqueueFromAPIBinding(nil, obj)
+				c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha1.APIBinding))
 			},
 		},
 	)
@@ -124,8 +120,8 @@ type controller struct {
 }
 
 // enqueueCRD enqueues a CRD.
-func (c *controller) enqueueCRD(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueCRD(crd *apiextensionsv1.CustomResourceDefinition) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(crd)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -136,12 +132,7 @@ func (c *controller) enqueueCRD(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueFromAPIBinding(oldObj, newObj interface{}) {
-	newBinding, ok := newObj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		return
-	}
-
+func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha1.APIBinding) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), newBinding)
 
 	// Looking at old and new versions in case a schema gets removed from an APIExport.
@@ -150,12 +141,7 @@ func (c *controller) enqueueFromAPIBinding(oldObj, newObj interface{}) {
 
 	uidSet := sets.String{}
 
-	if oldObj != nil {
-		oldBinding, ok := oldObj.(*apisv1alpha1.APIBinding)
-		if !ok {
-			return
-		}
-
+	if oldBinding != nil {
 		for _, boundResource := range oldBinding.Status.BoundResources {
 			uidSet.Insert(boundResource.Schema.UID)
 		}

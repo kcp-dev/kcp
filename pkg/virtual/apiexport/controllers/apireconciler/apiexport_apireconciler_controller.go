@@ -92,22 +92,22 @@ func NewAPIReconciler(
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj, logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(obj, logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj, logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
 		},
 	})
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(obj, logger)
+			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(obj, logger)
+			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},
 	})
 
@@ -135,8 +135,8 @@ type APIReconciler struct {
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
-func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *APIReconciler) enqueueAPIResourceSchema(apiResourceSchema *apisv1alpha1.APIResourceSchema, logger logr.Logger) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiResourceSchema)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -153,9 +153,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	if logObj, ok := obj.(logging.Object); ok {
-		logger = logging.WithObject(logger, logObj)
-	}
+	logger = logging.WithObject(logger, apiResourceSchema)
 
 	if len(exports) == 0 {
 		logger.V(2).Info("No APIExports found")
@@ -168,8 +166,8 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 	}
 }
 
-func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logger logr.Logger) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 	if err != nil {
 		runtime.HandleError(err)
 		return

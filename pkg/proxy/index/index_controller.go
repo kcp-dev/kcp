@@ -107,7 +107,7 @@ func NewController(
 }
 
 // Controller watches Shards on the root shard, and then starts informers
-// for every Shard, watching the ClusterWorkspaces on them. It then
+// for every Shard, watching the Workspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type Controller struct {
 	queue workqueue.RateLimitingInterface

@@ -87,9 +87,9 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cw := &tenancyv1beta1.Workspace{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
-		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+	ws := &tenancyv1beta1.Workspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
+		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
 	if a.GetOperation() == admission.Create {
@@ -101,30 +101,30 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
-			if cw.Annotations == nil {
-				cw.Annotations = map[string]string{}
+			if ws.Annotations == nil {
+				ws.Annotations = map[string]string{}
 			}
-			cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
+			ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
 		}
 
 		// copy required groups from LogicalCluster to new child-Worksapce
-		if _, found := cw.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemPrivileged {
+		if _, found := ws.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemPrivileged {
 			logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
 			if thisValue, found := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
-				if cw.Annotations == nil {
-					cw.Annotations = map[string]string{}
+				if ws.Annotations == nil {
+					ws.Annotations = map[string]string{}
 				}
-				cw.Annotations[authorization.RequiredGroupsAnnotationKey] = thisValue
+				ws.Annotations[authorization.RequiredGroupsAnnotationKey] = thisValue
 			} else {
-				delete(cw.Annotations, authorization.RequiredGroupsAnnotationKey)
+				delete(ws.Annotations, authorization.RequiredGroupsAnnotationKey)
 			}
 		}
 	}
 
-	return updateUnstructured(u, cw)
+	return updateUnstructured(u, ws)
 }
 
 // Validate ensures that
@@ -147,9 +147,9 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cw := &tenancyv1beta1.Workspace{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
-		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+	ws := &tenancyv1beta1.Workspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
+		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
 	isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
@@ -162,41 +162,41 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		}
 		old := &tenancyv1beta1.Workspace{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
-			return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
+			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
-		if old.Spec.Cluster != "" && cw.Spec.Cluster == "" {
+		if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
 			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
 		}
-		if old.Spec.Cluster != cw.Spec.Cluster && !isSystemPrivileged {
+		if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
 			return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
 		}
-		if old.Spec.URL != cw.Spec.URL && !isSystemPrivileged {
+		if old.Spec.URL != ws.Spec.URL && !isSystemPrivileged {
 			return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
 		}
 
-		if errs := validation.ValidateImmutableField(cw.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
+		if errs := validation.ValidateImmutableField(ws.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
 			return admission.NewForbidden(a, errs.ToAggregate())
 		}
-		if old.Spec.Type.Path != cw.Spec.Type.Path || old.Spec.Type.Name != cw.Spec.Type.Name {
+		if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 
 		// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
-		if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && cw.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-			if cw.Spec.Cluster == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", cw.Status.Phase))
+		if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+			if ws.Spec.Cluster == "" {
+				return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", ws.Status.Phase))
 			}
-			if cw.Spec.URL == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", cw.Status.Phase))
+			if ws.Spec.URL == "" {
+				return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", ws.Status.Phase))
 			}
 		}
 	case admission.Create:
 		// only system users can set spec.Cluster or spec.URL
-		if cw.Spec.Cluster != "" && !isSystemPrivileged {
+		if ws.Spec.Cluster != "" && !isSystemPrivileged {
 			return admission.NewForbidden(a, errors.New("spec.Cluster can only be set by system privileged users"))
 		}
-		if cw.Spec.URL != "" && !isSystemPrivileged {
+		if ws.Spec.URL != "" && !isSystemPrivileged {
 			return admission.NewForbidden(a, errors.New("spec.URL can only be set by system privileged users"))
 		}
 
@@ -205,10 +205,10 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
-			if cw.Annotations == nil {
-				cw.Annotations = map[string]string{}
+			if ws.Annotations == nil {
+				ws.Annotations = map[string]string{}
 			}
-			if got := cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; got != userInfo {
+			if got := ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; got != userInfo {
 				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, userInfo))
 			}
 		}
@@ -220,7 +220,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 				return admission.NewForbidden(a, err)
 			}
 			expected := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]
-			if cw.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
+			if ws.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
 				return admission.NewForbidden(a, fmt.Errorf("missing required groups annotation %s=%s", authorization.RequiredGroupsAnnotationKey, expected))
 			}
 		}
@@ -244,9 +244,9 @@ func (o *workspace) SetKcpInformers(informers kcpinformers.SharedInformerFactory
 	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
 }
 
-// updateUnstructured updates the given unstructured object to match the given cluster workspace.
-func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1beta1.Workspace) error {
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+// updateUnstructured updates the given unstructured object to match the given workspace.
+func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1beta1.Workspace) error {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ws)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1beta1.Workspa
 	return nil
 }
 
-// WorkspaceOwnerAnnotationValue returns the value of the ExperimentalClusterWorkspaceOwnerAnnotationKey annotation.
+// WorkspaceOwnerAnnotationValue returns the value of the ExperimentalWorkspaceOwnerAnnotationKey annotation.
 func WorkspaceOwnerAnnotationValue(user kuser.Info) (string, error) {
 	info := &authenticationv1.UserInfo{
 		Username: user.GetName(),

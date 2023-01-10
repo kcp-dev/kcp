@@ -138,20 +138,20 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
-		cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
-		if cwtWorkspace.Empty() {
+		wtWorkspace, wtName := logicalcluster.NewPath(typeAnnotation).Split()
+		if wtWorkspace.Empty() {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
-		parentCwt, err := o.getType(cwtWorkspace, cwtName)
+		parentWt, err := o.getType(wtWorkspace, wtName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("parent type cannot be resolved: %w", err))
 		}
-		if parentCwt.Spec.DefaultChildWorkspaceType == nil {
+		if parentWt.Spec.DefaultChildWorkspaceType == nil {
 			return admission.NewForbidden(a, errors.New("spec.defaultChildWorkspaceType of workspace type %s:%s must be set"))
 		}
 		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
-			Path: parentCwt.Spec.DefaultChildWorkspaceType.Path,
-			Name: parentCwt.Spec.DefaultChildWorkspaceType.Name,
+			Path: parentWt.Spec.DefaultChildWorkspaceType.Path,
+			Name: parentWt.Spec.DefaultChildWorkspaceType.Name,
 		}
 	}
 
@@ -160,7 +160,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		thisPath = logicalcluster.From(logicalCluster).Path().String()
 	}
 
-	cwt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.WorkspaceTypeReference{
+	wt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.WorkspaceTypeReference{
 		Path: ws.Spec.Type.Path,
 		Name: ws.Spec.Type.Name,
 	})
@@ -168,26 +168,26 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		return admission.NewForbidden(a, err)
 	}
 	if ws.Spec.Type.Path == "" {
-		ws.Spec.Type.Path = canonicalPathFrom(cwt).String()
+		ws.Spec.Type.Path = canonicalPathFrom(wt).String()
 	}
 
-	addAdditionalWorkspaceLabels(cwt, ws)
+	addAdditionalWorkspaceLabels(wt, ws)
 
 	return updateUnstructured(u, ws)
 }
 
 func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, ref tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
 	if ref.Path != "" {
-		cwt, err := o.getType(logicalcluster.NewPath(ref.Path), string(ref.Name))
+		wt, err := o.getType(logicalcluster.NewPath(ref.Path), string(ref.Name))
 		if err != nil {
 			return nil, apierrors.NewInternalError(err)
 		}
 
-		return cwt, err
+		return wt, err
 	}
 
 	for {
-		cwt, err := o.getType(workspacePath, string(ref.Name))
+		wt, err := o.getType(workspacePath, string(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				parent, hasParent := workspacePath.Parent()
@@ -202,7 +202,7 @@ func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, 
 			}
 			return nil, apierrors.NewInternalError(err)
 		}
-		return cwt, err
+		return wt, err
 	}
 }
 
@@ -226,8 +226,8 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cw := &tenancyv1beta1.Workspace{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
+	ws := &tenancyv1beta1.Workspace{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
@@ -245,7 +245,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
-		if old.Spec.Type != cw.Spec.Type {
+		if old.Spec.Type != ws.Spec.Type {
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 	case admission.Create:
@@ -253,26 +253,26 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 			return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 		}
 
-		cwt, err := o.resolveTypeRef(clusterName.Path(), tenancyv1alpha1.WorkspaceTypeReference{
-			Name: cw.Spec.Type.Name,
-			Path: cw.Spec.Type.Path,
+		wt, err := o.resolveTypeRef(clusterName.Path(), tenancyv1alpha1.WorkspaceTypeReference{
+			Name: ws.Spec.Type.Name,
+			Path: ws.Spec.Type.Path,
 		})
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
-		cwtAliases, err := o.transitiveTypeResolver.Resolve(cwt)
+		wtAliases, err := o.transitiveTypeResolver.Resolve(wt)
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
 
-		if cw.Spec.Type.Path == "" {
+		if ws.Spec.Type.Path == "" {
 			return admission.NewForbidden(a, fmt.Errorf("spec.type.path must be set"))
 		}
 
-		for _, alias := range cwtAliases {
+		for _, alias := range wtAliases {
 			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.deepSARClient)
 			if err != nil {
-				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
+				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to workspace type %q", ws.Spec.Type))
 			}
 
 			useAttr := authorizer.AttributesRecord{
@@ -285,9 +285,9 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 				ResourceRequest: true,
 			}
 			if decision, _, err := authz.Authorize(ctx, useAttr); err != nil {
-				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %s:%s: %w", canonicalPathFrom(alias), alias.Name, err))
+				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to workspace type %s:%s: %w", canonicalPathFrom(alias), alias.Name, err))
 			} else if decision != authorizer.DecisionAllow {
-				return admission.NewForbidden(a, fmt.Errorf("unable to use cluster workspace type %s:%s: missing verb='use' permission on workspacetype", canonicalPathFrom(alias), alias.Name))
+				return admission.NewForbidden(a, fmt.Errorf("unable to use workspace type %s:%s: missing verb='use' permission on workspacetype", canonicalPathFrom(alias), alias.Name))
 			}
 		}
 
@@ -300,25 +300,25 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
-		cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
-		if cwtWorkspace.Empty() {
+		wtWorkspace, wtName := logicalcluster.NewPath(typeAnnotation).Split()
+		if wtWorkspace.Empty() {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
-		parentCwt, err := o.getType(cwtWorkspace, cwtName)
+		parentWt, err := o.getType(wtWorkspace, wtName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
-		parentAliases, err := o.transitiveTypeResolver.Resolve(parentCwt)
+		parentAliases, err := o.transitiveTypeResolver.Resolve(parentWt)
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
 
-		thisTypePath := cwtWorkspace.Join(cwtName)
-		cwTypeString := logicalcluster.NewPath(cw.Spec.Type.Path).Join(string(cw.Spec.Type.Name))
-		if err := validateAllowedParents(parentAliases, cwtAliases, thisTypePath, cwTypeString); err != nil {
+		thisTypePath := wtWorkspace.Join(wtName)
+		wTypeString := logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name))
+		if err := validateAllowedParents(parentAliases, wtAliases, thisTypePath, wTypeString); err != nil {
 			return admission.NewForbidden(a, err)
 		}
-		if err := validateAllowedChildren(parentAliases, cwtAliases, thisTypePath, cwTypeString); err != nil {
+		if err := validateAllowedChildren(parentAliases, wtAliases, thisTypePath, wTypeString); err != nil {
 			return admission.NewForbidden(a, err)
 		}
 	}
@@ -355,9 +355,9 @@ func (o *workspacetypeExists) SetDeepSARClient(client kcpkubernetesclientset.Clu
 	o.deepSARClient = client
 }
 
-// updateUnstructured updates the given unstructured object to match the given cluster workspace.
-func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1beta1.Workspace) error {
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
+// updateUnstructured updates the given unstructured object to match the given workspace.
+func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1beta1.Workspace) error {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ws)
 	if err != nil {
 		return err
 	}
@@ -368,19 +368,19 @@ func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1beta1.Workspa
 // addAdditionlWorkspaceLabels adds labels defined by the workspace
 // type to the workspace if they are not already present.
 func addAdditionalWorkspaceLabels(
-	cwt *tenancyv1alpha1.WorkspaceType,
-	cw *tenancyv1beta1.Workspace,
+	wt *tenancyv1alpha1.WorkspaceType,
+	ws *tenancyv1beta1.Workspace,
 ) {
-	if len(cwt.Spec.AdditionalWorkspaceLabels) > 0 {
-		if cw.Labels == nil {
-			cw.Labels = map[string]string{}
+	if len(wt.Spec.AdditionalWorkspaceLabels) > 0 {
+		if ws.Labels == nil {
+			ws.Labels = map[string]string{}
 		}
-		for key, value := range cwt.Spec.AdditionalWorkspaceLabels {
-			if _, ok := cw.Labels[key]; ok {
+		for key, value := range wt.Spec.AdditionalWorkspaceLabels {
+			if _, ok := ws.Labels[key]; ok {
 				// Do not override existing labels
 				continue
 			}
-			cw.Labels[key] = value
+			ws.Labels[key] = value
 		}
 	}
 }
@@ -409,15 +409,15 @@ func (r *transitiveTypeResolver) Resolve(t *tenancyv1alpha1.WorkspaceType) ([]*t
 	return append(ret, t), nil
 }
 
-func (r *transitiveTypeResolver) resolve(cwt *tenancyv1alpha1.WorkspaceType, seen, pathSeen map[string]bool, path []string) ([]*tenancyv1alpha1.WorkspaceType, error) {
-	qualifiedName := canonicalPathFrom(cwt).Join(cwt.Name).String()
+func (r *transitiveTypeResolver) resolve(wt *tenancyv1alpha1.WorkspaceType, seen, pathSeen map[string]bool, path []string) ([]*tenancyv1alpha1.WorkspaceType, error) {
+	qualifiedName := canonicalPathFrom(wt).Join(wt.Name).String()
 	seen[qualifiedName] = true
 	pathSeen[qualifiedName] = true
 	defer func() { pathSeen[qualifiedName] = false }()
 	path = append(path, qualifiedName)
 
-	ret := make([]*tenancyv1alpha1.WorkspaceType, 0, len(cwt.Spec.Extend.With))
-	for _, baseTypeRef := range cwt.Spec.Extend.With {
+	ret := make([]*tenancyv1alpha1.WorkspaceType, 0, len(wt.Spec.Extend.With))
+	for _, baseTypeRef := range wt.Spec.Extend.With {
 		qualifiedName := logicalcluster.NewPath(baseTypeRef.Path).Join(tenancyv1alpha1.ObjectName(baseTypeRef.Name)).String()
 		if pathSeen[qualifiedName] {
 			// seen in this path already. That's a cycle.
@@ -538,6 +538,6 @@ func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceTyp
 	return false
 }
 
-func canonicalPathFrom(cwt *tenancyv1alpha1.WorkspaceType) logicalcluster.Path {
-	return logicalcluster.NewPath(cwt.Annotations[core.LogicalClusterPathAnnotationKey])
+func canonicalPathFrom(wt *tenancyv1alpha1.WorkspaceType) logicalcluster.Path {
+	return logicalcluster.NewPath(wt.Annotations[core.LogicalClusterPathAnnotationKey])
 }

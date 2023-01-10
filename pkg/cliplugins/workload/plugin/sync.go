@@ -219,7 +219,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 
 	configURL, _, err := helpers.ParseClusterURL(config.Host)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+		return fmt.Errorf("current URL %q does not point to workspace", config.Host)
 	}
 
 	// Make sure the generated URL has the port specified correctly.

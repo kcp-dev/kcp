@@ -42,14 +42,14 @@ func New(rewriters []PathRewriter) *State {
 
 		clusterShards:             map[logicalcluster.Name]string{},
 		shardWorkspaceNameCluster: map[string]map[logicalcluster.Name]map[string]logicalcluster.Name{},
-		shardClusterWorkspaceName: map[string]map[logicalcluster.Name]string{},
+		shardWorkspaceName:        map[string]map[logicalcluster.Name]string{},
 		shardClusterParentCluster: map[string]map[logicalcluster.Name]logicalcluster.Name{},
 		shardBaseURLs:             map[string]string{},
 	}
 }
 
 // State watches Shards on the root shard, and then starts informers
-// for every Shard, watching the ClusterWorkspaces on them. It then
+// for every Shard, watching the Workspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type State struct {
 	rewriters []PathRewriter
@@ -57,7 +57,7 @@ type State struct {
 	lock                      sync.RWMutex
 	clusterShards             map[logicalcluster.Name]string                                    // logical cluster -> shard name
 	shardWorkspaceNameCluster map[string]map[logicalcluster.Name]map[string]logicalcluster.Name // (shard name, logical cluster, workspace name) -> logical cluster
-	shardClusterWorkspaceName map[string]map[logicalcluster.Name]string                         // (shard name, logical cluster) -> workspace name
+	shardWorkspaceName        map[string]map[logicalcluster.Name]string                         // (shard name, logical cluster) -> workspace name
 	shardClusterParentCluster map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs             map[string]string                                                 // shard name -> base URL
 }
@@ -82,14 +82,14 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	if got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; got.String() != ws.Spec.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
 			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
-			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Name]string{}
+			c.shardWorkspaceName[shard] = map[logicalcluster.Name]string{}
 			c.shardClusterParentCluster[shard] = map[logicalcluster.Name]logicalcluster.Name{}
 		}
 		if c.shardWorkspaceNameCluster[shard][clusterName] == nil {
 			c.shardWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
 		}
 		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Spec.Cluster)
-		c.shardClusterWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
+		c.shardWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
 }
@@ -120,9 +120,9 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 		delete(c.shardWorkspaceNameCluster, shard)
 	}
 
-	delete(c.shardClusterWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
-	if len(c.shardClusterWorkspaceName[shard]) == 0 {
-		delete(c.shardClusterWorkspaceName, shard)
+	delete(c.shardWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
+	if len(c.shardWorkspaceName[shard]) == 0 {
+		delete(c.shardWorkspaceName, shard)
 	}
 
 	delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Spec.Cluster))
@@ -184,7 +184,7 @@ func (c *State) DeleteShard(shardName string) {
 	}
 	delete(c.shardWorkspaceNameCluster, shardName)
 	delete(c.shardBaseURLs, shardName)
-	delete(c.shardClusterWorkspaceName, shardName)
+	delete(c.shardWorkspaceName, shardName)
 	delete(c.shardClusterParentCluster, shardName)
 }
 

@@ -75,16 +75,16 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	for i, clusterName := range logicalClusters {
 		clusterName := clusterName // shadow
 
-		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", clusterName)
+		t.Logf("Creating Workspace CRs in logical cluster %s", clusterName)
 		sourceWorkspace := &tenancyv1beta1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("ws-%d", i),
 			},
 		}
-		cws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+		ws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating source workspace")
 
-		expectedWorkspaces.Insert(logicalcluster.From(cws).String())
+		expectedWorkspaces.Insert(logicalcluster.From(ws).String())
 		server.Artifact(t, func() (runtime.Object, error) {
 			obj, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			return obj, err
@@ -253,15 +253,15 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Logf("Wait for the sheriff to show up in the informer")
 	// key := "default/" + client.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")
 	require.Eventually(t, func() bool {
-		listers, _ := informerFactory.Listers()
+		informers, _ := informerFactory.Informers()
 
-		lister := listers[sheriffsGVR]
-		if lister == nil {
+		informer := informers[sheriffsGVR]
+		if informer == nil {
 			t.Logf("Waiting for sheriffs to show up in dynamic informer")
 			return false
 		}
 
-		l, err := lister.List(labels.Everything())
+		l, err := informer.Lister().List(labels.Everything())
 		if err != nil {
 			t.Logf("Error listing sheriffs: %v", err)
 			return false
