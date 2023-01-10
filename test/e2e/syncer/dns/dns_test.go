@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,14 +51,14 @@ func TestDNSResolution(t *testing.T) {
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 
-	orgWorkspace := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
 
-	locationWorkspace := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("location"))
+	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("location"))
 
-	workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-1"))
-	workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-2"))
+	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"))
+	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"))
 
-	syncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspace,
+	syncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
 	).Start(t)
 	syncer.WaitForClusterReady(ctx, t)
@@ -66,28 +67,28 @@ func TestDNSResolution(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Bind workload workspace 1 to location workspace")
-	framework.NewBindCompute(t, workloadWorkspace1.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace1Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 2 to location workspace")
-	framework.NewBindCompute(t, workloadWorkspace2.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace2Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 	).Bind(t)
 
-	err = framework.CreateResources(ctx, workspace1.FS, upstreamConfig, workloadWorkspace1.Path())
+	err = framework.CreateResources(ctx, workspace1.FS, upstreamConfig, workloadWorkspace1Path)
 	require.NoError(t, err)
 
-	err = framework.CreateResources(ctx, workspace2.FS, upstreamConfig, workloadWorkspace2.Path())
+	err = framework.CreateResources(ctx, workspace2.FS, upstreamConfig, workloadWorkspace2Path)
 	require.NoError(t, err)
 
-	downstreamWS1NS1 := syncer.DownstreamNamespaceFor(t, workloadWorkspace1, "dns-ws1-ns1")
+	downstreamWS1NS1 := syncer.DownstreamNamespaceFor(t, logicalcluster.Name(workloadWorkspace1.Spec.Cluster), "dns-ws1-ns1")
 	t.Logf("Downstream namespace 1 in workspace 1 is %s", downstreamWS1NS1)
 
-	downstreamWS1NS2 := syncer.DownstreamNamespaceFor(t, workloadWorkspace1, "dns-ws1-ns2")
+	downstreamWS1NS2 := syncer.DownstreamNamespaceFor(t, logicalcluster.Name(workloadWorkspace1.Spec.Cluster), "dns-ws1-ns2")
 	t.Logf("Downstream namespace 2 in workspace 1 is %s", downstreamWS1NS2)
 
-	downstreamWS2NS1 := syncer.DownstreamNamespaceFor(t, workloadWorkspace2, "dns-ws2-ns1")
+	downstreamWS2NS1 := syncer.DownstreamNamespaceFor(t, logicalcluster.Name(workloadWorkspace2.Spec.Cluster), "dns-ws2-ns1")
 	t.Logf("Downstream namespace 1 in workspace 2 is %s", downstreamWS2NS1)
 
 	t.Log("Checking fully qualified DNS name resolves")

@@ -49,7 +49,7 @@ func BindToExport(
 
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: exportPath.String(),
+			Name: apiExportName,
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{

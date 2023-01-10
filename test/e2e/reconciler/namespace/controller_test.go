@@ -60,11 +60,11 @@ func TestNamespaceScheduler(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		clusterName    logicalcluster.Name
-		client         kubernetes.Interface
-		kcpClient      clientset.Interface
-		expect         registerNamespaceExpectation
-		orgClusterName logicalcluster.Name
+		path      logicalcluster.Path
+		client    kubernetes.Interface
+		kcpClient clientset.Interface
+		expect    registerNamespaceExpectation
+		orgPath   logicalcluster.Path
 	}
 
 	var testCases = []struct {
@@ -94,12 +94,12 @@ func TestNamespaceScheduler(t *testing.T) {
 				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
 				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
-				syncerFixture := framework.NewSyncerFixture(t, server, server.clusterName,
+				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
 					framework.WithExtraResources("services")).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName.Path(), server).Bind(t)
+				framework.NewBindCompute(t, server.path, server).Bind(t)
 
 				t.Log("Wait for \"kubernetes\" apiexport")
 				require.Eventually(t, func() bool {
@@ -130,13 +130,13 @@ func TestNamespaceScheduler(t *testing.T) {
 
 				t.Log("Cordon the cluster and expect the namespace to end up unschedulable")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					cluster, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+					syncTarget, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					anHourAgo := metav1.NewTime(time.Now().Add(-1 * time.Hour))
-					cluster.Spec.EvictAfter = &anHourAgo
-					_, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Update(ctx, cluster, metav1.UpdateOptions{})
+					syncTarget.Spec.EvictAfter = &anHourAgo
+					_, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Update(ctx, syncTarget, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed to update cluster1")
@@ -166,7 +166,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 							{
 								Export: "kubernetes",
-								Path:   server.clusterName.String(),
+								Path:   server.path.String(),
 							},
 						},
 					},
@@ -187,8 +187,8 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, 100*time.Millisecond)
 
 				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName.Path(), server,
-					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
+				framework.NewBindCompute(t, server.path, server,
+					framework.WithAPIExportsWorkloadBindOption(server.path.String()+":kubernetes"),
 				).Bind(t)
 
 				t.Log("Create a new unique sheriff CRD")
@@ -199,18 +199,18 @@ func TestNamespaceScheduler(t *testing.T) {
 					Version:  crd.Spec.Versions[0].Name,
 					Resource: crd.Spec.Names.Plural,
 				}
-				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName.Path()), crd)
-				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName.Path())
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.path), crd)
+				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.path)
 				require.Eventually(t, func() bool {
-					_, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+					_, err := dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see CRD in cluster")
 
 				t.Log("Create a sheriff and wait for it to be scheduled")
-				_, err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "woody"), metav1.CreateOptions{})
+				_, err = dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "woody"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
 				require.Eventually(t, func() bool {
-					obj, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Get(ctx, "woody", metav1.GetOptions{})
+					obj, err := dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("default").Get(ctx, "woody", metav1.GetOptions{})
 					if err != nil {
 						t.Logf("failed to get sheriff: %v", err)
 						return false
@@ -219,24 +219,24 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 
 				t.Log("Delete the sheriff and the sheriff CRD")
-				err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
+				err = dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete sheriff")
-				err = crdClusterClient.Cluster(server.clusterName.Path()).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
+				err = crdClusterClient.Cluster(server.path).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete CRD")
 
 				time.Sleep(7 * time.Second) // this must be longer than discovery repoll interval (5s in tests)
 
 				t.Log("Recreate the CRD, and then quickly a namespace and a CR whose CRD was just recreated")
-				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName.Path()), crd)
-				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
-				_, err = kubeClusterClient.Cluster(server.clusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.path), crd)
+				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.path)
+				_, err = kubeClusterClient.Cluster(server.path).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")
-				_, err = dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
+				_, err = dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
 
 				t.Log("Now also the sheriff should be scheduled")
 				require.Eventually(t, func() bool {
-					obj, err := dynamicClusterClient.Cluster(server.clusterName.Path()).Resource(gvr).Namespace("default").Get(ctx, "lucky-luke", metav1.GetOptions{})
+					obj, err := dynamicClusterClient.Cluster(server.path).Resource(gvr).Namespace("default").Get(ctx, "lucky-luke", metav1.GetOptions{})
 					if err != nil {
 						t.Logf("failed to get sheriff: %v", err)
 						return false
@@ -248,7 +248,7 @@ func TestNamespaceScheduler(t *testing.T) {
 	}
 
 	server := framework.SharedKcpServer(t)
-	orgClusterName := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -263,7 +263,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+			path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
@@ -279,12 +279,12 @@ func TestNamespaceScheduler(t *testing.T) {
 			require.NoError(t, err, "failed to start expecter")
 
 			s := runningServer{
-				RunningServer:  server,
-				clusterName:    clusterName,
-				client:         kubeClusterClient.Cluster(clusterName.Path()),
-				kcpClient:      kcpClusterClient.Cluster(clusterName.Path()),
-				expect:         expect,
-				orgClusterName: orgClusterName,
+				RunningServer: server,
+				path:          path,
+				client:        kubeClusterClient.Cluster(path),
+				kcpClient:     kcpClusterClient.Cluster(path),
+				expect:        expect,
+				orgPath:       orgPath,
 			}
 
 			t.Logf("Set up clients for test after %s", time.Since(start))

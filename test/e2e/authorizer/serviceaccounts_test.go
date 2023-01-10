@@ -46,15 +46,15 @@ func TestServiceAccounts(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := framework.SharedKcpServer(t)
-	orgClusterName := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Log("Creating namespace")
-	namespace, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	namespace, err := kubeClusterClient.Cluster(wsPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-sa-",
 		},
@@ -62,7 +62,7 @@ func TestServiceAccounts(t *testing.T) {
 	require.NoError(t, err, "failed to create namespace")
 
 	t.Log("Creating role to access configmaps")
-	_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().Roles(namespace.Name).Create(ctx, &rbacv1.Role{
+	_, err = kubeClusterClient.Cluster(wsPath).RbacV1().Roles(namespace.Name).Create(ctx, &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sa-access-configmap",
 		},
@@ -77,7 +77,7 @@ func TestServiceAccounts(t *testing.T) {
 	require.NoError(t, err, "failed to create role")
 
 	t.Log("Creating role binding to access configmaps")
-	_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().RoleBindings(namespace.Name).Create(ctx, &rbacv1.RoleBinding{
+	_, err = kubeClusterClient.Cluster(wsPath).RbacV1().RoleBindings(namespace.Name).Create(ctx, &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sa-access-configmap",
 		},
@@ -98,7 +98,7 @@ func TestServiceAccounts(t *testing.T) {
 
 	t.Log("Waiting for service account to be created")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().ServiceAccounts(namespace.Name).Get(ctx, "default", metav1.GetOptions{})
+		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ServiceAccounts(namespace.Name).Get(ctx, "default", metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -112,7 +112,7 @@ func TestServiceAccounts(t *testing.T) {
 	t.Log("Waiting for service account secret to be created")
 	var tokenSecret corev1.Secret
 	require.Eventually(t, func() bool {
-		secrets, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
+		secrets, err := kubeClusterClient.Cluster(wsPath).CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "failed to list secrets")
 
 		for _, secret := range secrets.Items {
@@ -135,7 +135,7 @@ func TestServiceAccounts(t *testing.T) {
 		{"Bound service token", func(t *testing.T) string {
 			t.Helper()
 			t.Log("Creating service account bound token")
-			boundToken, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
+			boundToken, err := kubeClusterClient.Cluster(wsPath).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences:         []string{"https://kcp.default.svc"},
 					ExpirationSeconds: pointer.Int64Ptr(3600),
@@ -162,7 +162,7 @@ func TestServiceAccounts(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("Access workspace with the service account", func(t *testing.T) {
-				_, err := saKubeClusterClient.Cluster(clusterName.Path()).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+				_, err := saKubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 			})
 
@@ -173,8 +173,8 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("Access another workspace in the same org", func(t *testing.T) {
 				t.Log("Create namespace with the same name ")
-				otherClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
-				_, err := kubeClusterClient.Cluster(otherClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				otherPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
 					},
@@ -182,15 +182,15 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create namespace in other workspace")
 
 				t.Log("Accessing workspace with the service account")
-				obj, err := saKubeClusterClient.Cluster(otherClusterName.Path()).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+				obj, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
 			})
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
 				t.Log("Create namespace with the same name")
-				otherOrgClusterName := framework.NewOrganizationFixture(t, server)
-				otherClusterName := framework.NewWorkspaceFixture(t, server, otherOrgClusterName.Path())
-				_, err := kubeClusterClient.Cluster(otherClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				otherOrgPath, _ := framework.NewOrganizationFixture(t, server)
+				otherPath, _ := framework.NewWorkspaceFixture(t, server, otherOrgPath)
+				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
 					},
@@ -198,13 +198,13 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create namespace in other workspace")
 
 				t.Log("Accessing workspace with the service account")
-				obj, err := saKubeClusterClient.Cluster(otherClusterName.Path()).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+				obj, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
 			})
 
 			t.Run("A service account is allowed to escalate permissions implicitly", func(t *testing.T) {
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
-				_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("implicit-escalation-%d", i),
 					},
@@ -224,7 +224,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create role")
 
 				t.Log("Creating cluster role binding")
-				_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("implicit-escalation-%d", i),
 					},
@@ -245,7 +245,7 @@ func TestServiceAccounts(t *testing.T) {
 
 				t.Log("Verifying if service account is allowed to escalate")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = saKubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("implicit-escalating-clusterrole-%d", i),
 						},
@@ -266,7 +266,7 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("A service account is allowed to escalate permissions explicitly", func(t *testing.T) {
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
-				_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("explicit-clusterrole-%d", i),
 					},
@@ -281,7 +281,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create role")
 
 				t.Log("Creating cluster role binding")
-				_, err = kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("explicit-clusterrole-%d", i),
 					},
@@ -302,7 +302,7 @@ func TestServiceAccounts(t *testing.T) {
 
 				t.Log("Verifying if service account is allowed to escalate")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = saKubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("explicit-escalating-clusterrole-%d", i),
 						},

@@ -69,7 +69,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 			kcpClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
+			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgPath))
 			require.NoError(t, err, "failed to start expecter")
 
 			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -87,7 +87,7 @@ func TestWorkspaceShardController(t *testing.T) {
 				RunningServer:   server,
 				rootShardClient: kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards(),
 				rootKubeClient:  kubeClient.Cluster(core.RootCluster.Path()),
-				orgKubeClient:   kubeClient.Cluster(orgClusterName.Path()),
+				orgKubeClient:   kubeClient.Cluster(orgPath),
 				expect:          expect,
 			})
 		})

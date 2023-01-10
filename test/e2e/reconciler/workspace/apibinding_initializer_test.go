@@ -29,7 +29,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -44,16 +43,11 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	org := framework.NewOrganizationFixtureObject(t, server)
-	orgPath := core.RootCluster.Path().Join(org.Name)
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+
+	cowboysProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("cowboys-provider"))
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
-	require.NoError(t, err, "failed to construct client for server")
-
-	cowboysProviderWorkspace := framework.NewWorkspaceFixtureObject(t, clusterClient, orgPath, framework.WithName("cowboys-provider"))
-	cowboysProviderPath := orgPath.Join(cowboysProviderWorkspace.Name)
-
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
@@ -88,8 +82,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
-	universal := framework.NewWorkspaceFixtureObject(t, clusterClient, orgPath, framework.WithName("universal"))
-	universalPath := orgPath.Join(universal.Name)
+	universalPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("universal"))
 
 	wtParent1 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,5 +155,5 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	require.NoError(t, err, "error creating wt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly
-	_ = framework.NewWorkspaceFixture(t, server, universalPath, framework.WithType(universalPath, "test"), framework.WithName("init"))
+	_, _ = framework.NewWorkspaceFixture(t, server, universalPath, framework.WithType(universalPath, "test"), framework.WithName("init"))
 }

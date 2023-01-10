@@ -838,10 +838,11 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string
 func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Path, syncTargetName string) RunningServer {
 	t.Helper()
 
-	logicalClusterName := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
+	path, ws := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
+	logicalClusterName := logicalcluster.Name(ws.Spec.Cluster)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", logicalClusterName.Path())
+	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", path)
 	fakeServer := &unmanagedKCPServer{
 		name:           logicalClusterName.String(),
 		cfg:            logicalConfig,

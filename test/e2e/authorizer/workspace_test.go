@@ -148,7 +148,7 @@ func TestWorkspaces(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 			// create clients
 			kcpConfig := server.BaseConfig(t)
@@ -167,7 +167,7 @@ func TestWorkspaces(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:     server,
-				orgClusterName:    orgClusterName.Path(),
+				orgClusterName:    orgPath,
 				kubeClusterClient: kubeClusterClient,
 				kcpClusterClient:  kcpClusterClient,
 				UserKcpClients:    userKcpClients,

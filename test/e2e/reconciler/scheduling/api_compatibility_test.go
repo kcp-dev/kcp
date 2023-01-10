@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,42 +45,42 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	source := framework.SharedKcpServer(t)
-	orgClusterName := framework.NewOrganizationFixture(t, source)
-	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
+	orgPath, _ := framework.NewOrganizationFixture(t, source)
+	locationPath, locationWS := framework.NewWorkspaceFixture(t, source, orgPath)
+	userPath, userWS := framework.NewWorkspaceFixture(t, source, orgPath)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("firstsynctarget-%d", +rand.Intn(1000000))
-	t.Logf("Creating a SyncTarget with no supported APIExports and syncer in %s", locationClusterName)
-	_ = framework.NewSyncerFixture(t, source, locationClusterName,
+	t.Logf("Creating a SyncTarget with no supported APIExports and syncer in %s", locationPath)
+	_ = framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(firstSyncTargetName),
-		framework.WithSyncedUserWorkspaces(userClusterName),
+		framework.WithSyncedUserWorkspaces(userWS),
 		framework.WithAPIExports(""),
 	).Start(t)
 
 	secondSyncTargetName := fmt.Sprintf("secondsynctarget-%d", +rand.Intn(1000000))
-	t.Logf("Creating a SyncTarget with global kubernetes APIExports and syncer in %s", locationClusterName)
-	_ = framework.NewSyncerFixture(t, source, locationClusterName,
+	t.Logf("Creating a SyncTarget with global kubernetes APIExports and syncer in %s", locationPath)
+	_ = framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(secondSyncTargetName),
-		framework.WithSyncedUserWorkspaces(userClusterName),
+		framework.WithSyncedUserWorkspaces(userWS),
 	).Start(t)
 
 	placementName := "placement-test-supportedapi"
 	t.Logf("Bind to location workspace")
-	framework.NewBindCompute(t, userClusterName.Path(), source,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName.Path()),
+	framework.NewBindCompute(t, userPath, source,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationPath),
 		framework.WithPlacementNameBindOption(placementName),
 		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
 	).Bind(t)
 
-	t.Logf("First sync target hash: %s", workloadv1alpha1.ToSyncTargetKey(locationClusterName, firstSyncTargetName))
-	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(locationClusterName, secondSyncTargetName)
+	t.Logf("First sync target hash: %s", workloadv1alpha1.ToSyncTargetKey(logicalcluster.Name(locationWS.Spec.Cluster), firstSyncTargetName))
+	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.Name(locationWS.Spec.Cluster), secondSyncTargetName)
 
 	t.Logf("check placement should be scheduled to synctarget with supported API")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(userClusterName.Path()).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		if value := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; value != scheduledSyncTargetKey {
