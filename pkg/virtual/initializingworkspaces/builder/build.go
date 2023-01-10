@@ -200,7 +200,7 @@ func BuildVirtualWorkspace(
 					"logicalclusters": wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
-						klog.Errorf("informer not synced")
+						klog.Background().Error(nil, "informer not synced")
 						return nil
 					}
 				}
@@ -407,7 +407,7 @@ func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.Au
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		clusterName, name, err := initialization.TypeFrom(corev1alpha1.LogicalClusterInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 		if err != nil {
-			klog.V(2).Info(err)
+			klog.FromContext(ctx).V(2).Info(err.Error())
 			return authorizer.DecisionNoOpinion, "unable to determine initializer", fmt.Errorf("access not permitted")
 		}
 

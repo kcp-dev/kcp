@@ -48,7 +48,7 @@ type Options struct {
 
 func (o *Options) Validate() error {
 	if o.AutoPublishAPIs {
-		klog.Warningf("--auto-publish-apis is deprecated and ignored. Please remove it from the command line.")
+		klog.Background().Info("--auto-publish-apis is deprecated and ignored. Please remove it from the command line.")
 		o.AutoPublishAPIs = false
 	}
 

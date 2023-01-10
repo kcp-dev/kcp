@@ -148,7 +148,7 @@ func (d *Dialer) close() {
 // Dial creates a new connection back to the Listener.
 func (d *Dialer) Dial(ctx context.Context, network string, address string) (net.Conn, error) {
 	now := time.Now()
-	defer klog.V(5).Infof("dial to %s took %v", address, time.Since(now))
+	defer klog.FromContext(ctx).V(5).WithValues("address", address, "duration", time.Since(now)).Info("dialed")
 	// First, tell serve that we want a connection:
 	select {
 	case d.connReady <- true:

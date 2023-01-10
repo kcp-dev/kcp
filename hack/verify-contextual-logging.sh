@@ -46,6 +46,12 @@ fi
 ${SED} -e "s,${REPO_ROOT},,g" "${work_file}"
 LC_COLLATE=C sort "${work_file}" -o "${work_file}"
 
+# Remove errors that are not useful for us
+mv "${work_file}" "${work_file}.full"
+if ! grep -vE 'Additional arguments to|Key positional arguments|InitFlags' "${work_file}.full" > "${work_file}"; then
+  echo "[INFO] Congratulations! No errors found."
+fi
+
 # Copy the current set to the known set, but keep temp file in place for diffing
 if [[ "${UPDATE:-}" == "true" ]]; then
     cp "${work_file}" "${LOG_FILE}"

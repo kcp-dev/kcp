@@ -37,6 +37,7 @@ type exportReconciler struct {
 }
 
 func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
+	logger := klog.FromContext(ctx)
 	var errs []error
 	var syncedResources []workloadv1alpha1.ResourceToSync
 	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
@@ -46,7 +47,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 		}
 		export, err := e.getAPIExport(path, exportRef.Export)
 		if apierrors.IsNotFound(err) {
-			klog.V(4).Infof("APIExport %q not found, skipping", path.Join(exportRef.Export))
+			logger.WithValues("APIExport", path.Join(exportRef.Export)).V(4).Info("APIExport not found, skipping")
 			continue
 		}
 		if err != nil {
@@ -57,7 +58,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 		for _, schema := range export.Spec.LatestResourceSchemas {
 			syncedResource, err := e.convertSchemaToSyncedResource(logicalcluster.From(export), schema, export.Status.IdentityHash)
 			if err != nil {
-				klog.Warningf("cannot get schema: %v", err)
+				logger.WithValues("err", err).Info("cannot get schema")
 				continue
 			}
 			syncedResources = append(syncedResources, syncedResource)
