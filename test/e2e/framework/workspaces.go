@@ -172,7 +172,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible, potentially through eventual consistent workspace index", ws.Spec.Type, parent.Join(ws.Name))
 
-	t.Logf("Created %s workspace %s", ws.Spec.Type, parent.Join(ws.Name))
+	t.Logf("Created %s workspace %s as /clusters/%s", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster)
 	return ws
 }
 
