@@ -66,19 +66,20 @@ source_repositories:
         topics:
           - scheduling
           - placements
-      clusterworkspaces.tenancy.kcp.io:
+      shards.core.kcp.io:
         owner:
-          - https://github.com/kcp-dev/kcp
+        - https://github.com/kcp-dev/kcp
         topics:
-          - tenancy
-          - workspaces
-      shards.tenancy.kcp.io:
+        - core
+        - logicalclusters
+        - shards
+      logicalclusters.core.kcp.io:
         owner:
-          - https://github.com/kcp-dev/kcp
+        - https://github.com/kcp-dev/kcp
         topics:
-          - tenancy
-          - workspaces
-          - shards
+        - core
+        - logicalclusters
+        - shards
       workspacetypes.tenancy.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
