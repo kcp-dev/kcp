@@ -125,7 +125,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		if len(syncTarget.Status.VirtualWorkspaces) > 1 {
 			logger.Error(fmt.Errorf("SyncTarget should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs"), "error processing SyncTarget")
 		}
-		syncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].URL
+		syncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].SyncerURL
 		return true, nil
 	})
 	if err != nil {

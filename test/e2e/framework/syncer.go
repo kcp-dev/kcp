@@ -467,7 +467,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		if len(syncTarget.Status.VirtualWorkspaces) != 1 {
 			return false, ""
 		}
-		virtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].URL
+		virtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].SyncerURL
 		syncTargetClusterName = logicalcluster.From(syncTarget)
 		return true, "Virtual workspace URL is available"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Syncer Virtual Workspace URL not available")

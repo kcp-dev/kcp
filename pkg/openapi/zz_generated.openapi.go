@@ -4406,7 +4406,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 					},
 					"virtualWorkspaces": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualWorkspaces contains all syncer virtual workspace URLs.",
+							Description: "VirtualWorkspaces contains all virtual workspace URLs.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4432,16 +4432,24 @@ func schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCall
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"url": {
+					"syncerURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URL is the URL of the syncer virtual workspace.",
+							Description: "SyncerURL is the URL of the syncer virtual workspace.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"upsyncerURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpsyncerURL is the URL of the upsyncer virtual workspace.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"url"},
+				Required: []string{"syncerURL", "upsyncerURL"},
 			},
 		},
 	}

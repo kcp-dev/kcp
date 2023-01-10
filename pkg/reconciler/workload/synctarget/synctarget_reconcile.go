@@ -23,6 +23,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -43,44 +44,59 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 	labels[workloadv1alpha1.InternalSyncTargetKeyLabel] = workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTargetCopy), syncTargetCopy.Name)
 	syncTargetCopy.SetLabels(labels)
 
-	desiredURLs := sets.NewString()
+	desiredURLs := map[string]workloadv1alpha1.VirtualWorkspace{}
+
 	for _, workspaceShard := range workspaceShards {
 		if workspaceShard.Spec.ExternalURL != "" {
-			syncerVirtualWorkspaceURL, err := url.Parse(workspaceShard.Spec.ExternalURL)
+			sharedExternalURL, err := url.Parse(workspaceShard.Spec.ExternalURL)
 			if err != nil {
 				logger.Error(err, "failed to parse workspaceShard.Spec.ExternalURL")
 				return nil, err
 			}
+
+			syncerVirtualWorkspaceURL := *sharedExternalURL
 			syncerVirtualWorkspaceURL.Path = path.Join(
-				syncerVirtualWorkspaceURL.Path,
+				sharedExternalURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
 				syncerbuilder.SyncerVirtualWorkspaceName,
 				logicalcluster.From(syncTargetCopy).String(),
 				syncTargetCopy.Name,
 				string(syncTargetCopy.UID),
 			)
-			desiredURLs.Insert(syncerVirtualWorkspaceURL.String())
+
+			upsyncerVirtualWorkspaceURL := *sharedExternalURL
+			(&upsyncerVirtualWorkspaceURL).Path = path.Join(
+				sharedExternalURL.Path,
+				virtualworkspacesoptions.DefaultRootPathPrefix,
+				syncerbuilder.UpsyncerVirtualWorkspaceName,
+				logicalcluster.From(syncTargetCopy).String(),
+				syncTargetCopy.Name,
+				string(syncTargetCopy.UID),
+			)
+
+			syncerURL := (&syncerVirtualWorkspaceURL).String()
+			upsyncerURL := (&upsyncerVirtualWorkspaceURL).String()
+
+			desiredURLs[sharedExternalURL.String()] = workloadv1alpha1.VirtualWorkspace{
+				SyncerURL:   syncerURL,
+				UpsyncerURL: upsyncerURL,
+			}
 		}
 	}
 
-	if syncTargetCopy.Status.VirtualWorkspaces != nil {
-		currentURLs := sets.NewString()
-		for _, virtualWorkspace := range syncTargetCopy.Status.VirtualWorkspaces {
-			currentURLs = currentURLs.Insert(virtualWorkspace.URL)
-		}
+	// Let's always add the desired URL in the same order, which will be the order of the
+	// corresponding shard URLs
+	var desiredVirtualWorkspaces []workloadv1alpha1.VirtualWorkspace //nolint:prealloc
+	for _, shardURL := range sets.StringKeySet(desiredURLs).List() {
+		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, desiredURLs[shardURL])
+	}
 
-		if desiredURLs.Equal(currentURLs) {
+	if syncTargetCopy.Status.VirtualWorkspaces != nil {
+		if equality.Semantic.DeepEqual(syncTargetCopy.Status.VirtualWorkspaces, desiredVirtualWorkspaces) {
 			return syncTargetCopy, nil
 		}
 	}
 
-	syncTargetCopy.Status.VirtualWorkspaces = nil
-	for _, url := range desiredURLs.List() {
-		syncTargetCopy.Status.VirtualWorkspaces = append(
-			syncTargetCopy.Status.VirtualWorkspaces,
-			workloadv1alpha1.VirtualWorkspace{
-				URL: url,
-			})
-	}
+	syncTargetCopy.Status.VirtualWorkspaces = desiredVirtualWorkspaces
 	return syncTargetCopy, nil
 }

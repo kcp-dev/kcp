@@ -230,16 +230,21 @@ spec:
                   type: object
                 type: array
               virtualWorkspaces:
-                description: VirtualWorkspaces contains all syncer virtual workspace
-                  URLs.
+                description: VirtualWorkspaces contains all virtual workspace URLs.
                 items:
                   properties:
-                    url:
-                      description: URL is the URL of the syncer virtual workspace.
+                    syncerURL:
+                      description: SyncerURL is the URL of the syncer virtual workspace.
+                      minLength: 1
+                      type: string
+                    upsyncerURL:
+                      description: UpsyncerURL is the URL of the upsyncer virtual
+                        workspace.
                       minLength: 1
                       type: string
                   required:
-                  - url
+                  - syncerURL
+                  - upsyncerURL
                   type: object
                 type: array
             type: object

@@ -107,7 +107,7 @@ type SyncTargetStatus struct {
 	// +optional
 	LastSyncerHeartbeatTime *metav1.Time `json:"lastSyncerHeartbeatTime,omitempty"`
 
-	// VirtualWorkspaces contains all syncer virtual workspace URLs.
+	// VirtualWorkspaces contains all virtual workspace URLs.
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
 }
@@ -150,12 +150,19 @@ const (
 )
 
 type VirtualWorkspace struct {
-	// URL is the URL of the syncer virtual workspace.
+	// SyncerURL is the URL of the syncer virtual workspace.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:format:URL
 	// +required
-	URL string `json:"url"`
+	SyncerURL string `json:"syncerURL"`
+
+	// UpsyncerURL is the URL of the upsyncer virtual workspace.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	UpsyncerURL string `json:"upsyncerURL"`
 }
 
 // SyncTargetList is a list of SyncTarget resources
