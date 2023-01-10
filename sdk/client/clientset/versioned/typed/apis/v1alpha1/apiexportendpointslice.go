@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -48,6 +51,8 @@ type APIExportEndpointSliceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIExportEndpointSliceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExportEndpointSlice, err error)
+	Apply(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error)
+	ApplyStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error)
 	APIExportEndpointSliceExpansion
 }
 
@@ -178,6 +183,60 @@ func (c *aPIExportEndpointSlices) Patch(ctx context.Context, name string, pt typ
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIExportEndpointSlice.
+func (c *aPIExportEndpointSlices) Apply(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	if aPIExportEndpointSlice == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIExportEndpointSlice)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIExportEndpointSlice.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
+	}
+	result = &v1alpha1.APIExportEndpointSlice{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiexportendpointslices").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *aPIExportEndpointSlices) ApplyStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	if aPIExportEndpointSlice == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIExportEndpointSlice)
+	if err != nil {
+		return nil, err
+	}
+
+	name := aPIExportEndpointSlice.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
+	}
+
+	result = &v1alpha1.APIExportEndpointSlice{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiexportendpointslices").
+		Name(*name).
+		SubResource("status").
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)

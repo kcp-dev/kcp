@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 )
 
 // FakePartitions implements PartitionInterface
@@ -116,6 +119,27 @@ func (c *FakePartitions) DeleteCollection(ctx context.Context, opts v1.DeleteOpt
 func (c *FakePartitions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Partition, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(partitionsResource, name, pt, data, subresources...), &v1alpha1.Partition{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Partition), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied partition.
+func (c *FakePartitions) Apply(ctx context.Context, partition *topologyv1alpha1.PartitionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Partition, err error) {
+	if partition == nil {
+		return nil, fmt.Errorf("partition provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(partition)
+	if err != nil {
+		return nil, err
+	}
+	name := partition.Name
+	if name == nil {
+		return nil, fmt.Errorf("partition.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(partitionsResource, *name, types.ApplyPatchType, data), &v1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}

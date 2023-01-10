@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 )
 
 // FakePartitionSets implements PartitionSetInterface
@@ -127,6 +130,49 @@ func (c *FakePartitionSets) DeleteCollection(ctx context.Context, opts v1.Delete
 func (c *FakePartitionSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PartitionSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(partitionsetsResource, name, pt, data, subresources...), &v1alpha1.PartitionSet{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.PartitionSet), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied partitionSet.
+func (c *FakePartitionSets) Apply(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error) {
+	if partitionSet == nil {
+		return nil, fmt.Errorf("partitionSet provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(partitionSet)
+	if err != nil {
+		return nil, err
+	}
+	name := partitionSet.Name
+	if name == nil {
+		return nil, fmt.Errorf("partitionSet.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(partitionsetsResource, *name, types.ApplyPatchType, data), &v1alpha1.PartitionSet{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.PartitionSet), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakePartitionSets) ApplyStatus(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error) {
+	if partitionSet == nil {
+		return nil, fmt.Errorf("partitionSet provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(partitionSet)
+	if err != nil {
+		return nil, err
+	}
+	name := partitionSet.Name
+	if name == nil {
+		return nil, fmt.Errorf("partitionSet.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(partitionsetsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.PartitionSet{})
 	if obj == nil {
 		return nil, err
 	}

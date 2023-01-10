@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	applyconfigurationsapiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiresource/v1alpha1"
 	apiresourcev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apiresource/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *aPIResourceImportsClient) Watch(ctx context.Context, opts metav1.ListOp
 
 func (c *aPIResourceImportsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apiresourcev1alpha1.APIResourceImport, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceImportsResource, c.ClusterPath, name, pt, data, subresources...), &apiresourcev1alpha1.APIResourceImport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*apiresourcev1alpha1.APIResourceImport), err
+}
+
+func (c *aPIResourceImportsClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationsapiresourcev1alpha1.APIResourceImportApplyConfiguration, opts metav1.ApplyOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceImportsResource, c.ClusterPath, *name, types.ApplyPatchType, data), &apiresourcev1alpha1.APIResourceImport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*apiresourcev1alpha1.APIResourceImport), err
+}
+
+func (c *aPIResourceImportsClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationsapiresourcev1alpha1.APIResourceImportApplyConfiguration, opts metav1.ApplyOptions) (*apiresourcev1alpha1.APIResourceImport, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceImportsResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &apiresourcev1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}

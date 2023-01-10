@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -48,6 +51,8 @@ type ShardInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ShardList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error)
+	Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
+	ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
 	ShardExpansion
 }
 
@@ -178,6 +183,60 @@ func (c *shards) Patch(ctx context.Context, name string, pt types.PatchType, dat
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied shard.
+func (c *shards) Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
+	if shard == nil {
+		return nil, fmt.Errorf("shard provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(shard)
+	if err != nil {
+		return nil, err
+	}
+	name := shard.Name
+	if name == nil {
+		return nil, fmt.Errorf("shard.Name must be provided to Apply")
+	}
+	result = &v1alpha1.Shard{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("shards").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *shards) ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
+	if shard == nil {
+		return nil, fmt.Errorf("shard provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(shard)
+	if err != nil {
+		return nil, err
+	}
+
+	name := shard.Name
+	if name == nil {
+		return nil, fmt.Errorf("shard.Name must be provided to Apply")
+	}
+
+	result = &v1alpha1.Shard{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("shards").
+		Name(*name).
+		SubResource("status").
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)

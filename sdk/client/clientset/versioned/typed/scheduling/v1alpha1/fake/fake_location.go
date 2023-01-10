@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/scheduling/v1alpha1"
 )
 
 // FakeLocations implements LocationInterface
@@ -127,6 +130,49 @@ func (c *FakeLocations) DeleteCollection(ctx context.Context, opts v1.DeleteOpti
 func (c *FakeLocations) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Location, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(locationsResource, name, pt, data, subresources...), &v1alpha1.Location{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Location), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied location.
+func (c *FakeLocations) Apply(ctx context.Context, location *schedulingv1alpha1.LocationApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Location, err error) {
+	if location == nil {
+		return nil, fmt.Errorf("location provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(location)
+	if err != nil {
+		return nil, err
+	}
+	name := location.Name
+	if name == nil {
+		return nil, fmt.Errorf("location.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(locationsResource, *name, types.ApplyPatchType, data), &v1alpha1.Location{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Location), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeLocations) ApplyStatus(ctx context.Context, location *schedulingv1alpha1.LocationApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Location, err error) {
+	if location == nil {
+		return nil, fmt.Errorf("location provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(location)
+	if err != nil {
+		return nil, err
+	}
+	name := location.Name
+	if name == nil {
+		return nil, fmt.Errorf("location.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(locationsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}

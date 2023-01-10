@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
+	applyconfigurationsschedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/scheduling/v1alpha1"
 	schedulingv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/scheduling/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *locationsClient) Watch(ctx context.Context, opts metav1.ListOptions) (w
 
 func (c *locationsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Location, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(locationsResource, c.ClusterPath, name, pt, data, subresources...), &schedulingv1alpha1.Location{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*schedulingv1alpha1.Location), err
+}
+
+func (c *locationsClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationsschedulingv1alpha1.LocationApplyConfiguration, opts metav1.ApplyOptions) (*schedulingv1alpha1.Location, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(locationsResource, c.ClusterPath, *name, types.ApplyPatchType, data), &schedulingv1alpha1.Location{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*schedulingv1alpha1.Location), err
+}
+
+func (c *locationsClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationsschedulingv1alpha1.LocationApplyConfiguration, opts metav1.ApplyOptions) (*schedulingv1alpha1.Location, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(locationsResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &schedulingv1alpha1.Location{})
 	if obj == nil {
 		return nil, err
 	}

@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 )
 
 // FakeShards implements ShardInterface
@@ -127,6 +130,49 @@ func (c *FakeShards) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 func (c *FakeShards) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, name, pt, data, subresources...), &v1alpha1.Shard{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Shard), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied shard.
+func (c *FakeShards) Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
+	if shard == nil {
+		return nil, fmt.Errorf("shard provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(shard)
+	if err != nil {
+		return nil, err
+	}
+	name := shard.Name
+	if name == nil {
+		return nil, fmt.Errorf("shard.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, *name, types.ApplyPatchType, data), &v1alpha1.Shard{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Shard), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeShards) ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
+	if shard == nil {
+		return nil, fmt.Errorf("shard provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(shard)
+	if err != nil {
+		return nil, err
+	}
+	name := shard.Name
+	if name == nil {
+		return nil, fmt.Errorf("shard.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.Shard{})
 	if obj == nil {
 		return nil, err
 	}

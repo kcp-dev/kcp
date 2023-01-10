@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationsapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *aPIResourceSchemasClient) Watch(ctx context.Context, opts metav1.ListOp
 
 func (c *aPIResourceSchemasClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apisv1alpha1.APIResourceSchema, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceSchemasResource, c.ClusterPath, name, pt, data, subresources...), &apisv1alpha1.APIResourceSchema{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*apisv1alpha1.APIResourceSchema), err
+}
+
+func (c *aPIResourceSchemasClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationsapisv1alpha1.APIResourceSchemaApplyConfiguration, opts metav1.ApplyOptions) (*apisv1alpha1.APIResourceSchema, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceSchemasResource, c.ClusterPath, *name, types.ApplyPatchType, data), &apisv1alpha1.APIResourceSchema{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*apisv1alpha1.APIResourceSchema), err
+}
+
+func (c *aPIResourceSchemasClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationsapisv1alpha1.APIResourceSchemaApplyConfiguration, opts metav1.ApplyOptions) (*apisv1alpha1.APIResourceSchema, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIResourceSchemasResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &apisv1alpha1.APIResourceSchema{})
 	if obj == nil {
 		return nil, err
 	}

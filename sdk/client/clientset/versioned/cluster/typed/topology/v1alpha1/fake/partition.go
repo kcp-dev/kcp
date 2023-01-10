@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	applyconfigurationstopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 	topologyv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *partitionsClient) Watch(ctx context.Context, opts metav1.ListOptions) (
 
 func (c *partitionsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*topologyv1alpha1.Partition, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionsResource, c.ClusterPath, name, pt, data, subresources...), &topologyv1alpha1.Partition{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*topologyv1alpha1.Partition), err
+}
+
+func (c *partitionsClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationstopologyv1alpha1.PartitionApplyConfiguration, opts metav1.ApplyOptions) (*topologyv1alpha1.Partition, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionsResource, c.ClusterPath, *name, types.ApplyPatchType, data), &topologyv1alpha1.Partition{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*topologyv1alpha1.Partition), err
+}
+
+func (c *partitionsClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationstopologyv1alpha1.PartitionApplyConfiguration, opts metav1.ApplyOptions) (*topologyv1alpha1.Partition, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionsResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}

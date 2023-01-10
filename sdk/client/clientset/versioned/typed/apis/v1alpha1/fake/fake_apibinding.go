@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 )
 
 // FakeAPIBindings implements APIBindingInterface
@@ -127,6 +130,49 @@ func (c *FakeAPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 func (c *FakeAPIBindings) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, name, pt, data, subresources...), &v1alpha1.APIBinding{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIBinding), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIBinding.
+func (c *FakeAPIBindings) Apply(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error) {
+	if aPIBinding == nil {
+		return nil, fmt.Errorf("aPIBinding provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIBinding)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIBinding.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIBinding{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIBinding), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeAPIBindings) ApplyStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error) {
+	if aPIBinding == nil {
+		return nil, fmt.Errorf("aPIBinding provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIBinding)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIBinding.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIBinding{})
 	if obj == nil {
 		return nil, err
 	}

@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	applyconfigurationscorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	corev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *logicalClustersClient) Watch(ctx context.Context, opts metav1.ListOptio
 
 func (c *logicalClustersClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1alpha1.LogicalCluster, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(logicalClustersResource, c.ClusterPath, name, pt, data, subresources...), &corev1alpha1.LogicalCluster{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1alpha1.LogicalCluster), err
+}
+
+func (c *logicalClustersClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationscorev1alpha1.LogicalClusterApplyConfiguration, opts metav1.ApplyOptions) (*corev1alpha1.LogicalCluster, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(logicalClustersResource, c.ClusterPath, *name, types.ApplyPatchType, data), &corev1alpha1.LogicalCluster{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1alpha1.LogicalCluster), err
+}
+
+func (c *logicalClustersClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationscorev1alpha1.LogicalClusterApplyConfiguration, opts metav1.ApplyOptions) (*corev1alpha1.LogicalCluster, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(logicalClustersResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &corev1alpha1.LogicalCluster{})
 	if obj == nil {
 		return nil, err
 	}

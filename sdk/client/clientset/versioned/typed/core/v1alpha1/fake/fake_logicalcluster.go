@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 )
 
 // FakeLogicalClusters implements LogicalClusterInterface
@@ -127,6 +130,49 @@ func (c *FakeLogicalClusters) DeleteCollection(ctx context.Context, opts v1.Dele
 func (c *FakeLogicalClusters) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LogicalCluster, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, name, pt, data, subresources...), &v1alpha1.LogicalCluster{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.LogicalCluster), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied logicalCluster.
+func (c *FakeLogicalClusters) Apply(ctx context.Context, logicalCluster *corev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.LogicalCluster, err error) {
+	if logicalCluster == nil {
+		return nil, fmt.Errorf("logicalCluster provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(logicalCluster)
+	if err != nil {
+		return nil, err
+	}
+	name := logicalCluster.Name
+	if name == nil {
+		return nil, fmt.Errorf("logicalCluster.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, *name, types.ApplyPatchType, data), &v1alpha1.LogicalCluster{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.LogicalCluster), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeLogicalClusters) ApplyStatus(ctx context.Context, logicalCluster *corev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.LogicalCluster, err error) {
+	if logicalCluster == nil {
+		return nil, fmt.Errorf("logicalCluster provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(logicalCluster)
+	if err != nil {
+		return nil, err
+	}
+	name := logicalCluster.Name
+	if name == nil {
+		return nil, fmt.Errorf("logicalCluster.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.LogicalCluster{})
 	if obj == nil {
 		return nil, err
 	}

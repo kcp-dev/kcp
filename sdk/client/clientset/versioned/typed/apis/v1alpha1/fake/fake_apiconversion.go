@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 )
 
 // FakeAPIConversions implements APIConversionInterface
@@ -116,6 +119,27 @@ func (c *FakeAPIConversions) DeleteCollection(ctx context.Context, opts v1.Delet
 func (c *FakeAPIConversions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIConversion, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(apiconversionsResource, name, pt, data, subresources...), &v1alpha1.APIConversion{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIConversion), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIConversion.
+func (c *FakeAPIConversions) Apply(ctx context.Context, aPIConversion *apisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIConversion, err error) {
+	if aPIConversion == nil {
+		return nil, fmt.Errorf("aPIConversion provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIConversion)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIConversion.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIConversion.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiconversionsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIConversion{})
 	if obj == nil {
 		return nil, err
 	}

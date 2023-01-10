@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -47,6 +50,7 @@ type PartitionInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.PartitionList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Partition, err error)
+	Apply(ctx context.Context, partition *topologyv1alpha1.PartitionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Partition, err error)
 	PartitionExpansion
 }
 
@@ -162,6 +166,31 @@ func (c *partitions) Patch(ctx context.Context, name string, pt types.PatchType,
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied partition.
+func (c *partitions) Apply(ctx context.Context, partition *topologyv1alpha1.PartitionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Partition, err error) {
+	if partition == nil {
+		return nil, fmt.Errorf("partition provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(partition)
+	if err != nil {
+		return nil, err
+	}
+	name := partition.Name
+	if name == nil {
+		return nil, fmt.Errorf("partition.Name must be provided to Apply")
+	}
+	result = &v1alpha1.Partition{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("partitions").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)
