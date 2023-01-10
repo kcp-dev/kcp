@@ -56,7 +56,7 @@ fi
 work_cleaned="$( sed -e 's/[0-9]*//g' "${work_file}" )"
 log_cleaned="$( sed -e 's/[0-9]*//g' "${LOG_FILE}" )"
 
-if ! changes="$(diff <(echo "${work_cleaned}")  <(echo "${log_cleaned}") )"; then
+if ! changes="$(diff <(echo "${log_cleaned}") <(echo "${work_cleaned}"))"; then
     echo "[ERROR] Current logging errors and saved logging errors do not match."
     echo "${changes}"
     echo
