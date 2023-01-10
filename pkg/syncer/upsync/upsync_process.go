@@ -136,7 +136,12 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	// Namespace scoped resource
 	if downstreamNamespace != "" {
 		var nsObj runtime.Object
-		if nsObj, err = c.downstreamNamespaceLister.Get(downstreamNamespace); err != nil {
+		nsObj, err = c.downstreamNamespaceLister.Get(downstreamNamespace)
+		if err != nil && k8serror.IsNotFound(err) {
+			// Since the namespace is already deleted downstream we can delete the resource upstream as well
+			c.pruneUpstreamResource(ctx, gvr, key)
+		}
+		if err != nil && !k8serror.IsNotFound(err) {
 			logger.Error(err, "Error getting downstream Namespace from downstream namespace lister", "ns", downstreamNamespace)
 			return err
 		}
