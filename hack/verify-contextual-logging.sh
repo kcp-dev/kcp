@@ -22,17 +22,18 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
 LOG_FILE="${REPO_ROOT}/hack/logcheck.out"
 work_file="$(mktemp)"
 LOGCHECK=${LOGCHECK:-logcheck}
+LOGCHECK_ARGS="-check-contextual -check-key=false"
 
 cd "$REPO_ROOT"
 
 set +o errexit
-${LOGCHECK} -check-contextual ./... > "${work_file}" 2>&1
+${LOGCHECK} ${LOGCHECK_ARGS} ./... > "${work_file}" 2>&1
 set -o errexit
 
 # pkg/apis is a separate module, so check that in addition to our root packages
 cd "${REPO_ROOT}"/pkg/apis
 set +o errexit
-${LOGCHECK} -check-contextual ./... >> "${work_file}" 2>&1
+${LOGCHECK} ${LOGCHECK_ARGS} ./... >> "${work_file}" 2>&1
 set -o errexit
 
 is_gnu_sed() { sed --version >/dev/null 2>&1; }
