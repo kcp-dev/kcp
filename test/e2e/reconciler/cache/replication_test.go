@@ -67,15 +67,17 @@ var scenarios = []testScenario{
 // The test exercises creation, modification and removal of the APIResourceSchema object.
 func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	org := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	resourceName := "today.sheriffs.wild.wild.west"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "APIResourceSchema", gvr: apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"), cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source APIResourceSchema %s/%s on the root shard for replication", clusterName, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &apisv1alpha1.APIResourceSchema{
+	replicateResource(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"today.sheriffs.wild.wild.west",
+		"APIResourceSchema",
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
+		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("today.sheriffs.%s", "wild.wild.west"),
 			},
@@ -108,34 +110,26 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 					},
 				},
 			},
-		}
-	})
-	t.Logf("Verify that the source APIResourceSchema %s/%s was replicated to the cache server", clusterName, resourceName)
-	scenario.VerifyReplication(ctx, t)
-
-	// note that since the spec of an APIResourceSchema is immutable we are limited to changing some metadata
-	t.Logf("Change some metadata on source APIResourceSchema %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
-	scenario.UpdateMetaSourceResource(ctx, t)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Verify that deleting source APIResourceSchema %s/%s leads to removal of the cached object", clusterName, resourceName)
-	scenario.DeleteSourceResourceAndVerify(ctx, t)
+		},
+		nil)
 }
 
 // replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object.
 func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	resourceName := "juicy.mangodbs.db.io"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "APIResourceSchema", gvr: apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"), cluster: cluster, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source APIResourceSchema %s/%s on the root shard for replication", cluster, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &apisv1alpha1.APIResourceSchema{
+	replicateResourceNegative(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"juicy.mangodbs.db.io",
+		"APIResourceSchema",
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
+		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: resourceName,
+				Name: "juicy.mangodbs.db.io",
 			},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
 				Group: "db.io",
@@ -167,178 +161,158 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 					},
 				},
 			},
-		}
-	})
-	t.Logf("Verify that the source APIResourceSchema %s/%s was replicated to the cache server", cluster, resourceName)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Delete cached APIResourceSchema %s/%s and check if it was brought back by the replication controller", cluster, resourceName)
-	scenario.DeleteCachedResource(ctx, t)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Update cached APIResourceSchema %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
-	scenario.UpdateMetaCachedResource(ctx, t)
-	t.Logf("Verify that the cached APIResourceSchema %s/%s was brought back by the replication controller after an update", cluster, resourceName)
-	scenario.VerifyReplication(ctx, t)
+		},
+		nil,
+	)
 }
 
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
 func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	resourceName := "wild.wild.west"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "APIExport", gvr: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), cluster: cluster, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source APIExport %s/%s on the root shard for replication", cluster, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &apisv1alpha1.APIExport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "wild.wild.west",
-			},
-		}
-	})
-	t.Logf("Verify that the source APIExport %s/%s was replicated to the cache server", cluster, resourceName)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Change the spec on source APIExport %s/%s and verify if updates were propagated to the cached object", cluster, resourceName)
-	scenario.UpdateSourceResourceWithCustomModifier(ctx, t, func(resUnstructured *unstructured.Unstructured) error {
-		apiExport := &apisv1alpha1.APIExport{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resUnstructured.Object, apiExport); err != nil {
-			return err
-		}
-		apiExport.Spec.LatestResourceSchemas = append(apiExport.Spec.LatestResourceSchemas, "foo.bar")
-		return nil
-	})
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Change some metadata on source APIExport %s/%s and verify if updates were propagated to the cached object", cluster, resourceName)
-	scenario.UpdateMetaSourceResource(ctx, t)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Verify that deleting source APIExport %s/%s leads to removal of the cached object", cluster, resourceName)
-	scenario.DeleteSourceResourceAndVerify(ctx, t)
+	replicateResource(ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"wild.wild.west",
+		"APIExport",
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
+		&apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"}},
+		&apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"}, Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}}},
+	)
 }
 
 // replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object.
 func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	resourceName := "mangodb"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "APIExport", gvr: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), cluster: cluster, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source APIExport %s/%s on the root shard for replication", cluster, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &apisv1alpha1.APIExport{
+	replicateResourceNegative(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"mangodb",
+		"APIExport",
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
+		&apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: resourceName,
+				Name: "mangodb",
 			},
-		}
-	})
-	t.Logf("Verify that the source APIExport %s/%s was replicated to the cache server", cluster, resourceName)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Delete cached APIExport %s/%s and check if it was brought back by the replication controller", cluster, resourceName)
-	scenario.DeleteCachedResource(ctx, t)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Update cached APIExport %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
-	scenario.UpdateCachedResourceWithCustomModifier(ctx, t, func(res *unstructured.Unstructured) error {
-		cachedExport := &apisv1alpha1.APIExport{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.Object, cachedExport); err != nil {
-			return err
-		}
-		cachedExport.Spec.LatestResourceSchemas = append(cachedExport.Spec.LatestResourceSchemas, "foo")
-		return nil
-	})
-	t.Logf("Verify that the cached APIExport %s/%s was brought back by the replication controller after an update", cluster, resourceName)
-	scenario.VerifyReplication(ctx, t)
+		},
+		&apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo"}}},
+	)
 }
 
 // replicateShardScenario tests if a Shard is propagated to the cache server.
 // The test exercises creation, modification and removal of the Shard object.
 func replicateShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	// The Shard API is per default only available in the root workspace
-	clusterName := core.RootCluster
-	resourceName := "test-shard"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "Shard", gvr: corev1alpha1.SchemeGroupVersion.WithResource("shards"), cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source Shard %s/%s on the root shard for replication", clusterName, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &corev1alpha1.Shard{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: resourceName,
-			},
-			Spec: corev1alpha1.ShardSpec{
-				BaseURL: "https://base.kcp.test.dev",
-			},
-		}
-	})
-	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", clusterName, resourceName)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Change the spec on source Shard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
-	scenario.UpdateSourceResourceWithCustomModifier(ctx, t, func(res *unstructured.Unstructured) error {
-		shard := &corev1alpha1.Shard{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.Object, shard); err != nil {
-			return err
-		}
-		shard.Spec.BaseURL = "https://kcp.test.dev"
-		return nil
-	})
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Change some metadata on source Shard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
-	scenario.UpdateMetaSourceResource(ctx, t)
-	scenario.VerifyReplication(ctx, t)
-
-	t.Logf("Verify that deleting source Shard %s/%s leads to removal of the cached object", clusterName, resourceName)
-	scenario.DeleteSourceResourceAndVerify(ctx, t)
+	replicateResource(ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		core.RootCluster,
+		"test-shard",
+		"Shard",
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"),
+		&corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "test-shard"}, Spec: corev1alpha1.ShardSpec{BaseURL: "https://base.kcp.test.dev"}},
+		&corev1alpha1.Shard{Spec: corev1alpha1.ShardSpec{BaseURL: "https://kcp.test.dev"}},
+	)
 }
 
 // replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object.
 func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
-
-	// The Shard API is per default only available in the root workspace
-	cluster := core.RootCluster
-	resourceName := "test-shard-2"
-	scenario := &replicateResourceScenario{resourceName: resourceName, kind: "Shard", gvr: corev1alpha1.SchemeGroupVersion.WithResource("shards"), cluster: cluster, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
-
-	t.Logf("Create source Shard %s/%s on the root shard for replication", cluster, resourceName)
-	scenario.CreateSourceResource(ctx, t, func() runtime.Object {
-		return &corev1alpha1.Shard{
+	replicateResourceNegative(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		core.RootCluster,
+		"test-shard-2",
+		"Shard",
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"),
+		&corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: resourceName,
+				Name: "test-shard-2",
 			},
 			Spec: corev1alpha1.ShardSpec{
 				BaseURL: "https://base.kcp.test.dev",
 			},
-		}
-	})
-	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", cluster, resourceName)
+		},
+		&corev1alpha1.Shard{Spec: corev1alpha1.ShardSpec{BaseURL: "https://base2.kcp.test.dev"}},
+	)
+}
+
+// replicateResource tests if the given resource is propagated to the cache server.
+// The test exercises creation, modification and removal of the resource.
+func replicateResource(ctx context.Context, t *testing.T,
+	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Name, resourceName string, kind string, gvr schema.GroupVersionResource, res runtime.Object, resWithModifiedSpec runtime.Object) {
+	t.Helper()
+
+	org := framework.NewOrganizationFixture(t, server)
+	if clusterName.Empty() {
+		clusterName = framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+	}
+	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
+
+	t.Logf("Create source %s %s/%s on the root shard for replication", kind, clusterName, resourceName)
+	scenario.CreateSourceResource(ctx, t, res)
+	t.Logf("Verify that the source %s %s/%s was replicated to the cache server", kind, clusterName, resourceName)
 	scenario.VerifyReplication(ctx, t)
 
-	t.Logf("Delete cached Shard %s/%s and check if it was brought back by the replication controller", cluster, resourceName)
+	if resWithModifiedSpec != nil {
+		t.Logf("Change the spec on source %s %s/%s and verify if updates were propagated to the cached object", kind, clusterName, resourceName)
+		scenario.UpdateSpecSourceResource(ctx, t, resWithModifiedSpec)
+		scenario.VerifyReplication(ctx, t)
+	}
+
+	// note that for some res the spec of an is immutable we are limited to changing some metadata
+	t.Logf("Change some metadata on source %s %s/%s and verify if updates were propagated to the cached object", kind, clusterName, resourceName)
+	scenario.UpdateMetaSourceResource(ctx, t)
+	scenario.VerifyReplication(ctx, t)
+
+	t.Logf("Verify that deleting source %s %s/%s leads to removal of the cached object", kind, clusterName, resourceName)
+	scenario.DeleteSourceResourceAndVerify(ctx, t)
+}
+
+// replicateResourceNegative checks if modified or even deleted cached resource will be reconciled to match the original object.
+func replicateResourceNegative(ctx context.Context, t *testing.T,
+	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Name, resourceName string, kind string, gvr schema.GroupVersionResource, res runtime.Object, resWithModifiedSpec runtime.Object) {
+	t.Helper()
+
+	org := framework.NewOrganizationFixture(t, server)
+	if clusterName.Empty() {
+		clusterName = framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+	}
+	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
+
+	t.Logf("Create source %s %s/%s on the root shard for replication", kind, clusterName, resourceName)
+	scenario.CreateSourceResource(ctx, t, res)
+	t.Logf("Verify that the source %s %s/%s was replicated to the cache server", kind, clusterName, resourceName)
+	scenario.VerifyReplication(ctx, t)
+
+	t.Logf("Delete cached %s %s/%s and check if it was brought back by the replication controller", kind, clusterName, resourceName)
 	scenario.DeleteCachedResource(ctx, t)
 	scenario.VerifyReplication(ctx, t)
 
-	t.Logf("Update cached Shard %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
-	scenario.UpdateCachedResourceWithCustomModifier(ctx, t, func(res *unstructured.Unstructured) error {
-		shard := &corev1alpha1.Shard{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.Object, shard); err != nil {
-			return err
-		}
-		shard.Spec.BaseURL = "https://base2.kcp.test.dev"
-		return nil
-	})
-	t.Logf("Verify that the cached Shard %s/%s was brought back by the replication controller after an update", cluster, resourceName)
+	if resWithModifiedSpec != nil {
+		t.Logf("Update cached %s %s/%s so that it differs from the source resource", kind, clusterName, scenario.resourceName)
+		scenario.UpdateSpecCachedResource(ctx, t, resWithModifiedSpec)
+		t.Logf("Verify that the cached %s %s/%s was brought back by the replication controller after an update", kind, clusterName, resourceName)
+		scenario.VerifyReplication(ctx, t)
+	}
+
+	t.Logf("Update cached %s %s/%s so that it differs from the source resource", kind, clusterName, scenario.resourceName)
+	scenario.UpdateMetaCachedResource(ctx, t)
+	t.Logf("Verify that the cached %s %s/%s was brought back by the replication controller after an update", kind, clusterName, resourceName)
 	scenario.VerifyReplication(ctx, t)
 }
 
@@ -423,9 +397,9 @@ type replicateResourceScenario struct {
 	cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface
 }
 
-func (b *replicateResourceScenario) CreateSourceResource(ctx context.Context, t *testing.T, getSourceResource func() runtime.Object) {
+func (b *replicateResourceScenario) CreateSourceResource(ctx context.Context, t *testing.T, res runtime.Object) {
 	t.Helper()
-	resUnstructured, err := toUnstructured(getSourceResource(), b.kind, b.gvr)
+	resUnstructured, err := toUnstructured(res, b.kind, b.gvr)
 	require.NoError(t, err)
 	_, err = b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Create(ctx, resUnstructured, metav1.CreateOptions{})
 	require.NoError(t, err)
@@ -448,15 +422,35 @@ func (b *replicateResourceScenario) UpdateMetaSourceResource(ctx context.Context
 	})
 }
 
-func (b *replicateResourceScenario) UpdateSourceResourceWithCustomModifier(ctx context.Context, t *testing.T, modFunc func(*unstructured.Unstructured) error) {
+func (b *replicateResourceScenario) UpdateSpecSourceResource(ctx context.Context, t *testing.T, resWithModifiedSpec runtime.Object) {
 	t.Helper()
 	b.resourceUpdateHelper(ctx, t, func(ctx context.Context) (*unstructured.Unstructured, error) {
 		return b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(ctx, b.resourceName, metav1.GetOptions{})
 	}, func(res *unstructured.Unstructured) error {
-		if err := modFunc(res); err != nil {
+		unstructuredResWithModSpec, err := toUnstructured(resWithModifiedSpec, b.kind, b.gvr)
+		require.NoError(t, err)
+		modifiedSpec, hasSpec, err := unstructured.NestedFieldCopy(unstructuredResWithModSpec.Object, "spec")
+		require.NoError(t, err)
+		if !hasSpec {
+			return fmt.Errorf("provided resource doesn't have a spec")
+		}
+		actualSpec, hasSpec, err := unstructured.NestedFieldCopy(res.Object, "spec")
+		if err != nil {
 			return err
 		}
-		_, err := b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Update(ctx, res, metav1.UpdateOptions{})
+		if !hasSpec {
+			return fmt.Errorf("original resource doesn't have a spec")
+		}
+		newSpec := map[string]interface{}{}
+		for k, v := range actualSpec.(map[string]interface{}) {
+			newSpec[k] = v
+		}
+		for k, v := range modifiedSpec.(map[string]interface{}) {
+			newSpec[k] = v
+		}
+		err = unstructured.SetNestedField(res.Object, newSpec, "spec")
+		require.NoError(t, err)
+		_, err = b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Update(ctx, res, metav1.UpdateOptions{})
 		return err
 	})
 }
@@ -478,15 +472,35 @@ func (b *replicateResourceScenario) UpdateMetaCachedResource(ctx context.Context
 	})
 }
 
-func (b *replicateResourceScenario) UpdateCachedResourceWithCustomModifier(ctx context.Context, t *testing.T, modFunc func(*unstructured.Unstructured) error) {
+func (b *replicateResourceScenario) UpdateSpecCachedResource(ctx context.Context, t *testing.T, resWithModifiedSpec runtime.Object) {
 	t.Helper()
 	b.resourceUpdateHelper(ctx, t, func(ctx context.Context) (*unstructured.Unstructured, error) {
 		return b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
 	}, func(res *unstructured.Unstructured) error {
-		if err := modFunc(res); err != nil {
+		unstructuredResWithModSpec, err := toUnstructured(resWithModifiedSpec, b.kind, b.gvr)
+		require.NoError(t, err)
+		modifiedSpec, hasSpec, err := unstructured.NestedFieldCopy(unstructuredResWithModSpec.Object, "spec")
+		require.NoError(t, err)
+		if !hasSpec {
+			return fmt.Errorf("provided resource doesn't have a spec")
+		}
+		actualSpec, hasSpec, err := unstructured.NestedFieldCopy(res.Object, "spec")
+		if err != nil {
 			return err
 		}
-		_, err := b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Update(cacheclient.WithShardInContext(ctx, shard.New("root")), res, metav1.UpdateOptions{})
+		if !hasSpec {
+			return fmt.Errorf("original resource doesn't have a spec")
+		}
+		newSpec := map[string]interface{}{}
+		for k, v := range actualSpec.(map[string]interface{}) {
+			newSpec[k] = v
+		}
+		for k, v := range modifiedSpec.(map[string]interface{}) {
+			newSpec[k] = v
+		}
+		err = unstructured.SetNestedField(res.Object, newSpec, "spec")
+		require.NoError(t, err)
+		_, err = b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Update(cacheclient.WithShardInContext(ctx, shard.New("root")), res, metav1.UpdateOptions{})
 		return err
 	})
 }
