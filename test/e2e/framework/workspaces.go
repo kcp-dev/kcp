@@ -106,7 +106,7 @@ func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
 	}
 }
 
-func NewWorkspaceFixtureObject[O WorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
+func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -176,40 +176,29 @@ func NewWorkspaceFixtureObject[O WorkspaceOption](t *testing.T, clusterClient kc
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (clusterName logicalcluster.Name) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
 	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	ws := NewWorkspaceFixtureObject(t, clusterClient, orgClusterName, options...)
-	return logicalcluster.Name(ws.Spec.Cluster)
+	ws := newWorkspaceFixture(t, clusterClient, parent, options...)
+	return parent.Join(ws.Name), ws
 }
 
-func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) *tenancyv1beta1.Workspace {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
 	t.Helper()
-
-	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
-	require.NoError(t, err, "failed to construct client for server")
-
-	return NewWorkspaceFixtureObject(t, clusterClient, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
+	return NewWorkspaceFixture(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (orgClusterName logicalcluster.Name) {
-	t.Helper()
-	org := NewOrganizationFixtureObject(t, server, options...)
-	return logicalcluster.Name(org.Spec.Cluster)
-}
-
-func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (orgClusterName logicalcluster.Name) {
+func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
 	t.Helper()
 
 	cfg := server.RootShardSystemMasterBaseConfig(t)
 	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	org := NewWorkspaceFixtureObject(t, clusterClient, core.RootCluster.Path(), append(options, O(WithType(core.RootCluster.Path(), "organization")))...)
-	return logicalcluster.Name(org.Spec.Cluster)
+	ws := newWorkspaceFixture(t, clusterClient, core.RootCluster.Path(), append(options, O(WithType(core.RootCluster.Path(), "organization")))...)
+	return core.RootCluster.Path().Join(ws.Name), ws
 }
