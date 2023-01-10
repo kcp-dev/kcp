@@ -23,6 +23,7 @@ import (
 
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
+	"k8s.io/apimachinery/pkg/api/validation/path"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +35,6 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	"k8s.io/apimachinery/pkg/api/validation/path"
 )
 
 // StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.

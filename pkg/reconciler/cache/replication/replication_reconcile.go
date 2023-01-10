@@ -104,7 +104,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localClusterRoleLister.Cluster(cluster).Get(name)
 				if err != nil {
-					return obj, true, err
+					return nil, true, err
 				}
 				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", err
 			})
@@ -119,7 +119,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localClusterRoleBindingLister.Cluster(cluster).Get(name)
 				if err != nil {
-					return obj, true, err
+					return nil, true, err
 				}
 				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", err
 			})

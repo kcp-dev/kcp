@@ -26,6 +26,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,7 +45,6 @@ import (
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 const (

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package replicationclusterrole
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -30,21 +29,17 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -69,6 +64,8 @@ func NewController(
 
 		clusterRoleBindingLister:  clusterRoleBindingInformer.Lister(),
 		clusterRoleBindingIndexer: clusterRoleBindingInformer.Informer().GetIndexer(),
+
+		commit: committer.NewStatuslessCommitter[*rbacv1.ClusterRole, rbacclientv1.ClusterRoleInterface](kubeClusterClient.RbacV1().ClusterRoles(), committer.ShallowCopy[rbacv1.ClusterRole]),
 	}
 
 	indexers.AddIfNotPresentOrDie(clusterRoleBindingInformer.Informer().GetIndexer(), cache.Indexers{
@@ -114,6 +111,9 @@ type controller struct {
 
 	clusterRoleBindingLister  kcprbaclisters.ClusterRoleBindingClusterLister
 	clusterRoleBindingIndexer cache.Indexer
+
+	// commit creates a patch and submits it, if needed.
+	commit func(ctx context.Context, new, old *rbacv1.ClusterRole) error
 }
 
 // enqueueClusterRole enqueues an ClusterRole.
@@ -191,89 +191,49 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 		return true
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) error {
-	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+func (c *controller) process(ctx context.Context, key string) (bool, error) {
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
-		return nil
+		return false, nil
 	}
-
-	cr, err := c.clusterRoleLister.Cluster(cluster).Get(name)
+	cr, err := c.clusterRoleLister.Cluster(parent).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+			return false, nil // object deleted before we handled it
 		}
-		return err
+		return false, err
 	}
+
+	old := cr
+	cr = cr.DeepCopy()
 
 	logger := logging.WithObject(klog.FromContext(ctx), cr)
 	ctx = klog.NewContext(ctx, logger)
 
-	replicate := HasBindOrContentRule(cr)
-	if !replicate {
-		objs, err := c.clusterRoleBindingIndexer.ByIndex(ClusterRoleBindingByClusterRoleName, key)
-		if err != nil {
-			runtime.HandleError(err)
-			return nil // nothing we can do
-		}
-		for _, obj := range objs {
-			crb := obj.(*rbacv1.ClusterRoleBinding)
-			if HasMaximalPermissionClaimSubject(crb) {
-				replicate = true
-				break
-			}
-		}
+	var errs []error
+	requeue, err := c.reconcile(ctx, cr)
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	// calculate patch
-	var value string
-	var changed bool
-	if replicate {
-		if value, changed = kcpcorehelper.ReplicateForValue(cr.Annotations[core.ReplicateAnnotationKey], "apiexport"); !changed {
-			return nil
-		}
-	} else if value, changed = kcpcorehelper.DontReplicateForValue(cr.Annotations[core.ReplicateAnnotationKey], "apiexport"); !changed {
-		return nil
-	}
-	patch := fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:null}}}`, cr.ResourceVersion, cr.UID, core.ReplicateAnnotationKey)
-	if value != "" {
-		patch = fmt.Sprintf(`{"metadata":{"resourceVersion":%q,"uid":%q,"annotations":{%q:%q}}}`, cr.ResourceVersion, cr.UID, core.ReplicateAnnotationKey, value)
+	// If the object being reconciled changed as a result, update it.
+	if err := c.commit(ctx, old, cr); err != nil {
+		errs = append(errs, err)
 	}
 
-	logger.V(2).WithValues("patch", patch).Info("patching ClusterRole")
-	_, err = c.kubeClusterClient.Cluster(cluster.Path()).RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-	return err
-}
-
-func HasBindOrContentRule(cr *rbacv1.ClusterRole) bool {
-	for _, rule := range cr.Rules {
-		if !sets.NewString(rule.APIGroups...).Has(apis.GroupName) {
-			continue
-		}
-		if sets.NewString(rule.Resources...).Has("apiexports") && sets.NewString(rule.Verbs...).Has("bind") {
-			return true
-		}
-		if sets.NewString(rule.Resources...).Has("apiexports/content") {
-			return true
-		}
-	}
-	return false
-}
-
-func HasMaximalPermissionClaimSubject(crb *rbacv1.ClusterRoleBinding) bool {
-	for _, s := range crb.Subjects {
-		if strings.HasPrefix(s.Name, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix) && (s.Kind == rbacv1.UserKind || s.Kind == rbacv1.GroupKind) && s.APIGroup == rbacv1.GroupName {
-			return true
-		}
-	}
-	return false
+	return requeue, utilerrors.NewAggregate(errs)
 }
