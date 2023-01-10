@@ -253,15 +253,15 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Logf("Wait for the sheriff to show up in the informer")
 	// key := "default/" + client.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")
 	require.Eventually(t, func() bool {
-		listers, _ := informerFactory.Listers()
+		informers, _ := informerFactory.Informers()
 
-		lister := listers[sheriffsGVR]
-		if lister == nil {
+		informer := informers[sheriffsGVR]
+		if informer == nil {
 			t.Logf("Waiting for sheriffs to show up in dynamic informer")
 			return false
 		}
 
-		l, err := lister.List(labels.Everything())
+		l, err := informer.Lister().List(labels.Everything())
 		if err != nil {
 			t.Logf("Error listing sheriffs: %v", err)
 			return false

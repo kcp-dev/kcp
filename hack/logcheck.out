@@ -27,8 +27,8 @@
 /pkg/admission/webhook/generic_webhook.go:143:3: function "Infof" should not be used, convert to contextual logging
 /pkg/admission/webhook/generic_webhook.go:143:3: function "V" should not be used, convert to contextual logging
 /pkg/authorization/delegated/authorizer.go:45:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/cliplugins/workload/plugin/sync.go:616:4: function "Infof" should not be used, convert to contextual logging
-/pkg/cliplugins/workload/plugin/sync.go:616:4: function "V" should not be used, convert to contextual logging
+/pkg/cliplugins/workload/plugin/sync.go:615:4: function "Infof" should not be used, convert to contextual logging
+/pkg/cliplugins/workload/plugin/sync.go:615:4: function "V" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "Info" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "V" should not be used, convert to contextual logging
 /pkg/embeddedetcd/server.go:44:2: function "Info" should not be used, convert to contextual logging
@@ -61,10 +61,10 @@
 /pkg/informer/informer.go:595:4: function "V" should not be used, convert to contextual logging
 /pkg/informer/informer.go:597:4: function "InfoS" should not be used, convert to contextual logging
 /pkg/informer/informer.go:597:4: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:927:4: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:927:4: function "V" should not be used, convert to contextual logging
 /pkg/informer/informer.go:929:4: function "InfoS" should not be used, convert to contextual logging
 /pkg/informer/informer.go:929:4: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:931:4: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:931:4: function "V" should not be used, convert to contextual logging
 /pkg/logging/constants.go:100:9: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/logging/constants.go:52:9: Key positional arguments are expected to be inlined constant strings. Please replace ReconcilerKey provided with string value.
 /pkg/logging/constants.go:57:9: Key positional arguments are expected to be inlined constant strings. Please replace QueueKeyKey provided with string value.
@@ -75,49 +75,52 @@
 /pkg/reconciler/apis/permissionclaimlabel/permissionclaimlabel_resource_reconcile.go:67:4: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/core/logicalcluster/logicalcluster_reconcile_metadata.go:80:5: Key positional arguments are expected to be inlined constant strings. Please replace &{tenancyv1alpha1 ExperimentalWorkspaceOwnerAnnotationKey} provided with string value.
 /pkg/reconciler/tenancy/workspace/workspace_reconcile_metadata.go:55:5: Key positional arguments are expected to be inlined constant strings. Please replace &{tenancyv1alpha1 ExperimentalWorkspaceOwnerAnnotationKey} provided with string value.
-/pkg/reconciler/workload/resource/resource_controller.go:399:32: function "Enabled" should not be used, convert to contextual logging
-/pkg/reconciler/workload/resource/resource_controller.go:399:32: function "V" should not be used, convert to contextual logging
-/pkg/reconciler/workload/resource/resource_controller.go:399:8: function "Enabled" should not be used, convert to contextual logging
-/pkg/reconciler/workload/resource/resource_controller.go:399:8: function "V" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:158:2: function "Infof" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:158:2: function "V" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:172:2: function "Infof" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:172:2: function "V" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:239:2: function "InfoS" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:240:8: function "InfoS" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:286:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:290:2: function "Infof" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:345:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:350:2: function "Infof" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:350:2: function "V" should not be used, convert to contextual logging
-/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:352:3: function "Errorf" should not be used, convert to contextual logging
+/pkg/reconciler/workload/resource/resource_controller.go:398:32: function "Enabled" should not be used, convert to contextual logging
+/pkg/reconciler/workload/resource/resource_controller.go:398:32: function "V" should not be used, convert to contextual logging
+/pkg/reconciler/workload/resource/resource_controller.go:398:8: function "Enabled" should not be used, convert to contextual logging
+/pkg/reconciler/workload/resource/resource_controller.go:398:8: function "V" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:157:2: function "Infof" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:157:2: function "V" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:171:2: function "Infof" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:171:2: function "V" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:238:2: function "InfoS" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:239:8: function "InfoS" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:285:3: function "Errorf" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:289:2: function "Infof" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:344:3: function "Errorf" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:349:2: function "Infof" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:349:2: function "V" should not be used, convert to contextual logging
+/pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:351:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:49:4: function "Infof" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:49:4: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:60:5: function "Warningf" should not be used, convert to contextual logging
 /pkg/server/localproxy.go:137:4: function "Infof" should not be used, convert to contextual logging
 /pkg/server/localproxy.go:150:4: function "Infof" should not be used, convert to contextual logging
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:129:2: Additional arguments to Info should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:153:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
+/pkg/syncer/endpoints/endpoint_downstream_controller.go:153:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:45:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:89:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/namespace/namespace_downstream_process.go:89:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
-/pkg/syncer/spec/spec_controller.go:163:16: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/spec/spec_controller.go:163:16: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
+/pkg/syncer/spec/spec_controller.go:184:15: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/spec/spec_controller.go:184:15: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:118:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
 /pkg/syncer/spec/spec_process.go:136:4: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
 /pkg/syncer/spec/spec_process.go:154:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
-/pkg/syncer/spec/spec_process.go:386:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
-/pkg/syncer/status/status_process.go:137:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
-/pkg/syncer/status/status_process.go:67:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
-/pkg/syncer/status/status_process.go:67:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
-/pkg/syncer/syncer.go:180:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
-/pkg/syncer/syncer.go:78:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetName provided with string value.
-/pkg/syncer/syncer.go:78:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetWorkspace provided with string value.
-/pkg/tunneler/dialer.go:148:8: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/dialer.go:148:8: function "V" should not be used, convert to contextual logging
+/pkg/syncer/spec/spec_process.go:391:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/status/status_process.go:154:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NameKey} provided with string value.
+/pkg/syncer/status/status_process.go:154:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging NamespaceKey} provided with string value.
+/pkg/syncer/status/status_process.go:154:11: Key positional arguments are expected to be inlined constant strings. Please replace &{logging WorkspaceKey} provided with string value.
+/pkg/syncer/status/status_process.go:70:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamName provided with string value.
+/pkg/syncer/status/status_process.go:70:11: Key positional arguments are expected to be inlined constant strings. Please replace DownstreamNamespace provided with string value.
+/pkg/syncer/syncer.go:196:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
+/pkg/syncer/syncer.go:85:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetName provided with string value.
+/pkg/syncer/syncer.go:85:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetWorkspace provided with string value.
+/pkg/tunneler/dialer.go:151:8: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/dialer.go:151:8: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:157:3: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:157:3: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:161:2: function "Infof" should not be used, convert to contextual logging
@@ -128,20 +131,20 @@
 /pkg/tunneler/listener.go:168:3: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:180:3: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:180:3: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/listener.go:211:2: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/listener.go:211:2: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/listener.go:210:2: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/listener.go:210:2: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:82:4: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:82:4: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:146:3: function "InfoS" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:146:3: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:178:5: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:178:5: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:182:4: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:182:4: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:195:4: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:195:4: function "V" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:230:4: function "Infof" should not be used, convert to contextual logging
-/pkg/tunneler/tunnel.go:230:4: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:145:3: function "InfoS" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:145:3: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:177:5: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:177:5: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:181:4: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:181:4: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:194:4: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:194:4: function "V" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:229:4: function "Infof" should not be used, convert to contextual logging
+/pkg/tunneler/tunnel.go:229:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/builder/build.go:140:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "V" should not be used, convert to contextual logging

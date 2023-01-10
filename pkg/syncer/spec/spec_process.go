@@ -126,20 +126,20 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	var downstreamNamespace string
 	// Only look for the downstream namespace if the resource is namespaced, avoid in case of cluster-scoped.
 	if upstreamNamespace != "" {
-		downstreamNamespaces, err := c.downstreamNSInformer.Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
+		downstreamNamespaces, err := c.listDownstreamNamespacesByLocator(string(jsonNSLocator))
 		if err != nil {
 			return nil, err
 		}
 
 		if len(downstreamNamespaces) == 1 {
-			namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
+			namespace := downstreamNamespaces[0]
 			logger.WithValues(DownstreamName, namespace.GetName()).V(4).Info("Found downstream namespace for upstream namespace")
 			downstreamNamespace = namespace.GetName()
 		} else if len(downstreamNamespaces) > 1 {
 			// This should never happen unless there's some namespace collision.
 			var namespacesCollisions []string
 			for _, namespace := range downstreamNamespaces {
-				namespacesCollisions = append(namespacesCollisions, namespace.(*unstructured.Unstructured).GetName())
+				namespacesCollisions = append(namespacesCollisions, namespace.GetName())
 			}
 			return nil, fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
 		} else {
@@ -154,16 +154,16 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
 
 	// get the upstream object
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil, nil
-	}
-
-	obj, exists, err := syncerInformer.UpstreamInformer.Informer().GetIndexer().GetByKey(kcpcache.ToClusterAwareKey(clusterName.String(), upstreamNamespace, name))
+	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
 	if err != nil {
 		return nil, err
 	}
-	if !exists {
+
+	obj, err := upstreamSyncerLister.ByCluster(clusterName).ByNamespace(upstreamNamespace).Get(name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+	if apierrors.IsNotFound(err) {
 		// deleted upstream => delete downstream
 		logger.Info("Deleting downstream object for upstream object")
 		if downstreamNamespace != "" {
@@ -264,8 +264,13 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		})
 	}
 
+	namespaceLister, err := c.getDownstreamLister(namespaceGVR)
+	if err != nil {
+		return err
+	}
+
 	// Check if the namespace already exists, if not create it.
-	namespace, err := c.downstreamNSInformer.Lister().Get(newNamespace.GetName())
+	namespace, err := namespaceLister.Get(newNamespace.GetName())
 	if apierrors.IsNotFound(err) {
 		_, err = namespaces.Create(ctx, newNamespace, metav1.CreateOptions{})
 		if err == nil {
@@ -299,12 +304,12 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 // TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic.
 func (c *Controller) clusterWideCollisionCheck(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
 	// Check if the resource already exists, if so check if it has the correct namespace locator.
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil
+	downstreamLister, err := c.getDownstreamLister(gvr)
+	if err != nil {
+		return err
 	}
-	resource, err := syncerInformer.DownstreamInformer.Lister().Get(upstreamObj.GetName())
-	if err != nil && apierrors.IsNotFound(err) {
+	resource, err := downstreamLister.Get(upstreamObj.GetName())
+	if apierrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -378,9 +383,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
 	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil
+	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
+	if err != nil {
+		return err
 	}
 
 	logger = logger.WithValues(DownstreamName, transformedName)
@@ -398,7 +403,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName())
+				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName())
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err

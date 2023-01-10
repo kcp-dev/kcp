@@ -23,9 +23,11 @@ import (
 	"reflect"
 	"strings"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -66,11 +68,21 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace, DownstreamName, downstreamName)
 
-	// to upstream
+	downstreamLister, err := c.getDownstreamLister(gvr)
+	if err != nil {
+		return err
+	}
+
 	var namespaceLocator *shared.NamespaceLocator
 	var locatorExists bool
+
 	if downstreamNamespace != "" {
-		nsObj, err := c.downstreamNamespaceLister.Get(downstreamNamespace)
+		downstreamNamespaceLister, err := c.getDownstreamLister(namespaceGVR)
+		if err != nil {
+			return err
+		}
+
+		nsObj, err := downstreamNamespaceLister.Get(downstreamNamespace)
 		if err != nil {
 			logger.Error(err, "Error retrieving downstream namespace from downstream lister")
 			return nil
@@ -93,18 +105,19 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 	}
 
-	// get the downstream object
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil
-	}
-	obj, resourceExists, err := syncerInformer.DownstreamInformer.Informer().GetIndexer().GetByKey(key)
-	if err != nil {
+	var resourceExists bool
+	obj, err := downstreamLister.ByNamespace(downstreamNamespace).Get(downstreamName)
+	if err == nil {
+		resourceExists = true
+	} else if !apierrors.IsNotFound(err) {
 		return err
 	}
 
 	if downstreamNamespace == "" {
 		if !resourceExists {
+			// TODO(davidfestal): The downstream object doesn't exist, but we cannot remove the finalizer
+			// on the upstream resource since we dont have the locator to locate the upstream resource.
+			// That should be fixed.
 			return nil
 		}
 
@@ -124,7 +137,6 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 			return nil
 		}
 	}
-
 	if namespaceLocator.SyncTarget.UID != c.syncTargetUID || namespaceLocator.SyncTarget.ClusterName != c.syncTargetWorkspace.String() {
 		// not our resource.
 		return nil
@@ -137,9 +149,14 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(logging.WorkspaceKey, upstreamClusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, upstreamName)
 	ctx = klog.NewContext(ctx, logger)
 
+	upstreamLister, err := c.getUpstreamLister(gvr)
+	if err != nil {
+		return err
+	}
+
 	if !resourceExists {
 		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamClusterName, shared.GetUpstreamResourceName(gvr, downstreamName))
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamLister, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamClusterName, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -147,10 +164,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if !ok {
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
-	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamName, upstreamClusterName, u)
+	return c.updateStatusInUpstream(ctx, gvr, upstreamLister, upstreamNamespace, upstreamName, upstreamClusterName, u)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, upstreamName string, upstreamClusterName logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamLister kcpcache.GenericClusterLister, upstreamNamespace, upstreamName string, upstreamClusterName logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
 	logger := klog.FromContext(ctx)
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
@@ -161,12 +178,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return nil
 	}
 
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil
-	}
-
-	existingObj, err := syncerInformer.UpstreamInformer.Lister().ByCluster(upstreamClusterName).ByNamespace(upstreamNamespace).Get(upstreamName)
+	existingObj, err := upstreamLister.ByCluster(upstreamClusterName).ByNamespace(upstreamNamespace).Get(upstreamName)
 	if err != nil {
 		logger.Error(err, "Error getting upstream resource")
 		return err

@@ -21,13 +21,12 @@ import (
 	"encoding/json"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,6 +35,7 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,15 +43,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 )
 
@@ -64,16 +65,21 @@ func init() {
 }
 
 type mockedCleaner struct {
+	lock    sync.Mutex
 	toClean sets.String
 }
 
 func (c *mockedCleaner) PlanCleaning(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.toClean.Insert(key)
 }
 
 // CancelCleaning removes the key from the list of keys to be cleaned up.
 // If it wasn't planned for deletion, it does nothing.
 func (c *mockedCleaner) CancelCleaning(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.toClean.Delete(key)
 }
 
@@ -472,6 +478,60 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 	}
 }
 
+var _ ddsif.GVRSource = (*mockedGVRSource)(nil)
+
+type mockedGVRSource struct {
+}
+
+func (s *mockedGVRSource) GVRs() map[schema.GroupVersionResource]ddsif.GVRPartialMetadata {
+	return map[schema.GroupVersionResource]ddsif.GVRPartialMetadata{
+		appsv1.SchemeGroupVersion.WithResource("deployments"): {
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "deployment",
+				Kind:     "Deployment",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "namespaces",
+		}: {
+			Scope: apiextensionsv1.ClusterScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "namespace",
+				Kind:     "Namespace",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "configmaps",
+		}: {
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "configmap",
+				Kind:     "ConfigMap",
+			},
+		},
+		{
+			Version:  "v1",
+			Resource: "secrets",
+		}: {
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Singular: "secret",
+				Kind:     "Secret",
+			},
+		},
+	}
+}
+
+func (s *mockedGVRSource) Ready() bool {
+	return true
+}
+
+func (s *mockedGVRSource) Subscribe() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 func TestSpecSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -489,9 +549,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 		syncTargetUID             types.UID
 		advancedSchedulingEnabled bool
 
-		expectError         bool
-		expectActionsOnFrom []kcptesting.Action
-		expectActionsOnTo   []clienttesting.Action
+		expectError             bool
+		expectActionsOnFrom     []kcptesting.Action
+		expectActionsOnTo       []clienttesting.Action
+		expectNSCleaningPlanned []string
 	}{
 		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is not created downstream (will be in the next reconciliation)": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -608,7 +669,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				),
 			},
 		},
-		"SpecSyncer upstream resource has the state workload annotation removed, expect deletion downstream": {
+		"SpecSyncer upstream resource has been removed, expect deletion downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
@@ -622,7 +683,23 @@ func TestSpecSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", nil, nil, nil),
+			},
+			toResources: []runtime.Object{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				},
+					map[string]string{
+						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+					}),
+				deployment("theDeployment", "kcp-33jbiactwhg0", "root:org:ws", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -635,6 +712,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"kcp-33jbiactwhg0",
 				),
 			},
+			expectNSCleaningPlanned: []string{"kcp-33jbiactwhg0"},
 		},
 		"SpecSyncer deletion: object exist downstream": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -644,7 +722,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -683,6 +761,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"kcp-33jbiactwhg0",
 				),
 			},
+			expectNSCleaningPlanned: []string{"kcp-33jbiactwhg0"},
 		},
 		"SpecSyncer deletion: object does not exists downstream, upstream finalizer should be removed": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -692,7 +771,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -750,8 +829,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -918,8 +996,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, map[string]string{
 					"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
@@ -951,8 +1028,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, map[string]string{},
 				),
 			},
@@ -971,7 +1047,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
 			toResources: []runtime.Object{
 				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
-					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -1045,27 +1121,40 @@ func TestSpecSyncerProcess(t *testing.T) {
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 			toKubeClient := kubefake.NewSimpleClientset(tc.toResources...)
 
-			fromInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient, time.Hour, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-			})
-			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-			})
+			ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(fromClusterClient, nil, nil, &mockedGVRSource{}, cache.Indexers{})
+			require.NoError(t, err)
+
+			ddsifForDownstream, err := ddsif.NewScopedDiscoveringDynamicSharedInformerFactory(toClient, nil,
+				func(o *metav1.ListOptions) {
+					o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
+				},
+				&mockedGVRSource{},
+				cache.Indexers{
+					indexers.ByNamespaceLocatorIndexName: indexers.IndexByNamespaceLocator,
+				},
+			)
+			require.NoError(t, err)
+
+			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
+			for _, alwaysRequired := range []string{"secrets", "namespaces"} {
+				if informer, err := ddsifForUpstreamSyncer.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
+					require.NoError(t, err)
+				} else {
+					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+				}
+				if informer, err := ddsifForDownstream.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
+					require.NoError(t, err)
+				} else {
+					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
+				}
+			}
 
 			setupServersideApplyPatchReactor(toClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClusterClient)
 
-			fakeInformers := newFakeSyncerInformers(tc.gvr, fromInformers, toInformers)
-
 			// toInformerFactory to watch some DNS-related resources in the dns namespace
 			toInformerFactory := informers.NewSharedInformerFactoryWithOptions(toKubeClient, time.Hour,
 				informers.WithNamespace("kcp-01c0zzvlqsi7n"))
-			serviceAccountLister := toInformerFactory.Core().V1().ServiceAccounts().Lister()
-			roleLister := toInformerFactory.Rbac().V1().Roles().Lister()
-			roleBindingLister := toInformerFactory.Rbac().V1().RoleBindings().Lister()
-			deploymentLister := toInformerFactory.Apps().V1().Deployments().Lister()
-			serviceLister := toInformerFactory.Core().V1().Services().Lister()
-			endpointLister := toInformerFactory.Core().V1().Endpoints().Lister()
 
 			upstreamURL, err := url.Parse("https://kcp.io:6443")
 			require.NoError(t, err)
@@ -1074,19 +1163,50 @@ func TestSpecSyncerProcess(t *testing.T) {
 				toClean: sets.String{},
 			}
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
-				fromClusterClient, toClient, toKubeClient, fromInformers, toInformers, mockedCleaner, fakeInformers, syncTargetUID,
-				serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, "kcp-01c0zzvlqsi7n", "dnsimage")
+				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
+				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage")
 			require.NoError(t, err)
 
-			fromInformers.Start(ctx.Done())
-			toInformers.Start(ctx.Done())
 			toInformerFactory.Start(ctx.Done())
-
-			fromInformers.WaitForCacheSync(ctx.Done())
-			toInformers.WaitForCacheSync(ctx.Done())
 			toInformerFactory.WaitForCacheSync(ctx.Done())
 
+			gvrsUpdated := make(chan struct{})
+			upstreamSyncerDDSIFUpdated := ddsifForDownstream.Subscribe("upstreamSyncer")
+			downstreamDDSIFUpdated := ddsifForDownstream.Subscribe("downstream")
+			go func() {
+				<-upstreamSyncerDDSIFUpdated
+				t.Logf("%s: upstream ddsif synced", t.Name())
+				<-downstreamDDSIFUpdated
+				t.Logf("%s: downstream ddsif synced", t.Name())
+
+				_, unsynced := ddsifForUpstreamSyncer.Informers()
+				for _, gvr := range unsynced {
+					informer, _ := ddsifForUpstreamSyncer.ForResource(gvr)
+					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
+					t.Logf("%s: upstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
+				}
+				_, unsynced = ddsifForDownstream.Informers()
+				for _, gvr := range unsynced {
+					informer, _ := ddsifForDownstream.ForResource(gvr)
+					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
+					t.Logf("%s: downstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
+				}
+				t.Logf("%s: gvrs updated", t.Name())
+				gvrsUpdated <- struct{}{}
+			}()
+
+			ddsifForUpstreamSyncer.Start(ctx.Done())
+			ddsifForDownstream.Start(ctx.Done())
+
+			go ddsifForUpstreamSyncer.StartWorker(ctx)
+			go ddsifForDownstream.StartWorker(ctx)
+
 			<-resourceWatcherStarted
+
+			cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
+			t.Logf("%s: secrets and namespaces informers synced", t.Name())
+
+			<-gvrsUpdated
 
 			fromClusterClient.ClearActions()
 			toClient.ClearActions()
@@ -1103,6 +1223,13 @@ func TestSpecSyncerProcess(t *testing.T) {
 			}
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
+			mockedCleaner.lock.Lock()
+			defer mockedCleaner.lock.Unlock()
+			if tc.expectNSCleaningPlanned != nil {
+				assert.Equal(t, tc.expectNSCleaningPlanned, mockedCleaner.toClean.List())
+			} else {
+				assert.Equal(t, []string{}, mockedCleaner.toClean.List())
+			}
 		})
 	}
 }
@@ -1372,30 +1499,3 @@ func patchSecretSingleClusterAction(name, namespace string, patchType types.Patc
 		Patch:      patch,
 	}
 }
-
-type fakeSyncerInformers struct {
-	upstreamInformer   kcpkubernetesinformers.GenericClusterInformer
-	downStreamInformer informers.GenericInformer
-}
-
-func newFakeSyncerInformers(gvr schema.GroupVersionResource, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downStreamInformers dynamicinformer.DynamicSharedInformerFactory) *fakeSyncerInformers {
-	return &fakeSyncerInformers{
-		upstreamInformer:   upstreamInformers.ForResource(gvr),
-		downStreamInformer: downStreamInformers.ForResource(gvr),
-	}
-}
-
-func (f *fakeSyncerInformers) AddUpstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
-}
-func (f *fakeSyncerInformers) AddDownstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
-}
-func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResource) (*resourcesync.SyncerInformer, bool) {
-	return &resourcesync.SyncerInformer{
-		UpstreamInformer:   f.upstreamInformer,
-		DownstreamInformer: f.downStreamInformer,
-	}, true
-}
-func (f *fakeSyncerInformers) SyncableGVRs() (map[schema.GroupVersionResource]*resourcesync.SyncerInformer, error) {
-	return map[schema.GroupVersionResource]*resourcesync.SyncerInformer{{Group: "apps", Version: "v1", Resource: "deployments"}: nil}, nil
-}
-func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

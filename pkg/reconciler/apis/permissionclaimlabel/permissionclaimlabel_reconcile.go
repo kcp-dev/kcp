@@ -245,9 +245,9 @@ func claimFromSetKey(key string) apisv1alpha1.PermissionClaim {
 }
 
 func (c *controller) getInformerForGroupResource(group, resource string) (kcpkubernetesinformers.GenericClusterInformer, schema.GroupVersionResource, error) {
-	listers, _ := c.ddsif.Listers()
+	informers, _ := c.ddsif.Informers()
 
-	for gvr := range listers {
+	for gvr := range informers {
 		if gvr.Group == group && gvr.Resource == resource {
 			informer, err := c.ddsif.ForResource(gvr)
 			// once we find one, return.
