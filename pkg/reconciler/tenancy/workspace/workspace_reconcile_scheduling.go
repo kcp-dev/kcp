@@ -186,25 +186,6 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		return "", "", err
 	}
 
-	// schedule onto the root shard. This step is temporary until working with multi-shard env works
-	// until then we need to assign ws to the root shard otherwise all e2e test will break
-	if len(shards) > 0 && (workspace.Spec.Location == nil || workspace.Spec.Location.Selector == nil) {
-		// trim the list to contain only the "root" shard so that we always schedule onto it
-		for _, shard := range shards {
-			if shard.Name == "root" {
-				shards = []*corev1alpha1.Shard{shard}
-				break
-			}
-		}
-		if len(shards) == 0 {
-			names := make([]string, 0, len(shards))
-			for _, shard := range shards {
-				names = append(names, shard.Name)
-			}
-			return "", "", fmt.Errorf("since no specific shard was requested we default to schedule onto the root shard, but the root shard wasn't found, found shards: %v", names)
-		}
-	}
-
 	validShards := make([]*corev1alpha1.Shard, 0, len(shards))
 	invalidShards := map[string]struct {
 		reason, message string
