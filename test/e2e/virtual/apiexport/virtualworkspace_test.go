@@ -62,6 +62,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestv1alpha1ac "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -275,8 +276,10 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		require.True(t, apierrors.IsNotFound(err))
 
 		t.Logf("Verify that user-1 can patch a non-existent cowboy with SSA")
-		patch = `{"apiVersion":"wildwest.dev/v1alpha1","kind":"Cowboy","metadata":{"name":"nonexisting-ssa"},"spec":{"intent":"6"}}`
-		_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "nonexisting-ssa", types.ApplyPatchType, []byte(patch), metav1.PatchOptions{FieldManager: "e2e-test-runner"})
+		_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").
+			Apply(ctx, wildwestv1alpha1ac.Cowboy("nonexisting-ssa", "default").
+				WithSpec(wildwestv1alpha1ac.CowboySpec().WithIntent("6")),
+				metav1.ApplyOptions{FieldManager: "e2e-test-runner"})
 		require.NoError(t, err)
 	}
 
