@@ -376,7 +376,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	informers, notSynced := c.ddsif.Informers()
 	var errs []error
 	for gvr, informer := range informers {
-		logger = logger.WithValues("gvr", gvr.String())
+		logger := logger.WithValues("gvr", gvr.String())
 		objs, err := informer.Lister().ByCluster(clusterName).ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error listing %q in %s|%s: %w", gvr, clusterName, ns.Name, err))
