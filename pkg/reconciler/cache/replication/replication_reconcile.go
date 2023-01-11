@@ -19,7 +19,6 @@ package replication
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -55,7 +54,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localAPIExportLister.Cluster(cluster).Get(name)
-				return obj, true, err
+				if err != nil {
+					return nil, false, err
+				}
+				return obj, true, nil
 			})
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
 		return c.reconcileObject(ctx,
@@ -67,7 +69,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
-				return obj, true, err
+				if err != nil {
+					return nil, false, err
+				}
+				return obj, true, nil
 			})
 	case corev1alpha1.SchemeGroupVersion.WithResource("shards").String():
 		return c.reconcileObject(ctx,
@@ -79,7 +84,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localShardLister.Cluster(cluster).Get(name)
-				return obj, true, err
+				if err != nil {
+					return nil, false, err
+				}
+				return obj, true, nil
 			})
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes").String():
 		return c.reconcileObject(ctx,
@@ -91,7 +99,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localWorkspaceTypeLister.Cluster(cluster).Get(name)
-				return obj, true, err
+				if err != nil {
+					return nil, false, err
+				}
+				return obj, true, nil
 			})
 	case rbacv1.SchemeGroupVersion.WithResource("clusterroles").String():
 		return c.reconcileObject(ctx,
@@ -104,9 +115,9 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localClusterRoleLister.Cluster(cluster).Get(name)
 				if err != nil {
-					return nil, true, err
+					return nil, false, err
 				}
-				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", err
+				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", nil
 			})
 	case rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings").String():
 		return c.reconcileObject(ctx,
@@ -119,9 +130,9 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
 				obj, err := c.localClusterRoleBindingLister.Cluster(cluster).Get(name)
 				if err != nil {
-					return nil, true, err
+					return nil, false, err
 				}
-				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", err
+				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", nil
 			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
@@ -149,9 +160,6 @@ func (c *controller) reconcileObject(ctx context.Context,
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	if !replicate {
-		return nil
-	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
 		_, err = c.dynamicKcpLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -161,11 +169,13 @@ func (c *controller) reconcileObject(ctx context.Context,
 		if !errors.IsNotFound(err) {
 			return err
 		}
+	} else if !replicate {
+		localObject = nil // like if it wasn't there
 	}
 
 	var unstructuredCacheObject *unstructured.Unstructured
 	var unstructuredLocalObject *unstructured.Unstructured
-	if isNotNil(cacheObject) {
+	if cacheObject != nil {
 		unstructuredCacheObject, err = toUnstructured(cacheObject)
 		if err != nil {
 			return err
@@ -173,7 +183,7 @@ func (c *controller) reconcileObject(ctx context.Context,
 		unstructuredCacheObject.SetKind(gvk.Kind)
 		unstructuredCacheObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
-	if isNotNil(localObject) {
+	if localObject != nil {
 		unstructuredLocalObject, err = toUnstructured(localObject)
 		if err != nil {
 			return err
@@ -181,7 +191,7 @@ func (c *controller) reconcileObject(ctx context.Context,
 		unstructuredLocalObject.SetKind(gvk.Kind)
 		unstructuredLocalObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
-	if cluster.Empty() && isNotNil(localObject) {
+	if cluster.Empty() && localObject != nil {
 		metadata, err := meta.Accessor(localObject)
 		if err != nil {
 			return err
@@ -204,8 +214,4 @@ func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Inde
 		return nil, fmt.Errorf("expected to find only one instance of %s resource for the key %s, found %d", gvr, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name), len(cacheObjects))
 	}
 	return cacheObjects[0], nil
-}
-
-func isNotNil(obj interface{}) bool {
-	return obj != nil && (reflect.ValueOf(obj).Kind() == reflect.Ptr && !reflect.ValueOf(obj).IsNil())
 }

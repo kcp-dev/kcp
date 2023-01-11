@@ -59,8 +59,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialLocalAPIExports: []runtime.Object{newAPIExport("foo")},
 			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				if len(localClientActions) != 0 {
 					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
@@ -105,8 +103,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				if len(localClientActions) != 0 {
 					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
@@ -135,8 +131,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				wasGlobalAPIExportDeletionValidated := false
 				wasGlobalAPIExportRetrievalValidated := false
 				for _, action := range localClientActions {
@@ -186,8 +180,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				if len(localClientActions) != 0 {
 					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
@@ -231,8 +223,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				if len(localClientActions) != 0 {
 					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
@@ -277,8 +267,6 @@ func TestReconcileAPIExports(t *testing.T) {
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
 				if len(localClientActions) != 0 {
 					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
