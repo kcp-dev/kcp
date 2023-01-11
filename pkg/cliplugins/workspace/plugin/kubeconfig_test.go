@@ -43,7 +43,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
@@ -196,18 +195,18 @@ func TestCreate(t *testing.T) {
 
 			objects := []runtime.Object{}
 			for _, name := range tt.existingWorkspaces {
-				objects = append(objects, &tenancyv1beta1.Workspace{
+				objects = append(objects, &tenancyv1alpha1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: name,
 					},
-					Spec: tenancyv1beta1.WorkspaceSpec{
+					Spec: tenancyv1alpha1.WorkspaceSpec{
 						URL: fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
 						Type: tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
 						},
 					},
-					Status: tenancyv1beta1.WorkspaceStatus{
+					Status: tenancyv1alpha1.WorkspaceStatus{
 						Phase: corev1alpha1.LogicalClusterPhaseReady,
 					},
 				})
@@ -225,13 +224,13 @@ func TestCreate(t *testing.T) {
 
 			if tt.markReady {
 				client.PrependReactor("create", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
-					obj := action.(kcptesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
+					obj := action.(kcptesting.CreateAction).GetObject().(*tenancyv1alpha1.Workspace)
 					obj.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).RequestPath()
 					obj.Spec.URL = u.String()
 					obj.Spec.Type = workspaceType
-					if err := client.Tracker().Cluster(currentClusterName).Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
+					if err := client.Tracker().Cluster(currentClusterName).Create(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
 						return false, nil, err
 					}
 					return true, obj, nil
@@ -1191,12 +1190,12 @@ func TestUse(t *testing.T) {
 			objs := []runtime.Object{}
 			for lcluster, names := range tt.existingObjects {
 				for _, name := range names {
-					obj := &tenancyv1beta1.Workspace{
+					obj := &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:        name,
 							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
-						Spec: tenancyv1beta1.WorkspaceSpec{
+						Spec: tenancyv1alpha1.WorkspaceSpec{
 							Type: tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "universal",
 								Path: "root",
@@ -1217,11 +1216,11 @@ func TestUse(t *testing.T) {
 					return false, nil, nil
 				}
 				if getAction.GetName() == "~" {
-					return true, &tenancyv1beta1.Workspace{
+					return true, &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "user-name",
 						},
-						Spec: tenancyv1beta1.WorkspaceSpec{
+						Spec: tenancyv1alpha1.WorkspaceSpec{
 							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.RequestPath()),
 							Type: tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "home",

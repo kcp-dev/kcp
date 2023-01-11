@@ -42,20 +42,19 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
-func createAttr(obj *tenancyv1beta1.Workspace) admission.Attributes {
+func createAttr(obj *tenancyv1alpha1.Workspace) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		nil,
-		tenancyv1alpha1.Kind("Workspace").WithVersion("v1beta1"),
+		tenancyv1alpha1.Kind("Workspace").WithVersion("v1alpha1"),
 		"",
 		obj.Name,
-		tenancyv1alpha1.Resource("workspaces").WithVersion("v1beta1"),
+		tenancyv1alpha1.Resource("workspaces").WithVersion("v1alpha1"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -859,12 +858,12 @@ func (b builder) withAdditionalLabel(labels map[string]string) builder {
 }
 
 type wsBuilder struct {
-	*tenancyv1beta1.Workspace
+	*tenancyv1alpha1.Workspace
 }
 
 func newWorkspace(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
-	return wsBuilder{Workspace: &tenancyv1beta1.Workspace{
+	return wsBuilder{Workspace: &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
@@ -907,7 +906,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
+	b.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

@@ -34,7 +34,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
@@ -47,10 +46,10 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error)
+	reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error)
 }
 
-func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspace) (bool, error) {
 	getShardByName := func(hash string) (*corev1alpha1.Shard, error) {
 		shards, err := c.globalShardIndexer.ByIndex(byBase36Sha224Name, hash)
 		if err != nil {
@@ -127,7 +126,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 			},
-			requeueAfter: func(workspace *tenancyv1beta1.Workspace, after time.Duration) {
+			requeueAfter: func(workspace *tenancyv1alpha1.Workspace, after time.Duration) {
 				c.queue.AddAfter(kcpcache.ToClusterAwareKey(logicalcluster.From(workspace).String(), "", workspace.Name), after)
 			},
 		},

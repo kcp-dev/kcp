@@ -42,7 +42,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
@@ -210,7 +209,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		fallthrough
 
 	case "~":
-		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -247,7 +246,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 			// not a blocker to enter the workspace. We will do discovery as a final check below
 			parentClusterName, workspaceName := logicalcluster.NewPath(o.Name).Split()
-			if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+			if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 				return fmt.Errorf("workspace %q not found", o.Name)
 			}
 
@@ -274,7 +273,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			newServerHost = u.String()
 		} else {
 			// relative logical cluster, get URL from workspace object in current context
-			ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
+			ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -536,11 +535,11 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		}
 	}
 
-	ws := &tenancyv1beta1.Workspace{
+	ws := &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: o.Name,
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
+		Spec: tenancyv1alpha1.WorkspaceSpec{
 			Type: structuredWorkspaceType,
 		},
 	}
@@ -551,16 +550,16 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			return err
 		}
 
-		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{
+		ws.Spec.Location = &tenancyv1alpha1.WorkspaceLocation{
 			Selector: selector,
 		}
 	}
 
 	preExisting := false
-	ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
+	ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) && o.IgnoreExisting {
 		preExisting = true
-		ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
+		ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
@@ -592,7 +591,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
 	if err := wait.PollImmediate(time.Millisecond*100, time.Second*5, func() (bool, error) {
-		if _, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
+		if _, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
@@ -606,7 +605,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	// wait for being ready
 	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
-			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -832,7 +831,7 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, n
 		b = tree.AddBranch(name.Base())
 	}
 
-	results, err := o.kcpClusterClient.Cluster(name).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+	results, err := o.kcpClusterClient.Cluster(name).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil

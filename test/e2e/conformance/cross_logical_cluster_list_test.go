@@ -43,7 +43,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
@@ -78,17 +78,17 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		clusterName := clusterName // shadow
 
 		t.Logf("Creating Workspace CRs in logical cluster %s", clusterName)
-		sourceWorkspace := &tenancyv1beta1.Workspace{
+		sourceWorkspace := &tenancyv1alpha1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("ws-%d", i),
 			},
 		}
-		ws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+		ws, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().Workspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating source workspace")
 
 		expectedWorkspaces.Insert(logicalcluster.From(ws).String())
 		server.Artifact(t, func() (runtime.Object, error) {
-			obj, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
+			obj, err := kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().Workspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
 			return obj, err
 		})
 	}
@@ -99,7 +99,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(rootShardCfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
-	client := dynamicClusterClient.Resource(tenancyv1beta1.SchemeGroupVersion.WithResource(fmt.Sprintf("workspaces:%s", tenancyExport.Status.IdentityHash)))
+	client := dynamicClusterClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("workspaces:%s", tenancyExport.Status.IdentityHash)))
 	workspaces, err := client.List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
 	got := sets.NewString()

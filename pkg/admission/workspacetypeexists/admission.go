@@ -40,7 +40,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
@@ -107,18 +106,18 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspaces") {
 		return nil
 	}
 
-	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace") {
+	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace") {
 		return nil
 	}
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ws := &tenancyv1beta1.Workspace{}
+	ws := &tenancyv1alpha1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
@@ -139,13 +138,13 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	// if the user has not provided any type, use the default from the parent workspace
 	empty := tenancyv1alpha1.WorkspaceTypeReference{}
 	if ws.Spec.Type == empty {
-		typeAnnotation, found := logicalCluster.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
+		typeAnnotation, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 		if !found {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		wtWorkspace, wtName := logicalcluster.NewPath(typeAnnotation).Split()
 		if wtWorkspace.Empty() {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		parentWt, err := o.getType(wtWorkspace, wtName)
 		if err != nil {
@@ -220,32 +219,32 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspaces") {
 		return nil
 	}
 
-	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace") {
+	if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace") {
 		return nil
 	}
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ws := &tenancyv1beta1.Workspace{}
+	ws := &tenancyv1alpha1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
 	switch a.GetOperation() {
 	case admission.Update:
-		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace") {
+		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace") {
 			return nil
 		}
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		old := &tenancyv1beta1.Workspace{}
+		old := &tenancyv1alpha1.Workspace{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
@@ -301,13 +300,13 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
-		typeAnnotation, found := logicalCluster.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
+		typeAnnotation, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 		if !found {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		wtWorkspace, wtName := logicalcluster.NewPath(typeAnnotation).Split()
 		if wtWorkspace.Empty() {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		parentWt, err := o.getType(wtWorkspace, wtName)
 		if err != nil {
@@ -373,7 +372,7 @@ func (o *workspacetypeExists) SetDeepSARClient(client kcpkubernetesclientset.Clu
 }
 
 // updateUnstructured updates the given unstructured object to match the given workspace.
-func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1beta1.Workspace) error {
+func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1alpha1.Workspace) error {
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ws)
 	if err != nil {
 		return err
@@ -386,7 +385,7 @@ func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1beta1.Workspa
 // type to the workspace if they are not already present.
 func addAdditionalWorkspaceLabels(
 	wt *tenancyv1alpha1.WorkspaceType,
-	ws *tenancyv1beta1.Workspace,
+	ws *tenancyv1alpha1.Workspace,
 ) {
 	if len(wt.Spec.AdditionalWorkspaceLabels) > 0 {
 		if ws.Labels == nil {

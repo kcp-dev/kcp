@@ -27,7 +27,6 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -35,10 +34,10 @@ import (
 type phaseReconciler struct {
 	getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
 
-	requeueAfter func(workspace *tenancyv1beta1.Workspace, after time.Duration)
+	requeueAfter func(workspace *tenancyv1alpha1.Workspace, after time.Duration)
 }
 
-func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
+func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "phase")
 
 	switch workspace.Status.Phase {

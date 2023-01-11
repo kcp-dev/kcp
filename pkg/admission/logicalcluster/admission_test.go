@@ -37,7 +37,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
@@ -405,7 +404,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[v1beta1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
+	b.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

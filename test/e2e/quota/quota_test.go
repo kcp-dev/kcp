@@ -40,7 +40,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -432,12 +432,12 @@ func TestClusterScopedQuota(t *testing.T) {
 		t.Logf("Make sure quota is enforcing workspace limits for %q", wsPath)
 		framework.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a workspace in %q", wsPath)
-			childWS := &tenancyv1beta1.Workspace{
+			childWS := &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "child-",
 				},
 			}
-			_, err = kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(wsPath).Create(ctx, childWS, metav1.CreateOptions{})
+			_, err = kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(wsPath).Create(ctx, childWS, metav1.CreateOptions{})
 			if err != nil {
 				return apierrors.IsForbidden(err), err.Error()
 			}

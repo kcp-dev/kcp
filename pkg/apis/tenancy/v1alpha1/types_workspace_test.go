@@ -67,7 +67,7 @@ func TestWorkspaceCELValidation(t *testing.T) {
 		},
 	}
 
-	validator, err := apitest.VersionValidatorFromFile(t, "../../../../config/crds/tenancy.kcp.io_workspaces.yaml", "v1beta1")
+	validator, err := apitest.VersionValidatorFromFile(t, "../../../../config/crds/tenancy.kcp.io_workspaces.yaml", "v1alpha1")
 	require.NoError(t, err)
 
 	for _, tc := range testCases {

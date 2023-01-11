@@ -30,9 +30,9 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
-	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -44,7 +44,7 @@ import (
 func WithLocalProxy(
 	handler http.Handler,
 	shardName, shardBaseURL string,
-	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
+	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) http.Handler {
 	indexState := index.New([]index.PathRewriter{
@@ -54,18 +54,18 @@ func WithLocalProxy(
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ws := obj.(*tenancyv1beta1.Workspace)
+			ws := obj.(*tenancyv1alpha1.Workspace)
 			indexState.UpsertWorkspace(shardName, ws)
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			ws := obj.(*tenancyv1beta1.Workspace)
+			ws := obj.(*tenancyv1alpha1.Workspace)
 			indexState.UpsertWorkspace(shardName, ws)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			ws := obj.(*tenancyv1beta1.Workspace)
+			ws := obj.(*tenancyv1alpha1.Workspace)
 			indexState.DeleteWorkspace(shardName, ws)
 		},
 	})

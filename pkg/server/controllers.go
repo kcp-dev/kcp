@@ -423,7 +423,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
-		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),

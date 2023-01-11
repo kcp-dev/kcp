@@ -44,7 +44,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -62,7 +61,7 @@ var (
 )
 
 func init() {
-	_ = tenancyv1beta1.AddToScheme(homeWorkspaceScheme)
+	_ = tenancyv1alpha1.AddToScheme(homeWorkspaceScheme)
 }
 
 // WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
@@ -240,7 +239,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				Name: corev1alpha1.LogicalClusterName,
 				Annotations: map[string]string{
 					tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: userInfo,
-					tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:home",
+					tenancyv1alpha1.LogicalClusterTypeAnnotationKey:         "root:home",
 					core.LogicalClusterPathAnnotationKey:                    fmt.Sprintf("user:%s", effectiveUser.GetName()),
 				},
 			},
@@ -314,22 +313,22 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	// here we have a LogicalCluster in the Running state.
 
-	homeWorkspace := &tenancyv1beta1.Workspace{
+	homeWorkspace := &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              logicalCluster.Name,
 			CreationTimestamp: logicalCluster.CreationTimestamp,
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
+		Spec: tenancyv1alpha1.WorkspaceSpec{
 			Cluster: logicalcluster.From(logicalCluster).String(),
 			URL:     logicalCluster.Status.URL,
 		},
-		Status: tenancyv1beta1.WorkspaceStatus{
+		Status: tenancyv1alpha1.WorkspaceStatus{
 			Phase:        logicalCluster.Status.Phase,
 			Conditions:   logicalCluster.Status.Conditions,
 			Initializers: logicalCluster.Status.Initializers,
 		},
 	}
-	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
+	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1alpha1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
 }
 
 func (h *homeWorkspaceHandler) getWorkspaceType(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
@@ -340,7 +339,7 @@ func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *req
 	return clusterName == core.RootCluster &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&
-		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&
+		requestInfo.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group &&
 		requestInfo.Resource == "workspaces" &&
 		requestInfo.Name == "~"
 }
