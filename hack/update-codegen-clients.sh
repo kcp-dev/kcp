@@ -77,6 +77,24 @@ ${CODE_GENERATOR} \
   "output:dir=./../client"
 popd
 
+"$GOPATH"/bin/applyconfiguration-gen \
+  --input-dirs github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
+  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1 \
+  --output-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --output-base "${SCRIPT_ROOT}" \
+  --trim-path-prefix github.com/kcp-dev/kcp
+
+"$GOPATH"/bin/client-gen \
+  --input github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
+  --input-base="" \
+  --apply-configuration-package=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
+  --clientset-name "versioned"  \
+  --output-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset \
+  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
+  --output-base "${SCRIPT_ROOT}" \
+  --trim-path-prefix github.com/kcp-dev/kcp
+
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
   "conditions:v1alpha1" \
@@ -84,7 +102,7 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis \
   "wildwest:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
@@ -93,7 +111,7 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
 
 pushd ./test/e2e/fixtures/wildwest/apis
 ${CODE_GENERATOR} \
-  "client:outputPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client,apiPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned,headerFile=${BOILERPLATE_HEADER}" \
+  "client:outputPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client,apiPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned,singleClusterApplyConfigurationsPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration,headerFile=${BOILERPLATE_HEADER}" \
   "lister:apiPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis,headerFile=${BOILERPLATE_HEADER}" \
   "informer:outputPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis,headerFile=${BOILERPLATE_HEADER}" \
   "paths=./..." \
