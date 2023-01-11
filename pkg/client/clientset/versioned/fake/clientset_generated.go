@@ -36,8 +36,6 @@ import (
 	fakeschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	faketenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1/fake"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
-	faketenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1/fake"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 	faketopologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1/fake"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
@@ -117,11 +115,6 @@ func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1In
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 	return &faketenancyv1alpha1.FakeTenancyV1alpha1{Fake: &c.Fake}
-}
-
-// TenancyV1beta1 retrieves the TenancyV1beta1Client
-func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
-	return &faketenancyv1beta1.FakeTenancyV1beta1{Fake: &c.Fake}
 }
 
 // TopologyV1alpha1 retrieves the TopologyV1alpha1Client
