@@ -79,8 +79,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
 
 	t.Logf("set up service provider with permission claims")
-	setUpServiceProviderWithPermissionClaims(ctx, t, dynamicClusterClient, kcpClusterClient, providerPath, cfg, identityHash)
-	setUpServiceProviderWithPermissionClaims(ctx, dynamicClusterClient, kcpClusterClient, serviceProviderWorkspace, makeBroadPermissionClaims(identityHash), cfg, t)
+	setUpServiceProviderWithPermissionClaims(ctx, t, dynamicClusterClient, kcpClusterClient, providerPath, makeBroadPermissionClaims(identityHash), cfg)
 
 	t.Logf("set up binding, with invalid accepted claims hash")
 	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, "xxxxxxx")
@@ -147,7 +146,7 @@ func setUpServiceProviderWithPermissionClaims(
 	t *testing.T,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClients kcpclientset.ClusterInterface,
-	serviceProviderWorkspace logicalcluster.Name,
+	serviceProviderWorkspace logicalcluster.Path,
 	permissionClaims []apisv1alpha1.PermissionClaim,
 	cfg *rest.Config,
 ) {
@@ -170,7 +169,7 @@ func setUpServiceProviderWithPermissionClaims(
 			PermissionClaims:      permissionClaims,
 		},
 	}
-	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "Error creating cowboys APIExport", err)
 }
 
