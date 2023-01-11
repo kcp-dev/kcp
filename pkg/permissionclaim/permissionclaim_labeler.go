@@ -54,7 +54,6 @@ func NewLabeler(
 
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
-			// TODO(nrb): do we need an indexer for name/ns? May get big
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByClusterAndAcceptedClaimedGroupResources, indexKey)
 		},
@@ -102,7 +101,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				continue
 			}
 
-			if isSelected(claim.PermissionClaim, resourceName, resourceNamespace) {
+			if IsSelected(claim.PermissionClaim, resourceName, resourceNamespace) {
 				k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 				if err != nil {
 					// extremely unlikely to get an error here - it means the json marshaling failed
@@ -141,7 +140,8 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	return labels, nil
 }
 
-func isSelected(claim apisv1alpha1.PermissionClaim, name, namespace string) bool {
+// IsSelected indicates whether a given object's name and/or namespace matches a PermissionClaim's ResourceSelector.
+func IsSelected(claim apisv1alpha1.PermissionClaim, name, namespace string) bool {
 	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
 	if claim.All && len(claim.ResourceSelector) > 0 {
 		return false
@@ -153,7 +153,8 @@ func isSelected(claim apisv1alpha1.PermissionClaim, name, namespace string) bool
 	}
 
 	for _, selector := range claim.ResourceSelector {
-		// Selecting a specific object, might be cluster-scoped.
+		// Selecting a specific object, might be cluster-scoped or the selector itself does not have a namespace defined.
+		// When selector.Namespace == "", then the permission is assumed to be cluster-scoped *or* the object's name is the only criteria and any namespace is valid.
 		if selector.Name == name && (selector.Namespace == namespace || selector.Namespace == "") {
 			return true
 		}
