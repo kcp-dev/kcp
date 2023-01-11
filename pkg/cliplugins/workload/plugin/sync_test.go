@@ -69,6 +69,14 @@ rules:
   - "watch"
   - "list"
 - apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
+- apiGroups:
   - ""
   resources:
   - resource1
@@ -298,6 +306,14 @@ rules:
   - "get"
   - "watch"
   - "list"
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
 - apiGroups:
   - ""
   resources:

@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -100,14 +101,13 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 	dnsID := shared.GetDNSID(workspace, d.syncTargetUID, d.syncTargetName)
 	logger = logger.WithValues("name", dnsID, "namespace", d.dnsNamespace)
 
-	logger.Info("checking if all dns objects exist and are up-to-date")
+	logger.V(4).Info("checking if all dns objects exist and are up-to-date")
 	ctx = klog.NewContext(ctx, logger)
 
 	// Try updating resources if not done already
 	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
 		updated, err := d.lockMayUpdate(ctx, dnsID)
 		if updated {
-			logger.Info("dns updated")
 			return false, err
 		}
 	}
@@ -120,16 +120,11 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 	}
 
 	if !apierrors.IsNotFound(err) {
-
 		return false, err
 	}
 
 	// No Endpoints resource was found: try to create all the DNS-related resources
-	if err := d.processNetworkPolicy(ctx, dnsID); err != nil {
-		return false, err
-	}
 	if err := d.processServiceAccount(ctx, dnsID); err != nil {
-		logger.Info("sa not ready", "dnsID", dnsID)
 		return false, err
 	}
 	if err := d.processRole(ctx, dnsID); err != nil {
@@ -142,6 +137,9 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 		return false, err
 	}
 	if err := d.processService(ctx, dnsID); err != nil {
+		return false, err
+	}
+	if err := d.processNetworkPolicy(ctx, dnsID); err != nil {
 		return false, err
 	}
 
