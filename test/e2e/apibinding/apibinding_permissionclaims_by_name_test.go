@@ -48,8 +48,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName, _ := framework.NewOrganizationFixture(t, server)
-	serviceProviderPath, serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	_, serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+
+	// Use the cluster hash since we're not using the front proxy here
+	serviceProviderPath := logicalcluster.NewPath(serviceProviderWorkspace.Spec.Cluster)
+	consumerPath := logicalcluster.NewPath(consumerWorkspace.Spec.Cluster)
 
 	t.Logf("Provider workspace: %s", serviceProviderWorkspace.Spec.Cluster)
 	t.Logf("Consumer workspace: %s", consumerWorkspace.Spec.Cluster)
@@ -122,7 +126,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
 	t.Logf("binding consumer to provider export")
-	binding := bindConsumerToProviderCMExport(ctx, t, logicalcluster.NewPath(consumerWorkspace.Spec.Cluster), serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
+	binding := bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
 	require.NotNil(t, binding)
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
@@ -203,7 +207,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
 	t.Logf("Updating consumer API Bindings")
-	binding = bindConsumerToProviderCMExport(ctx, t, logicalcluster.NewPath(consumerWorkspace.Spec.Cluster), serviceProviderPath, kcpClusterClient, "confmap1", "")
+	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "confmap1", "")
 	require.NotNil(t, binding)
 
 	cm = &v1.ConfigMap{
