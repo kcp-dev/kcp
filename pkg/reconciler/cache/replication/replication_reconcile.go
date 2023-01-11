@@ -160,9 +160,6 @@ func (c *controller) reconcileObject(ctx context.Context,
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	if !replicate {
-		return nil
-	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
 		_, err = c.dynamicKcpLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -172,6 +169,8 @@ func (c *controller) reconcileObject(ctx context.Context,
 		if !errors.IsNotFound(err) {
 			return err
 		}
+	} else if !replicate {
+		localObject = nil // like if it wasn't there
 	}
 
 	var unstructuredCacheObject *unstructured.Unstructured
