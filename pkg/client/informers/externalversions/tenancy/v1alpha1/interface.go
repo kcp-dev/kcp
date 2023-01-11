@@ -26,6 +26,8 @@ import (
 )
 
 type ClusterInterface interface {
+	// Workspaces returns a WorkspaceClusterInformer
+	Workspaces() WorkspaceClusterInformer
 	// WorkspaceTypes returns a WorkspaceTypeClusterInformer
 	WorkspaceTypes() WorkspaceTypeClusterInformer
 }
@@ -40,12 +42,19 @@ func New(f internalinterfaces.SharedInformerFactory, tweakListOptions internalin
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// Workspaces returns a WorkspaceClusterInformer
+func (v *version) Workspaces() WorkspaceClusterInformer {
+	return &workspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // WorkspaceTypes returns a WorkspaceTypeClusterInformer
 func (v *version) WorkspaceTypes() WorkspaceTypeClusterInformer {
 	return &workspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
+	// Workspaces returns a WorkspaceInformer
+	Workspaces() WorkspaceInformer
 	// WorkspaceTypes returns a WorkspaceTypeInformer
 	WorkspaceTypes() WorkspaceTypeInformer
 }
@@ -59,6 +68,11 @@ type scopedVersion struct {
 // New returns a new ClusterInterface.
 func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// Workspaces returns a WorkspaceInformer
+func (v *scopedVersion) Workspaces() WorkspaceInformer {
+	return &workspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkspaceTypes returns a WorkspaceTypeInformer

@@ -29,12 +29,17 @@ import (
 
 type TenancyV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	WorkspacesGetter
 	WorkspaceTypesGetter
 }
 
 // TenancyV1alpha1Client is used to interact with features provided by the tenancy.kcp.io group.
 type TenancyV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *TenancyV1alpha1Client) Workspaces() WorkspaceInterface {
+	return newWorkspaces(c)
 }
 
 func (c *TenancyV1alpha1Client) WorkspaceTypes() WorkspaceTypeInterface {

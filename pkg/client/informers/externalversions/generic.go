@@ -118,6 +118,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("placements"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().Placements().Informer()}, nil
 	// Group=tenancy.kcp.io, Version=V1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().Workspaces().Informer()}, nil
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().WorkspaceTypes().Informer()}, nil
 	// Group=tenancy.kcp.io, Version=V1beta1
@@ -175,6 +177,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		informer := f.Scheduling().V1alpha1().Placements().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=tenancy.kcp.io, Version=V1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"):
+		informer := f.Tenancy().V1alpha1().Workspaces().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"):
 		informer := f.Tenancy().V1alpha1().WorkspaceTypes().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
