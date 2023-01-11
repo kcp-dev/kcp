@@ -59,7 +59,7 @@ func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.Cluster
 			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
 		},
 		newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
-			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient)
+			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient, delegated.Options{})
 		},
 	}
 }

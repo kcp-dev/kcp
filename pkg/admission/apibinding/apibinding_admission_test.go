@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -160,7 +161,7 @@ func TestAdmit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,
@@ -433,7 +434,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,
