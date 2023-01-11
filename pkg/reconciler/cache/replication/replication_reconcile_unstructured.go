@@ -18,6 +18,7 @@ package replication
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -25,7 +26,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 )
@@ -210,10 +210,12 @@ func ensureRemaining(cacheObject *unstructured.Unstructured, localObject *unstru
 
 func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	unstructured := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	bs, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-	unstructured.Object = raw
+	if err := json.Unmarshal(bs, &unstructured.Object); err != nil {
+		return nil, err
+	}
 	return unstructured, nil
 }
