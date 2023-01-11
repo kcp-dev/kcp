@@ -48,6 +48,10 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		{"apis.kcp.io", "apiexports"},
 		{"core.kcp.io", "shards"},
 		{"tenancy.kcp.io", "workspacetypes"},
+		{"rbac.authorization.k8s.io", "roles"},
+		{"rbac.authorization.k8s.io", "clusterroles"},
+		{"rbac.authorization.k8s.io", "rolebindings"},
+		{"rbac.authorization.k8s.io", "clusterrolebindings"},
 	} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		if err := configcrds.Unmarshal(fmt.Sprintf("%s_%s.yaml", gr.group, gr.resource), crd); err != nil {

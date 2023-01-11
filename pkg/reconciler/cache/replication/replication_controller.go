@@ -23,7 +23,10 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -60,20 +63,28 @@ func NewController(
 	dynamicLocalClient kcpdynamic.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	globalKcpInformers kcpinformers.SharedInformerFactory,
+	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 ) (*controller, error) {
 	c := &controller{
-		shardName:                      shardName,
-		queue:                          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		dynamicCacheClient:             dynamicCacheClient,
-		dynamicLocalClient:             dynamicLocalClient,
-		localAPIExportLister:           localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
-		localAPIResourceSchemaLister:   localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
-		localShardLister:               localKcpInformers.Core().V1alpha1().Shards().Lister(),
-		localWorkspaceTypeLister:       localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Lister(),
-		globalAPIExportIndexer:         globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		globalAPIResourceSchemaIndexer: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
-		globalShardIndexer:             globalKcpInformers.Core().V1alpha1().Shards().Informer().GetIndexer(),
-		globalWorkspaceTypeIndexer:     globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(),
+		shardName:             shardName,
+		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		dynamicKcpCacheClient: dynamicCacheClient,
+		dynamicKcpLocalClient: dynamicLocalClient,
+
+		localAPIExportLister:          localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
+		localAPIResourceSchemaLister:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
+		localShardLister:              localKcpInformers.Core().V1alpha1().Shards().Lister(),
+		localWorkspaceTypeLister:      localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Lister(),
+		localClusterRoleLister:        localKubeInformers.Rbac().V1().ClusterRoles().Lister(),
+		localClusterRoleBindingLister: localKubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+
+		globalAPIExportIndexer:          globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		globalAPIResourceSchemaIndexer:  globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		globalShardIndexer:              globalKcpInformers.Core().V1alpha1().Shards().Informer().GetIndexer(),
+		globalWorkspaceTypeIndexer:      globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(),
+		globalClusterRoleIndexer:        globalKubeInformers.Rbac().V1().ClusterRoles().Informer().GetIndexer(),
+		globalClusterRoleBindingIndexer: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(),
 	}
 
 	indexers.AddIfNotPresentOrDie(
@@ -104,6 +115,20 @@ func NewController(
 		},
 	)
 
+	indexers.AddIfNotPresentOrDie(
+		globalKubeInformers.Rbac().V1().ClusterRoles().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
+
+	indexers.AddIfNotPresentOrDie(
+		globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
+
 	localKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.objectInformerEventHandler(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")))
 	globalKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.objectInformerEventHandler(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")))
 
@@ -115,6 +140,12 @@ func NewController(
 
 	localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().AddEventHandler(c.objectInformerEventHandler(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes")))
 	globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().AddEventHandler(c.objectInformerEventHandler(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes")))
+
+	localKubeInformers.Rbac().V1().ClusterRoles().Informer().AddEventHandler(c.objectInformerEventHandler(rbacv1.SchemeGroupVersion.WithResource("clusterroles")))
+	globalKubeInformers.Rbac().V1().ClusterRoles().Informer().AddEventHandler(c.objectInformerEventHandler(rbacv1.SchemeGroupVersion.WithResource("clusterroles")))
+
+	localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer().AddEventHandler(c.objectInformerEventHandler(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings")))
+	globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer().AddEventHandler(c.objectInformerEventHandler(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings")))
 
 	return c, nil
 }
@@ -183,16 +214,20 @@ type controller struct {
 	shardName string
 	queue     workqueue.RateLimitingInterface
 
-	dynamicCacheClient kcpdynamic.ClusterInterface
-	dynamicLocalClient kcpdynamic.ClusterInterface
+	dynamicKcpCacheClient kcpdynamic.ClusterInterface
+	dynamicKcpLocalClient kcpdynamic.ClusterInterface
 
-	localAPIExportLister         apisv1alpha1listers.APIExportClusterLister
-	localAPIResourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
-	localShardLister             corev1alpha1listers.ShardClusterLister
-	localWorkspaceTypeLister     tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	localAPIExportLister          apisv1alpha1listers.APIExportClusterLister
+	localAPIResourceSchemaLister  apisv1alpha1listers.APIResourceSchemaClusterLister
+	localShardLister              corev1alpha1listers.ShardClusterLister
+	localWorkspaceTypeLister      tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	localClusterRoleLister        kcprbaclisters.ClusterRoleClusterLister
+	localClusterRoleBindingLister kcprbaclisters.ClusterRoleBindingClusterLister
 
-	globalAPIExportIndexer         cache.Indexer
-	globalAPIResourceSchemaIndexer cache.Indexer
-	globalShardIndexer             cache.Indexer
-	globalWorkspaceTypeIndexer     cache.Indexer
+	globalAPIExportIndexer          cache.Indexer
+	globalAPIResourceSchemaIndexer  cache.Indexer
+	globalShardIndexer              cache.Indexer
+	globalWorkspaceTypeIndexer      cache.Indexer
+	globalClusterRoleIndexer        cache.Indexer
+	globalClusterRoleBindingIndexer cache.Indexer
 }

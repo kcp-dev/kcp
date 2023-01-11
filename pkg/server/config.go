@@ -119,6 +119,7 @@ type ExtraConfig struct {
 	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
 	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
+	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -197,8 +198,16 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rt)
+	if err != nil {
+		return nil, err
+	}
 	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		cacheKcpClusterClient,
+		resyncPeriod,
+	)
+	c.CacheKubeSharedInformerFactory = kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		cacheKubeClusterClient,
 		resyncPeriod,
 	)
 	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
@@ -282,7 +291,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	if err := opts.Authorization.ApplyTo(c.GenericConfig, c.KubeSharedInformerFactory, c.KcpSharedInformerFactory); err != nil {
+	if err := opts.Authorization.ApplyTo(c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {
 		return nil, err
 	}
 	var userToken string
@@ -383,7 +392,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
 
 	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),

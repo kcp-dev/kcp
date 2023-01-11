@@ -58,8 +58,8 @@ func NewController(
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	shardInformer corev1alpha1informers.ShardClusterInformer,
-	workspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
+	globalShardInformer corev1alpha1informers.ShardClusterInformer,
+	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -78,11 +78,11 @@ func NewController(
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
 
-		shardIndexer: shardInformer.Informer().GetIndexer(),
-		shardLister:  shardInformer.Lister(),
+		globalShardIndexer: globalShardInformer.Informer().GetIndexer(),
+		globalShardLister:  globalShardInformer.Lister(),
 
-		workspaceTypeIndexer: workspaceTypeInformer.Informer().GetIndexer(),
-		workspaceTypeLister:  workspaceTypeInformer.Lister(),
+		globalWorkspaceTypeIndexer: globalWorkspaceTypeInformer.Informer().GetIndexer(),
+		globalWorkspaceTypeLister:  globalWorkspaceTypeInformer.Lister(),
 
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
@@ -93,10 +93,10 @@ func NewController(
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable: indexUnschedulable,
 	})
-	indexers.AddIfNotPresentOrDie(shardInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
-	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -105,7 +105,7 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	globalShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
@@ -132,11 +132,11 @@ type Controller struct {
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1beta1listers.WorkspaceClusterLister
 
-	shardIndexer cache.Indexer
-	shardLister  corev1alpha1listers.ShardClusterLister
+	globalShardIndexer cache.Indexer
+	globalShardLister  corev1alpha1listers.ShardClusterLister
 
-	workspaceTypeIndexer cache.Indexer
-	workspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	globalWorkspaceTypeIndexer cache.Indexer
+	globalWorkspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
@@ -169,7 +169,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		return
 	}
 
-	shard, err := c.shardLister.Cluster(clusterName).Get(name)
+	shard, err := c.globalShardLister.Cluster(clusterName).Get(name)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {

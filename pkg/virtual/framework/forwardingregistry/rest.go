@@ -23,6 +23,7 @@ import (
 
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
+	"k8s.io/apimachinery/pkg/api/validation/path"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -143,6 +144,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.Cl
 			typer,
 			namespaceScoped,
 			kind,
+			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},

@@ -30,20 +30,21 @@ import (
 // NewKcpInformersInitializer returns an admission plugin initializer that injects
 // kcp shared informer factories into admission plugins.
 func NewKcpInformersInitializer(
-	kcpInformers kcpinformers.SharedInformerFactory,
+	local, global kcpinformers.SharedInformerFactory,
 ) *kcpInformersInitializer {
 	return &kcpInformersInitializer{
-		kcpInformers: kcpInformers,
+		localKcpInformers:  local,
+		globalKcpInformers: global,
 	}
 }
 
 type kcpInformersInitializer struct {
-	kcpInformers kcpinformers.SharedInformerFactory
+	localKcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory
 }
 
 func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsKcpInformers); ok {
-		wants.SetKcpInformers(i.kcpInformers)
+		wants.SetKcpInformers(i.localKcpInformers, i.globalKcpInformers)
 	}
 }
 

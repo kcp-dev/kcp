@@ -19,7 +19,7 @@ GO_INSTALL = ./hack/go-install.sh
 
 TOOLS_DIR=hack/tools
 TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
-GOBIN_DIR=$(abspath ./bin )
+GOBIN_DIR=$(abspath ./bin)
 PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
 
@@ -373,6 +373,11 @@ verify-modules: modules  ## Verify go modules are up to date
 		git diff; \
 		echo "go module files are out of date"; exit 1; \
 	fi
+
+.PHONY: clean
+clean:
+	! test -e $(TOOLS_DIR) || rm -r $(TOOLS_DIR)
+	! test -e $(GOBIN_DIR)/* || rm $(GOBIN_DIR)/*
 
 .PHONY: help
 help: ## Show this help.

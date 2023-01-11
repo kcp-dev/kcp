@@ -558,13 +558,6 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 
 	preExisting := false
 	ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
-	if apierrors.IsNotFound(err) {
-		// STOP THE BLEEDING: currently, kcp forwards workspace resource request to the workspace virtual apiserver
-		// independently whether the CRD is installed in the workspace. Universal workspaces though don't have that
-		// resource, but the virtual apiserver return 404 in that case, confusingly for clients.
-		// This hack avoids a message confusing for the user.
-		return fmt.Errorf("creating a workspace under a universal type workspace is not supported")
-	}
 	if apierrors.IsAlreadyExists(err) && o.IgnoreExisting {
 		preExisting = true
 		ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})

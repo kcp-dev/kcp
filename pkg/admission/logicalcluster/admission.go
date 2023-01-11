@@ -209,12 +209,12 @@ func (o *plugin) ValidateInitialization() error {
 	return nil
 }
 
-func (o *plugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	logicalClustersReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+func (o *plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	logicalClustersReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return logicalClustersReady()
 	})
-	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 }
 
 func toSet(initializers []corev1alpha1.LogicalClusterInitializer) sets.String {

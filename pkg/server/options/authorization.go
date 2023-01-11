@@ -81,10 +81,10 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpinformer.Core().V1alpha1().LogicalClusters().Lister()
+	workspaceLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -104,17 +104,20 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	// TODO: link the markdown
 
 	// bootstrap rules defined once for every workspace
-	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(informer)
+	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
 	bootstrapAuth = authz.NewDecorator("bootstrap.authorization.kcp.io", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// resolves RBAC resources in the workspace
-	localAuth, localResolver := authz.NewLocalAuthorizer(informer)
+	localAuth, localResolver := authz.NewLocalAuthorizer(kubeInformers)
 	localAuth = authz.NewDecorator("local.authorization.kcp.io", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
+	globalAuth = authz.NewDecorator("global.authorization.kcp.io", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// everything below - skipped for Deep SAR
 
 	// enforce maximal permission policy
-	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
+	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers, union.New(bootstrapAuth, localAuth, globalAuth))
 	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.io", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// protect status updates to apiexport and apibinding
@@ -125,7 +128,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 	// mean nothing unless they also have `verb=access` on `/`
-	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
+	contentAuth := authz.NewWorkspaceContentAuthorizer(kubeInformers, workspaceLister, systemCRDAuth)
 	contentAuth = authz.NewDecorator("content.authorization.kcp.io", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -

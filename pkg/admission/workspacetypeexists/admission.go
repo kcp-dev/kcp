@@ -44,7 +44,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
@@ -60,7 +59,11 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			plugin.getType = func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-				return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), plugin.typeIndexer, path, name)
+				obj, err := indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), plugin.typeIndexer, path, name)
+				if apierrors.IsNotFound(err) {
+					return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), plugin.globalTypeIndexer, path, name)
+				}
+				return obj, err
 			}
 			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(plugin.getType)
 
@@ -77,12 +80,14 @@ type workspacetypeExists struct {
 
 	getType func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 
-	typeIndexer            cache.Indexer
-	typeLister             tenancyv1alpha1listers.WorkspaceTypeClusterLister
-	logicalClusterLister   corev1alpha1listers.LogicalClusterClusterLister
-	deepSARClient          kcpkubernetesclientset.ClusterInterface
+	typeIndexer       cache.Indexer
+	globalTypeIndexer cache.Indexer
+
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
+
 	transitiveTypeResolver TransitiveTypeResolver
 
+	deepSARClient    kcpkubernetesclientset.ClusterInterface
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
@@ -327,26 +332,38 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 }
 
 func (o *workspacetypeExists) ValidateInitialization() error {
-	if o.typeLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an WorkspaceType lister")
+	if o.typeIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a WorkspaceType indexer")
+	}
+	if o.globalTypeIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a global WorkspaceType indexer")
 	}
 	if o.logicalClusterLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
+		return fmt.Errorf(PluginName + " plugin needs a LogicalCluster lister")
 	}
 	return nil
 }
 
-func (o *workspacetypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	typesReady := informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
-	logicalClusterReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
-	o.SetReadyFunc(func() bool {
-		return typesReady() && logicalClusterReady()
-	})
-	o.typeLister = informers.Tenancy().V1alpha1().WorkspaceTypes().Lister()
-	o.typeIndexer = informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
-	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+func (o *workspacetypeExists) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	localTypesReady := local.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
+	globalTypesReady := global.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
 
-	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+	logicalClusterReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+
+	o.SetReadyFunc(func() bool {
+		return localTypesReady() && globalTypesReady() && logicalClusterReady()
+	})
+
+	o.typeIndexer = local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+	o.globalTypeIndexer = global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+
+	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
+
+	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }
