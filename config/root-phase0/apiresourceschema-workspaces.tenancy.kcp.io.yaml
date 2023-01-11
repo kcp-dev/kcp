@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230111-7449f14f.workspaces.tenancy.kcp.io
+  name: v230112-eb0f15cec.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -76,7 +76,7 @@ spec:
               x-kubernetes-validations:
               - message: cluster is immutable
                 rule: self == oldSelf
-            shard:
+            location:
               description: "location constraints where this workspace can be scheduled
                 to. \n If the no location is specified, an arbitrary location is chosen."
               properties:

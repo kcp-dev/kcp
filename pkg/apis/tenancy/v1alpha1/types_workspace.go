@@ -150,7 +150,7 @@ type WorkspaceSpec struct {
 	// If the no location is specified, an arbitrary location is chosen.
 	//
 	// +optional
-	Location *WorkspaceLocation `json:"shard,omitempty"`
+	Location *WorkspaceLocation `json:"location,omitempty"`
 
 	// cluster is the name of the logical cluster this workspace is stored under.
 	//
