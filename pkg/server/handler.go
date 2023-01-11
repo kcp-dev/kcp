@@ -47,8 +47,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
-
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 var (
@@ -100,31 +98,6 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 			kaudit.WithAuditAnnotations(req.Context()),
 		))
 	})
-}
-
-// WithClusterWorkspaceProjection workspaces to clusterworkspaces.
-func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
-	toRedirectPath := path.Join("/apis", tenancyv1alpha1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces")
-
-	return func(w http.ResponseWriter, req *http.Request) {
-		logger := klog.FromContext(req.Context())
-		cluster := request.ClusterFrom(req.Context())
-		if cluster.Name.Empty() {
-			apiHandler.ServeHTTP(w, req)
-			return
-		}
-
-		if !strings.HasPrefix(req.URL.Path, toRedirectPath+"/") && req.URL.Path != toRedirectPath {
-			apiHandler.ServeHTTP(w, req)
-			return
-		}
-
-		newPath := path.Join("/services/clusterworkspaces", cluster.Name.String(), req.URL.Path)
-		logger = logger.WithValues("from", path.Join(cluster.Name.Path().RequestPath(), req.URL.Path), "to", newPath)
-		logger.V(4).Info("rewriting path")
-		req.URL.Path = newPath
-		apiHandler.ServeHTTP(w, req)
-	}
 }
 
 func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {

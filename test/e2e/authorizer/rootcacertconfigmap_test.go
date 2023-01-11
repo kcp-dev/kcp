@@ -42,15 +42,15 @@ func TestRootCACertConfigmap(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := framework.SharedKcpServer(t)
-	orgClusterName := framework.NewOrganizationFixture(t, server)
-	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("cluster"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("cluster"))
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Log("Creating namespace")
-	namespace, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	namespace, err := kubeClusterClient.Cluster(wsPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-sa-",
 		},
@@ -59,7 +59,7 @@ func TestRootCACertConfigmap(t *testing.T) {
 
 	t.Log("Waiting for default configmap to be created")
 	require.Eventually(t, func() bool {
-		configmap, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().ConfigMaps(namespace.Name).Get(ctx, DefaultRootCACertConfigmap, metav1.GetOptions{})
+		configmap, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(namespace.Name).Get(ctx, DefaultRootCACertConfigmap, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		}

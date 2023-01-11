@@ -1062,6 +1062,7 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 
 	c, err := workloadplacement.NewController(
 		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),

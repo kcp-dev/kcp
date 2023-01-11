@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	restclient "k8s.io/client-go/rest"
@@ -56,7 +57,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			return nil, err
 		}
 		if len(shards) == 0 {
-			return nil, nil
+			return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), hash)
 		}
 		return shards[0].(*corev1alpha1.Shard), nil
 	}

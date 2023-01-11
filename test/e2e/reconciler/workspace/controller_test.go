@@ -172,7 +172,7 @@ func TestWorkspaceController(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 			// create clients
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
@@ -181,7 +181,7 @@ func TestWorkspaceController(t *testing.T) {
 			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
+			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgPath))
 			require.NoError(t, err, "failed to start expecter")
 
 			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(core.RootCluster.Path()))
@@ -190,7 +190,7 @@ func TestWorkspaceController(t *testing.T) {
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
 				rootKcpClient:   kcpClient.Cluster(core.RootCluster.Path()),
-				orgKcpClient:    kcpClient.Cluster(orgClusterName.Path()),
+				orgKcpClient:    kcpClient.Cluster(orgPath),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,
 			})

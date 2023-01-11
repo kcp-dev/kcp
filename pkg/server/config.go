@@ -373,7 +373,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
 		}
 
-		apiHandler = WithClusterWorkspaceProjection(apiHandler)
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
 		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())

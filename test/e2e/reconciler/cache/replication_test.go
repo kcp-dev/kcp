@@ -335,9 +335,10 @@ func replicateResource(ctx context.Context, t *testing.T,
 	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
-	org := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	if clusterName.Empty() {
-		clusterName = framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
 	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
 
@@ -385,9 +386,10 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
-	org := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	if clusterName.Empty() {
-		clusterName = framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithRootShard())
+		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
 	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
 

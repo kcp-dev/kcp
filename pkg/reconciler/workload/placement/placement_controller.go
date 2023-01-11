@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,14 +36,18 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	schedulingv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -51,13 +56,14 @@ import (
 )
 
 const (
-	ControllerName      = "kcp-workload-placement"
-	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
+	ControllerName         = "kcp-workload-placement"
+	bySelectedLocationPath = ControllerName + "-bySelectedLocationPath"
 )
 
 // NewController returns a new controller starting the process of selecting synctarget for a placement.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	locationInformer schedulinginformers.LocationClusterInformer,
 	syncTargetInformer workloadinformers.SyncTargetClusterInformer,
 	placementInformer schedulinginformers.PlacementClusterInformer,
@@ -69,6 +75,8 @@ func NewController(
 		queue: queue,
 
 		kcpClusterClient: kcpClusterClient,
+
+		logicalClusterLister: logicalClusterInformer.Lister(),
 
 		locationLister:  locationInformer.Lister(),
 		locationIndexer: locationInformer.Informer().GetIndexer(),
@@ -84,7 +92,7 @@ func NewController(
 	}
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
+		bySelectedLocationPath: indexBySelectedLocationPath,
 	}); err != nil {
 		return nil, err
 	}
@@ -165,6 +173,8 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
+
 	locationLister  schedulingv1alpha1listers.LocationClusterLister
 	locationIndexer cache.Indexer
 
@@ -179,24 +189,33 @@ type controller struct {
 
 // enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
 func (c *controller) enqueueLocation(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = tombstone.Obj
 	}
-	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(err)
+
+	location, ok := obj.(*schedulingv1alpha1.Location)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	// placements referencing by cluster name
+	placements, err := c.placementIndexer.ByIndex(bySelectedLocationPath, logicalcluster.From(location).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	if path := location.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
+		// placements referencing by path
+		placementsByPath, err := c.placementIndexer.ByIndex(bySelectedLocationPath, path)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		placements = append(placements, placementsByPath...)
+	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Location))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), location)
 	for _, placement := range placements {
 		c.enqueuePlacement(placement, logger, " because of Location")
 	}
@@ -243,16 +262,33 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+
 	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	cluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		runtime.HandleError(err)
 		return
+	}
+
+	// placements referencing by cluster name
+	placements, err := c.placementIndexer.ByIndex(bySelectedLocationPath, logicalcluster.From(cluster).String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	if path := cluster.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
+		// placements referencing by path
+		placementsByPath, err := c.placementIndexer.ByIndex(bySelectedLocationPath, path)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		placements = append(placements, placementsByPath...)
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*workloadv1alpha1.SyncTarget))
