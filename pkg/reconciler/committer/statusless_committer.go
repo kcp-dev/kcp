@@ -17,7 +17,6 @@ limitations under the License.
 package committer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -25,6 +24,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,6 +100,10 @@ func NewStatuslessCommitterScoped[R StatuslessResource](patcher Patcher[R], shal
 }
 
 func generateStatusLessPatchAndSubResources[R StatuslessResource](shallowCopy ObjectMetaShallowCopy[R], old, obj R) ([]byte, error) {
+	if equality.Semantic.DeepEqual(old, obj) {
+		return nil, nil
+	}
+
 	clusterName := logicalcluster.From(old)
 	name := old.GetName()
 
@@ -121,10 +125,6 @@ func generateStatusLessPatchAndSubResources[R StatuslessResource](shallowCopy Ob
 	newData, err := json.Marshal(newForPatch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Marshal new data for %s|%s: %w", clusterName, name, err)
-	}
-
-	if bytes.Equal(oldData, newData) {
-		return nil, nil
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
