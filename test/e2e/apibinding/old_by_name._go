@@ -1,0 +1,225 @@
+/*
+Copyright 2022 The KCP Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package apibinding
+
+import (
+	"context"
+	"fmt"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
+	"github.com/kcp-dev/kcp/test/e2e/framework"
+)
+
+// requirements:
+//		kcp server X
+//		2 workspaces X
+//		2 APIs, so that one can be claimed by name. One should be namespaced. X
+// tests:
+//		when only `name` is specified, exactly one cluster-scoped resource is claimed
+//		when only `namespace` is specified, all resources in specified namespace are claimed
+//		when both `name` and `namespace` are specified, only named resource in the namespace is claimed
+//		when neither `name` nor `namespace` are specified, all resources in the workspace are claimed
+//		when `all` and `resourceSelector` are specified, there's an error
+func TestPermissionClaimsByName(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kube cluster client for server")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	t.Logf("Installing a sheriff APIResourceSchema and APIExport into workspace %q", serviceProviderWorkspace)
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderWorkspace.Path(), kcpClusterClient, "wild.wild.west", "board the wanderer")
+
+	identityHash := ""
+	framework.Eventually(t, func() (done bool, str string) {
+		sheriffExport, err := kcpClusterClient.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
+			identityHash = sheriffExport.Status.IdentityHash
+			return true, ""
+		}
+		condition := conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid)
+		if condition != nil {
+			return false, fmt.Sprintf("not done waiting for API Export condition status:%v - reason: %v - message: %v", condition.Status, condition.Reason, condition.Message)
+		}
+		return false, "not done waiting for APIExportIdentity to be marked valid, no condition exists"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
+
+	t.Logf("Found identity hash: %v", identityHash)
+	apifixtures.BindToExport(ctx, t, serviceProviderWorkspace.Path(), "wild.wild.west", consumerWorkspace.Path(), kcpClusterClient)
+
+	t.Logf("Creating namespace")
+	consumerNS1, err := kubeClusterClient.Cluster(consumerWorkspace.Path()).CoreV1().Namespaces().Create(ctx, &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "consumer-ns-1",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create ns-1")
+
+	t.Logf("Waiting for namespace to exist")
+	framework.Eventually(t, func() (done bool, str string) {
+		consumerNS1, err := kubeClusterClient.Cluster(consumerWorkspace.Path()).CoreV1().Namespaces().Get(ctx, consumerNS1.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		if consumerNS1.Status.Phase == v1.NamespaceActive {
+			return true, ""
+		}
+
+		return false, "not done waiting for ns1 to be created"
+	}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
+	t.Logf("Namespace %s ready", consumerNS1.Name)
+
+	t.Logf("set up service provider for cowboys with permission claims for sheriffs in consumer-ns-1")
+	setUpServiceProviderWithPermissionClaims(ctx,
+		dynamicClusterClient,
+		kcpClusterClient,
+		serviceProviderWorkspace,
+		//makeBroadPermissionClaims(identityHash),
+		makeNarrowPermissionClaims("", consumerNS1.Name, identityHash),
+		cfg,
+		t,
+	)
+
+	t.Logf("bind to cowboys in consumer workspace")
+	bindConsumerToProvider(ctx, consumerWorkspace.Path(), serviceProviderWorkspace, t, kcpClusterClient, cfg, identityHash)
+	var binding *apisv1alpha1.APIBinding
+	framework.Eventually(t, func() (success bool, reason string) {
+		binding, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
+
+	t.Logf("Create a sheriff in consumer-ns-1")
+	framework.Eventually(t, func() (success bool, reason string) {
+		sheriffsGVR := schema.GroupVersionResource{Group: "wild.wild.west", Resource: "sheriffs", Version: "v1"}
+		sheriff := NewSheriff("john-wayne")
+		_, err := dynamicClusterClient.Cluster(consumerWorkspace.Path()).Resource(sheriffsGVR).Namespace(consumerNS1.Name).Create(ctx, sheriff, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
+
+	t.Logf("%+v", binding)
+
+	shardVirtualWorkspaceURLs := sets.NewString()
+	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
+	require.Eventually(t, func() bool {
+		shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("unexpected error while listing shards, err %v", err)
+			return false
+		}
+		for _, s := range shards.Items {
+			if len(s.Spec.VirtualWorkspaceURL) == 0 {
+				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
+				return false
+			}
+			shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+		}
+		return true
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all Shards to have a VirtualWorkspaceURL assigned")
+
+	t.Logf("Get virtual workspace URL")
+	apiExport, err := kcpClusterClient.Cluster(serviceProviderWorkspace.Path()).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+	require.NoError(t, err, "error getting APIExport")
+	require.Len(t, apiExport.Status.VirtualWorkspaces, shardVirtualWorkspaceURLs.Len(), "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
+
+	apiExportVWCfg := rest.CopyConfig(cfg)
+	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
+
+	//wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
+	//require.NoError(t, err)
+	discoveryVCClusterClient, err := kcpdiscovery.NewForConfig(apiExportVWCfg)
+	require.NoError(t, err)
+
+	resources, err := discoveryVCClusterClient.ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+	require.NoError(t, err, "error retrieving APIExport discovery")
+	require.True(t, resourceExists(resources, "cowboys"), "missing cowboys")
+
+	// TODO(nrb): Get resources out of the consumer workspace and compare to the provider workspace
+
+	t.Logf("End of test")
+}
+
+// makeNarrowPermissionClaim creates a PermissionClaim scoped to just a name, just a namespace, or both.
+func makeNarrowPermissionClaims(name, namespace, identityHash string) []apisv1alpha1.PermissionClaim {
+	return []apisv1alpha1.PermissionClaim{
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+			IdentityHash:  identityHash,
+			All:           false,
+			ResourceSelector: []apisv1alpha1.ResourceSelector{
+				{
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+		},
+	}
+}
+
+func NewSheriff(name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "wild.wild.west" + "/v1",
+			"kind":       "Sheriff",
+			"metadata": map[string]interface{}{
+				"name": name,
+			},
+		},
+	}
+}
