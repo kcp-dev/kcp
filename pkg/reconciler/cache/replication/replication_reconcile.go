@@ -174,12 +174,22 @@ func (c *controller) reconcileObject(ctx context.Context,
 		unstructuredCacheObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
 	if isNotNil(localObject) {
-		unstructuredLocalObject, err = toUnstructured(localObject)
-		if err != nil {
+		if err := func() error {
+			defer func() {
+				if e := recover(); e != nil {
+					fmt.Println(fmt.Sprintf("recovered: err = %v, obj = %v", e, localObject))
+				}
+			}()
+			unstructuredLocalObject, err = toUnstructured(localObject)
+			if err != nil {
+				return err
+			}
+			unstructuredLocalObject.SetKind(gvk.Kind)
+			unstructuredLocalObject.SetAPIVersion(gvr.GroupVersion().String())
+			return nil
+		}(); err != nil {
 			return err
 		}
-		unstructuredLocalObject.SetKind(gvk.Kind)
-		unstructuredLocalObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
 	if cluster.Empty() && isNotNil(localObject) {
 		metadata, err := meta.Accessor(localObject)
