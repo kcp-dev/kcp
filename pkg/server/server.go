@@ -363,9 +363,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
 		// bootstrap root compute workspace
-		computeBoostraphookName := "rootComputeBoostrap"
-		if err := s.AddPostStartHook(computeBoostraphookName, func(hookContext genericapiserver.PostStartHookContext) error {
-			logger := logger.WithValues("postStartHook", computeBoostraphookName)
+		computeBoostrapHookName := "rootComputeBoostrap"
+		if err := s.AddPostStartHook(computeBoostrapHookName, func(hookContext genericapiserver.PostStartHookContext) error {
+			logger := logger.WithValues("postStartHook", computeBoostrapHookName)
 			if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 				// the root ws is only present on the root shard
 				logger.Info("waiting to bootstrap root compute workspace until root phase1 is complete")
