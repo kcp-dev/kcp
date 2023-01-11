@@ -50,8 +50,7 @@ import (
 )
 
 const (
-	ControllerName      = "kcp-namespace-scheduling-placement"
-	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
+	ControllerName = "kcp-namespace-scheduling-placement"
 )
 
 // NewController returns a new controller starting the process of placing namespaces onto locations by creating
@@ -80,12 +79,6 @@ func NewController(
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
-	}
-
-	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
 	}
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
