@@ -109,7 +109,7 @@ func IndexByLogicalClusterPathAndName(obj interface{}) ([]string, error) {
 		}, nil
 	}
 
-	return []string{logicalcluster.From(metaObj).String()}, nil
+	return []string{logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String()}, nil
 }
 
 // ByIndex returns all instances of T that match indexValue in indexName in indexer.
