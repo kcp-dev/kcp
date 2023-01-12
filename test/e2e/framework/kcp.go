@@ -104,6 +104,17 @@ func PrivateKcpServer(t *testing.T, options ...KcpConfigOption) RunningServer {
 		cfg = opt(cfg)
 	}
 
+	auditPolicyArg := false
+	for _, arg := range cfg.Args {
+		if arg == "--audit-policy-file" {
+			auditPolicyArg = true
+		}
+	}
+	// Default --audit-policy-file or we get no audit info for CI debugging
+	if !auditPolicyArg {
+		cfg.Args = append(cfg.Args, TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...)
+	}
+
 	if len(cfg.ArtifactDir) == 0 || len(cfg.DataDir) == 0 {
 		artifactDir, dataDir, err := ScratchDirs(t)
 		require.NoError(t, err, "failed to create scratch dirs: %v", err)
