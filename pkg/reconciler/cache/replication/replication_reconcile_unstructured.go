@@ -17,11 +17,11 @@ limitations under the License.
 package replication
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
@@ -140,12 +140,10 @@ func ensureRemaining(cacheObject *unstructured.Unstructured, localObject *unstru
 
 func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	unstructured := &unstructured.Unstructured{Object: map[string]interface{}{}}
-	bs, err := json.Marshal(obj)
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(bs, &unstructured.Object); err != nil {
-		return nil, err
-	}
+	unstructured.Object = raw
 	return unstructured, nil
 }

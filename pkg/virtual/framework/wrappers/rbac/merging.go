@@ -20,6 +20,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
@@ -73,7 +74,7 @@ func (l *mergedClusterRoleLister) List(selector labels.Selector) (ret []*rbacv1.
 		if err != nil {
 			return nil, err
 		}
-		aggregatedList = mergeClusterRoles(aggregatedList, list)
+		aggregatedList = shallowCopyAndMergeClusterRoles(aggregatedList, list)
 	}
 	return aggregatedList, nil
 }
@@ -91,7 +92,7 @@ func (l *mergedClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) 
 			if mergedItem == nil {
 				mergedItem = item
 			} else {
-				mergedItem = mergeClusterRoles([]*rbacv1.ClusterRole{mergedItem}, []*rbacv1.ClusterRole{item})[0]
+				mergedItem = shallowCopyAndMergeClusterRoles([]*rbacv1.ClusterRole{mergedItem}, []*rbacv1.ClusterRole{item})[0]
 			}
 		}
 	}
@@ -145,7 +146,7 @@ func (l *mergedRoleNamespaceLister) List(selector labels.Selector) (ret []*rbacv
 		if err != nil {
 			return nil, err
 		}
-		aggregatedList = mergeRoles(aggregatedList, list)
+		aggregatedList = shallowCopyAndMergeRoles(aggregatedList, list)
 	}
 	return aggregatedList, nil
 }
@@ -163,7 +164,7 @@ func (l *mergedRoleNamespaceLister) Get(name string) (*rbacv1.Role, error) {
 			if mergedItem == nil {
 				mergedItem = item
 			} else {
-				mergedItem = mergeRoles([]*rbacv1.Role{mergedItem}, []*rbacv1.Role{item})[0]
+				mergedItem = shallowCopyAndMergeRoles([]*rbacv1.Role{mergedItem}, []*rbacv1.Role{item})[0]
 			}
 		}
 	}
@@ -240,40 +241,71 @@ func (l mergedRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding,
 	panic("implement me")
 }
 
-// TODO: to be converted to generics once we rebase on Go 1.18.
-func mergeRoles(array []*rbacv1.Role, rolesToBeMergedIn []*rbacv1.Role) []*rbacv1.Role {
-	for _, roleToBeMerged := range rolesToBeMergedIn {
-		foundIndex := -1
-		for i, role := range array {
-			if roleToBeMerged.Name == role.Name {
-				foundIndex = i
-				break
+func shallowCopyAndMergeRoles(current []*rbacv1.Role, cachedRoles []*rbacv1.Role) []*rbacv1.Role {
+newroles:
+	for _, cachedRole := range cachedRoles {
+		// Have we already seen this Role?
+		for i, existing := range current {
+			if existing.Name == cachedRole.Name {
+				newRules := mergeRules(existing.Rules, cachedRole.Rules)
+				if len(newRules) != len(existing.Rules) {
+					// Rules are different, we need to modify the existing ruleset
+					// because we're operating on the cache object, make a shallow copy
+					// here and modify the shallow copy's rules.
+					shallow := *existing
+					shallow.Rules = newRules
+					current[i] = &shallow
+				}
+				continue newroles
 			}
 		}
-		if foundIndex != -1 {
-			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
-		} else {
-			array = append(array, roleToBeMerged)
-		}
+
+		// The Role is a new one, append it to the current array without
+		// a copy yet.
+		current = append(current, cachedRole)
 	}
-	return array
+	return current
 }
 
-// TODO: to be converted to generics once we rebase on Go 1.18.
-func mergeClusterRoles(array []*rbacv1.ClusterRole, rolesToBeMergedIn []*rbacv1.ClusterRole) []*rbacv1.ClusterRole {
-	for _, roleToBeMerged := range rolesToBeMergedIn {
-		foundIndex := -1
-		for i, role := range array {
-			if roleToBeMerged.Name == role.Name {
-				foundIndex = i
-				break
+func shallowCopyAndMergeClusterRoles(current []*rbacv1.ClusterRole, cachedRoles []*rbacv1.ClusterRole) []*rbacv1.ClusterRole {
+newroles:
+	for _, cachedRole := range cachedRoles {
+		// Have we already seen this Role?
+		for i, existing := range current {
+			if existing.Name == cachedRole.Name {
+				newRules := mergeRules(existing.Rules, cachedRole.Rules)
+				if len(newRules) != len(existing.Rules) {
+					// Rules are different, we need to modify the existing ruleset
+					// because we're operating on the cache object, make a shallow copy
+					// here and modify the shallow copy's rules.
+					shallow := *existing
+					shallow.Rules = newRules
+					current[i] = &shallow
+				}
+				continue newroles
 			}
 		}
-		if foundIndex != -1 {
-			array[foundIndex].Rules = append(array[foundIndex].Rules, roleToBeMerged.Rules...)
-		} else {
-			array = append(array, roleToBeMerged)
-		}
+
+		// The Role is a new one, append it to the current array without
+		// a copy yet.
+		current = append(current, cachedRole)
 	}
-	return array
+	return current
+}
+
+// mergeRules merges PolicyRules if they're exactly the same.
+// TODO(vincepri): Figure out if we can actually do better here;
+// Rules can probably be deduped based on a number of heuristics.
+func mergeRules(current []rbacv1.PolicyRule, cached []rbacv1.PolicyRule) []rbacv1.PolicyRule {
+newrules:
+	for _, rule := range cached {
+		for _, existing := range current {
+			if equality.Semantic.DeepEqual(existing, rule) {
+				continue newrules
+			}
+		}
+		// The rule is new, merge it in.
+		current = append(current, rule)
+	}
+	return current
 }
