@@ -114,8 +114,6 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, kubeInformers, 
 	globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
 	globalAuth = authz.NewDecorator("global.authorization.kcp.io", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	// everything below - skipped for Deep SAR
-
 	// enforce maximal permission policy
 	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers, union.New(bootstrapAuth, localAuth, globalAuth))
 	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.io", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
@@ -123,6 +121,8 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, kubeInformers, 
 	// protect status updates to apiexport and apibinding
 	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
 	systemCRDAuth = authz.NewDecorator("systemcrd.authorization.kcp.io", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	// everything below - skipped for Deep SAR
 
 	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
 	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows

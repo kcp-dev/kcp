@@ -112,11 +112,6 @@ type MaximalPermissionPolicyAuthorizer struct {
 }
 
 func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
-		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
-	}
-
 	// get the cluster from the ctx.
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
