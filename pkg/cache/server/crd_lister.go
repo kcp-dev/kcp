@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -26,7 +25,6 @@ import (
 	kcpapiextensionsv1listers "k8s.io/apiextensions-apiserver/pkg/client/kcp/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 )
@@ -36,10 +34,10 @@ type crdClusterLister struct {
 	lister kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 }
 
-func (c *crdClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
-	if name != bootstrap.SystemCRDLogicalCluster {
-		klog.Background().Error(fmt.Errorf("cluster-unaware crd lister got asked for %v cluster", name), "programmer error")
-	}
+func (c *crdClusterLister) Cluster(_ logicalcluster.Name) kcp.ClusterAwareCRDLister {
+	// since all available CRDs are stored in bootstrap.SystemCRDLogicalCluster
+	// and there is only a single registry per a CRD
+	// there is no need to filter by the given cluster
 	return &crdLister{
 		crdClusterLister: c,
 		cluster:          bootstrap.SystemCRDLogicalCluster,
@@ -58,7 +56,9 @@ var _ kcp.ClusterAwareCRDLister = &crdLister{}
 
 // List lists all CustomResourceDefinitions.
 func (c *crdLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
+	// since all available CRDs are stored in bootstrap.SystemCRDLogicalCluster
+	// and there is only a single registry per a CRD
+	// there is no need to filter by a shard or a cluster
 	return c.lister.List(selector)
 }
 
@@ -68,6 +68,8 @@ func (c *crdLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*api
 
 // Get gets a CustomResourceDefinition.
 func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
+	// since all available CRDs are stored in bootstrap.SystemCRDLogicalCluster
+	// and there is only a single registry per a CRD
+	// there is no need to filter by a shard or a cluster
 	return c.lister.Cluster(c.cluster).Get(name)
 }
