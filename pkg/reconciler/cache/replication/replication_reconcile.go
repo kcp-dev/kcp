@@ -24,194 +24,180 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
-
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/klog/v2"
 )
 
 func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
+	// split apart the gvr from the key
 	keyParts := strings.Split(gvrKey, "::")
 	if len(keyParts) != 2 {
 		return fmt.Errorf("incorrect key: %v, expected group.version.resource::key", gvrKey)
 	}
-	switch keyParts[0] {
-	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalAPIExportIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localAPIExportLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, true, nil
-			})
-	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
-			apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, true, nil
-			})
-	case corev1alpha1.SchemeGroupVersion.WithResource("shards").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			corev1alpha1.SchemeGroupVersion.WithResource("shards"),
-			corev1alpha1.SchemeGroupVersion.WithKind("Shard"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalShardIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localShardLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, true, nil
-			})
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
-			tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceType"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalWorkspaceTypeIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localWorkspaceTypeLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, true, nil
-			})
-	case rbacv1.SchemeGroupVersion.WithResource("clusterroles").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			rbacv1.SchemeGroupVersion.WithResource("clusterroles"),
-			rbacv1.SchemeGroupVersion.WithKind("ClusterRole"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalClusterRoleIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localClusterRoleLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", nil
-			})
-	case rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings").String():
-		return c.reconcileObject(ctx,
-			keyParts[1],
-			rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"),
-			rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalClusterRoleBindingIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(cluster logicalcluster.Name, _, name string) (interface{}, bool, error) {
-				obj, err := c.localClusterRoleBindingLister.Cluster(cluster).Get(name)
-				if err != nil {
-					return nil, false, err
-				}
-				return obj, obj.Annotations[core.ReplicateAnnotationKey] != "", nil
-			})
-	default:
-		return fmt.Errorf("unsupported resource %v", keyParts[0])
+	gvrParts := strings.SplitN(keyParts[0], ".", 3)
+	gvr := schema.GroupVersionResource{Version: gvrParts[0], Resource: gvrParts[1], Group: gvrParts[2]}
+	key := keyParts[1]
+
+	info := c.gvrs[gvr]
+
+	r := &reconciler{
+		shardName: c.shardName,
+		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
+			obj, exists, err := info.local.GetIndexer().GetByKey(key)
+			if !exists {
+				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+			} else if err != nil {
+				return nil, err // necessary to avoid non-zero nil interface
+			}
+
+			u, err := toUnstructured(obj)
+			if err != nil {
+				return nil, err
+			}
+
+			if info.filter != nil && !info.filter(u) {
+				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+			}
+
+			if _, ok := obj.(*unstructured.Unstructured); ok {
+				u = u.DeepCopy()
+			}
+			u.SetKind(info.kind)
+			u.SetAPIVersion(gvr.GroupVersion().String())
+			return u, nil
+		},
+		getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+			objs, err := info.global.GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, cluster, namespace, name))
+			if err != nil {
+				return nil, err // necessary to avoid non-zero nil interface
+			}
+			if len(objs) == 0 {
+				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+			} else if len(objs) > 1 {
+				return nil, fmt.Errorf("found multiple objects for %v|%v/%v", cluster, namespace, name)
+			}
+
+			obj := objs[0]
+
+			u, err := toUnstructured(obj)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := obj.(*unstructured.Unstructured); ok {
+				u = u.DeepCopy()
+			}
+
+			u.SetKind(info.kind)
+			u.SetAPIVersion(gvr.GroupVersion().String())
+			return u, nil
+		},
+		createObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(gvr).Namespace(obj.GetNamespace()).Create(ctx, obj, metav1.CreateOptions{})
+		},
+		updateObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(gvr).Namespace(obj.GetNamespace()).Update(ctx, obj, metav1.UpdateOptions{})
+		},
+		deleteObject: func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error {
+			return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(gvr).Namespace(ns).Delete(ctx, name, metav1.DeleteOptions{})
+		},
 	}
+	return r.reconcile(ctx, key)
 }
 
-// reconcileObject makes sure that the object under the given key from the local shard is replicated to the cache server.
+type reconciler struct {
+	shardName string
+
+	getLocalCopy  func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+	getGlobalCopy func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+
+	createObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	updateObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	deleteObject func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error
+}
+
+// reconcile makes sure that the object under the given key from the local shard is replicated to the cache server.
 // the replication function handles the following cases:
-//  1. creation of the object in the cache server when the cached object is not found by retrieveLocalObject
-//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retrieveLocalObject
+//  1. creation of the object in the cache server when the cached object is not found by getGlobalCopy
+//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by getLocalCopy
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
-func (c *controller) reconcileObject(ctx context.Context,
-	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
-	retrieveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
-	retrieveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, bool, error)) error {
-	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+func (r *reconciler) reconcile(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx).WithValues("reconcilerKey", key)
+
+	clusterName, ns, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+
+	localCopy, err := r.getLocalCopy(clusterName, ns, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		runtime.HandleError(err)
+		return nil
+	}
+	localExists := !apierrors.IsNotFound(err)
+
+	globalCopy, err := r.getGlobalCopy(clusterName, ns, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		runtime.HandleError(err)
+		return nil
+	}
+	globalExists := !apierrors.IsNotFound(err)
+
+	// local is gone or being deleted. Delete in cache.
+	if !localExists || !localCopy.GetDeletionTimestamp().IsZero() {
+		if !globalExists {
+			return nil
+		}
+
+		// Object doesn't exist anymore, delete it from the global cache.
+		logger.V(2).WithValues("cluster", clusterName, "namespace", ns, "name", name).Info("Deleting object from global cache")
+		if err := r.deleteObject(ctx, clusterName, ns, name); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+
+	// local exists, global doesn't. Create in cache.
+	if !globalExists {
+		// TODO: in the future the original RV will have to be stored in an annotation (?)
+		// so that the clients that need to modify the original/local object can do it
+		localCopy.SetResourceVersion("")
+		annotations := localCopy.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[genericrequest.AnnotationKey] = r.shardName
+		localCopy.SetAnnotations(annotations)
+
+		logger.V(2).Info("Creating object in global cache")
+		_, err := r.createObject(ctx, clusterName, localCopy)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		return nil
+	}
+
+	// update global copy and compare
+	metaChanged, err := ensureMeta(globalCopy, localCopy)
 	if err != nil {
 		return err
 	}
-	cacheObject, err := retrieveCacheObject(gvr, cluster, namespace, name)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	localObject, replicate, err := retrieveLocalObject(cluster, namespace, name)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	if errors.IsNotFound(err) {
-		// issue a live GET to make sure the localObject was removed
-		_, err = c.dynamicKcpLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err == nil {
-			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
-		}
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	} else if !replicate {
-		localObject = nil // like if it wasn't there
-	}
-
-	var unstructuredCacheObject *unstructured.Unstructured
-	var unstructuredLocalObject *unstructured.Unstructured
-	if cacheObject != nil {
-		unstructuredCacheObject, err = toUnstructured(cacheObject)
-		if err != nil {
-			return err
-		}
-		unstructuredCacheObject.SetKind(gvk.Kind)
-		unstructuredCacheObject.SetAPIVersion(gvr.GroupVersion().String())
-	}
-	if localObject != nil {
-		unstructuredLocalObject, err = toUnstructured(localObject)
-		if err != nil {
-			return err
-		}
-		unstructuredLocalObject.SetKind(gvk.Kind)
-		unstructuredLocalObject.SetAPIVersion(gvr.GroupVersion().String())
-	}
-	if cluster.Empty() && localObject != nil {
-		metadata, err := meta.Accessor(localObject)
-		if err != nil {
-			return err
-		}
-		cluster = logicalcluster.From(metadata)
-	}
-
-	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheObject, unstructuredLocalObject)
-}
-
-func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Indexer, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-	cacheObjects, err := cacheIndex.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name))
+	remainingChanged, err := ensureRemaining(globalCopy, localCopy)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if len(cacheObjects) == 0 {
-		return nil, errors.NewNotFound(gvr.GroupResource(), name)
+	if !metaChanged && !remainingChanged {
+		logger.V(4).Info("Object is up to date")
+		return nil
 	}
-	if len(cacheObjects) > 1 {
-		return nil, fmt.Errorf("expected to find only one instance of %s resource for the key %s, found %d", gvr, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name), len(cacheObjects))
-	}
-	return cacheObjects[0], nil
+
+	logger.V(2).Info("Updating object in global cache")
+	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
+	return err
 }
