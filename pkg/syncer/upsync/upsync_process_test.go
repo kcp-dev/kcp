@@ -127,7 +127,7 @@ func TestUpsyncerprocess(t *testing.T) {
 		expectActionsOnFrom    []clienttesting.Action
 		expectActionsOnTo      []kcptesting.Action
 		isUpstream             bool
-		updateType             []UpdateType
+		includeStatus          bool
 	}{
 		"Upsyncer upsyncs namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -150,22 +150,11 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
 				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
-					"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
-				}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "spec", "test",
-					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
-						"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-						workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
-					}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "status", "test",
-					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
-						"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-						workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
-					}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
+				}, map[string]string{"kcp.io/resource-version": "1"}, nil, ""))),
 			},
-			isUpstream: false,
-			updateType: []UpdateType{MetadataUpdate, SpecUpdate},
+			isUpstream:    false,
+			includeStatus: false,
 		},
 		"Upsyncer upsyncs cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -185,20 +174,11 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", "test-pv"),
 				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "", toUnstructured(t, createPV("test-pv", "", "", map[string]string{
-					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-				}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "spec", "", toUnstructured(t, createPV("test-pv", "", "", map[string]string{
-					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-				}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "status", "", toUnstructured(t, createPV("test-pv", "", "", map[string]string{
-					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-				}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"))),
+				}, map[string]string{"kcp.io/resource-version": "1"}, nil, ""))),
 			},
-			isUpstream: false,
-			updateType: []UpdateType{MetadataUpdate},
+			isUpstream:    false,
+			includeStatus: false,
 		},
 
 		"Status Syncer udpates namespaced resources": {
@@ -225,14 +205,13 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "metadata", "test",
+				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "", "test",
 					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
-						"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-					}, map[string]string{"kcp.io/resource-version": "2"}, nil, "2"))),
+					}, map[string]string{"kcp.io/resource-version": "2"}, nil, "1"))),
 			},
-			isUpstream: false,
-			updateType: []UpdateType{MetadataUpdate},
+			isUpstream:    false,
+			includeStatus: false,
 		},
 		"StatusSyncer updates cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -258,13 +237,12 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.New("root:org:ws"), "", "test-pv"),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "metadata", "", toUnstructured(t, createPV("test-pv", "", "", map[string]string{
-					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "", "", toUnstructured(t, createPV("test-pv", "", "", map[string]string{
 					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-				}, map[string]string{"kcp.io/resource-version": "2"}, nil, "2"))),
+				}, map[string]string{"kcp.io/resource-version": "2"}, nil, "1"))),
 			},
-			isUpstream: false,
-			updateType: []UpdateType{MetadataUpdate},
+			isUpstream:    false,
+			includeStatus: false,
 		},
 		"StatusSyncer deletes upstream namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -297,8 +275,8 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
 			},
-			isUpstream: true,
-			updateType: []UpdateType{},
+			isUpstream:    true,
+			includeStatus: false,
 		},
 		"StatusSyncer deletes upstream cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -317,8 +295,8 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, logicalcluster.NewPath("root:org:ws"), "", "test-pv"),
 			},
-			isUpstream: true,
-			updateType: []UpdateType{},
+			isUpstream:    true,
+			includeStatus: false,
 		},
 	}
 
@@ -446,7 +424,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			err = controller.process(context.Background(), tc.gvr, key, tc.isUpstream, tc.updateType)
+			err = controller.process(context.Background(), tc.gvr, key, tc.isUpstream, tc.includeStatus)
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
