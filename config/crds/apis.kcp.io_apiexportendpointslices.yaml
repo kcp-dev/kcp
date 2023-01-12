@@ -18,7 +18,7 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.apiexport.workspace.exportName
+    - jsonPath: .spec.export.name
       name: Export
       type: string
     - jsonPath: .spec.partition
