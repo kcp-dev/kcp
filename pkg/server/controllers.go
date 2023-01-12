@@ -1353,13 +1353,8 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 }
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, replication.ControllerName)
-	dynamicLocalClient, err := kcpdynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, dynamicLocalClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
+	// TODO(sttts): set user agent
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
 	if err != nil {
 		return err
 	}
