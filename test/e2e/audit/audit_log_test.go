@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -36,14 +37,15 @@ func TestAuditLogs(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.PrivateKcpServer(t, framework.WithCustomArguments([]string{"--audit-log-path", "./audit-log", "--audit-policy-file", "./policy.yaml"}...))
+	artifactDir, dataDir, err := framework.ScratchDirs(t)
+	require.NoError(t, err)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-
-	t.Cleanup(func() {
-		os.Remove("./audit-log")
-		cancelFunc()
-	})
+	server := framework.PrivateKcpServer(t,
+		framework.WithCustomArguments(
+			"--audit-policy-file", "./policy.yaml",
+		),
+		framework.WithScratchDirectories(artifactDir, dataDir),
+	)
 
 	cfg := server.BaseConfig(t)
 
@@ -51,10 +53,12 @@ func TestAuditLogs(t *testing.T) {
 	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
+	ctx := context.Background()
 	_, err = workspaceKubeClient.Cluster(wsPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
-	data, err := os.ReadFile("./audit-log")
+	auditLogPath := filepath.Join(artifactDir, "kcp/main/kcp.audit")
+	data, err := os.ReadFile(auditLogPath)
 	require.NoError(t, err, "Error reading auditfile")
 
 	lines := strings.Split(string(data), "\n")
