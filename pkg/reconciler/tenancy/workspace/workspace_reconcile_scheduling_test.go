@@ -44,7 +44,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
@@ -58,9 +57,9 @@ func TestReconcileScheduling(t *testing.T) {
 		initialWorkspaceTypes    []*tenancyv1alpha1.WorkspaceType
 		initialKubeClientObjects []runtime.Object
 		initialKcpClientObjects  []runtime.Object
-		targetWorkspace          *tenancyv1beta1.Workspace
+		targetWorkspace          *tenancyv1alpha1.Workspace
 		targetLogicalCluster     *corev1alpha1.LogicalCluster
-		validateWorkspace        func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace)
+		validateWorkspace        func(t *testing.T, initialWS, ws *tenancyv1alpha1.Workspace)
 		validateKcpClientActions func(t *testing.T, a []kcpclientgotesting.Action)
 		expectedKcpClientActions []string
 		expectedStatus           reconcileStatus
@@ -70,7 +69,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialShards:        []*corev1alpha1.Shard{shard("root")},
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
@@ -88,7 +87,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			targetWorkspace:       wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster:  &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
@@ -122,7 +121,7 @@ func TestReconcileScheduling(t *testing.T) {
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
@@ -156,7 +155,7 @@ func TestReconcileScheduling(t *testing.T) {
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
@@ -185,7 +184,7 @@ func TestReconcileScheduling(t *testing.T) {
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
@@ -211,7 +210,7 @@ func TestReconcileScheduling(t *testing.T) {
 			name:                 "no shards available, the ws is unscheduled",
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
@@ -230,7 +229,7 @@ func TestReconcileScheduling(t *testing.T) {
 		},
 		{
 			name: "the ws is scheduled onto requested shard (shard name in spec)",
-			targetWorkspace: func() *tenancyv1beta1.Workspace {
+			targetWorkspace: func() *tenancyv1alpha1.Workspace {
 				ws := workspace("foo")
 				selector := &metav1.LabelSelector{MatchLabels: map[string]string{"awesome.shard": "amber"}}
 				ws.Spec.Location.Selector = selector
@@ -242,7 +241,7 @@ func TestReconcileScheduling(t *testing.T) {
 				s.Labels["awesome.shard"] = "amber"
 				return s
 			}()},
-			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
@@ -351,22 +350,22 @@ func TestReconcileScheduling(t *testing.T) {
 	}
 }
 
-func workspace(name string) *tenancyv1beta1.Workspace {
-	return &tenancyv1beta1.Workspace{
+func workspace(name string) *tenancyv1alpha1.Workspace {
+	return &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Annotations: map[string]string{"kcp.io/cluster": "root"},
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
-			Location: &tenancyv1beta1.WorkspaceLocation{},
+		Spec: tenancyv1alpha1.WorkspaceSpec{
+			Location: &tenancyv1alpha1.WorkspaceLocation{},
 		},
-		Status: tenancyv1beta1.WorkspaceStatus{
+		Status: tenancyv1alpha1.WorkspaceStatus{
 			Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 		},
 	}
 }
 
-func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
+func wellKnownFooWSForPhaseTwo() *tenancyv1alpha1.Workspace {
 	ws := workspace("foo")
 	// since this is part two we can assume the following fields are assigned
 	ws.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
@@ -387,13 +386,13 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
-				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:universal",
+				tenancyv1alpha1.LogicalClusterTypeAnnotationKey:         "root:universal",
 				core.LogicalClusterPathAnnotationKey:                    "root:foo",
 			},
 		},
 		Spec: corev1alpha1.LogicalClusterSpec{
 			Owner: &corev1alpha1.LogicalClusterOwner{
-				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
+				APIVersion: tenancyv1alpha1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",
 				Name:       "foo",
 				Cluster:    "root",
@@ -525,7 +524,7 @@ func wellKnownWorkspaceTypes() []*tenancyv1alpha1.WorkspaceType {
 	return []*tenancyv1alpha1.WorkspaceType{type0, type1, type2}
 }
 
-func clearLastTransitionTimeOnWsConditions(ws *tenancyv1beta1.Workspace) {
+func clearLastTransitionTimeOnWsConditions(ws *tenancyv1alpha1.Workspace) {
 	newConditions := make([]conditionsapi.Condition, 0, len(ws.Status.Conditions))
 	for _, cond := range ws.Status.Conditions {
 		cond.LastTransitionTime = metav1.Time{}

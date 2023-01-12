@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -71,11 +71,11 @@ func TestWorkspaces(t *testing.T) {
 				permitAccessToWorkspace(t, ctx, server.kubeClusterClient, server.orgClusterName, false, "team-3-access", "team-3")
 
 				t.Logf("Create Workspace workspace1 in the virtual workspace")
-				var workspace1 *tenancyv1beta1.Workspace
+				var workspace1 *tenancyv1alpha1.Workspace
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					var err error
-					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
 					}, metav1.CreateOptions{})
 					if err != nil {
@@ -86,26 +86,26 @@ func TestWorkspaces(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 				t.Logf("Workspace will show up in list of user1")
-				list, err := user1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				list, err := user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, list.Items, 1)
 				require.Equal(t, workspace1.Name, list.Items[0].Name)
 
 				t.Logf("Workspace will show up in list of user2")
-				list, err = user2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				list, err = user2Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, list.Items, 1)
 				require.Equal(t, workspace1.Name, list.Items[0].Name)
 
 				t.Logf("Workspace will show up in list of user3")
-				list, err = user3Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				list, err = user3Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Len(t, list.Items, 1)
 				require.Equal(t, workspace1.Name, list.Items[0].Name)
 
 				t.Logf("Workspace will become ready")
 				framework.Eventually(t, func() (bool, string) {
-					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
+					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 					return workspace1.Status.Phase != corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace1 phase: %s", workspace1.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace1 never became ready")
@@ -113,27 +113,27 @@ func TestWorkspaces(t *testing.T) {
 				t.Logf("User1 is admin of workspace1 and can list and create sub-workspaces")
 				framework.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
-					_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "user1 failed to list sub-workspaces")
-				_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+				_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "nested"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				t.Logf("User2 cannot access workspace1")
-				_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.Error(t, err)
 
 				t.Logf("User3 cannot access workspace1")
-				_, err = user3Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				_, err = user3Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.Error(t, err)
 
 				t.Logf("User2 can be given access to workspace1")
 				permitAccessToWorkspace(t, ctx, server.kubeClusterClient, server.orgClusterName.Join("workspace1"), false, "team-2-access", "team-2", "workspace1")
 				framework.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
-					_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+					_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "user2 failed to list sub-workspaces")
 			},

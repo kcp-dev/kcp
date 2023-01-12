@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230109-7504f774.workspaces.tenancy.kcp.io
+  name: v230111-7449f14f.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -32,7 +32,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1beta1
+    name: v1alpha1
     schema:
       description: "Workspace defines a generic Kubernetes-cluster-like endpoint,
         with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.

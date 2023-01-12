@@ -29,7 +29,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func createAttr(name string, obj runtime.Object, kind, resource string) admission.Attributes {
@@ -65,10 +64,10 @@ func TestAdmission(t *testing.T) {
 			attr: createAttr("cool-wt", &tenancyv1alpha1.WorkspaceType{}, "WorkspaceType", "workspacetypes"),
 		},
 		"NotApplicableResource": {
-			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "Workspace", "notaworwt"),
+			attr: createAttr("root", &tenancyv1alpha1.Workspace{}, "Workspace", "notaworwt"),
 		},
 		"NotApplicableKind": {
-			attr: createAttr("root", &tenancyv1beta1.Workspace{}, "NotaWorWT", "workspaces"),
+			attr: createAttr("root", &tenancyv1alpha1.Workspace{}, "NotaWorWT", "workspaces"),
 		},
 	}
 	for name, tc := range cases {

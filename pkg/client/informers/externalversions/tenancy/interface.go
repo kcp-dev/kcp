@@ -24,14 +24,11 @@ package tenancy
 import (
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 )
 
 type ClusterInterface interface {
 	// V1alpha1 provides access to the shared informers in V1alpha1.
 	V1alpha1() v1alpha1.ClusterInterface
-	// V1beta1 provides access to the shared informers in V1beta1.
-	V1beta1() v1beta1.ClusterInterface
 }
 
 type group struct {
@@ -49,16 +46,9 @@ func (g *group) V1alpha1() v1alpha1.ClusterInterface {
 	return v1alpha1.New(g.factory, g.tweakListOptions)
 }
 
-// V1beta1 returns a new v1beta1.ClusterInterface.
-func (g *group) V1beta1() v1beta1.ClusterInterface {
-	return v1beta1.New(g.factory, g.tweakListOptions)
-}
-
 type Interface interface {
 	// V1alpha1 provides access to the shared informers in V1alpha1.
 	V1alpha1() v1alpha1.Interface
-	// V1beta1 provides access to the shared informers in V1beta1.
-	V1beta1() v1beta1.Interface
 }
 
 type scopedGroup struct {
@@ -75,9 +65,4 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // V1alpha1 returns a new v1alpha1.ClusterInterface.
 func (g *scopedGroup) V1alpha1() v1alpha1.Interface {
 	return v1alpha1.NewScoped(g.factory, g.namespace, g.tweakListOptions)
-}
-
-// V1beta1 returns a new v1beta1.ClusterInterface.
-func (g *scopedGroup) V1beta1() v1beta1.Interface {
-	return v1beta1.NewScoped(g.factory, g.namespace, g.tweakListOptions)
 }

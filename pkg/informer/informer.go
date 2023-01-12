@@ -488,8 +488,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	crdGVRs := d.gvrSource.GVRs()
 	latest := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(crdGVRs))
 	for gvr, gvrMetadata := range crdGVRs {
-		// Don't start a dynamic informer for projected resources such as tenancy.kcp.io/v1beta1 Workspaces
-		// (these are a virtual projection of data from tenancy.kcp.io/v1alpha1 ClusterWorkspaces).
+		// Don't start a dynamic informer for projected resources.
 		// Starting an informer for them causes problems when the virtual-workspaces server is deployed
 		// separately. See https://github.com/kcp-dev/kcp/issues/1654 for more details.
 		if projection.Includes(gvr) {

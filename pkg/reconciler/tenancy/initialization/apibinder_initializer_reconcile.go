@@ -36,14 +36,13 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
-	annotationValue, found := logicalCluster.Annotations[v1beta1.LogicalClusterTypeAnnotationKey]
+	annotationValue, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 	if !found {
 		return nil
 	}

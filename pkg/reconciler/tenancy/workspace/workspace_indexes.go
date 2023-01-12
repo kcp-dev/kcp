@@ -24,7 +24,6 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
@@ -34,7 +33,7 @@ const (
 )
 
 func indexUnschedulable(obj interface{}) ([]string, error) {
-	workspace := obj.(*tenancyv1beta1.Workspace)
+	workspace := obj.(*tenancyv1alpha1.Workspace)
 	if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
 		return []string{"true"}, nil
 	}

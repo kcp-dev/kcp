@@ -35,7 +35,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -46,24 +45,24 @@ type WorkspaceOption interface {
 	PrivilegedWorkspaceOption | UnprivilegedWorkspaceOption
 }
 
-type PrivilegedWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+type PrivilegedWorkspaceOption func(ws *tenancyv1alpha1.Workspace)
 
-type UnprivilegedWorkspaceOption func(ws *tenancyv1beta1.Workspace)
+type UnprivilegedWorkspaceOption func(ws *tenancyv1alpha1.Workspace)
 
 func WithRootShard() UnprivilegedWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
 func WithShard(name string) UnprivilegedWorkspaceOption {
-	return WithLocation(tenancyv1beta1.WorkspaceLocation{Selector: &metav1.LabelSelector{
+	return WithLocation(tenancyv1alpha1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"name": name,
 		},
 	}})
 }
 
-func WithLocation(w tenancyv1beta1.WorkspaceLocation) UnprivilegedWorkspaceOption {
-	return func(ws *tenancyv1beta1.Workspace) {
+func WithLocation(w tenancyv1alpha1.WorkspaceLocation) UnprivilegedWorkspaceOption {
+	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Spec.Location = &w
 	}
 }
@@ -73,7 +72,7 @@ func WithLocation(w tenancyv1beta1.WorkspaceLocation) UnprivilegedWorkspaceOptio
 // on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
 // end up needing to hard-code something conceivable.
 func WithRequiredGroups(groups ...string) PrivilegedWorkspaceOption {
-	return func(ws *tenancyv1beta1.Workspace) {
+	return func(ws *tenancyv1alpha1.Workspace) {
 		if ws.Annotations == nil {
 			ws.Annotations = map[string]string{}
 		}
@@ -91,7 +90,7 @@ func WithRequiredGroups(groups ...string) PrivilegedWorkspaceOption {
 }
 
 func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedWorkspaceOption {
-	return func(ws *tenancyv1beta1.Workspace) {
+	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 			Name: name,
 			Path: path.String(),
@@ -100,23 +99,23 @@ func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) 
 }
 
 func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
-	return func(ws *tenancyv1beta1.Workspace) {
+	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Name = fmt.Sprintf(s, formatArgs...)
 		ws.GenerateName = ""
 	}
 }
 
-func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1beta1.Workspace {
+func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	tmpl := &tenancyv1beta1.Workspace{
+	tmpl := &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-workspace-",
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
+		Spec: tenancyv1alpha1.WorkspaceSpec{
 			Type: tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName("universal"),
 				Path: "root",
@@ -131,10 +130,10 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.
-	var ws *tenancyv1beta1.Workspace
+	var ws *tenancyv1alpha1.Workspace
 	Eventually(t, func() (bool, string) {
 		var err error
-		ws, err = clusterClient.Cluster(parent).TenancyV1beta1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
+		ws, err = clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
 
@@ -146,7 +145,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(parent).TenancyV1beta1().Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
@@ -155,7 +154,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 
 	Eventually(t, func() (bool, string) {
 		var err error
-		ws, err = clusterClient.Cluster(parent).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		ws, err = clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
 		require.NoError(t, err, "failed to get workspace %s", parent.Join(ws.Name))
 		if actual, expected := ws.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
@@ -176,7 +175,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -187,12 +186,12 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalclust
 	return parent.Join(ws.Name), ws
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 	return NewWorkspaceFixture(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
-func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (logicalcluster.Path, *tenancyv1beta1.Workspace) {
+func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	cfg := server.RootShardSystemMasterBaseConfig(t)

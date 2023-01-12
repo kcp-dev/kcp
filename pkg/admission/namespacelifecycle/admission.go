@@ -139,7 +139,7 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 }
 
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	l.SetReadyFunc(local.Tenancy().V1beta1().Workspaces().Informer().HasSynced)
+	l.SetReadyFunc(local.Tenancy().V1alpha1().Workspaces().Informer().HasSynced)
 
 	l.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 		return local.Core().V1alpha1().LogicalClusters().Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)

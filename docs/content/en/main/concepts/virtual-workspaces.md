@@ -10,7 +10,7 @@ Virtual workspaces are proxy-like apiservers under a custom URL that provide som
 
 ## Examples
 
-1. when the user does `kubectl get workspaces` only workspaces are shown that the user has access to. That resource is implemented through a virtual workspace under `/services/workspaces/<org>/personal/apis/tenancy.kcp.io/v1beta1/workspaces`.
+1. when the user does `kubectl get workspaces` only workspaces are shown that the user has access to.
 2. controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In [April 19's community call this virtual workspace was showcased](https://www.youtube.com/watch?v=Ca3vh3lS6YI&t=1280s), developed during v0.4 phase.
 3. if we keep the initializer model with `WorkspaceType`, there must be a virtual workspace for the "workspace type owner" that gives access to initializing workspaces.
 4. the syncer will get a virtual workspace view of the workspaces it syncs to physical clusters. That view will have transformed objects potentially, especially deployment-splitter-like transformations will be implemented within a virtual workspace, transparently applied from the point of view of the syncer.

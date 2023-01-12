@@ -40,7 +40,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
@@ -209,7 +208,7 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(
-					tenancyv1beta1.Kind("Workspace"),
+					tenancyv1alpha1.Kind("Workspace"),
 					name,
 					field.ErrorList{field.Invalid(
 						field.NewPath("status", "initializers"),

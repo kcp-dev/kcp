@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1alpha1
 
 import (
 	"testing"
@@ -67,7 +67,7 @@ func TestWorkspaceCELValidation(t *testing.T) {
 		},
 	}
 
-	validator, err := apitest.VersionValidatorFromFile(t, "../../../../config/crds/tenancy.kcp.io_workspaces.yaml", "v1beta1")
+	validator, err := apitest.VersionValidatorFromFile(t, "../../../../config/crds/tenancy.kcp.io_workspaces.yaml", "v1alpha1")
 	require.NoError(t, err)
 
 	for _, tc := range testCases {

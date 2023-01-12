@@ -48,7 +48,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -187,21 +186,21 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		var ws *tenancyv1beta1.Workspace
+		var ws *tenancyv1alpha1.Workspace
 		require.Eventually(t, func() bool {
-			ws, err = sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Create(ctx, workspaceForType(workspacetypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
+			ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, workspaceForType(workspacetypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
 			return err == nil
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		})
 		wsNames = append(wsNames, ws.Name)
 	}
 
 	t.Log("Wait for workspaces to get stuck in initializing")
-	var workspaces *tenancyv1beta1.WorkspaceList
+	var workspaces *tenancyv1alpha1.WorkspaceList
 	require.Eventually(t, func() bool {
-		workspaces, err = sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().List(ctx, metav1.ListOptions{
+		workspaces, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().List(ctx, metav1.ListOptions{
 			LabelSelector: labels.SelectorFromSet(testLabelSelector).String(),
 		})
 		if err != nil {
@@ -214,7 +213,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}
 		return workspacesStuckInInitializing(t, workspaces.Items...)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-	workspacesByType := map[string]tenancyv1beta1.Workspace{}
+	workspacesByType := map[string]tenancyv1alpha1.Workspace{}
 	for i := range workspaces.Items {
 		workspacesByType[tenancyv1alpha1.ObjectName(workspaces.Items[i].Spec.Type.Name)] = workspaces.Items[i]
 	}
@@ -342,7 +341,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
-	for initializer, expected := range map[string][]tenancyv1beta1.Workspace{
+	for initializer, expected := range map[string][]tenancyv1alpha1.Workspace{
 		"alpha": {workspacesByType[workspacetypeNames["alpha"]], workspacesByType[workspacetypeNames["gamma"]]},
 		"beta":  {workspacesByType[workspacetypeNames["beta"]], workspacesByType[workspacetypeNames["gamma"]]},
 		"gamma": {workspacesByType[workspacetypeNames["gamma"]]},
@@ -386,13 +385,13 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Adding a new workspace that the watchers should see")
-	ws, err := sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Create(ctx, workspaceForType(workspacetypes["gamma"], testLabelSelector), metav1.CreateOptions{})
+	ws, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, workspaceForType(workspacetypes["gamma"], testLabelSelector), metav1.CreateOptions{})
 	require.NoError(t, err)
 	source.Artifact(t, func() (runtime.Object, error) {
-		return sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 	})
 	require.Eventually(t, func() bool {
-		workspace, err := sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		workspace, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("error listing workspaces: %v", err)
 			return false
@@ -400,7 +399,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		return workspacesStuckInInitializing(t, *workspace)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	ws, err = sourceKcpClusterClient.TenancyV1beta1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+	ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
@@ -564,13 +563,13 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 }
 
-func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSelector map[string]string) *tenancyv1beta1.Workspace {
-	return &tenancyv1beta1.Workspace{
+func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.Workspace {
+	return &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-workspace-",
 			Labels:       testLabelSelector,
 		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
+		Spec: tenancyv1alpha1.WorkspaceSpec{
 			Type: tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName(workspaceType.Name),
 				Path: logicalcluster.From(workspaceType).String(),
@@ -579,7 +578,7 @@ func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSel
 	}
 }
 
-func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1beta1.Workspace) bool {
+func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1alpha1.Workspace) bool {
 	t.Helper()
 
 	for _, workspace := range workspaces {

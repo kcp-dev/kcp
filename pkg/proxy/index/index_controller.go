@@ -32,10 +32,10 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
-	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
@@ -220,21 +220,21 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		wsInformer := tenancyv1beta1informers.NewWorkspaceClusterInformer(client, resyncPeriod, nil)
+		wsInformer := tenancyv1alpha1informers.NewWorkspaceClusterInformer(client, resyncPeriod, nil)
 		wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				ws := obj.(*tenancyv1beta1.Workspace)
+				ws := obj.(*tenancyv1alpha1.Workspace)
 				c.state.UpsertWorkspace(shard.Name, ws)
 			},
 			UpdateFunc: func(old, obj interface{}) {
-				ws := obj.(*tenancyv1beta1.Workspace)
+				ws := obj.(*tenancyv1alpha1.Workspace)
 				c.state.UpsertWorkspace(shard.Name, ws)
 			},
 			DeleteFunc: func(obj interface{}) {
 				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = final.Obj
 				}
-				ws := obj.(*tenancyv1beta1.Workspace)
+				ws := obj.(*tenancyv1alpha1.Workspace)
 				c.state.DeleteWorkspace(shard.Name, ws)
 			},
 		})

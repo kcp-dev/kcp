@@ -47,7 +47,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -97,7 +97,7 @@ func WithSyncTargetName(name string) SyncerOption {
 	}
 }
 
-func WithSyncedUserWorkspaces(syncedUserWorkspaces ...*tenancyv1beta1.Workspace) SyncerOption {
+func WithSyncedUserWorkspaces(syncedUserWorkspaces ...*tenancyv1alpha1.Workspace) SyncerOption {
 	return func(t *testing.T, sf *syncerFixture) {
 		t.Helper()
 		for _, ws := range syncedUserWorkspaces {
