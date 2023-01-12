@@ -19,6 +19,7 @@ package replication
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -124,16 +125,22 @@ func NewController(
 		// shadow gvr to get the right value in the closure
 		gvr := gvr
 
-		info.local.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
-			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr) },
+		info.local.AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: IsNoSystemClusterName,
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
+				UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
+				DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr) },
+			},
 		})
 
-		info.global.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
-			DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		info.global.AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: IsNoSystemClusterName, // not really needed, but cannot harm
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+				UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+				DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+			},
 		})
 	}
 
@@ -199,6 +206,24 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	runtime.HandleError(fmt.Errorf("%v failed with: %w", grKey, err))
 	c.queue.AddRateLimited(grKey)
 
+	return true
+}
+
+func IsNoSystemClusterName(obj interface{}) bool {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return false
+	}
+
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return false
+	}
+	if strings.HasPrefix(clusterName.String(), "system:") {
+		return false
+	}
 	return true
 }
 

@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 )
 
 const (
@@ -72,27 +73,33 @@ func NewController(
 		ClusterRoleBindingByClusterRoleName: IndexClusterRoleBindingByClusterRoleName,
 	})
 
-	clusterRoleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueClusterRole(obj)
-		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueClusterRole(newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueClusterRole(obj)
+	clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: replication.IsNoSystemClusterName,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueClusterRole(obj)
+			},
+			UpdateFunc: func(_, newObj interface{}) {
+				c.enqueueClusterRole(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueClusterRole(obj)
+			},
 		},
 	})
 
-	clusterRoleBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueClusterRoleBinding(obj)
-		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueClusterRoleBinding(newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueClusterRoleBinding(obj)
+	clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: replication.IsNoSystemClusterName,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueClusterRoleBinding(obj)
+			},
+			UpdateFunc: func(_, newObj interface{}) {
+				c.enqueueClusterRoleBinding(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueClusterRoleBinding(obj)
+			},
 		},
 	})
 
