@@ -50,9 +50,20 @@ jobs:
         name: Kubernetes KinD Cluster w/local registry
         with:
           version: v0.17.0
+          config: test/e2e/kind/config-calico.yaml
 
+      # Install Calico
+      - run: |-
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/release-v3.24/manifests/calico.yaml
+          kubectl -n kube-system set env daemonset/calico-node FELIX_IGNORELOOSERPF=true
+
+      # Install ko
       - run: |-
           go install github.com/google/ko@latest
+
+      # wait for Calico to be ready
+      - run: |-
+          kubectl wait pods -n kube-system -l k8s-app=calico-node --for=condition=Ready --timeout=90s
 
       - run: |-
           LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
@@ -79,10 +90,21 @@ jobs:
     - uses: container-tools/kind-action@v2
       name: Kubernetes KinD Cluster w/local registry
       with:
-        version: v0.14.0
+        version: v0.17.0
+        config: test/e2e/kind/config-calico.yaml
 
+    # Install Calico
+    - run: |-
+        kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/release-v3.24/manifests/calico.yaml
+        kubectl -n kube-system set env daemonset/calico-node FELIX_IGNORELOOSERPF=true
+
+    # Install ko
     - run: |-
         go install github.com/google/ko@latest
+
+    # wait for Calico to be ready
+    - run: |-
+        kubectl wait pods -n kube-system -l k8s-app=calico-node --for=condition=Ready --timeout=90s
 
     - run: |-
         LOG_DIR=/tmp/e2e/sharded/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
