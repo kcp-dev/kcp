@@ -14,7 +14,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              internal.workload.kcp.dev/cluster: Cluster
+              internal.workload.kcp.io/cluster: Cluster
       ports:
         - protocol: TCP
           port: 5353
@@ -26,8 +26,20 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
       ports:
         - protocol: TCP
           port: 53
         - protocol: UDP
           port: 53
+     # Give access to the API server to watch its associated configmap
+    - to:
+      # one ipBlock per IP (dynamically filled)
+      - ipBlock:
+          cidr: APIServerIP
+      ports:
+        - protocol: TCP
+          port: 6443
+

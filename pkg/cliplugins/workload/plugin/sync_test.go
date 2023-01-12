@@ -61,6 +61,12 @@ rules:
   - "watch"
   - "delete"
 - apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+- apiGroups:
   - "apiextensions.k8s.io"
   resources:
   - customresourcedefinitions

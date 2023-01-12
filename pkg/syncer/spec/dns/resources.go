@@ -27,6 +27,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -109,13 +110,32 @@ func MakeService(name, namespace string) *corev1.Service {
 	return service
 }
 
-func MakeNetworkPolicy(name, namespace, cluster string) *networkingv1.NetworkPolicy {
+func MakeNetworkPolicy(name, namespace, cluster string, kubeEndpoints *corev1.EndpointSubset) *networkingv1.NetworkPolicy {
 	np := networkPolicyTemplate.DeepCopy()
 
 	np.Name = name
 	np.Namespace = namespace
 	np.Spec.PodSelector.MatchLabels["app"] = name
 	np.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[workloadv1alpha1.InternalDownstreamClusterLabel] = cluster
+
+	to := make([]networkingv1.NetworkPolicyPeer, len(kubeEndpoints.Addresses))
+	for i, endpoint := range kubeEndpoints.Addresses {
+		to[i] = networkingv1.NetworkPolicyPeer{
+			IPBlock: &networkingv1.IPBlock{
+				CIDR: endpoint.IP + "/32",
+			},
+		}
+	}
+	np.Spec.Egress[1].To = to
+
+	ports := make([]networkingv1.NetworkPolicyPort, len(kubeEndpoints.Ports))
+	for i, port := range kubeEndpoints.Ports {
+		pport := intstr.FromInt(int(port.Port))
+		ports[i].Port = &pport
+		pprotocol := port.Protocol
+		ports[i].Protocol = &pprotocol
+	}
+	np.Spec.Egress[1].Ports = ports
 
 	return np
 }

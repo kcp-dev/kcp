@@ -46,6 +46,7 @@ var (
 	roleBindingGVR    = schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"}
 	serviceGVR        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	deploymentGVR     = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	endpointGVR       = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
 	networkPolicyGVR  = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
 )
 
@@ -96,7 +97,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
-				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey),
+				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{}),
 			},
 			expectReady:   true,
 			expectActions: []clienttesting.Action{},
@@ -111,7 +112,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
-				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey),
+				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
@@ -121,7 +122,9 @@ func TestDNSProcess(t *testing.T) {
 			dnsImage:    "newdnsimage",
 		},
 		"endpoint does not exist, no DNS objects": {
-			resources:   []runtime.Object{},
+			resources: []runtime.Object{
+				endpoints("kubernetes", "default", "10.0.0.0"),
+			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
 				clienttesting.NewCreateAction(serviceAccountGVR, dnsns, MakeServiceAccount(dnsID, dnsns)),
@@ -129,7 +132,10 @@ func TestDNSProcess(t *testing.T) {
 				clienttesting.NewCreateAction(roleBindingGVR, dnsns, MakeRoleBinding(dnsID, dnsns)),
 				clienttesting.NewCreateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, "dnsimage")),
 				clienttesting.NewCreateAction(serviceGVR, dnsns, MakeService(dnsID, dnsns)),
-				clienttesting.NewCreateAction(networkPolicyGVR, dnsns, MakeNetworkPolicy(dnsID, dnsns, syncTargetKey)),
+				clienttesting.NewGetAction(endpointGVR, "default", "kubernetes"),
+				clienttesting.NewCreateAction(networkPolicyGVR, dnsns, MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{
+					Addresses: []corev1.EndpointAddress{{IP: "10.0.0.0"}},
+				})),
 			},
 			initialized: true,
 			dnsImage:    "dnsimage",
@@ -141,7 +147,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
-				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey),
+				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
 			expectActions: []clienttesting.Action{},
@@ -155,7 +161,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
-				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey),
+				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
 			expectActions: []clienttesting.Action{},
@@ -169,7 +175,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
-				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey),
+				MakeNetworkPolicy(dnsID, dnsns, syncTargetKey, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
@@ -278,10 +284,12 @@ func endpoints(name, namespace, ip string) *corev1.Endpoints {
 	}
 	if ip != "" {
 		endpoint.Subsets = []corev1.EndpointSubset{
-			{Addresses: []corev1.EndpointAddress{
-				{
-					IP: ip,
-				}}},
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: ip,
+					}},
+			},
 		}
 	}
 	return endpoint

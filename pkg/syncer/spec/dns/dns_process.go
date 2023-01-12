@@ -18,6 +18,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -247,9 +248,18 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string) error {
 	logger := klog.FromContext(ctx)
 
+	var kubeEndpoints *corev1.Endpoints
 	_, err := d.networkPolicyLister.NetworkPolicies(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeNetworkPolicy(name, d.dnsNamespace, d.syncTargetKey)
+		kubeEndpoints, err = d.downstreamKubeClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(kubeEndpoints.Subsets) == 0 || len(kubeEndpoints.Subsets[0].Addresses) == 0 {
+			return errors.New("missing kubernetes API endpoints")
+		}
+
+		expected := MakeNetworkPolicy(name, d.dnsNamespace, d.syncTargetKey, &kubeEndpoints.Subsets[0])
 		_, err = d.downstreamKubeClient.NetworkingV1().NetworkPolicies(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("NetworkPolicy created")
