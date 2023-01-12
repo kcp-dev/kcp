@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
@@ -71,7 +72,11 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 		if k8serror.IsNotFound(err) {
 			// Downstream namespace not present; assume object is not present as well and return upstream object
 			// Prune resource upstream
-			return c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(upstreamNamespace).Delete(ctx, upstreamName, metav1.DeleteOptions{})
+			if err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(upstreamNamespace).Delete(ctx, upstreamName, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
+				return nil
+			} else {
+				return err
+			}
 		}
 		if err != nil {
 			return err
@@ -81,43 +86,29 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 		_, err = downstreamLister.ByNamespace(downstreamNamespace).Get(upstreamName)
 		if k8serror.IsNotFound(err) {
 			// Resource not found downstream prune it
-			return c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(upstreamNamespace).Delete(ctx, upstreamName, metav1.DeleteOptions{})
+			if err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(upstreamNamespace).Delete(ctx, upstreamName, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
+				return nil
+			} else {
+				return err
+			}
 		}
 	} else {
 		// Get cluster-wide upstream resource
 		_, err = downstreamLister.Get(upstreamName)
 		if k8serror.IsNotFound(err) {
 			// Resource not found downstream prune it
-			return c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Delete(ctx, upstreamName, metav1.DeleteOptions{})
+			if err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Delete(ctx, upstreamName, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
+				return nil
+			} else {
+				return err
+			}
 		}
 	}
 
 	return err
 }
 
-func (c *Controller) updateResourceContent(ctx context.Context, gvr schema.GroupVersionResource, upstreamCluster logicalcluster.Name, namespace string, upstreamResource, downstreamResource *unstructured.Unstructured, field string) error {
-	if field == "metadata" {
-		annotations := downstreamResource.GetAnnotations()
-		delete(annotations, shared.NamespaceLocatorAnnotation)
-		downstreamResource.SetAnnotations(annotations)
-	}
-	err := unstructured.SetNestedField(upstreamResource.UnstructuredContent(), downstreamResource.UnstructuredContent()[field], field)
-	if err != nil {
-		return err
-	}
-	if field == "metadata" {
-		annotations := upstreamResource.GetAnnotations()
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-		annotations[ResourceVersionAnnotation] = downstreamResource.GetResourceVersion()
-		upstreamResource.SetAnnotations(annotations)
-	}
-	_, err = c.upstreamClient.Cluster(upstreamCluster.Path()).Resource(gvr).Namespace(namespace).Update(ctx, upstreamResource, metav1.UpdateOptions{}, field)
-	return err
-}
-
-func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string, updateType []UpdateType) error {
+func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string, includeStatus bool) error {
 	logger := klog.FromContext(ctx)
 	downstreamNamespace, downstreamName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -164,13 +155,14 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		}
 	}
 
+	// retrieve downstream object
 	var downstreamObject runtime.Object
 	if downstreamNamespace != "" {
 		downstreamObject, err = downstreamLister.ByNamespace(downstreamNamespace).Get(downstreamName)
 	} else {
 		downstreamObject, err = downstreamLister.Get(downstreamName)
 	}
-	if err != nil && k8serror.IsNotFound(err) {
+	if err != nil && !k8serror.IsNotFound(err) {
 		return err
 	}
 	downstreamResource, ok := downstreamObject.(*unstructured.Unstructured)
@@ -202,9 +194,12 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	}
 
 	if downstreamResource == nil {
-		// Downstream namespace not present; assume object is not present as well and return upstream object
-		// Prune resource upstream
-		return c.upstreamClient.Resource(gvr).Cluster(upstreamLocator.ClusterName.Path()).Namespace(upstreamLocator.Namespace).Delete(ctx, downstreamName, metav1.DeleteOptions{})
+		// Downstream resource not present => delete resource upstream
+		if err := c.upstreamClient.Resource(gvr).Cluster(upstreamLocator.ClusterName.Path()).Namespace(upstreamLocator.Namespace).Delete(ctx, downstreamName, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
+			return nil
+		} else {
+			return err
+		}
 	}
 
 	upstreamNamespace := upstreamLocator.Namespace
@@ -215,75 +210,130 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		return err
 	}
 
-	upstreamResource, err := upstreamUpsyncerLister.ByCluster(upstreamWorkspace).ByNamespace(upstreamNamespace).Get(downstreamResource.GetName())
-	if k8serror.IsNotFound(err) {
-		// Resource doesn't exist upstream
-		logger.Info("Creating resource upstream", upstreamNamespace, upstreamWorkspace, downstreamResource.GetName())
-		resource, err := c.createResourceInUpstream(ctx, gvr, upstreamNamespace, upstreamWorkspace, downstreamResource)
-		if err != nil {
-			return err
-		}
-		c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, resource, downstreamResource, "spec")
-		c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, resource, downstreamResource, "status")
-		return nil
+	var upstreamObject runtime.Object
+	if upstreamNamespace != "" {
+		upstreamObject, err = upstreamUpsyncerLister.ByCluster(upstreamWorkspace).ByNamespace(upstreamNamespace).Get(downstreamResource.GetName())
+	} else {
+		upstreamObject, err = upstreamUpsyncerLister.ByCluster(upstreamWorkspace).Get(downstreamResource.GetName())
 	}
-	if err != nil {
+	if err != nil && !k8serror.IsNotFound(err) {
 		return err
 	}
 
-	unstructuredUpstreamResource, ok := upstreamResource.(*unstructured.Unstructured)
+	resourceVersionDownstream := downstreamResource.GetResourceVersion()
+	if k8serror.IsNotFound(err) {
+		// Resource doesn't exist upstream => let's create it
+		logger.Info("Creating resource upstream", upstreamNamespace, upstreamWorkspace, downstreamResource.GetName())
+		resource := prepareResourceForUpstream(ctx, gvr, upstreamNamespace, upstreamWorkspace, downstreamResource)
+
+		if !includeStatus {
+			resource.SetAnnotations(addResourceVersionAnnotation(resourceVersionDownstream, resource.GetAnnotations()))
+		}
+
+		// Create the resource
+		createdResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).Create(ctx, resource, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if includeStatus {
+			resource.SetResourceVersion(createdResource.GetResourceVersion())
+			resource, err = c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).UpdateStatus(ctx, resource, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+			resource.SetAnnotations(addResourceVersionAnnotation(resourceVersionDownstream, resource.GetAnnotations()))
+			_, err = c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).Update(ctx, resource, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	unstructuredUpstreamResource, ok := upstreamObject.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("error: upstreal resource expected to be *unstructured.Unstructured got %T", upstreamResource)
+		return fmt.Errorf("upstream resource expected to be *unstructured.Unstructured got %T", upstreamObject)
 	}
 
 	resourceVersionUpstream := unstructuredUpstreamResource.GetAnnotations()[ResourceVersionAnnotation]
-	resourceVersionDownstream := downstreamResource.GetResourceVersion()
 	if resourceVersionDownstream != resourceVersionUpstream {
 		// Update Resource upstream
 		logger.Info("Updating upstream resource", upstreamNamespace, upstreamWorkspace, downstreamResource)
-		for _, update := range updateType {
-			if update == SpecUpdate {
-				c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, unstructuredUpstreamResource, downstreamResource, "spec")
+		resource := prepareResourceForUpstream(ctx, gvr, upstreamNamespace, upstreamWorkspace, downstreamResource)
+		if err != nil {
+			return err
+		}
+		resource.SetResourceVersion(unstructuredUpstreamResource.GetResourceVersion())
+		if !includeStatus {
+			resource.SetAnnotations(addResourceVersionAnnotation(resourceVersionDownstream, resource.GetAnnotations()))
+		} else {
+			resource.SetAnnotations(addResourceVersionAnnotation(resourceVersionUpstream, resource.GetAnnotations()))
+		}
+
+		// Create the resource
+		updatedResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).Update(ctx, resource, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if includeStatus {
+			resource.SetResourceVersion(updatedResource.GetResourceVersion())
+			resource, err = c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).UpdateStatus(ctx, resource, metav1.UpdateOptions{})
+			if err != nil {
+				return err
 			}
-			if update == StatusUpdate {
-				c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, unstructuredUpstreamResource, downstreamResource, "status")
-			}
-			if update == MetadataUpdate {
-				c.updateResourceContent(ctx, gvr, upstreamWorkspace, upstreamNamespace, unstructuredUpstreamResource, downstreamResource, "metadata")
+			resource.SetAnnotations(addResourceVersionAnnotation(resourceVersionDownstream, resource.GetAnnotations()))
+			_, err = c.upstreamClient.Resource(gvr).Cluster(upstreamWorkspace.Path()).Namespace(upstreamNamespace).Update(ctx, resource, metav1.UpdateOptions{})
+			if err != nil {
+				return err
 			}
 		}
+		return nil
 	}
 
 	return nil
 }
 
-func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string, isUpstream bool, updateType []UpdateType) error {
+func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string, isUpstream, includeStatus bool) error {
 	// Upstream resources are only present upstream and not downstream; so we prune them
 	if isUpstream {
 		return c.processUpstreamResource(ctx, gvr, key)
 	} else {
 		// triggers updated on upstream resource or creation of upstream resource
-		return c.processDownstreamResource(ctx, gvr, key, updateType)
+		return c.processDownstreamResource(ctx, gvr, key, includeStatus)
 	}
 }
 
-// Only add the metadata part
-func (c *Controller) createResourceInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNS string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func prepareResourceForUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNS string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) *unstructured.Unstructured {
 	// Make a deepcopy
-	downstreamObject := downstreamObj.DeepCopy()
-	annotations := downstreamObject.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string, 5)
-	} else {
-
+	resourceToUpsync := downstreamObj.DeepCopy()
+	annotations := resourceToUpsync.GetAnnotations()
+	if annotations != nil {
 		delete(annotations, shared.NamespaceLocatorAnnotation)
+		resourceToUpsync.SetAnnotations(annotations)
 	}
-	annotations[ResourceVersionAnnotation] = downstreamObj.GetResourceVersion()
-	if (len(annotations)) == 0 {
-		downstreamObject.SetAnnotations(nil)
-	} else {
-		downstreamObject.SetAnnotations(annotations)
+	labels := resourceToUpsync.GetLabels()
+	if labels != nil {
+		delete(labels, workloadv1alpha1.InternalDownstreamClusterLabel)
+		resourceToUpsync.SetLabels(labels)
 	}
-	// Create the resource
-	return c.upstreamClient.Cluster(upstreamLogicalCluster.Path()).Resource(gvr).Namespace(upstreamNS).Create(ctx, downstreamObject, metav1.CreateOptions{})
+	resourceToUpsync.SetNamespace(upstreamNS)
+	resourceToUpsync.SetUID("")
+	resourceToUpsync.SetResourceVersion("")
+	resourceToUpsync.SetManagedFields(nil)
+	resourceToUpsync.SetDeletionTimestamp(nil)
+	resourceToUpsync.SetDeletionGracePeriodSeconds(nil)
+	resourceToUpsync.SetOwnerReferences(nil)
+	resourceToUpsync.SetFinalizers(nil)
+
+	return resourceToUpsync
+}
+
+func addResourceVersionAnnotation(resourceVersion string, annotations map[string]string) map[string]string {
+	if annotations == nil {
+		annotations = make(map[string]string, 1)
+	}
+	annotations[ResourceVersionAnnotation] = resourceVersion
+	return annotations
 }

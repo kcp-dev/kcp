@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -73,14 +75,8 @@ const (
 	Downstream Keysource = "Downstream"
 )
 
-const (
-	SpecUpdate     UpdateType = "Spec"
-	StatusUpdate   UpdateType = "Status"
-	MetadataUpdate UpdateType = "Meta"
-)
-
 // Upstream resource key generation
-// Add the cluster name/namespace#cluster-name
+// Add the cluster name/namespace#cluster-name.
 func getKey(obj interface{}, keySource Keysource) (string, error) {
 	if keySource == Upstream {
 		return kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
@@ -98,76 +94,28 @@ func ParseUpstreamKey(key string) (clusterName, namespace, name string, err erro
 	return clusterName, namespace, name, nil
 }
 
-// Queue handles keys for both upstream and downstream resources. Key Source identifies if it's a downstream or an upstream object
+// Queue handles keys for both upstream and downstream resources. Key Source identifies if it's a downstream or an upstream object.
 type queueKey struct {
 	gvr schema.GroupVersionResource
 	key string
 	// Differentiate between upstream and downstream keys
-	keysource Keysource
-	// Update type
-	updateType UpdateType
+	keysource     Keysource
+	includeStatus bool
 }
 
-func updateTypeSlicetoString(update []UpdateType) UpdateType {
-	str := ""
-	for i, updateType := range update {
-		if i != 0 {
-			str += ","
-		}
-		str += string(updateType)
-	}
-	return UpdateType(str)
-}
-
-func updateTypeStringtoSlice(update UpdateType) []UpdateType {
-	str := strings.Split(string(update), ",")
-	updateType := make([]UpdateType, len(str))
-	for i, item := range str {
-		updateType[i] = UpdateType(item)
-	}
-	return updateType
-}
-
-func getUpdateType(oldObj *unstructured.Unstructured, newObj *unstructured.Unstructured) []UpdateType {
-	newStatus := newObj.UnstructuredContent()["status"]
-	oldStatus := oldObj.UnstructuredContent()["status"]
-	isStatusUpdated := equality.Semantic.DeepEqual(newStatus, oldStatus)
-
-	newSpec := newObj.UnstructuredContent()["spec"]
-	oldSpec := oldObj.UnstructuredContent()["spec"]
-	isSpecUpdated := equality.Semantic.DeepEqual(newSpec, oldSpec)
-
-	newMeta := newObj.UnstructuredContent()["metadata"]
-	oldMeta := oldObj.UnstructuredContent()["metadata"]
-	isMetadataUpdated := equality.Semantic.DeepEqual(newMeta, oldMeta)
-
-	updatedValues := []UpdateType{}
-	if isSpecUpdated {
-		updatedValues = append(updatedValues, SpecUpdate)
-	}
-	if isStatusUpdated {
-		updatedValues = append(updatedValues, StatusUpdate)
-	}
-	if isMetadataUpdated {
-		updatedValues = append(updatedValues, MetadataUpdate)
-	}
-	return updatedValues
-}
-
-func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger, keysource Keysource, updateType []UpdateType) {
+func (c *Controller) enqueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger, keysource Keysource, includeStatus bool) {
 	key, err := getKey(obj, keysource)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String())
-	updateTypeHashed := updateTypeSlicetoString(updateType)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String(), "keySource", keysource, "includeStatus", includeStatus)
 	c.queue.Add(
 		queueKey{
-			gvr:        gvr,
-			key:        key,
-			keysource:  keysource,
-			updateType: updateTypeHashed,
+			gvr:           gvr,
+			key:           key,
+			keysource:     keysource,
+			includeStatus: includeStatus,
 		},
 	)
 }
@@ -198,13 +146,13 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Na
 			informer, ok := informers[gvr]
 			if !ok {
 				if shared.ContainsGVR(notSynced, gvr) {
-					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+					return nil, fmt.Errorf("informer for gvr %v not synced in the upstream upsyncer informer factory", gvr)
 				}
-				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+				return nil, fmt.Errorf("gvr %v should be known in the downstream upstream upsyncer informer factory", gvr)
 			}
 			return informer.Lister(), nil
 		},
-		syncTargetName:      syncTargetKey,
+		syncTargetName:      syncTargetName,
 		syncTargetWorkspace: syncTargetWorkspace,
 		syncTargetUID:       syncTargetUID,
 		syncTargetKey:       syncTargetKey,
@@ -218,24 +166,57 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Na
 			if gvr == namespaceGVR {
 				return
 			}
-			c.AddToQueue(gvr, obj, logger, Downstream, []UpdateType{})
+			new, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", obj))
+				return
+			}
+			if new.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
+				return
+			}
+			c.enqueue(gvr, obj, logger, Downstream, new.UnstructuredContent()["status"] != nil)
 		},
 		UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
 			if gvr == namespaceGVR {
 				return
 			}
-			updateType := getUpdateType(oldObj.(*unstructured.Unstructured), newObj.(*unstructured.Unstructured))
-			if len(updateType) > 0 {
-				c.AddToQueue(gvr, newObj, logger, Downstream, updateType)
+			old, ok := oldObj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", oldObj))
+				return
 			}
+			new, ok := newObj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", newObj))
+				return
+			}
+			if new.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
+				return
+			}
+
+			oldStatus := old.UnstructuredContent()["status"]
+			newStatus := new.UnstructuredContent()["status"]
+			isStatusUpdated := oldStatus != nil && newStatus != nil && equality.Semantic.DeepEqual(oldStatus, newStatus)
+			c.enqueue(gvr, newObj, logger, Downstream, isStatusUpdated)
 		},
 		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
 			if gvr == namespaceGVR {
 				return
 			}
+			if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = d.Obj
+			}
+			unstr, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				return
+			}
+			if unstr.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
+				return
+			}
 			// TODO(davidfestal): do we want to extract the namespace from where the resource was deleted,
 			// as done in the SpecController ?
-			c.AddToQueue(gvr, obj, logger, Downstream, []UpdateType{})
+			c.enqueue(gvr, obj, logger, Downstream, false)
 		},
 	})
 
@@ -244,7 +225,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Na
 			if gvr == namespaceGVR {
 				return
 			}
-			c.AddToQueue(gvr, obj, logger, Upstream, []UpdateType{})
+			c.enqueue(gvr, obj, logger, Upstream, false)
 		},
 	})
 	return c, nil
@@ -276,21 +257,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	qk := key.(queueKey)
-	ks := qk.keysource
-	updateType := qk.updateType
-	keySource := "Downstream"
-	if ks == Upstream {
-		keySource = "Upstream"
-	}
-
-	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String(), "source", keySource)
+	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String(), "keySource", qk.keysource, "includeStatus", qk.includeStatus)
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(1).Info("Processing key")
 	defer c.queue.Done(key)
 
-	updateTypeArray := updateTypeStringtoSlice(updateType)
-
-	if err := c.process(ctx, qk.gvr, qk.key, qk.keysource == Upstream, updateTypeArray); err != nil {
+	if err := c.process(ctx, qk.gvr, qk.key, qk.keysource == Upstream, qk.includeStatus); err != nil {
 		runtime.HandleError(fmt.Errorf("%s failed to upsync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
