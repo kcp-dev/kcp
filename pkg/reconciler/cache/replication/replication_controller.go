@@ -95,6 +95,16 @@ func NewController(
 				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 				global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 			},
+			tenancyv1alpha1.SchemeGroupVersion.WithResource("synctargets"): {
+				kind:   "SyncTarget",
+				local:  localKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
+				global: globalKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
+			},
+			tenancyv1alpha1.SchemeGroupVersion.WithResource("locations"): {
+				kind:   "Location",
+				local:  localKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
+				global: globalKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
+			},
 			rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
 				kind: "ClusterRole",
 				filter: func(u *unstructured.Unstructured) bool {
