@@ -29,6 +29,9 @@ env:
   # etcd uses fsync by default, disable it for running on github actions to avoid disk contention
   # xref: https://github.com/kcp-dev/kcp/pull/435/commits/064a517747d69c2cd8f7f8b4a595ad909e595c89
   UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC: true
+  # always enable the Kubernetes cache mutation detector when running in CI, this guarantees to catch
+  # potentiall issues with controllers not properly copying objects before mutating them.
+  KUBE_CACHE_MUTATION_DETECTOR: true
 
 jobs:
   e2e-shared-server:
