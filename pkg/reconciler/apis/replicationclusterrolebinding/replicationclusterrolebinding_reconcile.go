@@ -55,12 +55,21 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 
 	// references relevant ClusterRole?
 	if !replicate && crb.RoleRef.Kind == "ClusterRole" && crb.RoleRef.APIGroup == rbacv1.GroupName {
-		cr, err := r.getClusterRole(logicalcluster.From(crb), crb.RoleRef.Name)
+		localCR, err := r.getClusterRole(logicalcluster.From(crb), crb.RoleRef.Name)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
-		if cr != nil && replicationclusterrole.HasBindOrContentRule(cr) {
+		if localCR != nil && replicationclusterrole.HasBindOrContentRule(localCR) {
 			replicate = true
+		} else {
+			// fall back to possible bootstrap ClusterRole
+			bootstrapCR, err := r.getClusterRole("system:admin", crb.RoleRef.Name)
+			if err != nil && !errors.IsNotFound(err) {
+				return false, err
+			}
+			if bootstrapCR != nil && replicationclusterrole.HasBindOrContentRule(bootstrapCR) {
+				replicate = true
+			}
 		}
 	}
 
