@@ -333,7 +333,7 @@ endif
 test-e2e-sharded-minimal: TEST_ARGS ?=
 test-e2e-sharded-minimal: WHAT ?= ./test/e2e...
 test-e2e-sharded-minimal: WORK_DIR ?= .
-test-e2e-sharded: SHARDS ?= 2
+test-e2e-sharded-minimal: SHARDS ?= 2
 ifdef ARTIFACT_DIR
 test-e2e-sharded-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
