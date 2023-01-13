@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package replicationclusterrolebinding
+package labelclusterrolebindings
 
 import (
 	"context"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -26,14 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
 )
 
 func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {
 	r := &reconciler{
+		groupName:                    c.groupName,
+		isRelevantClusterRole:        c.isRelevantClusterRole,
+		isRelevantClusterRoleBinding: c.isRelevantClusterRoleBinding,
 		getClusterRole: func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 			return c.clusterRoleLister.Cluster(cluster).Get(name)
 		},
@@ -42,20 +41,17 @@ func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 }
 
 type reconciler struct {
-	getClusterRole func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
+	groupName                    string
+	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
+	getClusterRole               func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
 }
 
 func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {
 	logger := klog.FromContext(ctx)
 
 	// is a maximum-permission-policy subject?
-	replicate := false
-	for _, s := range crb.Subjects {
-		if strings.HasPrefix(s.Name, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix) && (s.Kind == rbacv1.UserKind || s.Kind == rbacv1.GroupKind) && s.APIGroup == rbacv1.GroupName {
-			replicate = true
-			break
-		}
-	}
+	replicate := r.isRelevantClusterRoleBinding(crb)
 
 	// references relevant ClusterRole?
 	if !replicate && crb.RoleRef.Kind == "ClusterRole" && crb.RoleRef.APIGroup == rbacv1.GroupName {
@@ -63,7 +59,7 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
-		if localCR != nil && replicationclusterrole.HasBindOrContentRule(localCR) {
+		if localCR != nil && r.isRelevantClusterRole(localCR) {
 			replicate = true
 		} else {
 			// fall back to possible bootstrap ClusterRole
@@ -71,7 +67,7 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 			if err != nil && !errors.IsNotFound(err) {
 				return false, err
 			}
-			if bootstrapCR != nil && replicationclusterrole.HasBindOrContentRule(bootstrapCR) {
+			if bootstrapCR != nil && r.isRelevantClusterRole(bootstrapCR) {
 				replicate = true
 			}
 		}
@@ -80,12 +76,12 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 	// calculate patch
 	if replicate {
 		var changed bool
-		if crb.Annotations, changed = kcpcorehelper.ReplicateFor(crb.Annotations, apis.GroupName); changed {
+		if crb.Annotations, changed = kcpcorehelper.ReplicateFor(crb.Annotations, r.groupName); changed {
 			logger.V(2).Info("Replicating ClusterRoleBinding")
 		}
 	} else {
 		var changed bool
-		if crb.Annotations, changed = kcpcorehelper.DontReplicateFor(crb.Annotations, apis.GroupName); changed {
+		if crb.Annotations, changed = kcpcorehelper.DontReplicateFor(crb.Annotations, r.groupName); changed {
 			logger.V(2).Info("Not replicating ClusterRoleBinding")
 		}
 	}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package replicationclusterrolebinding
+package labelclusterrolebindings
 
 import (
 	"context"
@@ -38,25 +38,35 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
-	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
-const (
-	ControllerName = "kcp-apis-replication-clusterrolebinding"
-)
+type Controller interface {
+	Start(ctx context.Context, numThreads int)
+}
 
 // NewController returns a new controller for labelling ClusterRoleBinding that should be replicated.
 func NewController(
+	controllerName string,
+	groupName string,
+	isRelevantClusterRole func(cr *rbacv1.ClusterRole) bool,
+	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
-) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+) (Controller, error) {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
+		controllerName: controllerName,
+		groupName:      groupName,
+
 		queue: queue,
+
+		isRelevantClusterRole:        isRelevantClusterRole,
+		isRelevantClusterRoleBinding: isRelevantClusterRoleBinding,
 
 		kubeClusterClient: kubeClusterClient,
 
@@ -70,7 +80,7 @@ func NewController(
 	}
 
 	indexers.AddIfNotPresentOrDie(clusterRoleBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		replicationclusterrole.ClusterRoleBindingByClusterRoleName: replicationclusterrole.IndexClusterRoleBindingByClusterRoleName,
+		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
 	})
 
 	clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -110,7 +120,13 @@ func NewController(
 // 1. either a maximum-permission-policy subject is bound
 // 2. or a ClusterRole.
 type controller struct {
+	controllerName string
+	groupName      string
+
 	queue workqueue.RateLimitingInterface
+
+	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -132,7 +148,7 @@ func (c *controller) enqueueClusterRoleBinding(obj interface{}, values ...interf
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
 	logger.V(4).WithValues(values...).Info("queueing ClusterRoleBinding")
 	c.queue.Add(key)
 }
@@ -150,7 +166,7 @@ func (c *controller) enqueueClusterRole(obj interface{}) {
 		return
 	}
 
-	objs, err := c.clusterRoleBindingIndexer.ByIndex(replicationclusterrole.ClusterRoleBindingByClusterRoleName, key)
+	objs, err := c.clusterRoleBindingIndexer.ByIndex(labelclusterroles.ClusterRoleBindingByClusterRoleName, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -166,7 +182,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -200,7 +216,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {

@@ -62,8 +62,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrolebinding"
+	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
+	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -953,15 +953,15 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	})
 }
 
-func (s *Server) installApisReplicationClusterRoleControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, replicationclusterrole.ControllerName)
+	config = rest.AddUserAgent(config, apisreplicateclusterrole.ControllerName)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := replicationclusterrole.NewController(
+	c, err := apisreplicateclusterrole.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
@@ -970,8 +970,8 @@ func (s *Server) installApisReplicationClusterRoleControllers(ctx context.Contex
 		return err
 	}
 
-	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replicationclusterrole.ControllerName))
+	return server.AddPostStartHook(postStartHookName(apisreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrole.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -983,15 +983,15 @@ func (s *Server) installApisReplicationClusterRoleControllers(ctx context.Contex
 	})
 }
 
-func (s *Server) installApisReplicationClusterRoleBindingControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, replicationclusterrolebinding.ControllerName)
+	config = rest.AddUserAgent(config, apisreplicateclusterrolebinding.ControllerName)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := replicationclusterrolebinding.NewController(
+	c, err := apisreplicateclusterrolebinding.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
@@ -1000,8 +1000,8 @@ func (s *Server) installApisReplicationClusterRoleBindingControllers(ctx context
 		return err
 	}
 
-	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replicationclusterrolebinding.ControllerName))
+	return server.AddPostStartHook(postStartHookName(apisreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrolebinding.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.

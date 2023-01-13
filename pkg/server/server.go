@@ -441,14 +441,14 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicationclusterrole") {
-		if err := s.installApisReplicationClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
+		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
 
-	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicationclusterrolebiding") {
-		if err := s.installApisReplicationClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrolebinding") {
+		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}

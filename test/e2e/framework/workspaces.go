@@ -38,8 +38,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/pkg/server"
 	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
+	"github.com/kcp-dev/kcp/pkg/server"
 )
 
 type WorkspaceOption interface {
