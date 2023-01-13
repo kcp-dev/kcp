@@ -195,7 +195,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Na
 
 			oldStatus := old.UnstructuredContent()["status"]
 			newStatus := new.UnstructuredContent()["status"]
-			isStatusUpdated := oldStatus != nil && newStatus != nil && equality.Semantic.DeepEqual(oldStatus, newStatus)
+			isStatusUpdated := newStatus != nil && !equality.Semantic.DeepEqual(oldStatus, newStatus)
 			c.enqueue(gvr, newObj, logger, Downstream, isStatusUpdated)
 		},
 		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
