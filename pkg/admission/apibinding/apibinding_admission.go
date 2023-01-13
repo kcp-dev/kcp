@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -273,30 +272,13 @@ func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user use
 		// Returning a less specific error to the end user
 		return errors.New("unable to authorize request")
 	}
-
-	bindAttr := authorizer.AttributesRecord{
-		User:            user,
-		Verb:            "bind",
-		APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
-		Resource:        "apiexports",
-		Name:            apiExportName,
-		ResourceRequest: true,
-	}
-
-	if decision, _, err := authz.Authorize(ctx, bindAttr); err != nil {
-		return fmt.Errorf("unable to determine access to apiexports: %w", err)
-	} else if decision != authorizer.DecisionAllow {
-		return fmt.Errorf("no permission to bind to export %q", apiExportName)
-	}
-
-	return nil
+	return CheckAPIExportAccess(ctx, user, apiExportName, authz)
 }
 
 // ValidateInitialization ensures the required injected fields are set.
 func (o *apiBindingAdmission) ValidateInitialization() error {
 	if o.deepSARClient == nil {
-		return fmt.Errorf(PluginName + " plugin needs a Kubernetes ClusterInterface")
+		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
 	}
 	if o.apiExportLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an APIExport lister")

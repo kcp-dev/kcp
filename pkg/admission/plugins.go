@@ -42,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibinding"
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
+	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
@@ -76,6 +77,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	apiexport.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
+	apiexportendpointslice.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
 	kcplimitranger.PluginName,
@@ -114,6 +116,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	apiexport.Register(plugins)
 	apibinding.Register(plugins)
 	apibindingfinalizer.Register(plugins)
+	apiexportendpointslice.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
@@ -146,6 +149,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	apiexport.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
+	apiexportendpointslice.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
