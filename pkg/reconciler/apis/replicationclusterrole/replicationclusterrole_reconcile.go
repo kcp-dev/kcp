@@ -74,13 +74,16 @@ func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (boo
 
 func HasBindOrContentRule(cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		if !sets.NewString(rule.APIGroups...).Has(apis.GroupName) {
+		apiGroups := sets.NewString(rule.APIGroups...)
+		if !apiGroups.Has(apis.GroupName) && !apiGroups.Has("*") {
 			continue
 		}
-		if sets.NewString(rule.Resources...).Has("apiexports") && sets.NewString(rule.Verbs...).Has("bind") {
+		resources := sets.NewString(rule.Resources...)
+		verbs := sets.NewString(rule.Verbs...)
+		if (resources.Has("apiexports") || resources.Has("*")) && (verbs.Has("bind") || verbs.Has("*")) {
 			return true
 		}
-		if sets.NewString(rule.Resources...).Has("apiexports/content") {
+		if resources.Has("apiexports/content") || resources.Has("*") {
 			return true
 		}
 	}
