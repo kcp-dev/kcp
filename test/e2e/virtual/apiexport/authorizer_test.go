@@ -613,10 +613,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	}
 	framework.Eventually(t, func() (bool, string) {
 		_, err := userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("error creating API binding: %v", err)
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Wait for the binding to be ready")

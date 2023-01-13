@@ -1045,9 +1045,9 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 	consumerWsClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)

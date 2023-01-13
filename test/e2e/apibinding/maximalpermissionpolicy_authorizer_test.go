@@ -197,9 +197,9 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		}
 
 		// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
-		require.Eventuallyf(t, func() bool {
+		framework.Eventually(t, func() (bool, string) {
 			_, err = user3KcpClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-			return err == nil
+			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
 
 		consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)

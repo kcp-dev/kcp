@@ -113,10 +113,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure we can get the APIBinding we just created")
@@ -226,10 +223,7 @@ func TestAPIBinding(t *testing.T) {
 
 		framework.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-			if err != nil {
-				return false, err.Error()
-			}
-			return true, ""
+			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, providerPath)
@@ -304,10 +298,7 @@ func TestAPIBinding(t *testing.T) {
 
 		framework.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-			if err != nil {
-				return false, err.Error()
-			}
-			return true, ""
+			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", provider2Path, providerPath)

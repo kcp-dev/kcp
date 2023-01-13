@@ -272,10 +272,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
