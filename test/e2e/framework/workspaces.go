@@ -39,6 +39,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/server"
+	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 )
 
 type WorkspaceOption interface {
@@ -176,7 +177,24 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible, potentially through eventual consistent workspace index", ws.Spec.Type, parent.Join(ws.Name))
 
-	t.Logf("Created %s workspace %s as /clusters/%s", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster)
+	// best effort to get a shard name from the hash in the annotation
+	hash := ws.Annotations[reconcilerworkspace.WorkspaceShardHashAnnotationKey]
+	shard := corev1alpha1.RootShard
+	if reconcilerworkspace.ByBase36Sha224NameValue(shard) != hash {
+		found := false
+		for i := 0; i < 10; i++ {
+			shard = fmt.Sprintf("shard-%d", i)
+			if reconcilerworkspace.ByBase36Sha224NameValue(shard) == hash {
+				found = true
+				break
+			}
+		}
+		if !found {
+			shard = fmt.Sprintf("hash %s", hash)
+		}
+	}
+
+	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, shard)
 	return ws
 }
 

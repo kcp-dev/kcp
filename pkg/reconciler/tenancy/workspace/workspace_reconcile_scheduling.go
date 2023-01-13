@@ -50,9 +50,9 @@ import (
 )
 
 const (
-	// workspaceShardAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
+	// WorkspaceShardHashAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
 	// is a base36(sha224) hash of the Shard name.
-	workspaceShardAnnotationKey = "internal.tenancy.kcp.io/shard"
+	WorkspaceShardHashAnnotationKey = "internal.tenancy.kcp.io/shard"
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
 	workspaceClusterAnnotationKey = "internal.tenancy.kcp.io/cluster"
 )
@@ -84,7 +84,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		return reconcileStatusContinue, nil
 	case workspace.Spec.URL == "" || workspace.Spec.Cluster == "":
-		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
+		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
@@ -110,7 +110,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
-			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
+			workspace.Annotations[WorkspaceShardHashAnnotationKey] = shardNameHash
 		}
 		if !hasCluster {
 			cluster := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))
