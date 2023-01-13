@@ -53,7 +53,11 @@ const sourceClusterName, sinkClusterName = "source", "sink"
 
 func TestClusterController(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "transparent-multi-cluster")
+	framework.Suite(t, "transparent-multi-cluster:requires-kind")
+
+	if len(framework.TestConfig.PClusterKubeconfig()) == 0 {
+		t.Skip("Test requires a pcluster")
+	}
 
 	type runningServer struct {
 		client     wildwestv1alpha1client.WildwestV1alpha1Interface
