@@ -54,16 +54,21 @@ type testScenario struct {
 	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface)
 }
 
-// scenarios all test scenarios that will be run against in-process and standalone cache server.
+// scenarios all test scenarios that will be run against an environment provided by the test binary.
 var scenarios = []testScenario{
 	{"TestReplicateAPIExport", replicateAPIExportScenario},
 	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
 	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
 	{"TestReplicateAPIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
-	{"TestReplicateShard", replicateShardScenario},
-	{"TestReplicateShardNegative", replicateShardNegativeScenario},
 	{"TestReplicateWorkspaceType", replicateWorkspaceTypeScenario},
 	{"TestReplicateWorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
+}
+
+// disruptiveScenarios contains a list of scenarios that will be run in a private environment
+// so that they don't disrupt other tests.
+var disruptiveScenarios = []testScenario{
+	{"TestReplicateShard", replicateShardScenario},
+	{"TestReplicateShardNegative", replicateShardNegativeScenario},
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
@@ -420,6 +425,7 @@ func TestReplication(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
+	// TODO (p0lyn0mial): detect the type of the env we are running on (single vs multi-shard)
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
@@ -428,6 +434,33 @@ func TestReplication(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
+		scenario := scenario
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			scenario.work(ctx, t, server, kcpRootShardDynamicClient, cacheKcpClusterDynamicClient)
+		})
+	}
+}
+
+// TestReplicationDisruptive runs all disruptive tests in a private environment.
+func TestReplicationDisruptive(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	tokenAuthFile := framework.WriteTokenAuthFile(t)
+	server := framework.PrivateKcpServer(t,
+		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
+	kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
+	require.NoError(t, err)
+	cacheClientRT := ClientRoundTrippersFor(kcpRootShardConfig)
+	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
+	require.NoError(t, err)
+
+	for _, scenario := range disruptiveScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
@@ -468,7 +501,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
-	for _, scenario := range scenarios {
+	for _, scenario := range append(scenarios, disruptiveScenarios...) {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
