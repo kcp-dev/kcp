@@ -26,6 +26,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -48,6 +49,8 @@ type reconciler struct {
 }
 
 func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (bool, error) {
+	logger := klog.FromContext(ctx)
+
 	replicate := HasBindOrContentRule(cr)
 	if !replicate {
 		objs, err := r.getReferencingClusterRoleBindings(logicalcluster.From(cr), cr.Name)
@@ -64,9 +67,15 @@ func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (boo
 	}
 
 	if replicate {
-		cr.Annotations, _ = kcpcorehelper.ReplicateFor(cr.Annotations, "apis.kcp.io")
+		var changed bool
+		if cr.Annotations, changed = kcpcorehelper.ReplicateFor(cr.Annotations, "apis.kcp.io"); changed {
+			logger.V(2).Info("Replicating ClusterRole")
+		}
 	} else {
-		cr.Annotations, _ = kcpcorehelper.DontReplicateFor(cr.Annotations, "apis.kcp.io")
+		var changed bool
+		if cr.Annotations, changed = kcpcorehelper.DontReplicateFor(cr.Annotations, "apis.kcp.io"); changed {
+			logger.V(2).Info("Not replicating ClusterRole")
+		}
 	}
 
 	return false, nil

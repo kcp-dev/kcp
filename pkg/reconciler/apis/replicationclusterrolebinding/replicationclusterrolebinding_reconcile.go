@@ -24,6 +24,7 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
@@ -44,6 +45,8 @@ type reconciler struct {
 }
 
 func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {
+	logger := klog.FromContext(ctx)
+
 	// is a maximum-permission-policy subject?
 	replicate := false
 	for _, s := range crb.Subjects {
@@ -75,9 +78,15 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 
 	// calculate patch
 	if replicate {
-		crb.Annotations, _ = kcpcorehelper.ReplicateFor(crb.Annotations, "apis.kcp.io")
+		var changed bool
+		if crb.Annotations, changed = kcpcorehelper.ReplicateFor(crb.Annotations, "apis.kcp.io"); changed {
+			logger.V(2).Info("Replicating ClusterRoleBinding")
+		}
 	} else {
-		crb.Annotations, _ = kcpcorehelper.DontReplicateFor(crb.Annotations, "apis.kcp.io")
+		var changed bool
+		if crb.Annotations, changed = kcpcorehelper.DontReplicateFor(crb.Annotations, "apis.kcp.io"); changed {
+			logger.V(2).Info("Not replicating ClusterRoleBinding")
+		}
 	}
 
 	return false, nil

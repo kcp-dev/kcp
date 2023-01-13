@@ -152,11 +152,13 @@ func (c *controller) enqueueClusterRoleBinding(obj interface{}) {
 	}
 
 	cr, err := c.clusterRoleLister.Cluster(logicalcluster.From(crb)).Get(crb.RoleRef.Name)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		runtime.HandleError(err)
 		return
+	} else if errors.IsNotFound(err) {
+		return // dangling ClusterRole reference, nothing to do
 	}
-
+	
 	c.enqueueClusterRole(cr, "reason", "ClusterRoleBinding", "ClusterRoleBinding.name", crb.Name)
 }
 
