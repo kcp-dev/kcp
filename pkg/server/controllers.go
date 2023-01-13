@@ -912,12 +912,10 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 func (s *Server) installAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, apiexport.ControllerName)
-
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
@@ -930,24 +928,6 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
-	)
-	if err != nil {
-		return err
-	}
-
-	clusterRoleReplication, err := replicationclusterrole.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-	)
-	if err != nil {
-		return err
-	}
-
-	clusterRoleBindingReplication, err := replicationclusterrolebinding.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 	if err != nil {
 		return err
@@ -968,8 +948,66 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		}
 
 		go c.Start(goContext(hookContext), 2)
-		go clusterRoleReplication.Start(goContext(hookContext), 2)
-		go clusterRoleBindingReplication.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installApisReplicationClusterRoleControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, replicationclusterrole.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := replicationclusterrole.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replicationclusterrole.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installApisReplicationClusterRoleBindingControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, replicationclusterrolebinding.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := replicationclusterrolebinding.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replicationclusterrolebinding.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})

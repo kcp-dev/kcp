@@ -68,12 +68,12 @@ func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (boo
 
 	if replicate {
 		var changed bool
-		if cr.Annotations, changed = kcpcorehelper.ReplicateFor(cr.Annotations, "apis.kcp.io"); changed {
+		if cr.Annotations, changed = kcpcorehelper.ReplicateFor(cr.Annotations, apis.GroupName); changed {
 			logger.V(2).Info("Replicating ClusterRole")
 		}
 	} else {
 		var changed bool
-		if cr.Annotations, changed = kcpcorehelper.DontReplicateFor(cr.Annotations, "apis.kcp.io"); changed {
+		if cr.Annotations, changed = kcpcorehelper.DontReplicateFor(cr.Annotations, apis.GroupName); changed {
 			logger.V(2).Info("Not replicating ClusterRole")
 		}
 	}

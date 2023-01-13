@@ -441,6 +441,18 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicationclusterrole") {
+		if err := s.installApisReplicationClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicationclusterrolebiding") {
+		if err := s.installApisReplicationClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
 		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
