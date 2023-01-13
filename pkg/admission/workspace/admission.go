@@ -37,7 +37,6 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
@@ -79,7 +78,7 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspaces") {
 		return nil
 	}
 
@@ -87,7 +86,7 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ws := &tenancyv1beta1.Workspace{}
+	ws := &tenancyv1alpha1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
@@ -139,7 +138,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspaces") {
 		return nil
 	}
 
@@ -147,7 +146,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ws := &tenancyv1beta1.Workspace{}
+	ws := &tenancyv1alpha1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ws); err != nil {
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
@@ -160,7 +159,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		old := &tenancyv1beta1.Workspace{}
+		old := &tenancyv1alpha1.Workspace{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
@@ -236,16 +235,16 @@ func (o *workspace) ValidateInitialization() error {
 	return nil
 }
 
-func (o *workspace) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	logicalClustersReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+func (o *workspace) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	logicalClustersReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return logicalClustersReady()
 	})
-	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 }
 
 // updateUnstructured updates the given unstructured object to match the given workspace.
-func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1beta1.Workspace) error {
+func updateUnstructured(u *unstructured.Unstructured, ws *tenancyv1alpha1.Workspace) error {
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ws)
 	if err != nil {
 		return err

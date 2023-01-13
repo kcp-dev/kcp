@@ -38,7 +38,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/workload/v1alpha1"
 )
@@ -51,7 +50,6 @@ type ClusterInterface interface {
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
-	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1ClusterInterface
 }
@@ -65,7 +63,6 @@ type ClusterClientset struct {
 	coreV1alpha1        *corev1alpha1.CoreV1alpha1ClusterClient
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1ClusterClient
-	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1ClusterClient
 	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1ClusterClient
 	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1ClusterClient
 }
@@ -101,11 +98,6 @@ func (c *ClusterClientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1a
 // TenancyV1alpha1 retrieves the TenancyV1alpha1ClusterClient.
 func (c *ClusterClientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface {
 	return c.tenancyV1alpha1
-}
-
-// TenancyV1beta1 retrieves the TenancyV1beta1ClusterClient.
-func (c *ClusterClientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface {
-	return c.tenancyV1beta1
 }
 
 // TopologyV1alpha1 retrieves the TopologyV1alpha1ClusterClient.
@@ -187,10 +179,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		return nil, err
 	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	cs.tenancyV1beta1, err = tenancyv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

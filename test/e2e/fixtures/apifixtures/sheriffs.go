@@ -117,7 +117,7 @@ func NewSheriffsCRDWithVersions(group string, versions ...string) *apiextensions
 func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
-	clusterName logicalcluster.Path,
+	path logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 	group string,
 	description string,
@@ -155,9 +155,9 @@ func CreateSheriffsSchemaAndExport(
 		},
 	}
 
-	t.Logf("Creating APIResourceSchema %s|%s", clusterName, schema.Name)
-	_, err := clusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIResourceSchema %s|%s", clusterName, schema.Name)
+	t.Logf("Creating APIResourceSchema %s|%s", path, schema.Name)
+	_, err := clusterClient.Cluster(path).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating APIResourceSchema %s|%s", path, schema.Name)
 
 	export := &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
@@ -168,9 +168,9 @@ func CreateSheriffsSchemaAndExport(
 		},
 	}
 
-	t.Logf("Creating APIExport %s|%s", clusterName, export.Name)
-	_, err = clusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIExport %s|%s", clusterName, export.Name)
+	t.Logf("Creating APIExport %s|%s", path, export.Name)
+	_, err = clusterClient.Cluster(path).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating APIExport %s|%s", path, export.Name)
 }
 
 // CreateSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in

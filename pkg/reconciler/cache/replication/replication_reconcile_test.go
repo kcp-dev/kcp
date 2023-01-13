@@ -18,358 +18,226 @@ package replication
 
 import (
 	"context"
-	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
-
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
-var scheme *runtime.Scheme
+func TestReconcile(t *testing.T) {
+	gr := schema.GroupResource{Group: "example.com", Resource: "elephants"}
+	elephant := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Elephant",
+			"metadata": map[string]interface{}{
+				"name":            "dumbo",
+				"namespace":       "zoo",
+				"resourceVersion": "42",
+				"uid":             "47-11",
+				"kcp.dev/cluster": "root",
+			},
+			"spec": map[string]interface{}{
+				"color": "pink",
+			},
+			"status": map[string]interface{}{
+				"weight": float64(42),
+			},
+		},
+	}
 
-func init() {
-	scheme = runtime.NewScheme()
-	_ = apisv1alpha1.AddToScheme(scheme)
-}
-
-func TestReconcileAPIExports(t *testing.T) {
 	scenarios := []struct {
-		name                                     string
-		initialLocalAPIExports                   []runtime.Object
-		initialGlobalAPIExports                  []runtime.Object
-		initCacheFakeClientWithInitialAPIExports bool
-		reconcileKey                             string
-		validateFunc                             func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action)
+		name          string
+		getLocalCopy  func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+		getGlobalCopy func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+
+		key string
+
+		expectedCreate          *unstructured.Unstructured
+		expectedDeleteName      string
+		expectedDeleteNamespace string
+		expectedUpdate          *unstructured.Unstructured
+
+		expectedError string
 	}{
 		{
-			name:                   "case 1: creation of the object in the cache server",
-			initialLocalAPIExports: []runtime.Object{newAPIExport("foo")},
-			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				if len(localClientActions) != 0 {
-					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+			name: "case 1: creation of the object in the cache server",
+			getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				if cluster.String() == "root" && namespace == "zoo" && name == "dumbo" {
+					return elephant.DeepCopy(), nil
 				}
-				wasGlobalAPIExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("create", "apiexports") {
-						createAction := action.(kcptesting.CreateAction)
-						if createAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", createAction.GetCluster())
-						}
-						createdUnstructuredAPIExport := createAction.GetObject().(*unstructured.Unstructured)
-						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(createdUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
-
-						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
-						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							t.Errorf("unexpected APIExport was created:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
-						}
-						wasGlobalAPIExportValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportValidated {
-					t.Errorf("an APIExport on the cache sever wasn't created")
-				}
+				return nil, errors.NewNotFound(gr, name)
 			},
+			getGlobalCopy:  getCopyNotFoundFunc,
+			key:            "root|zoo/dumbo",
+			expectedCreate: WithShardName(WithoutResourceVersion(elephant.DeepCopy()), "root"),
 		},
 		{
 			name: "case 2: cached object is removed when local object was removed",
-			initialLocalAPIExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					t := metav1.NewTime(time.Now())
-					apiExport := newAPIExport("foo")
-					apiExport.DeletionTimestamp = &t
-					apiExport.Finalizers = []string{"aFinalizer"}
-					return apiExport
-				}(),
+			getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithDeletionTimestamp(elephant.DeepCopy(), time.Now()), nil
 			},
-			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialAPIExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				if len(localClientActions) != 0 {
-					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
-				}
-				wasGlobalAPIExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(kcptesting.DeleteAction)
-						if deleteAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
-						}
-						if deleteAction.GetName() != "foo" {
-							t.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
-						}
-						wasGlobalAPIExportValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportValidated {
-					t.Errorf("an APIExport on the cache sever wasn't deleted")
-				}
+			getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithResourceVersion(WithShardName(elephant.DeepCopy(), "shard-1"), "7"), nil
 			},
+			key:                     "root|zoo/dumbo",
+			expectedDeleteName:      "dumbo",
+			expectedDeleteNamespace: "zoo",
 		},
 		{
-			name:                                     "case 2: cached object is removed when local object was not found",
-			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialAPIExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				wasGlobalAPIExportDeletionValidated := false
-				wasGlobalAPIExportRetrievalValidated := false
-				for _, action := range localClientActions {
-					if action.Matches("get", "apiexports") {
-						getAction := action.(kcptesting.GetAction)
-						if getAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for localDynamicClient", getAction.GetCluster())
-						}
-						if getAction.GetName() != "foo" {
-							t.Fatalf("unexpected APIExport was retrieved = %s, expected = %s", getAction.GetName(), "foo")
-						}
-						wasGlobalAPIExportRetrievalValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportRetrievalValidated {
-					t.Errorf("before deleting an APIExport the controller should live GET it")
-				}
-				for _, action := range cacheClientActions {
-					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(kcptesting.DeleteAction)
-						if deleteAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
-						}
-						if deleteAction.GetName() != "foo" {
-							t.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
-						}
-						wasGlobalAPIExportDeletionValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportDeletionValidated {
-					t.Errorf("an APIExport on the cache sever wasn't deleted")
-				}
+			name:         "case 2: cached object is removed when local object was not found",
+			getLocalCopy: getCopyNotFoundFunc,
+			getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return elephant.DeepCopy(), nil
 			},
+			key:                     "root|zoo/dumbo",
+			expectedDeleteName:      "dumbo",
+			expectedDeleteNamespace: "zoo",
 		},
 		{
 			name: "case 3: update, metadata mismatch",
-			initialLocalAPIExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					apiExport.Labels["fooLabel"] = "fooLabelVal"
-					return apiExport
-				}(),
+			getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithLabel(elephant.DeepCopy(), "a", "b"), nil
 			},
-			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialAPIExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				if len(localClientActions) != 0 {
-					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
-				}
-				wasGlobalAPIExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(kcptesting.UpdateAction)
-						if updateAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
-						}
-						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
-						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
-
-						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
-						expectedAPIExport.Labels["fooLabel"] = "fooLabelVal"
-						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
-						}
-						wasGlobalAPIExportValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportValidated {
-					t.Errorf("an APIExport on the cache sever wasn't updated")
-				}
+			getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithResourceVersion(elephant.DeepCopy(), "7"), nil
 			},
+			key:            "root|zoo/dumbo",
+			expectedUpdate: WithLabel(WithResourceVersion(elephant.DeepCopy(), "7"), "a", "b"),
 		},
 		{
 			name: "case 3: update, spec changed",
-			initialLocalAPIExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					apiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
-					return apiExport
-				}(),
+			getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithChange(elephant.DeepCopy(), []string{"spec", "color"}, "blue"), nil
 			},
-			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialAPIExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				if len(localClientActions) != 0 {
-					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
-				}
-				wasGlobalAPIExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(kcptesting.UpdateAction)
-						if updateAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
-						}
-						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
-						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
-
-						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
-						expectedAPIExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
-						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
-						}
-						wasGlobalAPIExportValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportValidated {
-					t.Errorf("an APIExport on the cache sever wasn't updated")
-				}
+			getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithResourceVersion(elephant.DeepCopy(), "7"), nil
 			},
+			key:            "root|zoo/dumbo",
+			expectedUpdate: WithChange(WithResourceVersion(elephant.DeepCopy(), "7"), []string{"spec", "color"}, "blue"),
 		},
 		{
 			name: "case 3: update, status changed",
-			initialLocalAPIExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-					apiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
-					return apiExport
-				}(),
+			getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithChange(elephant.DeepCopy(), []string{"status", "weight"}, "42.5"), nil
 			},
-			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialAPIExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
-				t.Helper()
-
-				if len(localClientActions) != 0 {
-					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
-				}
-				wasGlobalAPIExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(kcptesting.UpdateAction)
-						if updateAction.GetCluster().String() != "root" {
-							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
-						}
-						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
-						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
-
-						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
-						//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-						expectedAPIExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
-						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
-						}
-						wasGlobalAPIExportValidated = true
-						break
-					}
-				}
-				if !wasGlobalAPIExportValidated {
-					t.Errorf("an APIExport on the cache sever wasn't updated")
-				}
+			getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				return WithResourceVersion(elephant.DeepCopy(), "7"), nil
 			},
+			key:            "root|zoo/dumbo",
+			expectedUpdate: WithChange(WithResourceVersion(elephant.DeepCopy(), "7"), []string{"status", "weight"}, "42.5"),
 		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			target := &controller{shardName: "amber"}
-			localAPIExportIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			for _, obj := range scenario.initialLocalAPIExports {
-				if err := localAPIExportIndexer.Add(obj); err != nil {
-					tt.Error(err)
-				}
+			var created *unstructured.Unstructured
+			var updated *unstructured.Unstructured
+			var deletedNamespace, deletedName string
+
+			r := &reconciler{
+				shardName:     "root",
+				getLocalCopy:  scenario.getLocalCopy,
+				getGlobalCopy: scenario.getGlobalCopy,
+				createObject: func(ctx context.Context, clusterName logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+					created = obj.DeepCopy()
+					return created, nil
+				},
+				updateObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+					updated = obj.DeepCopy()
+					return updated, nil
+				},
+				deleteObject: func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error {
+					deletedNamespace = ns
+					deletedName = name
+					return nil
+				},
 			}
-			target.localAPIExportLister = apisv1alpha1listers.NewAPIExportClusterLister(localAPIExportIndexer)
-			target.globalAPIExportIndexer = cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
-			for _, obj := range scenario.initialGlobalAPIExports {
-				if err := target.globalAPIExportIndexer.Add(obj); err != nil {
-					tt.Error(err)
-				}
+
+			err := r.reconcile(context.Background(), scenario.key)
+			if scenario.expectedError != "" && err == nil {
+				tt.Fatalf("expected error %q, got nil", scenario.expectedError)
+			} else if scenario.expectedError == "" && err != nil {
+				tt.Fatalf("unexpected error: %v", err)
+			} else if scenario.expectedError != "" && err != nil && !strings.Contains(err.Error(), scenario.expectedError) {
+				tt.Fatalf("expected error %q, got %q", scenario.expectedError, err.Error())
 			}
-			fakeCacheDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, func() []runtime.Object {
-				if scenario.initCacheFakeClientWithInitialAPIExports {
-					return scenario.initialGlobalAPIExports
-				}
-				return []runtime.Object{}
-			}()...)
-			target.dynamicCacheClient = fakeCacheDynamicClient
-			fakeLocalDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme)
-			target.dynamicLocalClient = fakeLocalDynamicClient
-			if err := target.reconcile(context.TODO(), scenario.reconcileKey); err != nil {
-				tt.Fatal(err)
+
+			if scenario.expectedCreate != nil && created == nil {
+				tt.Fatalf("expected object to be created, but it was not")
+			} else if scenario.expectedCreate == nil && created != nil {
+				tt.Fatalf("expected object to not be created, but it was")
+			} else if !reflect.DeepEqual(scenario.expectedCreate, created) {
+				tt.Fatalf("expected created object to be %v, got %v, diff:\n%s", scenario.expectedCreate, created, cmp.Diff(scenario.expectedCreate, created))
 			}
-			if scenario.validateFunc != nil {
-				scenario.validateFunc(tt, fakeCacheDynamicClient.Actions(), fakeLocalDynamicClient.Actions())
+
+			if scenario.expectedUpdate != nil && updated == nil {
+				tt.Fatalf("expected object to be updated, but it was not")
+			} else if scenario.expectedUpdate == nil && updated != nil {
+				tt.Fatalf("expected object to not be updated, but it was")
+			} else if !reflect.DeepEqual(scenario.expectedUpdate, updated) {
+				tt.Fatalf("expected updated object to be %v, got %v, diff:\n%s", scenario.expectedUpdate, updated, cmp.Diff(scenario.expectedUpdate, updated))
+			}
+
+			if scenario.expectedDeleteName != deletedName {
+				tt.Fatalf("expected deleted name %q, got %q", scenario.expectedDeleteName, deletedName)
+			}
+			if scenario.expectedDeleteNamespace != deletedNamespace {
+				tt.Fatalf("expected deleted namespace %q, got %q", scenario.expectedDeleteNamespace, deletedNamespace)
 			}
 		})
 	}
 }
 
-func newAPIExport(name string) *apisv1alpha1.APIExport {
-	return &apisv1alpha1.APIExport{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apis.kcp.io/v1alpha1",
-			Kind:       "APIExport",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{},
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: "root",
-			},
-			Name: name,
-		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"lrs"},
-		},
-		Status: apisv1alpha1.APIExportStatus{
-			IdentityHash: fmt.Sprintf("%s-identity", name),
-		},
-	}
+func WithResourceVersion(u *unstructured.Unstructured, rv string) *unstructured.Unstructured {
+	u.SetResourceVersion(rv)
+
+	return u
+}
+func WithoutResourceVersion(u *unstructured.Unstructured) *unstructured.Unstructured {
+	unstructured.RemoveNestedField(u.Object, "metadata", "resourceVersion")
+	return u
 }
 
-func newAPIExportWithShardAnnotation(name string) *apisv1alpha1.APIExport {
-	apiExport := newAPIExport(name)
-	apiExport.Annotations["kcp.io/shard"] = "amber"
-	return apiExport
+func WithDeletionTimestamp(u *unstructured.Unstructured, t time.Time) *unstructured.Unstructured {
+	ts := metav1.NewTime(t)
+	u.SetDeletionTimestamp(&ts)
+	return u
+}
+
+func WithLabel(u *unstructured.Unstructured, key, value string) *unstructured.Unstructured {
+	labels := u.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[key] = value
+	u.SetLabels(labels)
+	return u
+}
+
+func WithShardName(u *unstructured.Unstructured, name string) *unstructured.Unstructured {
+	ann := u.GetAnnotations()
+	if ann == nil {
+		ann = map[string]string{}
+	}
+	ann[request.AnnotationKey] = name
+	u.SetAnnotations(ann)
+	return u
+}
+
+func WithChange(u *unstructured.Unstructured, path []string, value interface{}) *unstructured.Unstructured {
+	unstructured.SetNestedField(u.Object, value, path...) //nolint:errcheck
+	return u
+}
+
+func getCopyNotFoundFunc(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+	return nil, errors.NewNotFound(schema.GroupResource{Group: "example.com", Resource: "elephants"}, name)
 }

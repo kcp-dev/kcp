@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func TestReconcileMetadata(t *testing.T) {
@@ -36,13 +36,13 @@ func TestReconcileMetadata(t *testing.T) {
 
 	for _, testCase := range []struct {
 		name       string
-		input      *tenancyv1beta1.Workspace
+		input      *tenancyv1alpha1.Workspace
 		expected   metav1.ObjectMeta
 		wantStatus reconcileStatus
 	}{
 		{
 			name: "removes everything but owner username when ready",
-			input: &tenancyv1beta1.Workspace{
+			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.io/phase": "Ready",
@@ -52,7 +52,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.io/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
-				Status: tenancyv1beta1.WorkspaceStatus{
+				Status: tenancyv1alpha1.WorkspaceStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
@@ -69,11 +69,11 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "shows phase Deleting when deletion timestamp is set",
-			input: &tenancyv1beta1.Workspace{
+			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: &metav1.Time{Time: date},
 				},
-				Status: tenancyv1beta1.WorkspaceStatus{
+				Status: tenancyv1alpha1.WorkspaceStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
@@ -87,7 +87,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "delete invalid owner annotation when ready",
-			input: &tenancyv1beta1.Workspace{
+			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.io/phase": "Ready",
@@ -97,7 +97,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.io/owner": `{"username":}`,
 					},
 				},
-				Status: tenancyv1beta1.WorkspaceStatus{
+				Status: tenancyv1alpha1.WorkspaceStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},

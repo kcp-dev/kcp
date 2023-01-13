@@ -62,6 +62,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrole"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicationclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -421,9 +423,9 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
-		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 	if err != nil {
@@ -684,7 +686,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
 			cacheSchemasSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return crdsSynced && exportsSynced && cacheExportsSynced && schemasSynced && cacheSchemasSynced && bindingsSynced, nil
@@ -754,6 +756,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		ddsif,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 	if err != nil {
 		return err
@@ -910,6 +913,24 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	clusterRoleReplication, err := replicationclusterrole.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	clusterRoleBindingReplication, err := replicationclusterrolebinding.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+	)
+	if err != nil {
+		return err
+	}
+
 	return server.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexport.ControllerName))
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
@@ -925,6 +946,8 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		}
 
 		go c.Start(goContext(hookContext), 2)
+		go clusterRoleReplication.Start(goContext(hookContext), 2)
+		go clusterRoleBindingReplication.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -944,6 +967,7 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		// Shards and APIExports get retrieved from cache server
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
 		kcpClusterClient,
 	)
 	if err != nil {
@@ -1039,6 +1063,7 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 
 	c, err := workloadplacement.NewController(
 		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
@@ -1328,13 +1353,8 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 }
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, replication.ControllerName)
-	dynamicLocalClient, err := kcpdynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, dynamicLocalClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory)
+	// TODO(sttts): set user agent
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
 	if err != nil {
 		return err
 	}

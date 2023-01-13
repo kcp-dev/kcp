@@ -119,6 +119,7 @@ type ExtraConfig struct {
 	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
 	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
+	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -197,8 +198,16 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rt)
+	if err != nil {
+		return nil, err
+	}
 	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		cacheKcpClusterClient,
+		resyncPeriod,
+	)
+	c.CacheKubeSharedInformerFactory = kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		cacheKubeClusterClient,
 		resyncPeriod,
 	)
 	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
@@ -282,7 +291,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	if err := opts.Authorization.ApplyTo(c.GenericConfig, c.KubeSharedInformerFactory, c.KcpSharedInformerFactory); err != nil {
+	if err := opts.Authorization.ApplyTo(c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {
 		return nil, err
 	}
 	var userToken string
@@ -364,10 +373,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
 		}
 
-		apiHandler = WithClusterWorkspaceProjection(apiHandler)
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
-		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
+		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = WithUserAgent(apiHandler)
@@ -383,7 +391,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
 
 	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),
@@ -448,7 +456,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
-		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces().Lister(),
+		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(),
 		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),

@@ -40,7 +40,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -56,7 +56,7 @@ type apiBindingAwareCRDClusterLister struct {
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 	crdIndexer cache.Indexer
 
-	workspaceLister tenancyv1beta1listers.WorkspaceClusterLister
+	workspaceLister tenancyv1alpha1listers.WorkspaceClusterLister
 
 	apiBindingIndexer cache.Indexer
 	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister

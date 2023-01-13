@@ -22,9 +22,13 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
-const indexAPIExportEndpointSliceByAPIExport = "indexAPIExportEndpointSliceByAPIExport"
+const (
+	indexAPIExportEndpointSliceByAPIExport  = "indexAPIExportEndpointSliceByAPIExport"
+	indexAPIExportEndpointSlicesByPartition = "indexAPIExportEndpointSlicesByPartition"
+)
 
 // indexAPIExportEndpointSliceByAPIExportFunc indexes the APIExportEndpointSlice by their APIExport's Reference Path and Name.
 func indexAPIExportEndpointSliceByAPIExportFunc(obj interface{}) ([]string, error) {
@@ -38,4 +42,25 @@ func indexAPIExportEndpointSliceByAPIExportFunc(obj interface{}) ([]string, erro
 		path = logicalcluster.From(apiExportEndpointSlice).Path()
 	}
 	return []string{path.Join(apiExportEndpointSlice.Spec.APIExport.Name).String()}, nil
+}
+
+// indexAPIExportEndpointSlicesByPartitionFunc is an index function that maps a Partition to the key for its
+// spec.partition.
+func indexAPIExportEndpointSlicesByPartitionFunc(obj interface{}) ([]string, error) {
+	slice, ok := obj.(*apisv1alpha1.APIExportEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIExportEndpointSlice, but is %T", obj)
+	}
+
+	if slice.Spec.Partition != "" {
+		clusterName := logicalcluster.From(slice).Path()
+		if !ok {
+			// this will never happen due to validation
+			return []string{}, fmt.Errorf("cluster information missing")
+		}
+		key := client.ToClusterAwareKey(clusterName, slice.Spec.Partition)
+		return []string{key}, nil
+	}
+
+	return []string{}, nil
 }

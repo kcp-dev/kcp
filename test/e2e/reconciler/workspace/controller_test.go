@@ -33,7 +33,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -74,13 +73,13 @@ func TestWorkspaceController(t *testing.T) {
 				// note that the root shard always exists if not deleted
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				err = server.orgExpect(workspace, func(current *tenancyv1beta1.Workspace) error {
+				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.Workspace) error {
 					expectationErr := scheduledAnywhere(current)
 					return expectationErr
 				})
@@ -105,10 +104,10 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
-				workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
@@ -133,7 +132,7 @@ func TestWorkspaceController(t *testing.T) {
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				framework.Eventually(t, func() (bool, string) {
-					workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 
 					if isUnschedulable(workspace) {
@@ -172,7 +171,7 @@ func TestWorkspaceController(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 			// create clients
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
@@ -181,7 +180,7 @@ func TestWorkspaceController(t *testing.T) {
 			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
+			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgPath))
 			require.NoError(t, err, "failed to start expecter")
 
 			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(core.RootCluster.Path()))
@@ -190,7 +189,7 @@ func TestWorkspaceController(t *testing.T) {
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
 				rootKcpClient:   kcpClient.Cluster(core.RootCluster.Path()),
-				orgKcpClient:    kcpClient.Cluster(orgClusterName.Path()),
+				orgKcpClient:    kcpClient.Cluster(orgPath),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,
 			})
@@ -205,18 +204,18 @@ func toYAML(t *testing.T, obj interface{}) string {
 	return string(bs)
 }
 
-func isUnschedulable(workspace *tenancyv1beta1.Workspace) bool {
+func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
 	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
 }
 
-func unschedulable(object *tenancyv1beta1.Workspace) error {
+func unschedulable(object *tenancyv1alpha1.Workspace) error {
 	if !isUnschedulable(object) {
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
 	return nil
 }
 
-func scheduledAnywhere(object *tenancyv1beta1.Workspace) error {
+func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
 	if isUnschedulable(object) {
 		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
 	}

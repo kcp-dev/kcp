@@ -31,7 +31,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 )
@@ -43,7 +42,6 @@ type Interface interface {
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
-	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface
 }
@@ -57,7 +55,6 @@ type Clientset struct {
 	coreV1alpha1        *corev1alpha1.CoreV1alpha1Client
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1Client
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
-	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1Client
 	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1Client
 	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1Client
 }
@@ -85,11 +82,6 @@ func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1In
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 	return c.tenancyV1alpha1
-}
-
-// TenancyV1beta1 retrieves the TenancyV1beta1Client
-func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
-	return c.tenancyV1beta1
 }
 
 // TopologyV1alpha1 retrieves the TopologyV1alpha1Client
@@ -166,10 +158,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.tenancyV1beta1, err = tenancyv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.topologyV1alpha1, err = topologyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -204,7 +192,6 @@ func New(c rest.Interface) *Clientset {
 	cs.coreV1alpha1 = corev1alpha1.New(c)
 	cs.schedulingV1alpha1 = schedulingv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
-	cs.tenancyV1beta1 = tenancyv1beta1.New(c)
 	cs.topologyV1alpha1 = topologyv1alpha1.New(c)
 	cs.workloadV1alpha1 = workloadv1alpha1.New(c)
 

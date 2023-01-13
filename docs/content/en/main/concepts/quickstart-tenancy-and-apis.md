@@ -38,7 +38,7 @@ events                            ev           v1                               
 apibindings                                    apis.kcp.io/v1alpha1                  false        APIBinding
 apiexports                                     apis.kcp.io/v1alpha1                  false        APIExport
 ...
-workspaces                        ws           tenancy.kcp.io/v1beta1                false        Workspace
+workspaces                        ws           tenancy.kcp.io/v1alpha1               false        Workspace
 ```
 
 ## Create and navigate some workspaces

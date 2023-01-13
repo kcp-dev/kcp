@@ -37,6 +37,8 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -232,7 +234,14 @@ func bindingsReady(bindings []*apisv1alpha1.APIBinding) (bool, string) {
 		} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 		}
-		return false, fmt.Sprintf("APIBinding %q is not bound to APIExport %q yet: %s", binding.Name, logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
+		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+		var bindTo string
+		if path.Empty() {
+			bindTo = fmt.Sprintf("local APIExport %q", binding.Spec.Reference.Export.Name)
+		} else {
+			bindTo = fmt.Sprintf("APIExport %s", path.Join(binding.Spec.Reference.Export.Name))
+		}
+		return false, fmt.Sprintf("APIBinding %s is not bound to APIExport %q yet: %s", binding.Name, bindTo, conditionMessage)
 	}
 
 	return true, ""
@@ -263,6 +272,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	// This is important to not get confused about local bindings with empty
 	// path and those with the cluster name as path.
 	var localClusterName logicalcluster.Name
+	var localPath logicalcluster.Path
 
 	existingAPIExports := sets.NewString()
 	for i := range apiBindings.Items {
@@ -277,6 +287,18 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		}
 		existingAPIExports.Insert(path.Join(binding.Spec.Reference.Export.Name).String())
 		localClusterName = logicalcluster.From(&binding)
+
+		// try to get the local path too, to be able to identify empty path, local cluster name and local path.
+		if localPath.Empty() {
+			cluster, err := client.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			localPath = logicalcluster.NewPath(cluster.Annotations[core.LogicalClusterPathAnnotationKey])
+		}
+		if !localPath.Empty() {
+			existingAPIExports.Insert(localPath.Join(binding.Spec.Reference.Export.Name).String())
+		}
 	}
 
 	if localClusterName != "" {

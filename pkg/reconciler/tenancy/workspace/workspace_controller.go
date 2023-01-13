@@ -33,15 +33,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -57,9 +55,9 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
-	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	shardInformer corev1alpha1informers.ShardClusterInformer,
-	workspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
+	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
+	globalShardInformer corev1alpha1informers.ShardClusterInformer,
+	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -78,25 +76,25 @@ func NewController(
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
 
-		shardIndexer: shardInformer.Informer().GetIndexer(),
-		shardLister:  shardInformer.Lister(),
+		globalShardIndexer: globalShardInformer.Informer().GetIndexer(),
+		globalShardLister:  globalShardInformer.Lister(),
 
-		workspaceTypeIndexer: workspaceTypeInformer.Informer().GetIndexer(),
-		workspaceTypeLister:  workspaceTypeInformer.Lister(),
+		globalWorkspaceTypeIndexer: globalWorkspaceTypeInformer.Informer().GetIndexer(),
+		globalWorkspaceTypeLister:  globalWorkspaceTypeInformer.Lister(),
 
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
 
-		commit: committer.NewCommitter[*tenancyv1beta1.Workspace, v1beta1.WorkspaceInterface, *tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus](kcpClusterClient.TenancyV1beta1().Workspaces()),
+		commit: committer.NewCommitter[*tenancyv1alpha1.Workspace, tenancyv1alpha1client.WorkspaceInterface, *tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus](kcpClusterClient.TenancyV1alpha1().Workspaces()),
 	}
 
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable: indexUnschedulable,
 	})
-	indexers.AddIfNotPresentOrDie(shardInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
-	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -105,7 +103,7 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	globalShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
@@ -114,7 +112,7 @@ func NewController(
 	return c, nil
 }
 
-type workspaceResource = committer.Resource[*tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus]
+type workspaceResource = committer.Resource[*tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus]
 
 // Controller watches Workspaces and WorkspaceShards in order to make sure every Workspace
 // is scheduled to a valid Shard.
@@ -130,13 +128,13 @@ type Controller struct {
 	kcpExternalClient kcpclientset.ClusterInterface
 
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancyv1beta1listers.WorkspaceClusterLister
+	workspaceLister  tenancyv1alpha1listers.WorkspaceClusterLister
 
-	shardIndexer cache.Indexer
-	shardLister  corev1alpha1listers.ShardClusterLister
+	globalShardIndexer cache.Indexer
+	globalShardLister  corev1alpha1listers.ShardClusterLister
 
-	workspaceTypeIndexer cache.Indexer
-	workspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	globalWorkspaceTypeIndexer cache.Indexer
+	globalWorkspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
@@ -169,7 +167,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		return
 	}
 
-	shard, err := c.shardLister.Cluster(clusterName).Get(name)
+	shard, err := c.globalShardLister.Cluster(clusterName).Get(name)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {

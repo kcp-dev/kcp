@@ -28,7 +28,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp,path=apiexportendpointslices,singular=apiexportendpointslice
-// +kubebuilder:printcolumn:name="Export",type="string",JSONPath=".spec.apiexport.workspace.exportName"
+// +kubebuilder:printcolumn:name="Export",type="string",JSONPath=".spec.export.name"
 // +kubebuilder:printcolumn:name="Partition",type="string",JSONPath=".spec.partition"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
@@ -103,7 +103,14 @@ func (in *APIExportEndpointSlice) SetConditions(conditions conditionsv1alpha1.Co
 // These are valid conditions of APIExportEndpointSlice in addition to
 // APIExportValid and related reasons defined with the APIBinding type.
 const (
+	// PartitionValid is a condition for APIExportEndpointSlice that reflects the validity of the referenced Partition.
+	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
+
 	APIExportEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
+
+	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of APIExportEndpointSlice that the
+	// Partition reference is invalid.
+	PartitionInvalidReferenceReason = "PartitionInvalidReference"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

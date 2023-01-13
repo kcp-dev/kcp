@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -58,16 +59,16 @@ import (
 
 type SyncerOption func(t *testing.T, fs *syncerFixture)
 
-func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalcluster.Name, opts ...SyncerOption) *syncerFixture {
+func NewSyncerFixture(t *testing.T, server RunningServer, path logicalcluster.Path, opts ...SyncerOption) *syncerFixture {
 	t.Helper()
 
 	if !sets.NewString(TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
 		t.Fatalf("invalid to use a syncer fixture when only the following suites were requested: %v", TestConfig.Suites())
 	}
 	sf := &syncerFixture{
-		upstreamServer:        server,
-		syncTargetClusterName: clusterName,
-		syncTargetName:        "psyncer-01",
+		upstreamServer: server,
+		syncTargetPath: path,
+		syncTargetName: "psyncer-01",
 	}
 	for _, opt := range opts {
 		opt(t, sf)
@@ -79,10 +80,10 @@ func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalclu
 type syncerFixture struct {
 	upstreamServer RunningServer
 
-	syncedUserWorkspaces []logicalcluster.Name
+	syncedUserClusterNames []logicalcluster.Name
 
-	syncTargetClusterName logicalcluster.Name
-	syncTargetName        string
+	syncTargetPath logicalcluster.Path
+	syncTargetName string
 
 	extraResourcesToSync []string
 	apiExports           []string
@@ -96,10 +97,12 @@ func WithSyncTargetName(name string) SyncerOption {
 	}
 }
 
-func WithSyncedUserWorkspaces(syncedUserWorkspaces ...logicalcluster.Name) SyncerOption {
+func WithSyncedUserWorkspaces(syncedUserWorkspaces ...*tenancyv1alpha1.Workspace) SyncerOption {
 	return func(t *testing.T, sf *syncerFixture) {
 		t.Helper()
-		sf.syncedUserWorkspaces = syncedUserWorkspaces
+		for _, ws := range syncedUserWorkspaces {
+			sf.syncedUserClusterNames = append(sf.syncedUserClusterNames, logicalcluster.Name(ws.Spec.Cluster))
+		}
 	}
 }
 
@@ -133,7 +136,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", sf.syncTargetClusterName.Path())
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", sf.syncTargetPath)
 
 	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
@@ -146,7 +149,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	}
 
 	// Run the plugin command to enable the syncer and collect the resulting yaml
-	t.Logf("Configuring workspace %s for syncing", sf.syncTargetClusterName)
+	t.Logf("Configuring workspace %s for syncing", sf.syncTargetPath)
 	pluginArgs := []string{
 		"workload",
 		"sync",
@@ -183,7 +186,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		// The syncer will target a logical cluster that is a child of the current workspace. A
 		// logical server provides as a lightweight approximation of a pcluster for tests that
 		// don't need to validate running workloads or interaction with kube controllers.
-		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, sf.syncTargetClusterName.Path(), sf.syncTargetName)
+		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, sf.syncTargetPath, sf.syncTargetName)
 		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}
@@ -237,12 +240,12 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		kcpClusterClient, err := kcpclientset.NewForConfig(upstreamCfg)
 		require.NoError(t, err, "error creating upstream kcp client")
 
-		gather(upstreamClusterDynamic.Cluster(sf.syncTargetClusterName.Path()), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
-		gather(upstreamClusterDynamic.Cluster(sf.syncTargetClusterName.Path()), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
-		gather(upstreamClusterDynamic.Cluster(sf.syncTargetClusterName.Path()), corev1.SchemeGroupVersion.WithResource("namespaces"))
+		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
+		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
+		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), corev1.SchemeGroupVersion.WithResource("namespaces"))
 		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
 
-		syncTarget, err := kcpClusterClient.Cluster(sf.syncTargetClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, sf.syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClusterClient.Cluster(sf.syncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, sf.syncTargetName, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		for _, resource := range syncTarget.Status.SyncedResources {
@@ -252,8 +255,8 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					Resource: resource.Resource,
 					Version:  version,
 				}
-				for _, syncedUserWorkspace := range sf.syncedUserWorkspaces {
-					gather(upstreamClusterDynamic.Cluster(syncedUserWorkspace.Path()), gvr)
+				for _, syncedUserClusterName := range sf.syncedUserClusterNames {
+					gather(upstreamClusterDynamic.Cluster(syncedUserClusterName.Path()), gvr)
 				}
 				gather(downstreamDynamic, gvr)
 			}
@@ -355,7 +358,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					continue // Not a kcp-synced namespace
 				}
 				found := false
-				for _, syncedUserWorkspace := range sf.syncedUserWorkspaces {
+				for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
 					if locator.ClusterName == syncedUserWorkspace {
 						found = true
 						break
@@ -416,7 +419,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		for _, syncedUserWorkspace := range sf.syncedUserWorkspaces {
+		for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
 			dnsID := shared.GetDNSID(syncedUserWorkspace, types.UID(syncerConfig.SyncTargetUID), syncerConfig.SyncTargetName)
 			_, err := downstreamKubeClient.CoreV1().Endpoints(syncerID).Create(ctx, endpoints(dnsID, syncerID), metav1.CreateOptions{})
 			if apierrors.IsAlreadyExists(err) {

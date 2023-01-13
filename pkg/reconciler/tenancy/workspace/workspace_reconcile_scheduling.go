@@ -42,7 +42,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -75,7 +74,7 @@ type schedulingReconciler struct {
 	kubeLogicalClusterAdminClientFor func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error)
 }
 
-func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
+func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
 
 	switch {
@@ -170,7 +169,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	return reconcileStatusContinue, nil
 }
 
-func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1beta1.Workspace) (shard string, reason string, err error) {
+func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1alpha1.Workspace) (shard string, reason string, err error) {
 	selector := labels.Everything()
 	if workspace.Spec.Location != nil {
 		if workspace.Spec.Location.Selector != nil {
@@ -235,7 +234,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, "", nil
 }
 
-func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1alpha1.Workspace) error {
 	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
 	if parent != nil {
 		if parentPath := parent.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
@@ -247,13 +246,13 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				tenancyv1alpha1.LogicalClusterTypeAnnotationKey:         logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
 				core.LogicalClusterPathAnnotationKey:                    canonicalPath.String(),
 			},
 		},
 		Spec: corev1alpha1.LogicalClusterSpec{
 			Owner: &corev1alpha1.LogicalClusterOwner{
-				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
+				APIVersion: tenancyv1alpha1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",
 				Name:       workspace.Name,
 				Cluster:    logicalcluster.From(workspace).String(),

@@ -22,7 +22,7 @@ Workspaces are represented to the user via the Workspace kind, e.g.
 
 ```yaml
 kind: Workspace
-apiVersion: tenancy.kcp.io/v1beta1
+apiVersion: tenancy.kcp.io/v1alpha1
 spec:
   type: Universal
 status:

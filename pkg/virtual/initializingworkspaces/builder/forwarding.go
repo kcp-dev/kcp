@@ -26,6 +26,7 @@ import (
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/validation/path"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +40,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
@@ -112,6 +112,7 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			typer,
 			namespaceScoped,
 			kind,
+			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
@@ -207,7 +208,7 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(
-					tenancyv1beta1.Kind("Workspace"),
+					tenancyv1alpha1.Kind("Workspace"),
 					name,
 					field.ErrorList{field.Invalid(
 						field.NewPath("status", "initializers"),

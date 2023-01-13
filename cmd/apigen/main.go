@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -171,7 +172,7 @@ func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[meta
 			Group:    parts[0],
 			Resource: parts[1],
 		}
-		if gr.Group == apis.GroupName {
+		if gr.Group == apis.GroupName || gr.Group == rbacv1.GroupName {
 			logger.Info(fmt.Sprintf("Skipping CustomResourceDefinition %s from %s", gr.String(), path))
 			return nil
 		}

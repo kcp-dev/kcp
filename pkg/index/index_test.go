@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 type shardStub struct {
@@ -37,7 +37,7 @@ func TestLookup(t *testing.T) {
 		name                           string
 		targetPath                     logicalcluster.Path
 		initialShardsToUpsert          []shardStub
-		initialWorkspacesToUpsert      map[string][]*tenancyv1beta1.Workspace
+		initialWorkspacesToUpsert      map[string][]*tenancyv1alpha1.Workspace
 		initialLogicalClustersToUpsert map[string][]*corev1alpha1.LogicalCluster
 
 		expectedShard   string
@@ -57,8 +57,8 @@ func TestLookup(t *testing.T) {
 				name: "root",
 				url:  "https://root.io",
 			}},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
-				"root": {func() *tenancyv1beta1.Workspace {
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
+				"root": {func() *tenancyv1alpha1.Workspace {
 					ws := newWorkspace("org", "root", "34")
 					ws.Status.Phase = corev1alpha1.LogicalClusterPhaseScheduling
 					return ws
@@ -75,7 +75,7 @@ func TestLookup(t *testing.T) {
 				name: "root",
 				url:  "https://root.io",
 			}},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {newWorkspace("org", "root", "34"), newWorkspace("rh", "34", "2v")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
@@ -98,7 +98,7 @@ func TestLookup(t *testing.T) {
 					url:  "https://amber.io",
 				},
 			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {newWorkspace("org", "root", "34"), newWorkspace("rh", "34", "2v")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
@@ -126,7 +126,7 @@ func TestLookup(t *testing.T) {
 					url:  "https://silver.io",
 				},
 			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root":  {newWorkspace("org", "root", "34")},
 				"amber": {newWorkspace("rh", "34", "2v")},
 			},
@@ -156,7 +156,7 @@ func TestLookup(t *testing.T) {
 					url:  "https://silver.io",
 				},
 			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root":  {newWorkspace("org", "root", "34")},
 				"amber": {newWorkspace("rh", "34", "2v")},
 			},
@@ -186,7 +186,7 @@ func TestLookup(t *testing.T) {
 					url:  "https://silver.io",
 				},
 			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root":  {newWorkspace("org", "root", "34")},
 				"amber": {newWorkspace("rh", "34", "2v")},
 			},
@@ -214,7 +214,7 @@ func TestLookup(t *testing.T) {
 					url:  "https://silver.io",
 				},
 			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1beta1.Workspace{
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root":  {newWorkspace("org", "root", "34")},
 				"amber": {newWorkspace("rh", "34", "2v")},
 			},
@@ -439,11 +439,11 @@ func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, 
 	}
 }
 
-func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1beta1.Workspace {
-	return &tenancyv1beta1.Workspace{
+func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Workspace {
+	return &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"kcp.io/cluster": cluster}},
-		Spec:       tenancyv1beta1.WorkspaceSpec{Cluster: scheduledCluster},
-		Status:     tenancyv1beta1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+		Spec:       tenancyv1alpha1.WorkspaceSpec{Cluster: scheduledCluster},
+		Status:     tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 	}
 }
 

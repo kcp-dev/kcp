@@ -18,13 +18,14 @@ package apiexportendpointslice
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"path"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -33,19 +34,22 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
 
 type endpointsReconciler struct {
-	listShards   func() ([]*corev1alpha1.Shard, error)
+	listShards   func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getPartition func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 }
 
 func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
 	r := &endpointsReconciler{
 		listShards:   c.listShards,
 		getAPIExport: c.getAPIExport,
+		getPartition: c.getPartition,
 	}
 
 	return r.reconcile(ctx, apiExportEndpointSlice)
@@ -53,7 +57,7 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 
 func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
 	// TODO (fgiloux): When the information is available in the cache server
-	// check if at least one APIBinding is bound in the shard to the APIExport referenced by the APIExportEndpointSLice.
+	// check if at least one APIBinding is bound in the shard to the APIExport referenced by the APIExportEndpointSlice.
 	// If so, add the respective endpoint to the status.
 	// For now the unfiltered list is added.
 
@@ -64,6 +68,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 	}
 	apiExport, err := r.getAPIExport(apiExportPath, apiExportEndpointSlice.Spec.APIExport.Name)
 	if err != nil {
+		reason := apisv1alpha1.InternalErrorReason
 		if errors.IsNotFound(err) {
 			// Don't keep the endpoints if the APIExport has been deleted
 			apiExportEndpointSlice.Status.APIExportEndpoints = nil
@@ -72,27 +77,120 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 				apisv1alpha1.APIExportValid,
 				apisv1alpha1.APIExportNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"APIExport %s|%s not found",
+				"Error getting APIExport %s|%s",
 				apiExportPath,
 				apiExportEndpointSlice.Spec.APIExport.Name,
 			)
+			conditions.MarkFalse(
+				apiExportEndpointSlice,
+				apisv1alpha1.APIExportEndpointSliceURLsReady,
+				apisv1alpha1.ErrorGeneratingURLsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"",
+			)
+			// No need to try again
 			return nil
 		} else {
 			conditions.MarkFalse(
 				apiExportEndpointSlice,
 				apisv1alpha1.APIExportValid,
-				apisv1alpha1.InternalErrorReason,
+				reason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting APIExport %s|%s",
 				apiExportPath,
 				apiExportEndpointSlice.Spec.APIExport.Name,
+			)
+			conditions.MarkUnknown(
+				apiExportEndpointSlice,
+				apisv1alpha1.APIExportEndpointSliceURLsReady,
+				apisv1alpha1.ErrorGeneratingURLsReason,
+				"",
 			)
 			return err
 		}
 	}
 	conditions.MarkTrue(apiExportEndpointSlice, apisv1alpha1.APIExportValid)
 
-	if err = r.updateEndpoints(ctx, apiExportEndpointSlice, apiExport); err != nil {
+	// Get selector from Partition
+	var selector labels.Selector
+	if apiExportEndpointSlice.Spec.Partition != "" {
+		partition, err := r.getPartition(logicalcluster.From(apiExportEndpointSlice), apiExportEndpointSlice.Spec.Partition)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Don't keep the endpoints if the Partition has been deleted
+				// and is still referenced
+				apiExportEndpointSlice.Status.APIExportEndpoints = nil
+				conditions.MarkFalse(
+					apiExportEndpointSlice,
+					apisv1alpha1.PartitionValid,
+					apisv1alpha1.PartitionInvalidReferenceReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					err.Error(),
+				)
+				conditions.MarkFalse(
+					apiExportEndpointSlice,
+					apisv1alpha1.APIExportEndpointSliceURLsReady,
+					apisv1alpha1.ErrorGeneratingURLsReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"",
+				)
+				// No need to try again
+				return nil
+			} else {
+				conditions.MarkFalse(
+					apiExportEndpointSlice,
+					apisv1alpha1.PartitionValid,
+					apisv1alpha1.InternalErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					err.Error(),
+				)
+				conditions.MarkUnknown(
+					apiExportEndpointSlice,
+					apisv1alpha1.APIExportEndpointSliceURLsReady,
+					apisv1alpha1.ErrorGeneratingURLsReason,
+					"",
+				)
+				return err
+			}
+		}
+		selector, err = metav1.LabelSelectorAsSelector(partition.Spec.Selector)
+		if err != nil {
+			conditions.MarkFalse(
+				apiExportEndpointSlice,
+				apisv1alpha1.PartitionValid,
+				apisv1alpha1.PartitionInvalidReferenceReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				err.Error(),
+			)
+			conditions.MarkFalse(
+				apiExportEndpointSlice,
+				apisv1alpha1.APIExportEndpointSliceURLsReady,
+				apisv1alpha1.ErrorGeneratingURLsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"",
+			)
+			return err
+		}
+	}
+	if selector == nil {
+		selector = labels.Everything()
+	}
+	conditions.MarkTrue(apiExportEndpointSlice, apisv1alpha1.PartitionValid)
+
+	// Get shards
+	shards, err := r.listShards(selector)
+	if err != nil {
+		conditions.MarkFalse(
+			apiExportEndpointSlice,
+			apisv1alpha1.APIExportEndpointSliceURLsReady,
+			apisv1alpha1.ErrorGeneratingURLsReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"error listing shards",
+		)
+		return err
+	}
+
+	if err = r.updateEndpoints(ctx, apiExportEndpointSlice, apiExport, shards); err != nil {
 		conditions.MarkFalse(
 			apiExportEndpointSlice,
 			apisv1alpha1.APIExportEndpointSliceURLsReady,
@@ -109,16 +207,11 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 
 func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 	apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice,
-	apiExport *apisv1alpha1.APIExport) error {
+	apiExport *apisv1alpha1.APIExport,
+	shards []*corev1alpha1.Shard) error {
 	logger := klog.FromContext(ctx)
-	shards, err := r.listShards()
-	if err != nil {
-		return fmt.Errorf("error listing Shards: %w", err)
-	}
-
 	desiredURLs := sets.NewString()
 	for _, shard := range shards {
-		logger = logging.WithObject(logger, shard)
 		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
@@ -126,6 +219,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
+			logger = logging.WithObject(logger, shard)
 			logger.Error(
 				err, "error parsing shard.spec.virtualWorkspaceURL",
 				"VirtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL,

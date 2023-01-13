@@ -99,12 +99,12 @@ source_repositories:
         topics:
           - workload
           - synctargets
-      partitions.apis.kcp.io:
+      partitions.topology.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:
           - topology
-      partitionsets.apis.kcp.io:
+      partitionsets.topology.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
         topics:

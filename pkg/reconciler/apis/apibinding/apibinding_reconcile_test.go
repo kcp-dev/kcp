@@ -600,7 +600,7 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.NamingConflictsReason,
-					Message:  "naming conflict with APIBinding \"conflicting\", spec.names.plural=widgets is forbidden",
+					Message:  "naming conflict with APIBinding \"conflicting\" bound to APIExport org:some-workspace:conflict, spec.names.plural=widgets is forbidden",
 				})
 			}
 

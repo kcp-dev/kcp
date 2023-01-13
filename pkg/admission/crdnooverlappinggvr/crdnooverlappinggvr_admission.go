@@ -57,9 +57,9 @@ type crdNoOverlappingGVRAdmission struct {
 var _ = admission.ValidationInterface(&crdNoOverlappingGVRAdmission{})
 var _ = admission.InitializationValidator(&crdNoOverlappingGVRAdmission{})
 
-func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	p.SetReadyFunc(informers.Apis().V1alpha1().APIBindings().Informer().HasSynced)
-	p.apiBindingClusterLister = informers.Apis().V1alpha1().APIBindings().Lister()
+func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	p.SetReadyFunc(local.Apis().V1alpha1().APIBindings().Informer().HasSynced)
+	p.apiBindingClusterLister = local.Apis().V1alpha1().APIBindings().Lister()
 }
 
 func (p *crdNoOverlappingGVRAdmission) ValidateInitialization() error {

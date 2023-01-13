@@ -44,8 +44,8 @@ func TestCustomResourceCreation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgClusterName := framework.NewOrganizationFixture(t, server)
-	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -55,13 +55,13 @@ func TestCustomResourceCreation(t *testing.T) {
 	dynamicClients, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(sourceWorkspace.Path()).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace.Path()), mapper, nil, "wildwest.dev_cowboys.yaml", testFiles)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(sourcePath).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourcePath), mapper, nil, "wildwest.dev_cowboys.yaml", testFiles)
 	if err == nil {
 		t.Errorf("Expected an error due to reserved annotation")
 	}
 
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace.Path()), mapper, nil, "apis.kcp.io_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourcePath), mapper, nil, "apis.kcp.io_cowboys.yaml", testFiles)
 	if err == nil {
 		t.Errorf("Expected an error due to reserved group")
 	}

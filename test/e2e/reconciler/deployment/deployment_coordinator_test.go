@@ -61,63 +61,63 @@ func TestDeploymentCoordinator(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
-	orgWorkspace := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
 
-	locationWorkspace := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("synctargets"))
+	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("synctargets"))
 
-	workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-1"))
-	workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-2"))
+	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"))
+	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"))
 
-	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspace,
+	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("east"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
 	).Start(t)
 
-	_, err = kcpClusterClient.Cluster(locationWorkspace.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
-	westSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspace,
+	westSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("west"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
 	).Start(t)
 
-	_, err = kcpClusterClient.Cluster(locationWorkspace.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	eastSyncer.WaitForClusterReady(ctx, t)
 	westSyncer.WaitForClusterReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
-	err = framework.CreateResources(ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
+	err = framework.CreateResources(ctx, locations.FS, upstreamConfig, locationWorkspacePath)
 	require.NoError(t, err)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the east location")
-	framework.NewBindCompute(t, workloadWorkspace1.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace1Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "east"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 2 to location workspace for the east location")
-	framework.NewBindCompute(t, workloadWorkspace2.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace2Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "east"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the west location")
-	framework.NewBindCompute(t, workloadWorkspace1.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace1Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "west"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 2 to location workspace for the west location")
-	framework.NewBindCompute(t, workloadWorkspace2.Path(), upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
+	framework.NewBindCompute(t, workloadWorkspace2Path, upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspacePath),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "west"},
 		}),
@@ -189,11 +189,11 @@ func TestDeploymentCoordinator(t *testing.T) {
 		requestedReplicas int32
 	}{
 		{
-			clusterName:       workloadWorkspace1,
+			clusterName:       logicalcluster.Name(workloadWorkspace1.Spec.Cluster),
 			requestedReplicas: 4,
 		},
 		{
-			clusterName:       workloadWorkspace2,
+			clusterName:       logicalcluster.Name(workloadWorkspace2.Spec.Cluster),
 			requestedReplicas: 8,
 		},
 	} {

@@ -33,7 +33,6 @@ linters:
   - prealloc
   - revive
   - staticcheck
-  - thelper
   - unconvert
   - unused
   - usestdlibvars

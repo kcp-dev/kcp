@@ -17,15 +17,11 @@ limitations under the License.
 package replication
 
 import (
-	"context"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
-	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -417,148 +413,5 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 				scenario.validateCacheObjectMeta(tt, cacheApiExportFromUnstructured.ObjectMeta, localApiExportFromUnstructured.ObjectMeta)
 			}
 		})
-	}
-}
-
-func TestHandleUnstructuredObjectDeletion(t *testing.T) {
-	scenarios := []struct {
-		name                        string
-		cacheObject                 *apisv1alpha1.APIExport
-		validateCacheObjectDeletion func(ts *testing.T, actions []kcptesting.Action)
-	}{
-		{
-			name: "no-op",
-		},
-		{
-			name:        "DeletionTimestamp filed not set on cacheObject",
-			cacheObject: newAPIExport("foo"),
-			validateCacheObjectDeletion: func(t *testing.T, actions []kcptesting.Action) {
-				t.Helper()
-
-				wasCacheApiExportValidated := false
-				for _, action := range actions {
-					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(kcptesting.DeleteAction)
-						if deleteAction.GetName() != "foo" {
-							t.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
-				}
-				if !wasCacheApiExportValidated {
-					t.Errorf("an ApiExport on the cache sever wasn't deleted")
-				}
-			},
-		},
-		{
-			name: "no-op when DeletionTimestamp filed set",
-			cacheObject: func() *apisv1alpha1.APIExport {
-				t := metav1.NewTime(time.Now())
-				apiExport := newAPIExport("foo")
-				apiExport.DeletionTimestamp = &t
-				return apiExport
-			}(),
-			validateCacheObjectDeletion: func(t *testing.T, actions []kcptesting.Action) {
-				t.Helper()
-
-				if len(actions) > 0 {
-					t.Fatalf("didn't expect any API calls, got %v", actions)
-				}
-			},
-		},
-		{
-			name: "no-op when DeletionTimestamp filed and Finalizers are set",
-			cacheObject: func() *apisv1alpha1.APIExport {
-				t := metav1.NewTime(time.Now())
-				apiExport := newAPIExport("foo")
-				apiExport.DeletionTimestamp = &t
-				apiExport.Finalizers = []string{"aFinalizer"}
-				return apiExport
-			}(),
-			validateCacheObjectDeletion: func(t *testing.T, actions []kcptesting.Action) {
-				t.Helper()
-
-				if len(actions) > 0 {
-					t.Fatalf("didn't expect any API calls, got %v", actions)
-				}
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(tt *testing.T) {
-			var unstructuredCacheObject *unstructured.Unstructured
-			var err error
-			if scenario.cacheObject != nil {
-				unstructuredCacheObject, err = toUnstructured(scenario.cacheObject)
-				if err != nil {
-					tt.Fatal(err)
-				}
-			}
-			gvr := apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")
-			target := &controller{}
-			fakeDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, func() []runtime.Object {
-				if unstructuredCacheObject == nil {
-					return []runtime.Object{}
-				}
-				return []runtime.Object{unstructuredCacheObject}
-			}()...)
-			target.dynamicCacheClient = fakeDynamicClient
-
-			err = target.handleObjectDeletion(context.TODO(), "root", &gvr, unstructuredCacheObject)
-			if err != nil {
-				tt.Fatal(err)
-			}
-			if scenario.validateCacheObjectDeletion != nil {
-				scenario.validateCacheObjectDeletion(tt, fakeDynamicClient.Actions())
-			}
-		})
-	}
-}
-
-// TestToUnstructured test if changing an unstructured obj won't change the original object.
-func TestToUnstructured(t *testing.T) {
-	apiExport := newAPIExport("a1")
-	apiExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
-	unstructuredApiExport, err := toUnstructured(apiExport)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// manipulate map (a reference type)
-	if err := unstructured.SetNestedField(unstructuredApiExport.Object, "valForNewAnnotation", "metadata", "annotations", "newAnnotation"); err != nil {
-		t.Fatal(err)
-	}
-	if newAnnotationVal := unstructuredApiExport.GetAnnotations()["newAnnotation"]; newAnnotationVal != "valForNewAnnotation" {
-		t.Fatalf("unexpected value %v for newAnnotation", newAnnotationVal)
-	}
-
-	if _, hasNewAnnotation := apiExport.Annotations["newAnnotation"]; hasNewAnnotation {
-		t.Fatal("didn't expect changing unstructuredApiExport annotation will also change the original apiExport object")
-	}
-
-	// manipulate string (a simple type)
-	if err := unstructured.SetNestedField(unstructuredApiExport.Object, "newName", "metadata", "name"); err != nil {
-		t.Fatal(err)
-	}
-	if unstructuredApiExport.GetName() != "newName" {
-		t.Fatalf("unexpected name %v", unstructuredApiExport.GetName())
-	}
-	if apiExport.Name != "a1" {
-		t.Fatal("didn't expect changing unstructuredApiExport name will also change the original apiExport object")
-	}
-
-	// manipulate pinter (a reference type)
-	unstructured.RemoveNestedField(unstructuredApiExport.Object, "spec", "maximalPermissionPolicy")
-	_, maximalPolicyFound, err := unstructured.NestedFieldNoCopy(unstructuredApiExport.Object, "spec", "maximalPermissionPolicy")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if maximalPolicyFound {
-		t.Fatal("didn't expect to find spec.maximalPermissionPolicy")
-	}
-	if apiExport.Spec.MaximalPermissionPolicy == nil {
-		t.Fatal("apiExport.Spec.MaximalPermissionPolicy was removed")
 	}
 }

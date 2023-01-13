@@ -364,9 +364,8 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterroles"},
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterrolebindings"},
 
-		// Don't try to delete projected resources such as tenancy.kcp.io v1beta1 Workspaces - these are virtual
-		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
-		// data (e.g. Workspaces) are deleted.
+		// Don't try to delete projected resources - these are virtual projections and we shouldn't try to delete them.
+		// The projections will disappear when the real underlying data are deleted.
 		isNotVirtualResource{},
 		// no need to delete namespace scoped resource since it will be handled by namespace deletion anyway. This
 		// can avoid redundant list/delete requests.

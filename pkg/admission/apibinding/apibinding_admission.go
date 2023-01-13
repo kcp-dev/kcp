@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -266,37 +265,20 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 
 func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.Name, apiExportName string) error {
 	logger := klog.FromContext(ctx)
-	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient)
+	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient, delegated.Options{})
 	if err != nil {
 		// Logging a more specific error for the operator
 		logger.Error(err, "error creating authorizer from delegating authorizer config")
 		// Returning a less specific error to the end user
 		return errors.New("unable to authorize request")
 	}
-
-	bindAttr := authorizer.AttributesRecord{
-		User:            user,
-		Verb:            "bind",
-		APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
-		Resource:        "apiexports",
-		Name:            apiExportName,
-		ResourceRequest: true,
-	}
-
-	if decision, _, err := authz.Authorize(ctx, bindAttr); err != nil {
-		return fmt.Errorf("unable to determine access to apiexports: %w", err)
-	} else if decision != authorizer.DecisionAllow {
-		return fmt.Errorf("no permission to bind to export %q", apiExportName)
-	}
-
-	return nil
+	return CheckAPIExportAccess(ctx, user, apiExportName, authz)
 }
 
 // ValidateInitialization ensures the required injected fields are set.
 func (o *apiBindingAdmission) ValidateInitialization() error {
 	if o.deepSARClient == nil {
-		return fmt.Errorf(PluginName + " plugin needs a Kubernetes ClusterInterface")
+		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
 	}
 	if o.apiExportLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an APIExport lister")
@@ -310,15 +292,15 @@ func (o *apiBindingAdmission) SetDeepSARClient(client kcpkubernetesclientset.Clu
 	o.deepSARClient = client
 }
 
-func (o *apiBindingAdmission) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	apiExportsReady := informers.Apis().V1alpha1().APIExports().Informer().HasSynced
+func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	apiExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return apiExportsReady()
 	})
-	o.apiExportLister = informers.Apis().V1alpha1().APIExports().Lister()
-	o.apiExportIndexer = informers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	o.apiExportLister = local.Apis().V1alpha1().APIExports().Lister()
+	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
-	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

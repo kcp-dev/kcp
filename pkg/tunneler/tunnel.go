@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/aojea/rwconn"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/klog/v2"
 
@@ -47,8 +48,8 @@ type controlMsg struct {
 }
 
 type key struct {
-	cluster string
-	syncer  string
+	clusterName    logicalcluster.Name
+	syncTargetName string
 }
 
 // tunnelPool contains a pool of Dialers to create reverse connections
@@ -66,19 +67,19 @@ func newTunnelPool() *tunnelPool {
 }
 
 // getDialer returns a reverse dialer for the id.
-func (rp *tunnelPool) getDialer(cluster, syncer string) *Dialer {
+func (rp *tunnelPool) getDialer(clusterName logicalcluster.Name, syncTargetName string) *Dialer {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
-	id := key{cluster, syncer}
+	id := key{clusterName, syncTargetName}
 	return rp.pool[id]
 }
 
 // createDialer creates a reverse dialer with id
 // it's a noop if a dialer already exists.
-func (rp *tunnelPool) createDialer(cluster, syncer string, conn net.Conn) *Dialer {
+func (rp *tunnelPool) createDialer(clusterName logicalcluster.Name, syncTargetName string, conn net.Conn) *Dialer {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
-	id := key{cluster, syncer}
+	id := key{clusterName, syncTargetName}
 	if d, ok := rp.pool[id]; ok {
 		return d
 	}
@@ -88,10 +89,10 @@ func (rp *tunnelPool) createDialer(cluster, syncer string, conn net.Conn) *Diale
 }
 
 // deleteDialer delete the reverse dialer for the id.
-func (rp *tunnelPool) deleteDialer(cluster, syncer string) {
+func (rp *tunnelPool) deleteDialer(clusterName logicalcluster.Name, syncTargetName string) {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
-	id := key{cluster, syncer}
+	id := key{clusterName, syncTargetName}
 	delete(rp.pool, id)
 }
 
@@ -108,7 +109,7 @@ func SyncerTunnelURL(host, ws, target string) (string, error) {
 	return host + defaultTunnelPathPrefix + "/" + ws + "/apis/" + workloadv1alpha1.SchemeGroupVersion.String() + "/synctargets/" + target, nil
 }
 
-// HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
+// WithSyncerTunnel adds an HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
 //
 // https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/connect establish reverse connections and queue them so it can be consumed by the dialer
 // https://host/services/syncer-tunnels/clusters/<ws>/apis/workload.kcp.io/v1alpha1/synctargets/<name>/proxy/{path} proxies the {path} through the reverse connection identified by the cluster and syncer name
@@ -138,11 +139,13 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		clusterName := path[0]
+		clusterName := logicalcluster.Name(path[0])
 		syncerName := path[5]
 		command := path[6]
 
-		klog.Background().V(5).Info("tunneler connection received", "command", command, "clusterName", clusterName, "syncerName", syncerName)
+		ctx := r.Context()
+		logger := klog.FromContext(ctx)
+		logger.V(5).Info("tunneler connection received", "command", command, "clusterName", clusterName, "syncerName", syncerName)
 		switch command {
 		case cmdTunnelConnect:
 			if len(path) != 7 {

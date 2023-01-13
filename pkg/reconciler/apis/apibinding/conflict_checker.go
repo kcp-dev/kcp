@@ -112,7 +112,14 @@ func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSc
 	for _, boundCRD := range ncc.boundCRDs {
 		if foundConflict, details := namesConflict(boundCRD, schema); foundConflict {
 			conflict := ncc.crdToBinding[boundCRD.Name]
-			return fmt.Errorf("naming conflict with APIBinding %q, %s", conflict.Name, details)
+			path := logicalcluster.NewPath(conflict.Spec.Reference.Export.Path)
+			var boundTo string
+			if path.Empty() {
+				boundTo = fmt.Sprintf("local APIExport %q", conflict.Spec.Reference.Export.Name)
+			} else {
+				boundTo = fmt.Sprintf("APIExport %s", path.Join(conflict.Spec.Reference.Export.Name))
+			}
+			return fmt.Errorf("naming conflict with APIBinding %q bound to %s, %s", conflict.Name, boundTo, details)
 		}
 	}
 
