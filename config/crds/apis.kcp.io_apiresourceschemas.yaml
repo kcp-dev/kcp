@@ -25,7 +25,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: "APIResourceSchema describes a resource, identified by (group,
-          version, resource, schema). \n A APIResourceSchema is immutable and cannot
+          version, resource, schema). \n An APIResourceSchema is immutable and cannot
           be deleted if they are referenced by an APIExport in the same workspace."
         properties:
           apiVersion:

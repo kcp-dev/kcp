@@ -37,7 +37,6 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
-	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,6 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -431,22 +431,17 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		informerfactoryhack.Wrap(c.Apis.ExtraConfig.VersionedInformers),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
-
-		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
-		// supported. The effect is that CRD webhook conversions are not supported and will always get an
-		// error.
-		&unimplementedServiceResolver{},
-
-		webhook.NewDefaultAuthenticationInfoResolverWrapper(
-			nil,
-			c.Apis.GenericConfig.EgressSelector,
-			c.Apis.GenericConfig.LoopbackClientConfig,
-			c.Apis.GenericConfig.TracerProvider,
-		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("configure api extensions: %w", err)
+		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
+
+	c.ApiExtensions.ExtraConfig.ConversionFactory = conversion.NewCRConverterFactory(
+		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+		opts.Extra.ConversionCELTransformationTimeout,
+	)
+	// make sure the informer gets started, otherwise conversions will not work!
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
 	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})       //nolint:errcheck
 	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck

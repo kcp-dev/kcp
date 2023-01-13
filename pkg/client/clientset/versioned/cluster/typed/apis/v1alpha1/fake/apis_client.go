@@ -60,6 +60,10 @@ func (c *ApisV1alpha1ClusterClient) APIResourceSchemas() kcpapisv1alpha1.APIReso
 	return &aPIResourceSchemasClusterClient{Fake: c.Fake}
 }
 
+func (c *ApisV1alpha1ClusterClient) APIConversions() kcpapisv1alpha1.APIConversionClusterInterface {
+	return &aPIConversionsClusterClient{Fake: c.Fake}
+}
+
 var _ apisv1alpha1.ApisV1alpha1Interface = (*ApisV1alpha1Client)(nil)
 
 type ApisV1alpha1Client struct {
@@ -86,4 +90,8 @@ func (c *ApisV1alpha1Client) APIExportEndpointSlices() apisv1alpha1.APIExportEnd
 
 func (c *ApisV1alpha1Client) APIResourceSchemas() apisv1alpha1.APIResourceSchemaInterface {
 	return &aPIResourceSchemasClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+}
+
+func (c *ApisV1alpha1Client) APIConversions() apisv1alpha1.APIConversionInterface {
+	return &aPIConversionsClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

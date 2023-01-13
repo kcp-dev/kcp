@@ -54,17 +54,18 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	RootDirectory                 string
-	ProfilerAddress               string
-	ShardKubeconfigFile           string
-	RootShardKubeconfigFile       string
-	ShardBaseURL                  string
-	ShardExternalURL              string
-	ShardName                     string
-	ShardVirtualWorkspaceURL      string
-	DiscoveryPollInterval         time.Duration
-	ExperimentalBindFreePort      bool
-	LogicalClusterAdminKubeconfig string
+	RootDirectory                      string
+	ProfilerAddress                    string
+	ShardKubeconfigFile                string
+	RootShardKubeconfigFile            string
+	ShardBaseURL                       string
+	ShardExternalURL                   string
+	ShardName                          string
+	ShardVirtualWorkspaceURL           string
+	DiscoveryPollInterval              time.Duration
+	ExperimentalBindFreePort           bool
+	LogicalClusterAdminKubeconfig      string
+	ConversionCELTransformationTimeout time.Duration
 
 	BatteriesIncluded []string
 }
@@ -101,15 +102,17 @@ func NewOptions(rootDir string) *Options {
 		Cache:               *NewCache(rootDir),
 
 		Extra: ExtraOptions{
-			RootDirectory:            rootDir,
-			ProfilerAddress:          "",
-			ShardKubeconfigFile:      "",
-			ShardBaseURL:             "",
-			ShardExternalURL:         "",
-			ShardName:                "root",
-			DiscoveryPollInterval:    60 * time.Second,
-			ExperimentalBindFreePort: false,
-			BatteriesIncluded:        batteries.Defaults.List(),
+			RootDirectory:                      rootDir,
+			ProfilerAddress:                    "",
+			ShardKubeconfigFile:                "",
+			ShardBaseURL:                       "",
+			ShardExternalURL:                   "",
+			ShardName:                          "root",
+			DiscoveryPollInterval:              60 * time.Second,
+			ExperimentalBindFreePort:           false,
+			ConversionCELTransformationTimeout: time.Second,
+
+			BatteriesIncluded: batteries.Defaults.List(),
 		},
 	}
 
@@ -179,6 +182,8 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
+
+	fs.DurationVar(&o.Extra.ConversionCELTransformationTimeout, "conversion-cel-transformation-timeout", o.Extra.ConversionCELTransformationTimeout, "Maximum amount of time that CEL transformations may take per object conversion.")
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.

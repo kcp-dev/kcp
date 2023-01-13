@@ -30,6 +30,7 @@ import (
 type ApisV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	APIBindingsGetter
+	APIConversionsGetter
 	APIExportsGetter
 	APIExportEndpointSlicesGetter
 	APIResourceSchemasGetter
@@ -42,6 +43,10 @@ type ApisV1alpha1Client struct {
 
 func (c *ApisV1alpha1Client) APIBindings() APIBindingInterface {
 	return newAPIBindings(c)
+}
+
+func (c *ApisV1alpha1Client) APIConversions() APIConversionInterface {
+	return newAPIConversions(c)
 }
 
 func (c *ApisV1alpha1Client) APIExports() APIExportInterface {

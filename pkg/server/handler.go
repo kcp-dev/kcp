@@ -18,11 +18,9 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -443,14 +441,4 @@ func (r *inMemoryResponseWriter) String() string {
 		s += fmt.Sprintf(", Header: %s", r.header)
 	}
 	return s
-}
-
-// unimplementedServiceResolver is a webhook.ServiceResolver that always returns an error, because
-// we have not implemented support for this yet. As a result, CRD webhook conversions are not
-// supported.
-type unimplementedServiceResolver struct{}
-
-// ResolveEndpoint always returns an error that this is not yet supported.
-func (r *unimplementedServiceResolver) ResolveEndpoint(namespace string, name string, port int32) (*url.URL, error) {
-	return nil, errors.New("CRD webhook conversions are not yet supported in kcp")
 }
