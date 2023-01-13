@@ -453,6 +453,17 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
+		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicationclusterrolebinding") {
+		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
 		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err

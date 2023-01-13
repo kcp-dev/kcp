@@ -75,6 +75,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	tenancylogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/logicalcluster"
+	tenancyreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrole"
+	tenancyreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
@@ -1002,6 +1004,66 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 
 	return server.AddPostStartHook(postStartHookName(apisreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrolebinding.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, tenancyreplicateclusterrole.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := tenancyreplicateclusterrole.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(tenancyreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrole.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, tenancyreplicateclusterrolebinding.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := tenancyreplicateclusterrolebinding.NewController(
+		kubeClusterClient,
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(tenancyreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrolebinding.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
