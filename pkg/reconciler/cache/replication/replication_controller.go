@@ -26,6 +26,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -84,6 +85,16 @@ func NewController(
 				kind:   "APIConversion",
 				local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
 				global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+			},
+			admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
+				kind:   "MutatingWebhookConfiguration",
+				local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+			},
+			admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
+				kind:   "ValidatingWebhookConfiguration",
+				local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 			},
 			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 				kind:   "Shard",
