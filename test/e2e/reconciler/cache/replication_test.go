@@ -415,15 +415,12 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	scenario.VerifyReplication(ctx, t)
 }
 
-// TestCacheServerInProcess runs all test scenarios against a cache server that runs with a kcp server.
-func TestCacheServerInProcess(t *testing.T) {
+// TestReplication runs all test scenarios against a default setup possibly with the cache server running within kcp server.
+func TestReplication(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
+	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
@@ -444,6 +441,7 @@ func TestCacheServerInProcess(t *testing.T) {
 }
 
 // TestCacheServerStandalone runs all test scenarios against a standalone cache server.
+// TODO(p0lyn0mial): remove the following flavour in https://github.com/kcp-dev/kcp/pull/2596.
 func TestCacheServerStandalone(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
