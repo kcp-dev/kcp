@@ -30,7 +30,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -91,34 +90,6 @@ func TestSyncerTunnel(t *testing.T) {
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
-
-	t.Log("Creating a PolicyRule to allow the syncer to connect to the upstream cluster")
-	syncerTunnelsClusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: "allow-syncer-tunnels"},
-		Rules: []rbacv1.PolicyRule{
-			rbachelper.NewRule("get").Groups("workload.kcp.io").Resources("synctargets/connect").RuleOrDie(),
-		},
-	}
-	_, err = upstreamKubeClusterClient.Cluster(synctargetWsPath).RbacV1().ClusterRoles().Create(ctx, syncerTunnelsClusterRole, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	//nolint:errcheck
-	defer upstreamKubeClusterClient.Cluster(synctargetWsPath).RbacV1().ClusterRoles().Delete(ctx, syncerTunnelsClusterRole.Name, metav1.DeleteOptions{})
-
-	syncerTunnelsBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "allow-syncer-tunnels"},
-		Subjects: []rbacv1.Subject{
-			{Kind: "ServiceAccount", Name: syncerFixture.SyncerID, Namespace: "default"},
-		},
-		RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "allow-syncer-tunnels"},
-	}
-
-	_, err = upstreamKubeClusterClient.Cluster(synctargetWsPath).RbacV1().ClusterRoleBindings().Create(ctx, syncerTunnelsBinding, metav1.CreateOptions{})
-	if err != nil {
-		require.NoError(t, err, "failed to create downstream rolebinding")
-	}
-	//nolint:errcheck
-	defer upstreamKubeClusterClient.Cluster(synctargetWsPath).RbacV1().ClusterRoleBindings().Delete(context.TODO(), syncerTunnelsBinding.Name, metav1.DeleteOptions{})
 
 	// From now on, we'll be using the user-1 credentials to interact with the workspace etc. This is done to
 	// simulate a user that is not kcp-admin and to make sure that it can access the logs of a pod through a synctarget
@@ -227,7 +198,7 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Log(t, "Wait for being able to list deployments in the consumer workspace via direct access")
 	require.Eventually(t, func() bool {
 		_, err := userKcpClient.Cluster(userWsPath).AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return false
 		} else if err != nil {
 			t.Log(t, "Failed to list deployments: %v", err)
