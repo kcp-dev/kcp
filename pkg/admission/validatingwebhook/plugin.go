@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/config"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
-	"k8s.io/apiserver/pkg/informerfactoryhack"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	kubernetesinformers "k8s.io/client-go/informers"
 
@@ -53,6 +53,7 @@ var (
 	_ = admission.ValidationInterface(&Plugin{})
 	_ = admission.InitializationValidator(&Plugin{})
 	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+	_ = kcpinitializers.WantsKubeInformers(&Plugin{})
 )
 
 func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
@@ -118,10 +119,12 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
 func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
-	clusterAwareFactory := informerfactoryhack.Unwrap(f)
+	p.Plugin.SetExternalKubeInformerFactory(f) // for namespaces
+}
+
+func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
 	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
-		informer := clusterAwareFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(cluster)
-		return configuration.NewValidatingWebhookConfigurationManagerForInformer(informer)
-	}, clusterAwareFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced)
-	p.Plugin.SetExternalKubeInformerFactory(f)
+		informer := global.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
+		return configuration.NewMutatingWebhookConfigurationManagerForInformer(informer)
+	}, global.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)
 }

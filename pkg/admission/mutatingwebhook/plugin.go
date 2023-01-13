@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/config"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
-	"k8s.io/apiserver/pkg/informerfactoryhack"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
 
@@ -53,6 +53,7 @@ var (
 	_ = admission.MutationInterface(&Plugin{})
 	_ = admission.InitializationValidator(&Plugin{})
 	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+	_ = kcpinitializers.WantsKubeInformers(&Plugin{})
 )
 
 func NewMutatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
@@ -118,10 +119,12 @@ func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
 func (p *Plugin) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
-	clusterAwareFactory := informerfactoryhack.Unwrap(f)
+	p.Plugin.SetExternalKubeInformerFactory(f) // for namespaces
+}
+
+func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
 	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
-		informer := clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
+		informer := global.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
 		return configuration.NewMutatingWebhookConfigurationManagerForInformer(informer)
-	}, clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)
-	p.Plugin.SetExternalKubeInformerFactory(f)
+	}, global.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package initializers
 
 import (
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -24,9 +25,15 @@ import (
 )
 
 // WantsKcpInformers interface should be implemented by admission plugins
-// that want to have a kcp informer factory injected.
+// that want to have both local and global kcp informer factories injected.
 type WantsKcpInformers interface {
 	SetKcpInformers(local, global kcpinformers.SharedInformerFactory)
+}
+
+// WantsKubeInformers interface should be implemented by admission plugins
+// that want to have both local and global kube informer factories injected.
+type WantsKubeInformers interface {
+	SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory)
 }
 
 // WantsKubeClusterClient interface should be implemented by admission plugins
