@@ -700,7 +700,7 @@ func (c *kcpServer) loadCfg() error {
 	var lastError error
 	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, 1*time.Minute, func(ctx context.Context) (bool, error) {
 		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
-		config, err := loadKubeConfig(c.kubeconfigPath)
+		config, err := LoadKubeConfig(c.kubeconfigPath, "base")
 		if err != nil {
 			// A missing file is likely caused by the server not
 			// having started up yet. Ignore these errors for the
@@ -791,11 +791,11 @@ func unreadyComponentsFromError(err error) string {
 	return strings.Join(unreadyComponents, ", ")
 }
 
-// loadKubeConfig loads a kubeconfig from disk. This method is
+// LoadKubeConfig loads a kubeconfig from disk. This method is
 // intended to be common between fixture for servers whose lifecycle
 // is test-managed and fixture for servers whose lifecycle is managed
 // separately from a test run.
-func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
+func LoadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
 	fs, err := os.Stat(kubeconfigPath)
 	if err != nil {
 		return nil, err
@@ -809,7 +809,7 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "base", nil, nil), nil
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
 }
 
 type unmanagedKCPServer struct {
@@ -825,12 +825,12 @@ type unmanagedKCPServer struct {
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
 func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string) (RunningServer, error) {
-	cfg, err := loadKubeConfig(kubeconfigPath)
+	cfg, err := LoadKubeConfig(kubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
 
-	rootShardCfg, err := loadKubeConfig(rootShardKubeconfigPath)
+	rootShardCfg, err := LoadKubeConfig(rootShardKubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
