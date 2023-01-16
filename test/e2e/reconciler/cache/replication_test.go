@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/clientcmd"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
@@ -461,47 +460,6 @@ func TestReplicationDisruptive(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, scenario := range disruptiveScenarios {
-		scenario := scenario
-		t.Run(scenario.name, func(t *testing.T) {
-			t.Parallel()
-			scenario.work(ctx, t, server, kcpRootShardDynamicClient, cacheKcpClusterDynamicClient)
-		})
-	}
-}
-
-// TestCacheServerStandalone runs all test scenarios against a standalone cache server.
-// TODO(p0lyn0mial): remove the following flavour in https://github.com/kcp-dev/kcp/pull/2596.
-func TestCacheServerStandalone(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
-
-	artifactDir, dataDir, err := framework.ScratchDirs(t)
-	require.NoError(t, err)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cacheKubeconfigPath := StartStandaloneCacheServer(ctx, t, dataDir)
-
-	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
-		framework.WithScratchDirectories(artifactDir, dataDir),
-	)
-	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-
-	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
-	require.NoError(t, err)
-	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
-	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
-	require.NoError(t, err)
-	cacheClientRT := ClientRoundTrippersFor(cacheClientRestConfig)
-	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
-	require.NoError(t, err)
-
-	for _, scenario := range append(scenarios, disruptiveScenarios...) {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
