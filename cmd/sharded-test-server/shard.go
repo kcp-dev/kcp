@@ -19,8 +19,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -105,7 +107,8 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 	}
 
 	if standaloneVW {
-		args = append(args, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:%d", hostIP, 7444+n))
+		args = append(args, fmt.Sprintf("--shard-virtual-workspace-url=https://%s",
+			net.JoinHostPort(hostIP, virtualWorkspacePort(n))))
 	}
 
 	return shard.NewShard(
@@ -114,6 +117,10 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		logFilePath,
 		args,
 	), nil
+}
+
+func virtualWorkspacePort(n int) string {
+	return strconv.Itoa(7444 + n)
 }
 
 func embeddedEtcdClientPort(n int) int {

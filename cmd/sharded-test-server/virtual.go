@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -134,7 +135,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
 		fmt.Sprintf("--tls-private-key-file=%s", servingKeyFile),
 		fmt.Sprintf("--tls-cert-file=%s", servingCertFile),
-		fmt.Sprintf("--secure-port=%d", 7444+index),
+		fmt.Sprintf("--secure-port=%s", virtualWorkspacePort(index)),
 	)
 
 	return &VirtualWorkspace{
@@ -203,7 +204,7 @@ func (v *VirtualWorkspace) waitForReady(ctx context.Context) (<-chan error, erro
 	logger := klog.FromContext(ctx)
 	logger.WithValues("virtual-workspaces", v.index).Info("Waiting for virtual-workspaces /readyz to succeed")
 
-	vwHost := fmt.Sprintf("https://localhost:%d", 7444+v.index)
+	vwHost := fmt.Sprintf("https://%s", net.JoinHostPort("localhost", virtualWorkspacePort(v.index)))
 	kubeconfigPath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.kubeconfig", v.index))
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
