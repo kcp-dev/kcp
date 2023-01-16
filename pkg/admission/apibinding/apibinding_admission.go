@@ -293,8 +293,4 @@ func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedI
 		return apiExportsReady()
 	})
 	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-
-	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
 }
