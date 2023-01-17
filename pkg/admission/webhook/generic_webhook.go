@@ -160,10 +160,7 @@ func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clust
 	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
-				if path.Empty() {
-					path = clusterName.Path()
-				}
+				path := logicalcluster.NewPath(apiBinding.Status.LogicalCluster)
 				export, err := p.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
 				if err != nil {
 					return "", false, err

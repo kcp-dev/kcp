@@ -400,6 +400,10 @@ spec:
                       != "logicalclusters" || (has(self.identityHash) && self.identityHash
                       != "")'
                 type: array
+              logicalCluster:
+                description: logicalCluster records the name (not path) of the logical
+                  cluster that contains the APIExport.
+                type: string
               phase:
                 description: 'phase is the current phase of the APIBinding: - "":
                   the APIBinding has just been created, waiting to be bound. - Binding:
@@ -410,6 +414,8 @@ spec:
                 - Binding
                 - Bound
                 type: string
+            required:
+            - logicalCluster
             type: object
         type: object
     served: true

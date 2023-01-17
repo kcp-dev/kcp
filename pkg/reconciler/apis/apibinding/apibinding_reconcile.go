@@ -204,6 +204,9 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, nil
 	}
 
+	clusterName := logicalcluster.From(apiExport)
+	apiBinding.Status.LogicalCluster = clusterName.String()
+
 	var needToWaitForRequeueWhenEstablished []string
 
 	// Process all APIResourceSchemas
