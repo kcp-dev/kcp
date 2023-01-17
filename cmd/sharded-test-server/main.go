@@ -222,6 +222,19 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 	}
 
+	// Wait for shards to be ready
+	shardsErrCh := make(chan indexErrTuple)
+	for i, shard := range shards {
+		terminatedCh, err := shard.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		go func(i int, terminatedCh <-chan error) {
+			err := <-terminatedCh
+			shardsErrCh <- indexErrTuple{i, err}
+		}(i, terminatedCh)
+	}
+
 	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
 	if err := writeAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
@@ -234,19 +247,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
 		return err
-	}
-
-	// Wait for shards to be ready
-	shardsErrCh := make(chan indexErrTuple)
-	for i, shard := range shards {
-		terminatedCh, err := shard.WaitForReady(ctx)
-		if err != nil {
-			return err
-		}
-		go func(i int, terminatedCh <-chan error) {
-			err := <-terminatedCh
-			shardsErrCh <- indexErrTuple{i, err}
-		}(i, terminatedCh)
 	}
 
 	select {
