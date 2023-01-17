@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -41,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/apis/admissionregistration"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
@@ -173,7 +173,7 @@ func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[meta
 			Group:    parts[0],
 			Resource: parts[1],
 		}
-		if gr.Group == apis.GroupName || gr.Group == rbacv1.GroupName || gr.Group == admissionregistration.GroupName {
+		if gr.Group == apis.GroupName || gr.Group == rbacv1.GroupName || gr.Group == admissionregistrationv1.GroupName {
 			logger.Info(fmt.Sprintf("Skipping CustomResourceDefinition %s from %s", gr.String(), path))
 			return nil
 		}

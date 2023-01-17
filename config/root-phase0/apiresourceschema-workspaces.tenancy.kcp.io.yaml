@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230112-eb0f15cec.workspaces.tenancy.kcp.io
+  name: v230116-832a4a55d.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -21,8 +21,12 @@ spec:
       jsonPath: .spec.type.name
       name: Type
       type: string
+    - description: The region this workspace is in
+      jsonPath: .metadata.labels['region']
+      name: Region
+      type: string
     - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
-      jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
+      jsonPath: .metadata.labels['tenancy\.kcp\.io/phase']
       name: Phase
       type: string
     - description: URL to access the workspace

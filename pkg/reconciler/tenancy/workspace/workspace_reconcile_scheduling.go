@@ -97,20 +97,23 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		}
 
 		if !hasShard {
-			shardName, reason, err := r.chooseShardAndMarkCondition(logger, workspace) // call first with status side-effect, before any annotation aka spec change
+			shard, reason, err := r.chooseShardAndMarkCondition(logger, workspace) // call first with status side-effect, before any annotation aka spec change
 			if err != nil {
 				return reconcileStatusStopAndRequeue, err
 			}
-			if len(shardName) == 0 {
+			if shard == nil {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, reason)
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
-			logger.V(1).Info("Chose shard", "shard", shardName)
-			shardNameHash = ByBase36Sha224NameValue(shardName)
+			logger.V(1).Info("Chose shard", "shard", shard.Name)
+			shardNameHash = ByBase36Sha224NameValue(shard.Name)
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
 			workspace.Annotations[WorkspaceShardHashAnnotationKey] = shardNameHash
+			if region, found := shard.Labels["region"]; found {
+				workspace.Labels["region"] = region
+			}
 		}
 		if !hasCluster {
 			cluster := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))
@@ -169,21 +172,21 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	return reconcileStatusContinue, nil
 }
 
-func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1alpha1.Workspace) (shard string, reason string, err error) {
+func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1alpha1.Workspace) (shard *corev1alpha1.Shard, reason string, err error) {
 	selector := labels.Everything()
 	if workspace.Spec.Location != nil {
 		if workspace.Spec.Location.Selector != nil {
 			var err error
 			selector, err = metav1.LabelSelectorAsSelector(workspace.Spec.Location.Selector)
 			if err != nil {
-				return "", fmt.Sprintf("spec.location.selector is invalid: %v", err), nil // don't retry, cannot do anything useful
+				return nil, fmt.Sprintf("spec.location.selector is invalid: %v", err), nil // don't retry, cannot do anything useful
 			}
 		}
 	}
 
 	shards, err := r.listShards(selector)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	validShards := make([]*corev1alpha1.Shard, 0, len(shards))
@@ -209,10 +212,10 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 			failures = append(failures, fmt.Errorf("  %s: reason %q, message %q", name, x.reason, x.message))
 		}
 		logger.Error(utilerrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
-		return "", "No available shards to schedule the workspace", nil // retry is automatic when new shards show up
+		return nil, "No available shards to schedule the workspace", nil // retry is automatic when new shards show up
 	}
 	targetShard := validShards[rand.Intn(len(validShards))]
-	return targetShard.Name, "", nil
+	return targetShard, "", nil
 }
 
 func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1alpha1.Workspace) error {

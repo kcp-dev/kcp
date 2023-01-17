@@ -23,8 +23,12 @@ spec:
       jsonPath: .spec.type.name
       name: Type
       type: string
+    - description: The region this workspace is in
+      jsonPath: .metadata.labels['region']
+      name: Region
+      type: string
     - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
-      jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
+      jsonPath: .metadata.labels['tenancy\.kcp\.io/phase']
       name: Phase
       type: string
     - description: URL to access the workspace
