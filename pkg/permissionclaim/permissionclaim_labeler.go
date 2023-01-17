@@ -36,7 +36,6 @@ import (
 )
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
-// TODO(nrb): Add functions that allow labeling of named/namespaced objects. listAPIBindingsAcceptingClaimedResources?
 type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
@@ -97,20 +96,17 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
+			if !Selects(claim, groupResource, resourceName, resourceNamespace) {
 				continue
 			}
-
-			if IsSelected(claim.PermissionClaim, resourceName, resourceNamespace) {
-				k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
-				if err != nil {
-					// extremely unlikely to get an error here - it means the json marshaling failed
-					logger.Error(err, "error calculating permission claim label key and value",
-						"claim", claim.String())
-					continue
-				}
-				labels[k] = v
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
+			if err != nil {
+				// extremely unlikely to get an error here - it means the json marshaling failed
+				logger.Error(err, "error calculating permission claim label key and value",
+					"claim", claim.String())
+				continue
 			}
+			labels[k] = v
 		}
 	}
 
@@ -140,8 +136,47 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	return labels, nil
 }
 
-// IsSelected indicates whether a given object's name and/or namespace matches a PermissionClaim's ResourceSelector.
-func IsSelected(claim apisv1alpha1.PermissionClaim, name, namespace string) bool {
+// Selects indicates whether a given object's name and/or namespace matches a PermissionClaim's ResourceSelector.
+func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, groupResource schema.GroupResource, name, namespace string) bool {
+	if acceptableClaim.State != apisv1alpha1.ClaimAccepted || acceptableClaim.Group != groupResource.Group || acceptableClaim.Resource != groupResource.Resource {
+		return false
+	}
+
+	claim := acceptableClaim.PermissionClaim
+
+	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
+	if claim.All && len(claim.ResourceSelector) > 0 {
+		return false
+	}
+
+	// ResourceSelector nil check to be compatible with objects created prior to the addition of the All field
+	if claim.All || len(claim.ResourceSelector) == 0 {
+		return true
+	}
+
+	for _, selector := range claim.ResourceSelector {
+		// Selecting a specific object, might be cluster-scoped or the selector itself does not have a namespace defined.
+		// When selector.Namespace == "", then the permission is assumed to be cluster-scoped *or* the object's name is the only criteria and any namespace is valid.
+		if selector.Name == name && (selector.Namespace == namespace || selector.Namespace == "") {
+			return true
+		}
+
+		// Selecting all objects in the namespace
+		if selector.Namespace == namespace && selector.Name == "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func IsAdmissable(groupResource schema.GroupResource, acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, namespace string) bool {
+	if acceptableClaim.State != apisv1alpha1.ClaimAccepted || acceptableClaim.Group != groupResource.Group || acceptableClaim.Resource != groupResource.Resource {
+		return false
+	}
+
+	claim := acceptableClaim.PermissionClaim
+
 	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
 	if claim.All && len(claim.ResourceSelector) > 0 {
 		return false
