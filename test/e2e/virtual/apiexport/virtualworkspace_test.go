@@ -115,7 +115,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err, "error getting APIExport")
 
 	// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
-	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	user3KcpClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct client for user-3")
 	bindConsumerToProvider(ctx, t, consumerPath, serviceProviderPath, user3KcpClient, cfg)
 	createCowboyInConsumer(ctx, t, consumerPath, wildwestClusterClient)
@@ -163,7 +163,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	// Attempt to use VW using user-1 should expect an error
 	t.Logf("Make sure that user-1 is denied")
-	user1VWCfg := framework.UserConfig("user-1", apiExportVWCfg)
+	user1VWCfg := framework.StaticTokenUserConfig("user-1", apiExportVWCfg)
 	wwUser1VC, err := wildwestclientset.NewForConfig(user1VWCfg)
 	require.NoError(t, err)
 	_, err = wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
@@ -204,7 +204,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(serviceProviderPath).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	user2VWCfg := framework.UserConfig("user-2", apiExportVWCfg)
+	user2VWCfg := framework.StaticTokenUserConfig("user-2", apiExportVWCfg)
 	wwUser2VC, err := wildwestclientset.NewForConfig(user2VWCfg)
 	require.NoError(t, err)
 	t.Logf("Get Cowboy and update status with user-2")

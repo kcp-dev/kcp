@@ -248,9 +248,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		virtualWorkspaceConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
 		virtualWorkspaceConfig.Host = workspacetypes[initializer].Status.VirtualWorkspaces[0].URL
-		virtualKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
+		virtualKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		virtualKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
+		virtualKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		user1VwKcpClusterClients[initializer] = virtualKcpClusterClient
 		user1VwKubeClusterClients[initializer] = virtualKubeClusterClient

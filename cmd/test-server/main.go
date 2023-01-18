@@ -28,6 +28,7 @@ import (
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
+	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
@@ -79,12 +80,27 @@ func start(shardFlags []string, quiet bool) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
+	// create client CA and kcp-admin client cert to connect through front-proxy
+	_, err := crypto.MakeSelfSignedCA(
+		filepath.Join(".kcp", "/client-ca.crt"),
+		filepath.Join(".kcp", "/client-ca.key"),
+		filepath.Join(".kcp", "/client-ca-serial.txt"),
+		"kcp-client-ca",
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client-ca: %w", err)
+	}
+
 	logFilePath := flag.Lookup("log-file-path").Value.String()
 	shard := shard.NewShard(
 		"kcp",
 		".kcp",
 		logFilePath,
-		append(shardFlags, "--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log")),
+		append(shardFlags,
+			"--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log"),
+			"--client-ca-file", filepath.Join(".kcp", "client-ca.crt"),
+		),
 	)
 	if err := shard.Start(ctx, quiet); err != nil {
 		return err
