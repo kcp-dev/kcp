@@ -331,7 +331,16 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
+		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
+		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
+		// This compromises audit log size and information overflow vs. having audit reasons for the main api handler only.
+		// First, remember authorizer chain with audit logging disabled.
+		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
+		// configure audit logging enabled authorizer chain and build the apiHandler using this configuration.
+		genericConfig.Authorization.Authorizer = authorization.EnableAuditLogging(genericConfig.Authorization.Authorizer)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
+		// reset authorizer chain with audit logging disabled.
+		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
 		if opts.HomeWorkspaces.Enabled {
 			apiHandler, err = WithHomeWorkspaces(
@@ -352,10 +361,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			}
 		}
 
-		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
-		genericConfig.Authorization.Authorizer = authorization.EnableAuditLogging(genericConfig.Authorization.Authorizer)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
-		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
