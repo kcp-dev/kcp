@@ -45,9 +45,9 @@ func TestWorkspaceController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootKcpClient, orgKcpClient kcpclientset.Interface
-		orgExpect                   framework.RegisterWorkspaceExpectation
-		rootExpectShard             framework.RegisterWorkspaceShardExpectation
+		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
+		orgExpect                                     framework.RegisterWorkspaceExpectation
+		rootExpectShard                               framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
 		name        string
@@ -59,7 +59,7 @@ func TestWorkspaceController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				wShard, err := server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				wShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err, "did not see root workspace shard")
 
 				require.True(t, strings.HasPrefix(wShard.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", wShard.Spec.BaseURL)
@@ -73,10 +73,10 @@ func TestWorkspaceController(t *testing.T) {
 				// note that the root shard always exists if not deleted
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.Workspace) error {
@@ -93,21 +93,21 @@ func TestWorkspaceController(t *testing.T) {
 				t.Helper()
 				var previouslyValidShard corev1alpha1.Shard
 				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
-				shards, err := server.rootKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+				shards, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				if len(shards.Items) == 0 {
 					t.Fatalf("expected to get some shards but got none")
 				}
 				previouslyValidShard = shards.Items[0]
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err = server.rootKcpClient.CoreV1alpha1().Shards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+				err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
-				workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
@@ -115,7 +115,7 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
-				newShard, err := server.rootKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
+				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   previouslyValidShard.Name,
 						Labels: previouslyValidShard.Labels,
@@ -127,12 +127,12 @@ func TestWorkspaceController(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
+					return server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				framework.Eventually(t, func() (bool, string) {
-					workspace, err := server.orgKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 
 					if isUnschedulable(workspace) {
@@ -177,21 +177,18 @@ func TestWorkspaceController(t *testing.T) {
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
-			require.NoError(t, err)
+			orgExpect, err := framework.ExpectWorkspaces(ctx, t, kcpClient.Cluster(orgPath))
+			require.NoError(t, err, "failed to start a workspace expecter")
 
-			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgPath))
-			require.NoError(t, err, "failed to start expecter")
-
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(core.RootCluster.Path()))
-			require.NoError(t, err, "failed to start expecter")
+			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, kcpClient.Cluster(core.RootCluster.Path()))
+			require.NoError(t, err, "failed to start a shard expecter")
 
 			testCase.work(ctx, t, runningServer{
-				RunningServer:   server,
-				rootKcpClient:   kcpClient.Cluster(core.RootCluster.Path()),
-				orgKcpClient:    kcpClient.Cluster(orgPath),
-				orgExpect:       orgExpect,
-				rootExpectShard: rootExpectShard,
+				RunningServer:          server,
+				rootWorkspaceKcpClient: kcpClient.Cluster(core.RootCluster.Path()),
+				orgWorkspaceKcpClient:  kcpClient.Cluster(orgPath),
+				orgExpect:              orgExpect,
+				rootExpectShard:        rootExpectShard,
 			})
 		})
 	}
