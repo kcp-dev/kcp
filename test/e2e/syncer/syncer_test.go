@@ -61,10 +61,10 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamServer := framework.SharedKcpServer(t)
 
 	t.Log("Creating an organization")
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 
 	t.Log("Creating a workspace")
-	wsPath, ws := framework.NewWorkspaceFixture(t, upstreamServer, orgPath)
+	wsPath, ws := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its sync target to go ready. This implicitly validates the syncer
@@ -569,10 +569,10 @@ func TestSyncWorkload(t *testing.T) {
 	upstreamServer := framework.SharedKcpServer(t)
 
 	t.Log("Creating an organization")
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 
 	t.Log("Creating a workspace")
-	wsPath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath)
+	wsPath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
@@ -600,12 +600,12 @@ func TestCordonUncordonDrain(t *testing.T) {
 	upstreamServer := framework.SharedKcpServer(t)
 
 	t.Log("Creating an organization")
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 
 	upstreamCfg := upstreamServer.BaseConfig(t)
 
 	t.Log("Creating a workspace")
-	wsPath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath)
+	wsPath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()

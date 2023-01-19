@@ -58,9 +58,9 @@ func TestSyncerTunnel(t *testing.T) {
 
 	upstreamServer := framework.PrivateKcpServer(t)
 	t.Log("Creating an organization")
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 	t.Log("Creating a workspace")
-	wsPath, ws := framework.NewWorkspaceFixture(t, upstreamServer, orgPath)
+	wsPath, ws := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
