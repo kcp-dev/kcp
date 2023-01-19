@@ -18,18 +18,14 @@ package bootstrap
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,9 +39,11 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -72,6 +70,8 @@ func NewController(
 		workspaceType:        workspaceType,
 		bootstrap:            bootstrap,
 		batteriesIncluded:    batteriesIncluded,
+
+		commit: committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -81,6 +81,13 @@ func NewController(
 
 	return c, nil
 }
+
+type LogicalCluster = corev1alpha1.LogicalCluster
+type LogicalClusterSpec = corev1alpha1.LogicalClusterSpec
+type LogicalClusterStatus = corev1alpha1.LogicalClusterStatus
+type Patcher = corev1alpha1client.LogicalClusterInterface
+type Resource = committer.Resource[*LogicalClusterSpec, *LogicalClusterStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller watches Workspaces of a given type in initializing
 // state and bootstrap resources from the configs/<lower-case-type> package.
@@ -96,6 +103,8 @@ type controller struct {
 	workspaceType     tenancyv1alpha1.WorkspaceTypeReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
 	batteriesIncluded sets.String
+
+	commit CommitFunc
 }
 
 func (c *controller) enqueue(obj interface{}) {
@@ -158,7 +167,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
@@ -166,7 +175,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	obj, err := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil // object deleted before we handled it
 		}
 		return err
@@ -177,38 +186,20 @@ func (c *controller) process(ctx context.Context, key string) error {
 	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
+	var errs []error
 	if err := c.reconcile(ctx, obj); err != nil {
-		return err
+		errs = append(errs, err)
 	}
+
+	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
+	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
-	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(corev1alpha1.LogicalCluster{
-			Status: old.Status,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
-		}
-
-		newData, err := json.Marshal(corev1alpha1.LogicalCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				UID:             old.UID,
-				ResourceVersion: old.ResourceVersion,
-			}, // to ensure they appear in the patch as preconditions
-			Status: obj.Status,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
-		}
-
-		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
-		}
-		_, uerr := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-		return uerr
+	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	logger.V(6).Info("processed LogicalCluster")
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
