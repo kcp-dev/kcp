@@ -59,8 +59,8 @@ func TestMultipleExports(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
-	computePath, computeWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.WithRootShard())
+	computePath, computeWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithRootShard())
 	computeClusterName := logicalcluster.Name(computeWorkspace.Spec.Cluster)
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
@@ -69,7 +69,7 @@ func TestMultipleExports(t *testing.T) {
 	dynamicClients, err := kcpdynamic.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceSchemaPath, serviceSchemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	serviceSchemaPath, serviceSchemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithRootShard())
 	serviceSchemaClusterName := logicalcluster.Name(serviceSchemaWorkspace.Spec.Cluster)
 
 	t.Logf("Install service APIResourceSchema into service schema workspace %q", serviceSchemaPath)
@@ -88,7 +88,7 @@ func TestMultipleExports(t *testing.T) {
 	_, err = kcpClients.Cluster(serviceSchemaPath).ApisV1alpha1().APIExports().Create(ctx, serviceAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	ingressSchemaPath, ingressSchemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	ingressSchemaPath, ingressSchemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithRootShard())
 	t.Logf("Install ingress APIResourceSchema into ingress schema workspace %q", ingressSchemaPath)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaPath).Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaPath), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
