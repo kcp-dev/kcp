@@ -46,9 +46,9 @@ func TestMultiPlacement(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
-	locationPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("location"))
-	userPath, userWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("user"))
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
+	locationPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("location"), framework.TODO_WithoutMultiShardSupport())
+	userPath, userWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("user"), framework.TODO_WithoutMultiShardSupport())
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
