@@ -25,12 +25,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -40,7 +38,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Operation) admission.Attributes {
@@ -121,11 +118,11 @@ func TestDispatch(t *testing.T) {
 			),
 			cluster: "root-org-dest",
 			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
 			},
 			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
-				logicalcluster.Name("root-org-dest"):   {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
+				logicalcluster.Name("source"):        {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
 			},
 			apiBindings: []*apisv1alpha1.APIBinding{
 				{
@@ -150,6 +147,7 @@ func TestDispatch(t *testing.T) {
 								Resource: "cowboys",
 							},
 						},
+						APIExportClusterName: "source",
 					},
 				},
 			},
@@ -264,7 +262,7 @@ func TestDispatch(t *testing.T) {
 			ctx, cancelFn := context.WithCancel(context.Background())
 			t.Cleanup(cancelFn)
 
-			fakeClient := kcpfakeclient.NewSimpleClientset(toObjects(tc.apiBindings)...)
+			fakeClient := kcpfakeclient.NewSimpleClientset(append(toObjects(tc.apiBindings), toObjects(tc.apiExports)...)...)
 			fakeInformerFactory := kcpinformers.NewSharedInformerFactory(fakeClient, time.Hour)
 
 			o := &WebhookDispatcher{
@@ -273,13 +271,8 @@ func TestDispatch(t *testing.T) {
 				hookSource:              &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
 				apiBindingClusterLister: fakeInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 				informersHaveSynced:     tc.informersHaveSynced,
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					for _, apiExport := range tc.apiExports {
-						if keys, _ := indexers.IndexByLogicalClusterPathAndName(apiExport); sets.NewString(keys...).Has(path.Join(name).String()) {
-							return apiExport, nil
-						}
-					}
-					return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+					return fakeInformerFactory.Apis().V1alpha1().APIExports().Cluster(clusterName).Lister().Get(name)
 				},
 			}
 
@@ -303,16 +296,16 @@ func TestDispatch(t *testing.T) {
 	}
 }
 
-func toObjects(bindings []*apisv1alpha1.APIBinding) []runtime.Object {
-	objs := make([]runtime.Object, 0, len(bindings))
-	for _, binding := range bindings {
-		objs = append(objs, binding)
-	}
-	return objs
-}
-
 type apiExportBuilder struct {
 	APIExport *apisv1alpha1.APIExport
+}
+
+func toObjects[T runtime.Object](objects []T) []runtime.Object {
+	objs := make([]runtime.Object, 0, len(objects))
+	for _, objects := range objects {
+		objs = append(objs, objects)
+	}
+	return objs
 }
 
 func newAPIExport(path logicalcluster.Path, name string) apiExportBuilder {

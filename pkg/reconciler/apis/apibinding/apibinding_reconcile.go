@@ -204,8 +204,10 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, nil
 	}
 
+	// Record the APIExport's host cluster name for lookup in webhooks.
+	// The full path is unreliable for this purpose.
 	clusterName := logicalcluster.From(apiExport)
-	apiBinding.Status.LogicalCluster = clusterName.String()
+	apiBinding.Status.APIExportClusterName = clusterName.String()
 
 	var needToWaitForRequeueWhenEstablished []string
 

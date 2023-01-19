@@ -138,12 +138,10 @@ const (
 
 // APIBindingStatus records which schemas are bound.
 type APIBindingStatus struct {
-	// logicalCluster records the name (not path) of the logical cluster that contains the APIExport.
+	// APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.
 	//
-	// +required
-	// +kubebuilder:validation:Required
-	// +kube:validation:MinLength=1
-	LogicalCluster string `json:"logicalCluster"`
+	// +optional
+	APIExportClusterName string `json:"apiExportClusterName,omitempty"`
 
 	// boundResources records the state of bound APIs.
 	//

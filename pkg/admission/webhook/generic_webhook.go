@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -87,11 +86,9 @@ type WebhookDispatcher struct {
 	dispatcher generic.Dispatcher
 	hookSource ClusterAwareSource
 
-	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 
 	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
-	apiExportIndexer        cache.Indexer
-	globalAPIExportIndexer  cache.Indexer
 
 	informersHaveSynced func() bool
 }
@@ -99,14 +96,6 @@ type WebhookDispatcher struct {
 func NewWebhookDispatcher() *WebhookDispatcher {
 	d := &WebhookDispatcher{
 		Handler: admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-	}
-
-	d.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-		obj, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), d.apiExportIndexer, path, name)
-		if errors.IsNotFound(err) {
-			obj, err = indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), d.globalAPIExportIndexer, path, name)
-		}
-		return obj, err
 	}
 
 	return d
@@ -160,8 +149,8 @@ func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clust
 	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				path := logicalcluster.NewPath(apiBinding.Status.LogicalCluster)
-				export, err := p.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
+				name := logicalcluster.Name(apiBinding.Status.APIExportClusterName)
+				export, err := p.getAPIExport(name, apiBinding.Spec.Reference.Export.Name)
 				if err != nil {
 					return "", false, err
 				}
@@ -185,8 +174,14 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (p *WebhookDispatcher) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	p.apiBindingClusterLister = local.Apis().V1alpha1().APIBindings().Lister()
-	p.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-	p.globalAPIExportIndexer = global.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+
+	p.getAPIExport = func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+		export, err := local.Apis().V1alpha1().APIExports().Lister().Cluster(clusterName).Get(name)
+		if err != nil {
+			return global.Apis().V1alpha1().APIExports().Lister().Cluster(clusterName).Get(name)
+		}
+		return export, nil
+	}
 
 	synced := func() bool {
 		return local.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&

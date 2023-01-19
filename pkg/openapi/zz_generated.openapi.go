@@ -1218,10 +1218,9 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 				Description: "APIBindingStatus records which schemas are bound.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"logicalCluster": {
+					"apiExportClusterName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "logicalCluster records the name (not path) of the logical cluster that contains the APIExport.",
-							Default:     "",
+							Description: "APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1299,7 +1298,6 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"logicalCluster"},
 			},
 		},
 		Dependencies: []string{
