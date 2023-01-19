@@ -86,6 +86,10 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
+
+	// Don't throttle
+	nonIdentityConfig.QPS = -1
+
 	u, err := url.Parse(nonIdentityConfig.Host)
 	if err != nil {
 		return err
@@ -93,8 +97,13 @@ func Run(ctx context.Context, o *options.Options) error {
 	u.Path = ""
 	nonIdentityConfig.Host = u.String()
 
+	localShardKubeClusterClient, err := kcpkubernetesclient.NewForConfig(nonIdentityConfig)
+	if err != nil {
+		return err
+	}
+
 	// resolve identities for system APIBindings
-	identityConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
+	identityConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
 			logger.V(3).Info("failed to resolve identities, keeping trying: ", "err", err)
