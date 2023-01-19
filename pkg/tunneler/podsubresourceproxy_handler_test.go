@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package tunneler
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -45,7 +46,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 		syncTargetExists    bool
 		synctargetWorkspace string
 		expectedError       string
-		expectedPath        string
+		expectedProxiedPath string
 	}{
 		"valid request with existing pod and synctarget, pod and synctarget on the same workspace": {
 			subresource:         "exec",
@@ -54,7 +55,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			syncTargetExists:    true,
 			podIsUpsynced:       true,
 			synctargetWorkspace: "cluster1",
-			expectedPath:        "/clusters/cluster1/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-xwdjipyflk7g/pods/foo/exec",
+			expectedProxiedPath: "/api/v1/namespaces/kcp-xwdjipyflk7g/pods/foo/exec",
 		},
 		"valid request with existing pod and synctarget, pod and synctarget on different workspaces": {
 			subresource:         "exec",
@@ -63,7 +64,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			podIsUpsynced:       true,
 			syncTargetExists:    true,
 			synctargetWorkspace: "cluster2",
-			expectedPath:        "/clusters/cluster2/apis/workload.kcp.io/v1alpha1/synctargets/synctarget1/proxy/api/v1/namespaces/kcp-1kdcree89tsy/pods/foo/exec",
+			expectedProxiedPath: "/api/v1/namespaces/kcp-1kdcree89tsy/pods/foo/exec",
 		},
 		"non existing pod": {
 			subresource:   "exec",
@@ -91,7 +92,6 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			subresource:   "invalid",
 			workspace:     "cluster1",
 			podExists:     true,
-			expectedPath:  "/api/v1/namespaces/default/pods/foo/invalid",
 			expectedError: "400 Bad Request",
 		},
 	}
@@ -99,7 +99,15 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
+			proxiedPath := ""
 			handler := &podSubresourceProxyHandler{
+				proxyFunc: func(cluster logicalcluster.Name, syncTargetName string, w http.ResponseWriter, req *http.Request) {
+					proxiedPath = req.URL.Path
+					if tc.syncTargetExists && tc.podExists {
+						w.WriteHeader(http.StatusOK)
+						fmt.Fprintln(w, nil)
+					}
+				},
 				apiHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 				getPodByName: func(ctx context.Context, cluster logicalcluster.Name, namespace, podName string) (*corev1.Pod, error) {
 					if !tc.podExists {
@@ -136,7 +144,10 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 			}
 			namespace := "default"
 			podName := "foo"
-			path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/%s", namespace, podName, tc.subresource)
+			path, err := url.JoinPath("/api/v1/namespaces" + namespace + "/pods/" + podName + "/" + tc.subresource)
+			if err != nil {
+				t.Fatal(err)
+			}
 			r := httptest.NewRequest(http.MethodGet, path, nil).WithContext(request.WithRequestInfo(
 				request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Name(tc.workspace)}),
 				&request.RequestInfo{
@@ -152,7 +163,6 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 				}))
 
 			rw := httptest.NewRecorder()
-
 			handler.ServeHTTP(rw, r)
 			result := rw.Result()
 			defer result.Body.Close()
@@ -163,7 +173,9 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 				return
 			}
 			require.Equal(t, http.StatusOK, result.StatusCode, "Unexpected status code: %s", string(bytes))
-			require.Equal(t, tc.expectedPath, r.URL.Path, "Unexpected path")
+			if tc.expectedProxiedPath != "" {
+				require.Equal(t, tc.expectedProxiedPath, proxiedPath, "Unexpected proxied path")
+			}
 		})
 	}
 }

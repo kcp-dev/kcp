@@ -17,6 +17,7 @@ limitations under the License.
 package tunneler
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,9 +27,37 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
-func setup(t *testing.T) (*http.Client, string, func()) {
+// requestInfoHandler is a helping function to populate the requestInfo of a request as expected
+// by the WithSyncerTunnelHandler.
+func requestInfoHandler(handler http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if _, ok := genericapirequest.RequestInfoFrom(ctx); ok {
+			handler.ServeHTTP(w, r)
+			return
+		}
+		r = r.WithContext(genericapirequest.WithRequestInfo(ctx,
+			&genericapirequest.RequestInfo{
+				IsResourceRequest: true,
+				APIGroup:          "workload.kcp.io",
+				APIVersion:        "v1alpha1",
+				Resource:          "synctargets",
+				Subresource:       "tunnel",
+				Name:              "d001",
+			},
+		))
+		r = r.WithContext(genericapirequest.WithCluster(r.Context(), genericapirequest.Cluster{Name: "ws"}))
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func setup(t *testing.T) (string, *tunneler, func()) {
 	t.Helper()
 	backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello world")
@@ -38,7 +67,9 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 
 	// public server
 	mux := http.NewServeMux()
-	apiHandler := WithSyncerTunnel(mux)
+	tunneler := NewTunneler()
+	apiHandler := tunneler.WithSyncerTunnelHandler(mux)
+	apiHandler = requestInfoHandler(apiHandler)
 	publicServer := httptest.NewUnstartedServer(apiHandler)
 	publicServer.EnableHTTP2 = true
 	publicServer.StartTLS()
@@ -73,22 +104,25 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 		publicServer.Close()
 		backend.Close()
 	}
-	return publicServer.Client(), dstURL + "/" + CmdTunnelProxy + "/", stop
+	return dstURL, tunneler, stop
 }
 
 func Test_integration(t *testing.T) {
-	client, uri, stop := setup(t)
-	resp, err := client.Get(uri) //nolint:noctx
-	if err != nil {
-		t.Fatalf("Request Failed: %s", err)
-	}
-	defer resp.Body.Close()
+	uri, tunneler, stop := setup(t)
+	rw := httptest.NewRecorder()
+	b := &bytes.Buffer{}
+	req, err := http.NewRequest(http.MethodGet, uri, b) //nolint:noctx
+	require.NoError(t, err)
+	tunneler.Proxy("ws", "d001", rw, req)
 	defer stop()
 
-	body, err := io.ReadAll(resp.Body)
+	response := rw.Result()
+	body, err := io.ReadAll(response.Body)
+	defer response.Body.Close()
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}
+
 	// Log the request body
 	bodyString := string(body)
 	if bodyString != "Hello world" {
@@ -97,23 +131,26 @@ func Test_integration(t *testing.T) {
 }
 
 func Test_integration_multiple_connections(t *testing.T) {
-	client, uri, stop := setup(t)
+	uri, tunneler, stop := setup(t)
 	defer stop()
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := client.Get(uri) //nolint:noctx
-			if err != nil {
-				t.Errorf("Request Failed: %s", err)
-			}
-			defer resp.Body.Close()
+			rw := httptest.NewRecorder()
+			b := &bytes.Buffer{}
+			req, err := http.NewRequest(http.MethodGet, uri, b) //nolint:noctx
+			require.NoError(t, err)
+			tunneler.Proxy("ws", "d001", rw, req)
 
-			body, err := io.ReadAll(resp.Body)
+			response := rw.Result()
+			body, err := io.ReadAll(response.Body)
+			defer response.Body.Close()
 			if err != nil {
 				t.Errorf("Reading body failed: %s", err)
 			}
+
 			// Log the request body
 			bodyString := string(body)
 			if bodyString != "Hello world" {
@@ -134,7 +171,9 @@ func Test_integration_listener_reconnect(t *testing.T) {
 
 	// public server
 	mux := http.NewServeMux()
-	apiHandler := WithSyncerTunnel(mux)
+	tunneler := NewTunneler()
+	apiHandler := tunneler.WithSyncerTunnelHandler(mux)
+	apiHandler = requestInfoHandler(apiHandler)
 	publicServer := httptest.NewUnstartedServer(apiHandler)
 	publicServer.EnableHTTP2 = true
 	publicServer.StartTLS()
@@ -166,16 +205,15 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	// wait for the reverse connection to be established
 	time.Sleep(1 * time.Second)
 
-	client := publicServer.Client()
-	uri := dstURL + "/" + CmdTunnelProxy + "/"
+	rw := httptest.NewRecorder()
+	b := &bytes.Buffer{}
+	req, err := http.NewRequest(http.MethodGet, dstURL, b) //nolint:noctx
+	require.NoError(t, err)
+	tunneler.Proxy("ws", "d001", rw, req)
 
-	resp, err := client.Get(uri) //nolint:noctx
-	if err != nil {
-		t.Fatalf("Request Failed: %s", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
+	response := rw.Result()
+	body, err := io.ReadAll(response.Body)
+	defer response.Body.Close()
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}
@@ -201,16 +239,19 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	go server2.Serve(l2)
 	defer server2.Close()
 
-	resp, err = client.Get(uri) //nolint:noctx
-	if err != nil {
-		t.Fatalf("Request Failed: %s", err)
-	}
-	defer resp.Body.Close()
+	rw2 := httptest.NewRecorder()
+	b2 := &bytes.Buffer{}
+	req2, err := http.NewRequest(http.MethodGet, dstURL, b2) //nolint:noctx
+	require.NoError(t, err)
+	tunneler.Proxy("ws", "d001", rw2, req2)
 
-	body, err = io.ReadAll(resp.Body)
+	response = rw2.Result()
+	body, err = io.ReadAll(response.Body)
+	defer response.Body.Close()
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}
+
 	// Log the request body
 	bodyString = string(body)
 	if bodyString != "Hello world" {

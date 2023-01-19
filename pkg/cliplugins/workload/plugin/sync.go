@@ -505,7 +505,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 			Verbs:         []string{"get"},
 			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
 			ResourceNames: []string{syncTargetName},
-			Resources:     []string{"synctargets/connect"},
+			Resources:     []string{"synctargets/tunnel"},
 		},
 		{
 			Verbs:         []string{"get", "list", "watch"},

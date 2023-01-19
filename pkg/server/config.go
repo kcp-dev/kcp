@@ -368,8 +368,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
-			apiHandler = WithPodSubresourceProxying(
+			tunneler := tunneler.NewTunneler()
+			apiHandler = tunneler.WithSyncerTunnelHandler(apiHandler)
+			apiHandler = tunneler.WithPodSubresourceProxying(
 				apiHandler,
 				c.DynamicClusterClient,
 				c.KcpSharedInformerFactory,

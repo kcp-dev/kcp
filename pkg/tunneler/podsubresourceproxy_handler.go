@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package tunneler
 
 import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
@@ -39,21 +41,25 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	"github.com/kcp-dev/kcp/pkg/tunneler"
+)
+
+var (
+	errorScheme = runtime.NewScheme()
+	errorCodecs = serializer.NewCodecFactory(errorScheme)
 )
 
 // WithPodSubresourceProxying proxies the POD subresource requests using the syncer tunneler.
-func WithPodSubresourceProxying(apiHandler http.Handler, kcpclient dynamic.ClusterInterface, kcpInformer kcpinformers.SharedInformerFactory) http.Handler {
-	syncTargetInformer, err := kcpInformer.ForResource(schema.GroupVersionResource{Group: "workload.kcp.io", Resource: "synctargets", Version: "v1alpha1"})
+func (tn *tunneler) WithPodSubresourceProxying(apiHandler http.Handler, kcpclient dynamic.ClusterInterface, kcpInformer kcpinformers.SharedInformerFactory) http.Handler {
+	syncTargetInformer, err := kcpInformer.ForResource(workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"))
 	if err != nil {
 		panic(err)
 	}
 
 	return &podSubresourceProxyHandler{
+		proxyFunc:  tn.Proxy,
 		apiHandler: apiHandler,
-
 		getPodByName: func(ctx context.Context, cluster logicalcluster.Name, namespace, podName string) (*corev1.Pod, error) {
-			unstr, err := kcpclient.Cluster(cluster.Path()).Resource(schema.GroupVersionResource{Group: "", Resource: "pods", Version: "v1"}).Namespace(namespace).Get(ctx, podName, metav1.GetOptions{})
+			unstr, err := kcpclient.Cluster(cluster.Path()).Resource(corev1.SchemeGroupVersion.WithResource("pods")).Namespace(namespace).Get(ctx, podName, metav1.GetOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -81,6 +87,7 @@ func WithPodSubresourceProxying(apiHandler http.Handler, kcpclient dynamic.Clust
 }
 
 type podSubresourceProxyHandler struct {
+	proxyFunc                    func(clusterName logicalcluster.Name, syncerName string, rw http.ResponseWriter, req *http.Request)
 	apiHandler                   http.Handler
 	getPodByName                 func(ctx context.Context, cluster logicalcluster.Name, namespace, podName string) (*corev1.Pod, error)
 	getSyncTargetBySynctargetKey func(ctx context.Context, synctargetKey string) (*workloadv1alpha1.SyncTarget, error)
@@ -123,8 +130,8 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 		return
 	}
 
-	// Check if the subresource is valid, we only support exec, log, portforward, proxy and attach.
-	if subresource != "exec" && subresource != "log" && subresource != "portforward" && subresource != "proxy" && subresource != "attach" {
+	// Check if the subresource is valid, for PODs we support exec, log, portforward, proxy , attach and ephemeralcontainers.
+	if subresource != "exec" && subresource != "log" && subresource != "portforward" && subresource != "proxy" && subresource != "attach" && subresource != "ephemeralcontainers" {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewBadRequest(fmt.Sprintf("invalid subresource or not implemented %q", subresource)),
 			errorCodecs, schema.GroupVersion{}, w, req,
@@ -215,7 +222,7 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	}
 
 	// Rewrite the path to point to the SyncerTunnel proxy path.
-	proxyPathURL, err := syncerTunnelProxyPath(logicalcluster.From(synctarget), synctarget.GetName(), downstreamNamespace, podName, subresource)
+	podDownstreamURL, err := podSubresourceURL(downstreamNamespace, podName, subresource)
 	if err != nil {
 		logger.Error(err, "unable to get syncer tunnel proxy path")
 		responsewriters.ErrorNegotiated(
@@ -225,21 +232,46 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
+	// Set the URL path to the calculated
+	req.URL.Path = podDownstreamURL.Path
 
-	req.URL.Path = proxyPathURL.Path
-	req.RequestURI = proxyPathURL.Path
-	b.apiHandler.ServeHTTP(w, req)
+	b.proxyFunc(logicalcluster.From(synctarget), synctarget.GetName(), w, req)
 }
 
-func syncerTunnelProxyPath(syncTargetWorkspaceName logicalcluster.Name, syncTargetName, downstreamNamespaceName, podName, subresource string) (url.URL, error) {
-	if syncTargetWorkspaceName.String() == "" || syncTargetName == "" || downstreamNamespaceName == "" || podName == "" || subresource == "" {
-		return url.URL{}, fmt.Errorf("invalid tunnel path: workspaceName=%q, syncTargetName=%q, downstreamNamespaceName=%q, podName=%q, subresource=%q", syncTargetWorkspaceName.String(), syncTargetName, downstreamNamespaceName, podName, subresource)
+func podSubresourceURL(downstreamNamespaceName, podName, subresource string) (*url.URL, error) {
+	if downstreamNamespaceName == "" || podName == "" || subresource == "" {
+		return nil, fmt.Errorf("invalid tunnel path: downstreamNamespaceName=%q, podName=%q, subresource=%q", downstreamNamespaceName, podName, subresource)
+	}
+	proxyPath, err := url.JoinPath("/api/v1/namespaces", downstreamNamespaceName, "pods", podName, subresource)
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(proxyPath)
+}
+
+// Proxy proxies the request to the syncer identified by the cluster and syncername.
+func (tn *tunneler) Proxy(clusterName logicalcluster.Name, syncerName string, rw http.ResponseWriter, req *http.Request) {
+	d := tn.getDialer(clusterName, syncerName)
+	if d == nil || isClosedChan(d.Done()) {
+		http.Error(rw, "syncer tunnels: tunnel closed", http.StatusInternalServerError)
+		return
 	}
 
-	proxyPath := fmt.Sprintf("/clusters/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, tunneler.CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
-	parse, err := url.Parse(proxyPath)
+	target, err := url.Parse("http://" + syncerName)
 	if err != nil {
-		return url.URL{}, err
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	return *parse, nil
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	// director := proxy.Director
+	proxy.Transport = &http.Transport{
+		Proxy:               nil,    // no proxies
+		DialContext:         d.Dial, // use a reverse connection
+		ForceAttemptHTTP2:   false,  // this is a tunneled connection
+		DisableKeepAlives:   true,   // one connection per reverse connection
+		MaxIdleConnsPerHost: -1,
+	}
+
+	proxy.ServeHTTP(rw, req)
 }

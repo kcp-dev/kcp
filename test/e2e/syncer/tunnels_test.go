@@ -62,7 +62,7 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Log("Creating two workspaces, one for the synctarget and the other for the user workloads")
 	synctargetWsPath, synctargetWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 	synctargetWsName := logicalcluster.Name(synctargetWs.Spec.Cluster)
-	userWsPath, userWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath)
+	userWsPath, userWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 	userWsName := logicalcluster.Name(userWs.Spec.Cluster)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
@@ -112,11 +112,24 @@ func TestSyncerTunnel(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Creating upstream namespace...")
-	upstreamNamespace, err := userKcpClient.Cluster(userWsPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-syncer",
-		},
-	}, metav1.CreateOptions{})
+	require.Eventually(t, func() bool {
+		_, err := userKcpClient.Cluster(userWsPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-syncer",
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return true
+			}
+			t.Errorf("saw an error creating upstream namespace: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream namespace was not created")
+
+	upstreamNamespaceName := "test-syncer"
+
 	require.NoError(t, err)
 
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(syncerFixture.DownstreamConfig)
@@ -132,7 +145,7 @@ func TestSyncerTunnel(t *testing.T) {
 	require.NoError(t, err)
 
 	desiredNSLocator := shared.NewNamespaceLocator(userWsName, synctargetWsName,
-		syncTarget.GetUID(), syncTarget.Name, upstreamNamespace.Name)
+		syncTarget.GetUID(), syncTarget.Name, upstreamNamespaceName)
 	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
 	require.NoError(t, err)
 
@@ -147,7 +160,7 @@ func TestSyncerTunnel(t *testing.T) {
 			return false
 		}
 		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream namespace %s for upstream namespace %s was not created", downstreamNamespaceName, upstreamNamespace.Name)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream namespace %s for upstream namespace %s was not created", downstreamNamespaceName, upstreamNamespaceName)
 
 	configMapName := "kcp-root-ca.crt"
 	t.Logf("Waiting for downstream configmap %s/%s to be created...", downstreamNamespaceName, configMapName)
@@ -233,7 +246,7 @@ func TestSyncerTunnel(t *testing.T) {
 		},
 	}
 
-	_, err = userKcpClient.Cluster(userWsPath).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, d, metav1.CreateOptions{})
+	_, err = userKcpClient.Cluster(userWsPath).AppsV1().Deployments(upstreamNamespaceName).Create(ctx, d, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Log("Waiting for downstream Deployment to be ready ...")
@@ -258,7 +271,7 @@ func TestSyncerTunnel(t *testing.T) {
 	// Upsync the downstream deployment POD to KCP
 	pod := pods.Items[0]
 	pod.ObjectMeta.GenerateName = ""
-	pod.Namespace = upstreamNamespace.Name
+	pod.Namespace = upstreamNamespaceName
 	pod.ResourceVersion = ""
 	pod.OwnerReferences = nil
 
@@ -273,12 +286,12 @@ func TestSyncerTunnel(t *testing.T) {
 	upsyncerKCPClient, err := kcpkubernetesclientset.NewForConfig(syncerFixture.UpsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
 
-	_, err = upsyncerKCPClient.Cluster(userWsName.Path()).CoreV1().Pods(upstreamNamespace.Name).Create(ctx, &pod, metav1.CreateOptions{})
+	_, err = upsyncerKCPClient.Cluster(userWsName.Path()).CoreV1().Pods(upstreamNamespaceName).Create(ctx, &pod, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Getting Pod logs from upstream cluster %q as a normal kubectl client would do.", userWs.Name)
 	framework.Eventually(t, func() (bool, string) {
-		pods, err := userKcpClient.Cluster(userWsPath).CoreV1().Pods(upstreamNamespace.Name).List(ctx, metav1.ListOptions{})
+		pods, err := userKcpClient.Cluster(userWsPath).CoreV1().Pods(upstreamNamespaceName).List(ctx, metav1.ListOptions{})
 		if apierrors.IsUnauthorized(err) {
 			return false, fmt.Sprintf("failed to list pods: %v", err)
 		}
@@ -286,7 +299,7 @@ func TestSyncerTunnel(t *testing.T) {
 
 		var podLogs bytes.Buffer
 		for _, pod := range pods.Items {
-			request := userKcpClient.Cluster(userWsPath).CoreV1().Pods(upstreamNamespace.Name).GetLogs(pod.Name, &corev1.PodLogOptions{})
+			request := userKcpClient.Cluster(userWsPath).CoreV1().Pods(upstreamNamespaceName).GetLogs(pod.Name, &corev1.PodLogOptions{})
 			logs, err := request.Do(ctx).Raw()
 			if err != nil {
 				return false, err.Error()
