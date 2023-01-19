@@ -124,7 +124,7 @@ func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInfo
 
 func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
 	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
-		informer := global.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
-		return configuration.NewMutatingWebhookConfigurationManagerForInformer(informer)
-	}, global.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)
+		informer := global.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(cluster)
+		return configuration.NewValidatingWebhookConfigurationManagerForInformer(informer)
+	}, global.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced)
 }
