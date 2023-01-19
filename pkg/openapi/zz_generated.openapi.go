@@ -2527,20 +2527,34 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.",
+							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"namespace": {
+					"namespaces": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Description: "namespace containing the named object. Matches metadata.namespace field. If \"name\" is unset, all objects from the namespace are being claimed.",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" indicates objects across all namespaces. A value of \"\" or an empty list indicates a cluster-scoped resource. If \"name\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

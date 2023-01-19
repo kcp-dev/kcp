@@ -19,20 +19,21 @@ package apibinding
 import (
 	"context"
 	"fmt"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"testing"
+	"time"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/stretchr/testify/require"
+
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	"testing"
-	"time"
 
-	"github.com/stretchr/testify/require"
-
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -282,8 +283,8 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 			All:           false,
 			ResourceSelector: []apisv1alpha1.ResourceSelector{
 				{
-					Name:      name,
-					Namespace: namespace,
+					Name:       name,
+					Namespaces: []string{namespace},
 				},
 			},
 		},
@@ -297,8 +298,8 @@ func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.Accep
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				ResourceSelector: []apisv1alpha1.ResourceSelector{
 					{
-						Name:      name,
-						Namespace: namespace,
+						Name:       name,
+						Namespaces: []string{namespace},
 					},
 				},
 				All: false,
@@ -342,6 +343,7 @@ func bindConsumerToProviderCMExport(
 			binding.Spec.PermissionClaims = makeAcceptedCMPermissionClaims(cmName, cmNamespace)
 			t.Logf("Resource version on the APIBinding: %s", binding.ResourceVersion)
 			binding, err = kcpClusterClients.Cluster(consumerPath).ApisV1alpha1().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
+			require.NoError(t, err)
 			return true, ""
 		}
 		if err != nil {

@@ -19,6 +19,7 @@ package permissionclaim
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -155,14 +156,14 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, groupResour
 	}
 
 	for _, selector := range claim.ResourceSelector {
-		// Selecting a specific object, might be cluster-scoped or the selector itself does not have a namespace defined.
-		// When selector.Namespace == "", then the permission is assumed to be cluster-scoped *or* the object's name is the only criteria and any namespace is valid.
-		if selector.Name == name && (selector.Namespace == namespace || selector.Namespace == "") {
+		namespaceSelected, clusterScoped := selectsNamespaces(selector.Namespaces, namespace)
+
+		if selector.Name == name && (namespaceSelected || clusterScoped) {
 			return true
 		}
 
 		// Selecting all objects in the namespace
-		if selector.Namespace == namespace && selector.Name == "" {
+		if (namespaceSelected || clusterScoped) && selector.Name != name {
 			return true
 		}
 	}
@@ -170,35 +171,26 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, groupResour
 	return false
 }
 
-func IsAdmissable(groupResource schema.GroupResource, acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, namespace string) bool {
-	if acceptableClaim.State != apisv1alpha1.ClaimAccepted || acceptableClaim.Group != groupResource.Group || acceptableClaim.Resource != groupResource.Resource {
-		return false
+// selectsNamespaces determines if an object's namespace matches a set of namespace values, and if it is cluster-scoped.
+func selectsNamespaces(namespaces []string, objectNamespace string) (bool, bool) {
+	// match cluster-scoped resources
+	if len(namespaces) == 0 && objectNamespace == "" {
+		return true, true
+	}
+	if (len(namespaces) == 1 && namespaces[0] == "") && objectNamespace == "" {
+		return true, true
 	}
 
-	claim := acceptableClaim.PermissionClaim
-
-	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
-	if claim.All && len(claim.ResourceSelector) > 0 {
-		return false
+	// Match all workspaces
+	if len(namespaces) == 1 && namespaces[0] == apisv1alpha1.ResourceSelectorAllNamespaces {
+		return true, false
 	}
 
-	// ResourceSelector nil check to be compatible with objects created prior to the addition of the All field
-	if claim.All || len(claim.ResourceSelector) == 0 {
-		return true
+	// Match listed namespaces
+	validNamespaces := sets.NewString(namespaces...)
+	if validNamespaces.Has(objectNamespace) {
+		return true, false
 	}
 
-	for _, selector := range claim.ResourceSelector {
-		// Selecting a specific object, might be cluster-scoped or the selector itself does not have a namespace defined.
-		// When selector.Namespace == "", then the permission is assumed to be cluster-scoped *or* the object's name is the only criteria and any namespace is valid.
-		if selector.Name == name && (selector.Namespace == namespace || selector.Namespace == "") {
-			return true
-		}
-
-		// Selecting all objects in the namespace
-		if selector.Namespace == namespace && selector.Name == "" {
-			return true
-		}
-	}
-
-	return false
+	return false, false
 }

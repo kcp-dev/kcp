@@ -1,9 +1,11 @@
 package permissionclaim
 
 import (
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 func TestIsSelected(t *testing.T) {
@@ -56,8 +58,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John Wayne",
-								Namespace: "",
+								Name: "John Wayne",
 							},
 						},
 					},
@@ -83,8 +84,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "kcp.io",
-								Namespace: "foo",
+								Name:       "kcp.io",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},
@@ -110,8 +111,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John Wayne",
-								Namespace: "foo",
+								Name:       "John Wayne",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},
@@ -119,7 +120,7 @@ func TestIsSelected(t *testing.T) {
 				name:      "John Newman",
 				namespace: "foo",
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "Namespace selection doesn't match",
@@ -137,8 +138,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John Wayne",
-								Namespace: "foo",
+								Name:       "John Wayne",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},
@@ -186,8 +187,8 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John",
-								Namespace: "foo",
+								Name:       "John",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},
@@ -214,8 +215,8 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John",
-								Namespace: "foo",
+								Name:       "John",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},
@@ -242,8 +243,8 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:      "John",
-								Namespace: "foo",
+								Name:       "John",
+								Namespaces: []string{"foo"},
 							},
 						},
 					},

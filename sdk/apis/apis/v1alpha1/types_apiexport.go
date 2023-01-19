@@ -220,11 +220,18 @@ type PermissionClaim struct {
 	IdentityHash string `json:"identityHash,omitempty"`
 }
 
+const (
+	ResourceSelectorAllNamespaces = "*"
+)
+
+// ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.
+//
 // +kubebuilder:validation:XValidation:rule="has(self.__namespace__) || has(self.name)",message="at least one field must be set"
 type ResourceSelector struct {
 	// name of an object within a claimed group/resource.
 	// It matches the metadata.name field of the underlying object.
-	// If namespace is unset, all objects matching that name will be claimed.
+	// If namespace is "*", all objects matching that name will be claimed within those namespaces.
+	// If namespace is "" or an empty list, name will match against cluster-scoped resources.
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern="^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$"
@@ -232,12 +239,14 @@ type ResourceSelector struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// namespace containing the named object. Matches metadata.namespace field.
-	// If "name" is unset, all objects from the namespace are being claimed.
+	// namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field.
+	// A value of "*" indicates objects across all namespaces. A value of "" or an empty list indicates a cluster-scoped resource.
+	// If "name" is unset, all objects of the group/resource within the listed namespaces will be claimed.
+	// TODO(nrb): Do we want validation to reject "*" and "" as entries within a list?
 	//
 	// +optional
-	// +kubebuilder:validation:MinLength=1
-	Namespace string `json:"namespace,omitempty"`
+	// +listType=set
+	Namespaces []string `json:"namespaces,omitempty"`
 
 	//
 	// WARNING: If adding new fields, add them to the XValidation check!
