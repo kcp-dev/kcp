@@ -87,12 +87,17 @@ func TestAPIConversion(t *testing.T) {
 		return false, fmt.Sprintf("%v", apiBinding.Status)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIBinding never completed its initial binding")
 
-	t.Logf("Resetting the RESTMapper so it can pick up widgets")
-	mapper.Reset()
+	framework.Eventually(t, func() (success bool, reason string) {
+		t.Logf("Resetting the RESTMapper so it can pick up widgets")
+		mapper.Reset()
 
-	t.Logf("Creating v1 widget")
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "v1-widget.yaml", embeddedResources)
-	require.NoError(t, err, "error creating v1 widget")
+		t.Logf("Creating v1 widget")
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "v1-widget.yaml", embeddedResources)
+		if err == nil {
+			return true, ""
+		}
+		return false, err.Error()
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Unable to create Widget")
 
 	v2GVR := schema.GroupVersionResource{Group: "example.io", Version: "v2", Resource: "widgets"}
 
