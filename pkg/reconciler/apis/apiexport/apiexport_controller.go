@@ -58,7 +58,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
-	shardInformer corev1alpha1informers.ShardClusterInformer,
+	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
@@ -115,7 +115,7 @@ func NewController(
 		},
 
 		listShards: func() ([]*corev1alpha1.Shard, error) {
-			return shardInformer.Lister().List(labels.Everything())
+			return globalShardInformer.Lister().List(labels.Everything())
 		},
 
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
@@ -153,7 +153,7 @@ func NewController(
 		},
 	})
 
-	shardInformer.Informer().AddEventHandler(
+	globalShardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
