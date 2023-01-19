@@ -206,7 +206,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// Make sure the DNS nameserver for the current workspace is up and running
-	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, clusterName); err != nil {
+	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, desiredNSLocator); err != nil {
 		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
 		return nil, err
 	} else if !dnsUpAndReady && gvr == deploymentGVR {
@@ -257,10 +257,16 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		shared.NamespaceLocatorAnnotation: string(b),
 	})
 
+	desiredTenantID, err := shared.GetTenantID(desiredNSLocator)
+	if err != nil {
+		return err
+	}
+
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
 			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
+			shared.TenantIDLabel:                            desiredTenantID,
 		})
 	}
 

@@ -14,7 +14,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              internal.workload.kcp.io/cluster: Cluster
+              kcp.io/tenant-id: TenantID
       ports:
         - protocol: TCP
           port: 5353

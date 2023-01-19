@@ -21,8 +21,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +49,6 @@ type DNSProcessor struct {
 
 	syncTargetUID  types.UID
 	syncTargetName string
-	syncTargetKey  string
 	dnsNamespace   string // namespace containing all DNS objects
 	dnsImage       string
 
@@ -70,7 +67,6 @@ func NewDNSProcessor(
 	networkPolicyLister listersnetworkingv1.NetworkPolicyLister,
 	syncTargetUID types.UID,
 	syncTargetName string,
-	syncTargetKey string,
 	dnsNamespace string,
 	dnsImage string) *DNSProcessor {
 	return &DNSProcessor{
@@ -84,7 +80,6 @@ func NewDNSProcessor(
 		networkPolicyLister:  networkPolicyLister,
 		syncTargetUID:        syncTargetUID,
 		syncTargetName:       syncTargetName,
-		syncTargetKey:        syncTargetKey,
 		dnsNamespace:         dnsNamespace,
 		dnsImage:             dnsImage,
 	}
@@ -95,11 +90,11 @@ func NewDNSProcessor(
 // are effectively reachable through the Service.
 // It returns true if the DNS is setup and reachable, and returns an error if there was an error
 // during the check or creation of the DNS-related resources.
-func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logicalcluster.Name) (bool, error) {
+func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator shared.NamespaceLocator) (bool, error) {
 	logger := klog.FromContext(ctx)
 	logger = logger.WithName("dns")
 
-	dnsID := shared.GetDNSID(workspace, d.syncTargetUID, d.syncTargetName)
+	dnsID := shared.GetDNSID(namespaceLocator.ClusterName, d.syncTargetUID, d.syncTargetName)
 	logger = logger.WithValues("name", dnsID, "namespace", d.dnsNamespace)
 
 	logger.V(4).Info("checking if all dns objects exist and are up-to-date")
@@ -140,7 +135,7 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 	if err := d.processService(ctx, dnsID); err != nil {
 		return false, err
 	}
-	if err := d.processNetworkPolicy(ctx, dnsID); err != nil {
+	if err := d.processNetworkPolicy(ctx, dnsID, namespaceLocator); err != nil {
 		return false, err
 	}
 
@@ -245,7 +240,7 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 	return nil
 }
 
-func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string) error {
+func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string, namespaceLocator shared.NamespaceLocator) error {
 	logger := klog.FromContext(ctx)
 
 	var kubeEndpoints *corev1.Endpoints
@@ -259,7 +254,12 @@ func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string) er
 			return errors.New("missing kubernetes API endpoints")
 		}
 
-		expected := MakeNetworkPolicy(name, d.dnsNamespace, d.syncTargetKey, &kubeEndpoints.Subsets[0])
+		tenantID, err := shared.GetTenantID(namespaceLocator)
+		if err != nil {
+			return err
+		}
+
+		expected := MakeNetworkPolicy(name, d.dnsNamespace, tenantID, &kubeEndpoints.Subsets[0])
 		_, err = d.downstreamKubeClient.NetworkingV1().NetworkPolicies(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("NetworkPolicy created")

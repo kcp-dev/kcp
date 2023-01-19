@@ -600,6 +600,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7",
 							},
 							map[string]string{
 								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -647,6 +648,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7",
 							},
 							map[string]string{
 								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -940,6 +942,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7",
 							},
 							map[string]string{
 								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
@@ -1049,6 +1052,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			toResources: []runtime.Object{
 				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7",
 				},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,

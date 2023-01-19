@@ -270,7 +270,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		dnsServiceLister,
 		syncerNamespaceInformerFactory.Core().V1().Endpoints().Lister(),
 		syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister(),
-		syncTargetUID, syncTargetName, syncTargetKey, dnsNamespace, dnsImage)
+		syncTargetUID, syncTargetName, dnsNamespace, dnsImage)
 
 	return &c, nil
 }

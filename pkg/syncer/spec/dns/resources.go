@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 //go:embed *.yaml
@@ -110,13 +110,13 @@ func MakeService(name, namespace string) *corev1.Service {
 	return service
 }
 
-func MakeNetworkPolicy(name, namespace, cluster string, kubeEndpoints *corev1.EndpointSubset) *networkingv1.NetworkPolicy {
+func MakeNetworkPolicy(name, namespace, tenantID string, kubeEndpoints *corev1.EndpointSubset) *networkingv1.NetworkPolicy {
 	np := networkPolicyTemplate.DeepCopy()
 
 	np.Name = name
 	np.Namespace = namespace
 	np.Spec.PodSelector.MatchLabels["app"] = name
-	np.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[workloadv1alpha1.InternalDownstreamClusterLabel] = cluster
+	np.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[shared.TenantIDLabel] = tenantID
 
 	to := make([]networkingv1.NetworkPolicyPeer, len(kubeEndpoints.Addresses))
 	for i, endpoint := range kubeEndpoints.Addresses {
