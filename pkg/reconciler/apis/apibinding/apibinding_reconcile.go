@@ -262,7 +262,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					err,
 				)
 			}
-			return reconcileStatusContinue, nil
+			return reconcileStatusStopAndRequeue, err
 		}
 
 		// If there are multiple versions, there must be an APIConversion
