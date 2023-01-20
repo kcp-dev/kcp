@@ -18,24 +18,21 @@ package logicalclusterdeletion
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,9 +43,11 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
 )
 
@@ -81,6 +80,7 @@ func NewController(
 		metadataClusterClient:     metadataClusterClient,
 		logicalClusterLister:      logicalClusterInformer.Lister(),
 		deleter:                   deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
+		commit:                    committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -101,6 +101,13 @@ func NewController(
 	return c
 }
 
+type LogicalCluster = corev1alpha1.LogicalCluster
+type LogicalClusterSpec = corev1alpha1.LogicalClusterSpec
+type LogicalClusterStatus = corev1alpha1.LogicalClusterStatus
+type Patcher = corev1alpha1client.LogicalClusterInterface
+type Resource = committer.Resource[*LogicalClusterSpec, *LogicalClusterStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -116,6 +123,8 @@ type Controller struct {
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
 	deleter deletion.WorkspaceResourcesDeleterInterface
+
+	commit CommitFunc
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -236,49 +245,15 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return c.finalizeWorkspace(ctx, logicalClusterCopy)
 	}
 
-	if err := c.patchCondition(ctx, logicalCluster, logicalClusterCopy); err != nil {
-		return err
+	errs := []error{deleteErr}
+
+	oldResource := &Resource{ObjectMeta: logicalCluster.ObjectMeta, Spec: &logicalCluster.Spec, Status: &logicalCluster.Status}
+	newResource := &Resource{ObjectMeta: logicalClusterCopy.ObjectMeta, Spec: &logicalClusterCopy.Spec, Status: &logicalClusterCopy.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	return deleteErr
-}
-
-func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.LogicalCluster) error {
-	logger := klog.FromContext(ctx)
-	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
-		return nil
-	}
-
-	oldData, err := json.Marshal(corev1alpha1.LogicalCluster{
-		Status: corev1alpha1.LogicalClusterStatus{
-			Conditions: old.Status.Conditions,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for logical cluster %s: %w", old.Name, err)
-	}
-
-	newData, err := json.Marshal(corev1alpha1.LogicalCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:             old.UID,
-			ResourceVersion: old.ResourceVersion,
-		}, // to ensure they appear in the patch as preconditions
-		Status: corev1alpha1.LogicalClusterStatus{
-			Conditions: new.Status.Conditions,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for logical cluster %s: %w", new.Name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return fmt.Errorf("failed to create patch for logical cluster %s: %w", new.Name, err)
-	}
-
-	logger.V(2).Info("patching LogicalCluster", "patch", string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new).Path()).CoreV1alpha1().LogicalClusters().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-	return err
+	return utilerrors.NewAggregate(errs)
 }
 
 // finalizeNamespace removes the specified finalizer and finalizes the logical cluster.
