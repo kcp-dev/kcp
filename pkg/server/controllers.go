@@ -813,7 +813,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	config = rest.AddUserAgent(config, initialization.ControllerName)
 
 	vwURL := fmt.Sprintf("https://%s", s.GenericConfig.ExternalAddress)
-	if s.Options.Extra.ShardVirtualWorkspaceURL != "" {
+	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
 		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
 			// TODO move verification up
 			return fmt.Errorf("s.Options.Extra.ShardVirtualWorkspaceCAFile is required")
