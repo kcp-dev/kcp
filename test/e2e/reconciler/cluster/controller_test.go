@@ -164,7 +164,7 @@ func TestClusterController(t *testing.T) {
 	}
 
 	source := framework.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.WithRootShard())
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -175,7 +175,7 @@ func TestClusterController(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			t.Log("Creating a workspace")
-			wsPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("source"))
+			wsPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("source"), framework.WithRootShard())
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
