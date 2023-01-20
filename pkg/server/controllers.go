@@ -485,7 +485,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	workspaceTypeController, err := workspacetype.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
@@ -1274,6 +1274,8 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 	c := synctargetcontroller.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		// TODO: change to s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		// once https://github.com/kcp-dev/kcp/issues/2649 is resolved
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
