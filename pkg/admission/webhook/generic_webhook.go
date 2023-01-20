@@ -35,7 +35,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
@@ -86,9 +85,8 @@ type WebhookDispatcher struct {
 	dispatcher generic.Dispatcher
 	hookSource ClusterAwareSource
 
-	getAPIExport func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-
-	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
+	getAPIExport   func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 
 	informersHaveSynced func() bool
 }
@@ -142,7 +140,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 }
 
 func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
-	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
+	objs, err := p.getAPIBindings(clusterName)
 	if err != nil {
 		return "", false, err
 	}
@@ -173,8 +171,9 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (p *WebhookDispatcher) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	p.apiBindingClusterLister = local.Apis().V1alpha1().APIBindings().Lister()
-
+	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+		return local.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+	}
 	p.getAPIExport = func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 		export, err := local.Apis().V1alpha1().APIExports().Lister().Cluster(clusterName).Get(name)
 		if err != nil {

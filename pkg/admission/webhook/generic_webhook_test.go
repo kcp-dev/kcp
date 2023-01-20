@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -36,8 +35,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
-	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Operation) admission.Attributes {
@@ -118,11 +115,11 @@ func TestDispatch(t *testing.T) {
 			),
 			cluster: "root-org-dest",
 			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
 			},
 			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("source"):        {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
-				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
+				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("root-org-dest"):   {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
 			},
 			apiBindings: []*apisv1alpha1.APIBinding{
 				{
@@ -147,7 +144,7 @@ func TestDispatch(t *testing.T) {
 								Resource: "cowboys",
 							},
 						},
-						APIExportClusterName: "source",
+						APIExportClusterName: "root-org-source",
 					},
 				},
 			},
@@ -262,22 +259,23 @@ func TestDispatch(t *testing.T) {
 			ctx, cancelFn := context.WithCancel(context.Background())
 			t.Cleanup(cancelFn)
 
-			fakeClient := kcpfakeclient.NewSimpleClientset(append(toObjects(tc.apiBindings), toObjects(tc.apiExports)...)...)
-			fakeInformerFactory := kcpinformers.NewSharedInformerFactory(fakeClient, time.Hour)
-
 			o := &WebhookDispatcher{
-				Handler:                 admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-				dispatcher:              &validatingDispatcher{hooks: tc.expectedHooks},
-				hookSource:              &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
-				apiBindingClusterLister: fakeInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
-				informersHaveSynced:     tc.informersHaveSynced,
+				Handler:             admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+				dispatcher:          &validatingDispatcher{hooks: tc.expectedHooks},
+				hookSource:          &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
+				informersHaveSynced: tc.informersHaveSynced,
+				getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+					return tc.apiBindings, nil
+				},
 				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-					return fakeInformerFactory.Apis().V1alpha1().APIExports().Cluster(clusterName).Lister().Get(name)
+					for _, export := range tc.apiExports {
+						if export.Name == name && clusterName == logicalcluster.Name(export.Annotations[logicalcluster.AnnotationKey]) {
+							return export, nil
+						}
+					}
+					return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
 				},
 			}
-
-			fakeInformerFactory.Start(ctx.Done())
-			fakeInformerFactory.WaitForCacheSync(ctx.Done())
 
 			if tc.informersHaveSynced == nil {
 				o.informersHaveSynced = func() bool { return true }
@@ -298,14 +296,6 @@ func TestDispatch(t *testing.T) {
 
 type apiExportBuilder struct {
 	APIExport *apisv1alpha1.APIExport
-}
-
-func toObjects[T runtime.Object](objects []T) []runtime.Object {
-	objs := make([]runtime.Object, 0, len(objects))
-	for _, objects := range objects {
-		objs = append(objs, objects)
-	}
-	return objs
 }
 
 func newAPIExport(path logicalcluster.Path, name string) apiExportBuilder {
