@@ -248,7 +248,7 @@ func TestNamespaceScheduler(t *testing.T) {
 	}
 
 	server := framework.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -263,7 +263,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+			path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
