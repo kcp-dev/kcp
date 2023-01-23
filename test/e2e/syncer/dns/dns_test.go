@@ -51,12 +51,12 @@ func TestDNSResolution(t *testing.T) {
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 
-	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("location"))
+	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("location"), framework.TODO_WithoutMultiShardSupport())
 
-	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"))
-	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"))
+	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"), framework.TODO_WithoutMultiShardSupport())
+	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"), framework.TODO_WithoutMultiShardSupport())
 
 	syncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
