@@ -197,7 +197,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Logf("Updating permission claims to allow configmap by explicit name in any namespace")
 
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
-	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("confmap1", "")
+	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("confmap1", "*")
 	framework.Eventually(t, func() (done bool, str string) {
 		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
 		if err != nil {
@@ -208,7 +208,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
 	t.Logf("Updating consumer API Bindings")
-	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "confmap1", "")
+	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "confmap1", "*")
 	require.NotNil(t, binding)
 
 	cm = &v1.ConfigMap{
