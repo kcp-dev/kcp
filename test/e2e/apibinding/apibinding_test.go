@@ -33,6 +33,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -155,7 +156,6 @@ func TestAPIBinding(t *testing.T) {
 	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	cfg := server.BaseConfig(t)
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -165,12 +165,9 @@ func TestAPIBinding(t *testing.T) {
 
 	shardVirtualWorkspaceURLs := sets.NewString()
 	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
+	shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
 	require.Eventually(t, func() bool {
-		shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("unexpected error while listing shards, err %v", err)
-			return false
-		}
 		for _, s := range shards.Items {
 			if len(s.Spec.VirtualWorkspaceURL) == 0 {
 				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
@@ -353,10 +350,6 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("=== Testing identity wildcards")
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Path, expectedItems int) {
-		t.Logf("Get %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
-		shardDynamicClusterClients, err := kcpdynamic.NewForConfig(rootShardCfg)
-		require.NoError(t, err)
-
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
 		apiBinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting apibinding")
@@ -364,20 +357,24 @@ func TestAPIBinding(t *testing.T) {
 		identity := apiBinding.Status.BoundResources[0].Schema.IdentityHash
 		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
 
-		t.Logf("Doing a wildcard identity list for %v against %s workspace shard", gvrWithIdentity, consumerWorkspace)
-		wildcardIdentityClient := shardDynamicClusterClients.Resource(gvrWithIdentity)
-		list, err := wildcardIdentityClient.List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "error listing wildcard with identity")
-
-		require.Len(t, list.Items, expectedItems, "unexpected # of cowboys")
-
 		var names []string
-		for _, cowboy := range list.Items {
-			names = append(names, cowboy.GetName())
+		for _, shard := range shards.Items {
+			t.Logf("Doing a wildcard identity list for %v against %s workspace shard", gvrWithIdentity, consumerWorkspace)
+			shardDynamicClusterClients, err := kcpdynamic.NewForConfig(server.ShardSystemMasterBaseConfig(t, shard.Name))
+			require.NoError(t, err)
+			list, err := shardDynamicClusterClients.Resource(gvrWithIdentity).List(ctx, metav1.ListOptions{})
+			if errors.IsNotFound(err) {
+				continue // this shard doesn't have the resource because there is no binding
+			}
+			require.NoError(t, err, "error listing wildcard with identity")
+			for _, cowboy := range list.Items {
+				names = append(names, cowboy.GetName())
+			}
 		}
 
 		cowboyName := fmt.Sprintf("cowboy-%s", consumerWorkspace.Base())
 		require.Contains(t, names, cowboyName, "missing cowboy %q", cowboyName)
+		require.Len(t, names, expectedItems, "unexpected # of cowboys")
 	}
 
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
