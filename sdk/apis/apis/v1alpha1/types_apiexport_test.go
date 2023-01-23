@@ -62,7 +62,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			current: map[string]interface{}{
 				"all": true,
 				"resourceSelector": []interface{}{
-					map[string]interface{}{"namespace": "foo"},
+					map[string]interface{}{"namespaces": []interface{}{"foo"}},
 				},
 			},
 			wantErrs: []string{
@@ -91,7 +91,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			name: "resourceSelector is set",
 			current: map[string]interface{}{
 				"resourceSelector": []interface{}{
-					map[string]interface{}{"namespace": "foo"},
+					map[string]interface{}{"namespaces": []interface{}{"foo"}},
 				},
 			},
 		},
@@ -192,24 +192,24 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "namespace is set",
+			name: "namespaces are set",
 			current: map[string]interface{}{
-				"name":      nil,
-				"namespace": "foo",
+				"name":       nil,
+				"namespaces": []interface{}{"foo"},
 			},
 		},
 		{
 			name: "name is set",
 			current: map[string]interface{}{
-				"name":      "foo",
-				"namespace": nil,
+				"name":       "foo",
+				"namespaces": nil,
 			},
 		},
 		{
-			name: "both name and namespace are set",
+			name: "both name and namespaces are set",
 			current: map[string]interface{}{
-				"name":      "foo",
-				"namespace": "bar",
+				"name":       "foo",
+				"namespaces": []interface{}{"bar"},
 			},
 		},
 	}
