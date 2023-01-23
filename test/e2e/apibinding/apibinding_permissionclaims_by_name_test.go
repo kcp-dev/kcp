@@ -229,9 +229,16 @@ func TestPermissionClaimsByName(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
 
-	newCM, newErr := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Get(ctx, cm.Name, metav1.GetOptions{})
-	require.NoError(t, newErr)
-	require.Equal(t, consumerNS2.Name, newCM.Namespace)
+	framework.Eventually(t, func() (done bool, str string) {
+		cm, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Get(ctx, cm.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		require.NoError(t, err)
+		require.Equal(t, consumerNS2.Name, cm.Namespace)
+
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 
 	// t.Logf("verify we can update a configmap in consumer workspace via the virtual workspace")
 	// cm.Data = map[string]string{
