@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -196,18 +197,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				Resource: apiResourceSchema.Spec.Names.Plural,
 			}
 
-			oldDef, found := oldSet[gvr]
-			if found {
-				oldDef := oldDef.(apiResourceSchemaApiDefinition)
-				if oldDef.UID == apiResourceSchema.UID && oldDef.IdentityHash == apiExport.Status.IdentityHash {
-					// this is the same schema and identity as before. no need to update.
-					newSet[gvr] = oldDef
-					preservedGVR = append(preservedGVR, gvrString(gvr))
-					continue
-				}
-			}
-
 			var labelReqs labels.Requirements
+			newClaimLabels := ""
 			if c, ok := claims[gvr.GroupResource()]; ok {
 				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
 				if err != nil {
@@ -223,6 +214,18 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 					return fmt.Errorf("failed to create label requirement for permission claim %v: %w", c, err)
 				}
 				labelReqs = labels.Requirements{*req}
+				newClaimLabels = strings.Join(claimLabels, "|")
+			}
+
+			oldDef, found := oldSet[gvr]
+			if found {
+				oldDef := oldDef.(apiResourceSchemaApiDefinition)
+				if oldDef.UID == apiResourceSchema.UID && oldDef.IdentityHash == apiExport.Status.IdentityHash && oldDef.ClaimLabels == newClaimLabels {
+					// this is the same schema and identity as before. no need to update.
+					newSet[gvr] = oldDef
+					preservedGVR = append(preservedGVR, gvrString(gvr))
+					continue
+				}
 			}
 
 			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
@@ -237,6 +240,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				APIDefinition: apiDefinition,
 				UID:           apiResourceSchema.UID,
 				IdentityHash:  apiExport.Status.IdentityHash,
+				ClaimLabels:   newClaimLabels,
 			}
 			newGVRs = append(newGVRs, gvrString(gvr))
 		}
@@ -279,6 +283,7 @@ type apiResourceSchemaApiDefinition struct {
 
 	UID          types.UID
 	IdentityHash string
+	ClaimLabels  string
 }
 
 func gvrString(gvr schema.GroupVersionResource) string {
