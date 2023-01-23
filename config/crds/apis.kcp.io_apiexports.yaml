@@ -183,7 +183,7 @@ spec:
                         type: object
                         x-kubernetes-validations:
                         - message: at least one field must be set
-                          rule: has(self.__namespace__) || has(self.name)
+                          rule: has(self.namespaces) || has(self.name)
                       type: array
                   required:
                   - resource

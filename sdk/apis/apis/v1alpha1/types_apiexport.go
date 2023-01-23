@@ -226,7 +226,7 @@ const (
 
 // ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.
 //
-// +kubebuilder:validation:XValidation:rule="has(self.__namespace__) || has(self.name)",message="at least one field must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.namespaces) || has(self.name)",message="at least one field must be set"
 type ResourceSelector struct {
 	// name of an object within a claimed group/resource.
 	// It matches the metadata.name field of the underlying object.
