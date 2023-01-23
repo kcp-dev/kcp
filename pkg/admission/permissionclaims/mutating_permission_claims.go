@@ -89,7 +89,7 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+	expectedLabels, _, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
 	if err != nil {
 		return err
 	}
@@ -129,9 +129,14 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+	expectedLabels, admit, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
 	if err != nil {
 		return err
+	}
+
+	// Reject the object because it was not selected, and there is no error.
+	if !admit {
+		return admission.NewForbidden(a, nil)
 	}
 
 	var errs field.ErrorList

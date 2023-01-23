@@ -261,23 +261,38 @@ func TestPermissionClaimsByName(t *testing.T) {
 	// require.Equal(t, cm.Data["something"], "new")
 
 	// This case is being fixed in PR #2845, commenting until that is done.
-	// cm = &v1.ConfigMap{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name: "confmap2",
-	// 	},
-	// }
-	// framework.Eventually(t, func() (done bool, str string) {
-	// 	// Currently being addressed in PR #2845
-	// 	cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
-	// 	if apierrors.IsForbidden(err) {
-	// 		return true, ""
-	// 	}
-	// 	if err != nil {
-	// 		return false, err.Error()
-	// 	}
+	t.Logf("Update PermissionClaims to only work in one namespace")
+	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", consumerNS1.Name)
+	framework.Eventually(t, func() (done bool, str string) {
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
 
-	// 	return false, "unexpected create"
-	// }, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
+
+	t.Logf("Updating consumer API Bindings")
+	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
+	require.NotNil(t, binding)
+	cm = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "confmap2",
+		},
+	}
+	framework.Eventually(t, func() (done bool, str string) {
+		// Currently being addressed in PR #2845
+		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
+		if apierrors.IsForbidden(err) {
+			return true, ""
+		}
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return false, "unexpected create"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
 
 	t.Logf("End of test")
 }

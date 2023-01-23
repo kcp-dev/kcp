@@ -74,12 +74,13 @@ func NewLabeler(
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, bool, error) {
 	labels := map[string]string{}
+	admit := true
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
-		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
+		return nil, admit, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
 	}
 
 	logger := klog.FromContext(ctx)
@@ -97,9 +98,17 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			if !Selects(claim, groupResource, resourceName, resourceNamespace) {
+			// There is no PermissionClaim for this object, no need to compute selection or admission criteria
+			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
 				continue
 			}
+			if !Selects(claim, resourceName, resourceNamespace) {
+				// The permission claim is relevant for this object, but the object does not match the criteria for admission.
+				admit = false
+				continue
+			}
+			// if the object is selected, allow it to be admitted.
+			admit = true
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
@@ -118,7 +127,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		binding, err := l.getAPIBinding(cluster, resourceName)
 		if err != nil {
 			logger.Error(err, "error getting APIBinding", "bindingName", resourceName)
-			return labels, nil // can only be a NotFound
+			return labels, admit, nil // can only be a NotFound
 		}
 
 		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
@@ -134,15 +143,11 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 	}
 
-	return labels, nil
+	return labels, admit, nil
 }
 
-// Selects indicates whether a given object's name and/or namespace matches a PermissionClaim's ResourceSelector.
-func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, groupResource schema.GroupResource, name, namespace string) bool {
-	if acceptableClaim.State != apisv1alpha1.ClaimAccepted || acceptableClaim.Group != groupResource.Group || acceptableClaim.Resource != groupResource.Resource {
-		return false
-	}
-
+// Selects indicates whether an object's name and namespace are selected by an accepted PermissionClaim.
+func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, namespace string) bool {
 	claim := acceptableClaim.PermissionClaim
 
 	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
