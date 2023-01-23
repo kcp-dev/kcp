@@ -53,6 +53,10 @@ func WithRootShard() UnprivilegedWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
+func TODO_WithoutMultiShardSupport() UnprivilegedWorkspaceOption {
+	return WithRootShard()
+}
+
 func WithShard(name string) UnprivilegedWorkspaceOption {
 	return WithLocation(tenancyv1alpha1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{

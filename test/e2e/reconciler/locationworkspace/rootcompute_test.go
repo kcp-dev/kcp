@@ -53,9 +53,9 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
-	computePath, _ := framework.NewWorkspaceFixture(t, source, orgPath)
-	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
+	computePath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
+	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

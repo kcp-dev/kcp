@@ -61,12 +61,12 @@ func TestDeploymentCoordinator(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer)
+	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
 
-	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("synctargets"))
+	locationWorkspacePath, _ := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("synctargets"), framework.TODO_WithoutMultiShardSupport())
 
-	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"))
-	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"))
+	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-1"), framework.TODO_WithoutMultiShardSupport())
+	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithName("workload-2"), framework.TODO_WithoutMultiShardSupport())
 
 	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("east"),
