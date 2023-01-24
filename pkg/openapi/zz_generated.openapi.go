@@ -1218,6 +1218,13 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 				Description: "APIBindingStatus records which schemas are bound.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"apiExportClusterName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"boundResources": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
