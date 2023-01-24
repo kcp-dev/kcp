@@ -215,7 +215,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		vwPort = "7444"
 
 		for i := 0; i < numberOfShards; i++ {
-			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA)
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
 			if err != nil {
 				return err
 			}

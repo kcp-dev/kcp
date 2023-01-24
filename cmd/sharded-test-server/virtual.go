@@ -59,7 +59,7 @@ type VirtualWorkspace struct {
 	writer       headWriter
 }
 
-func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA) (*VirtualWorkspace, error) {
+func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA, cacheServerConfigPath string) (*VirtualWorkspace, error) {
 	logger := klog.FromContext(ctx)
 
 	// create serving cert
@@ -131,6 +131,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	args := []string{}
 	args = append(args,
 		fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
+		fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath),
 		fmt.Sprintf("--authentication-kubeconfig=%s", authenticationKubeconfigPath),
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
 		fmt.Sprintf("--tls-private-key-file=%s", servingKeyFile),

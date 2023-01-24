@@ -537,7 +537,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if len(s.Options.Cache.KubeconfigFile) == 0 {
+	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err
 		}

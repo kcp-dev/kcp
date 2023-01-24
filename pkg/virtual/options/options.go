@@ -65,14 +65,14 @@ func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
 
-	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
 	if err != nil {
 		return nil, err
 	}
