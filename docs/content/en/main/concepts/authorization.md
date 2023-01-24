@@ -59,7 +59,7 @@ They are related in the following way:
                                                                                  └──────────────┘
 ```
 
-[ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWhgYGBjoxSpVAppGlGZBVklpRAuTEKClQGzya0vNoSgPRaEJMTB4N3NCEIUBde9B9OW0XyE6f%2FOTEHIWA%2FJzM5EqgkjnYPfloyh6SENmaSNWDaQQsIEF0Ijx9wSSgoVqUWliaWlwCtk9BITy%2FKLu4IDE5VQEqAKODgMoyi1JTFBASIMo3sUJPISC1KDezuDgzPw8uiWw1ZuRCrMbnflCMAM1xzs8rSc0rwRqGUCXuRfmlBcW44gYWnUjeB0vAI38JVOMUUpL9DMw0CXaLI1Igo4QeFgmYPJbgwQw1hPy0PUM9NWIC%2FyDkrEjtrA5LiKQVbKCg3kQrpwBpp%2Fz8kuKSosQCBZQ8QVXrUNM0pJCDZQioEnghN4NmJXkiStqnsieR7EEToI09pBUTMUq1SrUA%2FWv8Mg%3D%3D))
+[ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWhgYGBjoxSpVAppGlGZBVklpRAuTEKClQGzya0vNoSgPRaEJMTB4N3NCEIUBde9B9OW0XyE6f%2FOTEHIWA%2FJzM5EqgkjnYPfloyh6SENmaSNWDaQQsIEF0Ijx9wSSgoVqUWliaWlwCtk9BITy%2FKLu4IDE5VQEqAKODgMoyi1JTFBASIMo3sUJPISC1KDezuDgzPw8uiWw1ZuRCrMbnflCMAM1xzs8rSc0rwRqGUCXuRfmlBcW44gYWnUjeB0vAI38JVOMUUpL9DMw0CXaLI1Igo4QeFgmYPJbgwQw1hPy0PUM9NWIC%2FyDkrEjtrA5LiKQVbKCg3kQrpwBpp%2Fz8kuKSosQCBZQ8QVXrUNM0pJCDZQioEnghN4NmJXkiStqnsieR7EEToI09pBUTMUq1SrUA%2FWv8Mg%3D%3D)
 
 
 ### Workspace Content authorizer
