@@ -84,7 +84,8 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 func (s *Authorization) ApplyTo(config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -128,14 +129,14 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, kubeInformers, 
 	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 	// mean nothing unless they also have `verb=access` on `/`
-	contentAuth := authz.NewWorkspaceContentAuthorizer(kubeInformers, workspaceLister, systemCRDAuth)
+	contentAuth := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister, systemCRDAuth)
 	contentAuth = authz.NewDecorator("02-content", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
 	// by child workspaces; this gives administrators of an org control over which users can be given access
 	// to content in sub-workspaces
-	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(workspaceLister, contentAuth)
+	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister, contentAuth)
 	requiredGroupsAuth = authz.NewDecorator("01-requiredgroups", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
 
 	authorizers = append(authorizers, requiredGroupsAuth)

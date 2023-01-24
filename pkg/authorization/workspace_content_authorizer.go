@@ -44,24 +44,36 @@ const (
 	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetesinformers.SharedInformerFactory, localLogicalClusterLister, globalLogicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
-		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
-		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
-		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
-		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		logicalClusterLister:     logicalClusterLister,
+		localClusterRoleLister:        localInformers.Rbac().V1().ClusterRoles().Lister(),
+		localClusterRoleBindingLister: localInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+
+		globalClusterRoleLister:        globalInformers.Rbac().V1().ClusterRoles().Lister(),
+		globalClusterRoleBindingLister: globalInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+
+		getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			obj, err := localLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			} else if errors.IsNotFound(err) {
+				return globalLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+			}
+			return obj, nil
+		},
 
 		delegate: delegate,
 	}
 }
 
 type workspaceContentAuthorizer struct {
-	roleLister               rbacv1listers.RoleClusterLister
-	roleBindingLister        rbacv1listers.RoleBindingClusterLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
-	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
-	logicalClusterLister     corev1alpha1listers.LogicalClusterClusterLister
+	localClusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
+	localClusterRoleLister        rbacv1listers.ClusterRoleClusterLister
+
+	globalClusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
+	globalClusterRoleLister        rbacv1listers.ClusterRoleClusterLister
+
+	getLogicalCluster func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	delegate authorizer.Authorizer
 }
@@ -105,7 +117,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// check the workspace even exists
-	logicalCluster, err := a.logicalClusterLister.Cluster(cluster.Name).Get(corev1alpha1.LogicalClusterName)
+	logicalCluster, err := a.getLogicalCluster(cluster.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return authorizer.DecisionDeny, "LogicalCluster not found", nil
@@ -128,18 +140,17 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	case isUser:
 		authz := rbac.New(
-			&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
-				a.roleLister.Cluster(cluster.Name),
-				a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster),
-			)},
-			&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(cluster.Name)},
+			&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister()},
+			&rbac.RoleBindingLister{Lister: rbacwrapper.NewMergedRoleBindingLister()},
 			&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
-				a.clusterRoleLister.Cluster(cluster.Name),
-				a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleLister.Cluster(cluster.Name),
+				a.globalClusterRoleLister.Cluster(cluster.Name),
+				a.localClusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
 			)},
 			&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
-				a.clusterRoleBindingLister.Cluster(cluster.Name),
-				a.clusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleBindingLister.Cluster(cluster.Name),
+				a.globalClusterRoleBindingLister.Cluster(cluster.Name),
+				a.localClusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
 			)},
 		)
 
