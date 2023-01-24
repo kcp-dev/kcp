@@ -116,9 +116,9 @@ func TestReconcile(t *testing.T) {
 		{
 			name: "URLs from shards propagate fill empty status",
 			shards: []*corev1alpha1.Shard{
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://whatever.com"}},
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://whatever.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://something.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://item.com"}},
 			},
 			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
@@ -157,9 +157,9 @@ func TestReconcile(t *testing.T) {
 		{
 			name: "URLs from shards propagate to partially filled status",
 			shards: []*corev1alpha1.Shard{
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://whatever.com"}},
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
-				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://whatever.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://something.com"}},
+				{Spec: corev1alpha1.ShardSpec{VirtualWorkspaceURL: "https://item.com"}},
 			},
 			wt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
