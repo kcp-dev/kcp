@@ -24,6 +24,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
 )
@@ -34,7 +35,13 @@ func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 		isRelevantClusterRole:        c.isRelevantClusterRole,
 		isRelevantClusterRoleBinding: c.isRelevantClusterRoleBinding,
 		getClusterRole: func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
-			return c.clusterRoleLister.Cluster(cluster).Get(name)
+			obj, err := c.clusterRoleLister.Cluster(cluster).Get(name)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			} else if errors.IsNotFound(err) {
+				return c.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster).Get(name)
+			}
+			return obj, nil
 		},
 	}
 	return r.reconcile(ctx, crb)
