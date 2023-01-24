@@ -359,7 +359,7 @@ func TestAPIBinding(t *testing.T) {
 
 		var names []string
 		for _, shard := range shards.Items {
-			t.Logf("Doing a wildcard identity list for %v against %s workspace shard", gvrWithIdentity, consumerWorkspace)
+			t.Logf("Doing a wildcard identity list for %v against %s workspace on shard %s", gvrWithIdentity, consumerWorkspace, shard.Name)
 			shardDynamicClusterClients, err := kcpdynamic.NewForConfig(server.ShardSystemMasterBaseConfig(t, shard.Name))
 			require.NoError(t, err)
 			list, err := shardDynamicClusterClients.Resource(gvrWithIdentity).List(ctx, metav1.ListOptions{})
@@ -385,29 +385,43 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("=== Verify that in %q (bound to %q) wildcard list works", consumer3Path, provider2Path)
 	verifyWildcardList(consumer3Path, 1)
 
+	t.Logf("=== Verify that %s|%s export virtual workspace shows cowboys", provider2Path, exportName)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
-
-	t.Logf("Smoke test %s|today-cowboys virtual workspace with explicit /cluster/%s", provider2Path, consumer3Path)
-	vw2ClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, provider2ClusterName, "today-cowboys"))
+	export2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
-	gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
-	list, err := vw2ClusterClient.Cluster(consumer3ClusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "error listing through virtual workspace with explicit workspace")
-	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
 
-	t.Logf("Smoke test %s|today-cowboys virtual workspace with wildcard", provider2Path)
-	list, err = vw2ClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "error listing through virtual workspace wildcard")
-	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
+	foundOnShards := 0
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	for _, vw := range export2.Status.VirtualWorkspaces {
+		vw2ClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
+		require.NoError(t, err)
+
+		t.Logf("Listing %s|%s cowboys via virtual workspace %s/clusters/%s", provider2Path, exportName, vw.URL, consumer3ClusterName)
+		gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
+		list, err := vw2ClusterClient.Cluster(consumer3ClusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("Error: %v", err)
+			continue
+		}
+		require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
+		foundOnShards++
+
+		t.Logf("Listing %s|%s cowboys via virtual workspace wildcard list", provider2Path, exportName)
+		list, err = vw2ClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "error listing through virtual workspace wildcard")
+		require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
+	}
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	require.Equal(t, 1, foundOnShards, "cowboys not found exactly on one shard, but on %d/%d", foundOnShards, len(export2.Status.VirtualWorkspaces))
 }
 
-func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName logicalcluster.Name, apiexportName string) *rest.Config {
+func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, url string) *rest.Config {
 	t.Helper()
 
 	virtualWorkspaceRawConfig := kubeconfig.DeepCopy()
 	virtualWorkspaceRawConfig.Clusters["apiexport"] = kubeconfig.Clusters["base"].DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = fmt.Sprintf("%s/services/apiexport/%s/%s/", kubeconfig.Clusters["base"].Server, clusterName.String(), apiexportName)
+	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = url
 	virtualWorkspaceRawConfig.Contexts["apiexport"] = kubeconfig.Contexts["base"].DeepCopy()
 	virtualWorkspaceRawConfig.Contexts["apiexport"].Cluster = "apiexport"
 
