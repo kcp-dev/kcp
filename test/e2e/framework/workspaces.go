@@ -110,6 +110,12 @@ func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
 	}
 }
 
+func WithNameSuffix(suffix string) UnprivilegedWorkspaceOption {
+	return func(ws *tenancyv1alpha1.Workspace) {
+		ws.GenerateName += suffix + "-"
+	}
+}
+
 func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
 	t.Helper()
 

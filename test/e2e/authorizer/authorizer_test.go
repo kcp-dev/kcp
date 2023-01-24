@@ -20,6 +20,8 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -32,7 +34,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -68,12 +69,12 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	org1, _ := framework.NewOrganizationFixture(t, server)
-	org2, _ := framework.NewPrivilegedOrganizationFixture(t, server, framework.WithRequiredGroups("empty-group"))
+	org1, _ := framework.NewOrganizationFixture(t, server, framework.WithNameSuffix("org1"))
+	org2, _ := framework.NewPrivilegedOrganizationFixture(t, server, framework.PrivilegedWorkspaceOption(framework.WithNameSuffix("org2")), framework.WithRequiredGroups("empty-group"))
 
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
-	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"))
-	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
+	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"), framework.WithRootShard())                      // on root for system:admin ClusterRole test
+	_, org2Workspace1 := framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
 	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
 
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
@@ -175,12 +176,22 @@ func TestAuthorizer(t *testing.T) {
 			require.Error(t, err, "Only cluster admins can use all clusters at once")
 		}},
 		{"with system:admin permissions, workspace2 non-admin user-3 can list Namespaces with a bootstrap ClusterRole", func(t *testing.T) {
-			// get workspace2 shard and create a client to tweak the local bootstrap policy
-			shardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardCfg)
-			require.NoError(t, err)
-
+			t.Logf("User-3 cannot access namespaces in %s", org1.Join("workspace2"))
 			_, err = user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "User-3 shouldn't be able to list Namespaces")
+
+			bootstrapClusterRole := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("kcp-authorizer-test-namespace-lister-%d", rand.Uint32()),
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"namespaces"},
+					},
+				},
+			}
 
 			localAuthorizerClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -196,36 +207,29 @@ func TestAuthorizer(t *testing.T) {
 				RoleRef: rbacv1.RoleRef{
 					APIGroup: "rbac.authorization.k8s.io",
 					Kind:     "ClusterRole",
-					Name:     "kcp-authorizer-test-namespace-lister",
+					Name:     bootstrapClusterRole.Name,
 				},
 			}
 
-			bootstrapClusterRole := &rbacv1.ClusterRole{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kcp-authorizer-test-namespace-lister",
-				},
-				Rules: []rbacv1.PolicyRule{
-					{
-						Verbs:     []string{"*"},
-						APIGroups: []string{""},
-						Resources: []string{"namespaces"},
-					},
-				},
-			}
-			_, err = shardKubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
+			t.Logf("Creating ClusterRoleBinding %s in %s", localAuthorizerClusterRoleBinding.Name, org1.Join("workspace2"))
+			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
+			t.Logf("Creating matching ClusterRole %s in %s", bootstrapClusterRole.Name, genericcontrolplane.LocalAdminCluster)
+			shardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardCfg)
+			require.NoError(t, err)
 			_, err = shardKubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
-			if err != nil && !errors.IsAlreadyExists(err) {
-				require.NoError(t, err)
-			}
+			require.NoError(t, err)
 
-			require.Eventually(t, func() bool {
-				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); err != nil {
-					t.Logf("failed to create test namespace: %v", err)
-					return false
+			framework.Eventually(t, func() (bool, string) {
+				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("kcp-authorizer-test-namespace-%d", rand.Uint32()),
+					},
+				}, metav1.CreateOptions{}); err != nil {
+					return false, fmt.Sprintf("failed to create test namespace: %v", err)
 				}
-				return true
+				return true, ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "User-3 should now be able to list Namespaces in %s", org1.Join("workspace2"))
 		}},
 		{"without org access, a deep SAR with user-1 against org2 succeeds even without org access for user-1", func(t *testing.T) {
@@ -255,9 +259,13 @@ func TestAuthorizer(t *testing.T) {
 			t.Logf("ask with deep SAR that user-1 hypothetically could list configmaps in %q if it had access", org2.Join("workspace1"))
 			deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
 			require.NoError(t, err)
-			resp, err = deepSARClient.Cluster(org2.Join("workspace1")).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-			require.NoError(t, err)
-			require.Truef(t, resp.Status.Allowed, "SAR should answer hypothetically that user-1 could list configmaps in %q if it had access", org2.Join("workspace1"))
+			framework.Eventually(t, func() (bool, string) {
+				resp, err = deepSARClient.Cluster(logicalcluster.NewPath(org2Workspace1.Spec.Cluster)).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+				if err != nil {
+					return false, fmt.Sprintf("failed to create SAR: %v", err)
+				}
+				return resp.Status.Allowed, resp.Status.Reason
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "SAR should answer hypothetically that user-1 could list configmaps in %q if it had access", org2.Join("workspace1"))
 		}},
 	}
 
