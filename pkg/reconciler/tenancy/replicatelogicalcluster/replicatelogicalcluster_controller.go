@@ -82,7 +82,7 @@ func NewController(
 		if err != nil && !apierrors.IsNotFound(err) {
 			runtime.HandleError(fmt.Errorf("failed to get logical cluster: %v", err))
 			return
-		} else if !apierrors.IsNotFound(err) {
+		} else if apierrors.IsNotFound(err) {
 			return
 		}
 
