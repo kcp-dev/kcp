@@ -98,8 +98,7 @@ func NewController(
 	return c
 }
 
-// controller reconciles ClusterRoles by labelling them to be replicated when pointing to an
-// ClusterRole content or verb bind.
+// controller reconciles LogicalClusters by labelling them to be replicated when isRelevantLogicalCluster says so.
 type controller struct {
 	controllerName string
 	groupName      string
