@@ -213,7 +213,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			name: "isolated API domains per syncer",
 			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				t.Helper()
-				kubelikeLocationWorkspacePath, kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"))
+				kubelikeLocationWorkspacePath, kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"), framework.TODO_WithoutMultiShardSupport())
 				kubelikeLocationWorkspaceClusterName := logicalcluster.Name(kubelikeLocationWorkspace.Spec.Cluster)
 				logWithTimestampf(t, "Deploying syncer into workspace %s", kubelikeLocationWorkspacePath)
 				kubelikeSyncer := framework.NewSyncerFixture(t, server, kubelikeLocationWorkspacePath,
@@ -234,7 +234,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).Start(t)
 
-				wildwestLocationWorkspacePath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationWorkspacePath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				wildwestLocationWorkspaceClusterName := logicalcluster.Name(wildwestLocationWorkspace.Spec.Cluster)
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationWorkspacePath)
 
@@ -322,7 +322,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
 				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -440,7 +440,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				wildwestLocationPath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				wildwestLocationClusterName := logicalcluster.Name(wildwestLocationWorkspace.Spec.Cluster)
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
@@ -592,10 +592,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"), framework.TODO_WithoutMultiShardSupport())
 				consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
 				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -750,10 +750,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"), framework.TODO_WithoutMultiShardSupport())
 				consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying north syncer into workspace %s", wildwestLocationPath)
 
 				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -983,10 +983,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"), framework.TODO_WithoutMultiShardSupport())
 				consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying north syncer into workspace %s", wildwestLocationPath)
 
 				wildwestNorthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -1297,10 +1297,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"), framework.TODO_WithoutMultiShardSupport())
 				consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
 				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -1405,10 +1405,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"))
+				consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("consumer"), framework.TODO_WithoutMultiShardSupport())
 				consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"))
+				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
 				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -1558,7 +1558,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server, framework.TODO_WithoutMultiShardSupport(), framework.TODO_WithoutMultiShardSupport())
 
 			testCase.work(t, orgPath)
 		})
@@ -1913,9 +1913,9 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server, framework.TODO_WithoutMultiShardSupport())
 
-			upsyncerPath, upsyncerWS := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("upsyncer"))
+			upsyncerPath, upsyncerWS := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("upsyncer"), framework.TODO_WithoutMultiShardSupport())
 			upsyncerClusterName := logicalcluster.Name(upsyncerWS.Spec.Cluster)
 
 			logWithTimestampf(t, "Deploying syncer into workspace %s", upsyncerPath)
