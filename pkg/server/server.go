@@ -453,6 +453,24 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicatelogicalcluster") {
+		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrole") {
+		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrolebinding") {
+		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
 		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err

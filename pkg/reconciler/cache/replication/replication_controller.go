@@ -101,6 +101,14 @@ func NewController(
 				local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
 				global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 			},
+			corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
+				kind: "LogicalCluster",
+				filter: func(u *unstructured.Unstructured) bool {
+					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+				},
+				local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+				global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+			},
 			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
 				kind:   "WorkspaceType",
 				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
