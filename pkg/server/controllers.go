@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	tenancyreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicatelogicalcluster"
 	_ "net/http/pprof"
 	"os"
 	"time"
@@ -1056,6 +1057,33 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 
 	return server.AddPostStartHook(postStartHookName(apisreplicatelogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicatelogicalcluster.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, tenancyreplicatelogicalcluster.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c := tenancyreplicatelogicalcluster.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+	)
+
+	return server.AddPostStartHook(postStartHookName(tenancyreplicatelogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicatelogicalcluster.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
