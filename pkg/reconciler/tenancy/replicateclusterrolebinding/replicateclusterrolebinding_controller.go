@@ -19,6 +19,7 @@ package replicateclusterrolebinding
 import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 
@@ -36,12 +37,12 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
-) (labelclusterrolebindings.Controller, error) {
+) labelclusterrolebindings.Controller {
 	return labelclusterrolebindings.NewController(
 		ControllerName,
 		tenancy.GroupName,
 		replicateclusterrole.HasUseRule,
-		func(crb *rbacv1.ClusterRoleBinding) bool { return false },
+		func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool { return false },
 		kubeClusterClient,
 		clusterRoleBindingInformer,
 		clusterRoleInformer,

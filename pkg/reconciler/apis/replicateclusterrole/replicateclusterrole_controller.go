@@ -21,6 +21,7 @@ import (
 
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,7 +40,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
-) (labelclusterroles.Controller, error) {
+) labelclusterroles.Controller {
 	return labelclusterroles.NewController(
 		ControllerName,
 		apis.GroupName,
@@ -51,7 +52,7 @@ func NewController(
 	)
 }
 
-func HasBindOrContentRule(cr *rbacv1.ClusterRole) bool {
+func HasBindOrContentRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
 		apiGroups := sets.NewString(rule.APIGroups...)
 		if !apiGroups.Has(apis.GroupName) && !apiGroups.Has("*") {
@@ -69,7 +70,7 @@ func HasBindOrContentRule(cr *rbacv1.ClusterRole) bool {
 	return false
 }
 
-func HasMaximalPermissionClaimSubject(crb *rbacv1.ClusterRoleBinding) bool {
+func HasMaximalPermissionClaimSubject(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool {
 	for _, s := range crb.Subjects {
 		if strings.HasPrefix(s.Name, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix) && (s.Kind == rbacv1.UserKind || s.Kind == rbacv1.GroupKind) && s.APIGroup == rbacv1.GroupName {
 			return true

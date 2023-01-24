@@ -46,24 +46,25 @@ func (c *controller) reconcile(ctx context.Context, rb *rbacv1.ClusterRole) (boo
 type reconciler struct {
 	groupName string
 
-	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
+	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
 
 	getReferencingClusterRoleBindings func(cluster logicalcluster.Name, name string) ([]*rbacv1.ClusterRoleBinding, error)
 }
 
 func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (bool, error) {
 	logger := klog.FromContext(ctx)
+	clusterName := logicalcluster.From(cr)
 
-	replicate := r.isRelevantClusterRole(cr)
+	replicate := r.isRelevantClusterRole(clusterName, cr)
 	if !replicate {
-		objs, err := r.getReferencingClusterRoleBindings(logicalcluster.From(cr), cr.Name)
+		objs, err := r.getReferencingClusterRoleBindings(clusterName, cr.Name)
 		if err != nil {
 			runtime.HandleError(err)
 			return false, nil // nothing we can do
 		}
 		for _, crb := range objs {
-			if r.isRelevantClusterRoleBinding(crb) {
+			if r.isRelevantClusterRoleBinding(clusterName, crb) {
 				replicate = true
 				break
 			}

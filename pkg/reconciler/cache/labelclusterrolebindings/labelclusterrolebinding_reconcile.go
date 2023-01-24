@@ -42,34 +42,27 @@ func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 
 type reconciler struct {
 	groupName                    string
-	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
+	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
 	getClusterRole               func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
 }
 
 func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {
 	logger := klog.FromContext(ctx)
 
+	clusterName := logicalcluster.From(crb)
+
 	// is a maximum-permission-policy subject?
-	replicate := r.isRelevantClusterRoleBinding(crb)
+	replicate := r.isRelevantClusterRoleBinding(clusterName, crb)
 
 	// references relevant ClusterRole?
 	if !replicate && crb.RoleRef.Kind == "ClusterRole" && crb.RoleRef.APIGroup == rbacv1.GroupName {
-		localCR, err := r.getClusterRole(logicalcluster.From(crb), crb.RoleRef.Name)
+		localCR, err := r.getClusterRole(clusterName, crb.RoleRef.Name)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
-		if localCR != nil && r.isRelevantClusterRole(localCR) {
+		if localCR != nil && r.isRelevantClusterRole(clusterName, localCR) {
 			replicate = true
-		} else {
-			// fall back to possible bootstrap ClusterRole
-			bootstrapCR, err := r.getClusterRole("system:admin", crb.RoleRef.Name)
-			if err != nil && !errors.IsNotFound(err) {
-				return false, err
-			}
-			if bootstrapCR != nil && r.isRelevantClusterRole(bootstrapCR) {
-				replicate = true
-			}
 		}
 	}
 

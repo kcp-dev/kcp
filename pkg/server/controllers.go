@@ -966,14 +966,11 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 		return err
 	}
 
-	c, err := apisreplicateclusterrole.NewController(
+	c := apisreplicateclusterrole.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(apisreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrole.ControllerName))
@@ -996,14 +993,12 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 		return err
 	}
 
-	c, err := coresreplicateclusterrole.NewController(
+	c := coresreplicateclusterrole.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(coresreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(coresreplicateclusterrole.ControllerName))
@@ -1026,14 +1021,11 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 		return err
 	}
 
-	c, err := apisreplicateclusterrolebinding.NewController(
+	c := apisreplicateclusterrolebinding.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(apisreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrolebinding.ControllerName))
@@ -1083,14 +1075,12 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 		return err
 	}
 
-	c, err := corereplicateclusterrolebinding.NewController(
+	c := corereplicateclusterrolebinding.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(corereplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(corereplicateclusterrolebinding.ControllerName))
@@ -1113,14 +1103,11 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 		return err
 	}
 
-	c, err := tenancyreplicateclusterrole.NewController(
+	c := tenancyreplicateclusterrole.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(tenancyreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrole.ControllerName))
@@ -1143,14 +1130,11 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 		return err
 	}
 
-	c, err := tenancyreplicateclusterrolebinding.NewController(
+	c := tenancyreplicateclusterrolebinding.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
-	if err != nil {
-		return err
-	}
 
 	return server.AddPostStartHook(postStartHookName(tenancyreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrolebinding.ControllerName))

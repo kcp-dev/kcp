@@ -25,9 +25,11 @@ import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,18 +47,20 @@ import (
 
 type Controller interface {
 	Start(ctx context.Context, numThreads int)
+
+	EnqueueClusterRoleBindings(values ...interface{})
 }
 
 // NewController returns a new controller for labelling ClusterRoleBinding that should be replicated.
 func NewController(
 	controllerName string,
 	groupName string,
-	isRelevantClusterRole func(cr *rbacv1.ClusterRole) bool,
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool,
+	isRelevantClusterRole func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool,
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
-) (Controller, error) {
+) Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
@@ -113,7 +117,7 @@ func NewController(
 		},
 	})
 
-	return c, nil
+	return c
 }
 
 // controller reconciles ClusterRoleBindings by labelling them to be replicated when
@@ -125,8 +129,8 @@ type controller struct {
 
 	queue workqueue.RateLimitingInterface
 
-	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
+	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -138,6 +142,18 @@ type controller struct {
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *rbacv1.ClusterRoleBinding) error
+}
+
+func (c *controller) EnqueueClusterRoleBindings(values ...interface{}) {
+	clusterRoleBindings, err := c.clusterRoleBindingLister.List(labels.Everything())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for _, clusterRoleBinding := range clusterRoleBindings {
+		c.enqueueClusterRoleBinding(clusterRoleBinding, values...)
+	}
 }
 
 // enqueueClusterRoleBinding enqueues an ClusterRoleBinding.

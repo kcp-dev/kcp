@@ -34,7 +34,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
-) (labelclusterrolebindings.Controller, error) {
+) labelclusterrolebindings.Controller {
 	return labelclusterrolebindings.NewController(
 		ControllerName,
 		apis.GroupName,

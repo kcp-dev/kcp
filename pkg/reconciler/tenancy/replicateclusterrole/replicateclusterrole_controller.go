@@ -19,6 +19,7 @@ package replicateclusterrole
 import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,19 +37,19 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
-) (labelclusterroles.Controller, error) {
+) labelclusterroles.Controller {
 	return labelclusterroles.NewController(
 		ControllerName,
 		tenancy.GroupName,
 		HasUseRule,
-		func(crb *rbacv1.ClusterRoleBinding) bool { return false },
+		func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool { return false },
 		kubeClusterClient,
 		clusterRoleInformer,
 		clusterRoleBindingInformer,
 	)
 }
 
-func HasUseRule(cr *rbacv1.ClusterRole) bool {
+func HasUseRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
 		apiGroups := sets.NewString(rule.APIGroups...)
 		if !apiGroups.Has(tenancy.GroupName) && !apiGroups.Has("*") {

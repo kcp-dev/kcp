@@ -29,6 +29,7 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,18 +46,20 @@ import (
 
 type Controller interface {
 	Start(ctx context.Context, numThreads int)
+
+	EnqueueClusterRoles(values ...interface{})
 }
 
 // NewController returns a new controller for labelling ClusterRole that should be replicated.
 func NewController(
 	controllerName string,
 	groupName string,
-	isRelevantClusterRole func(cr *rbacv1.ClusterRole) bool,
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool,
+	isRelevantClusterRole func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool,
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
-) (Controller, error) {
+) Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
@@ -113,7 +116,7 @@ func NewController(
 		},
 	})
 
-	return c, nil
+	return c
 }
 
 // controller reconciles ClusterRoles by labelling them to be replicated when pointing to an
@@ -122,8 +125,8 @@ type controller struct {
 	controllerName string
 	groupName      string
 
-	isRelevantClusterRole        func(cr *rbacv1.ClusterRole) bool
-	isRelevantClusterRoleBinding func(crb *rbacv1.ClusterRoleBinding) bool
+	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
 
 	queue workqueue.RateLimitingInterface
 
@@ -137,6 +140,17 @@ type controller struct {
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *rbacv1.ClusterRole) error
+}
+
+func (c *controller) EnqueueClusterRoles(values ...interface{}) {
+	clusterRoles, err := c.clusterRoleLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("Error listing ClusterRoles: %v", err)
+		return
+	}
+	for _, cr := range clusterRoles {
+		c.enqueueClusterRole(cr, values...)
+	}
 }
 
 // enqueueClusterRole enqueues an ClusterRole.
