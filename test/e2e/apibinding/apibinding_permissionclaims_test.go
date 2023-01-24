@@ -97,23 +97,20 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 	// validate the invalid claims condition occurs
 	t.Logf("validate that the permission claim's conditions are false and invalid claims is the reason")
-
 	framework.Eventually(t, func() (bool, string) {
 		// get the binding
 		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
+		require.NoError(t, err, "failed to get binding")
 
 		cond := conditions.Get(binding, apisv1alpha1.PermissionClaimsValid)
 		if cond == nil {
-			return false, "not done waiting for permission claims to be invalid, no condition exits"
+			return false, fmt.Sprintf("not done waiting for permission claims to be invalid, no %q condition exists:\n%s", apisv1alpha1.PermissionClaimsValid, toYAML(t, binding.Status.Conditions))
 		}
 
 		if cond.Status == v1.ConditionFalse && cond.Reason == apisv1alpha1.InvalidPermissionClaimsReason {
 			return true, ""
 		}
-		return false, fmt.Sprintf("not done waiting for condition to be invalid reason: %v - message: %v", cond.Reason, cond.Message)
+		return false, fmt.Sprintf("not done waiting for condition to be invalid reason:\n%s", toYAML(t, binding.Status.Conditions))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to see invalid identity hash")
 
 	t.Logf("update to correct hash")

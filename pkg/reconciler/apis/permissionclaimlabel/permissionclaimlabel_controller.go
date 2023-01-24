@@ -56,7 +56,7 @@ func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*controller, error) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
@@ -72,7 +72,13 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
+			obj, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return nil, err
+			} else if apierrors.IsNotFound(err) {
+				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+			}
+			return obj, nil
 		},
 
 		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
