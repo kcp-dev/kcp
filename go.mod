@@ -17,8 +17,9 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0
-	github.com/kcp-dev/client-go v0.0.0-20221215092857-c1e5154a9825
+	github.com/kcp-dev/client-go v0.0.0-20230112161950-ed70a87bb0c8
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/kcp/pkg/client v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.2
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/miekg/dns v1.1.50
@@ -189,6 +190,7 @@ require (
 replace (
 	github.com/google/cel-go => github.com/google/cel-go v0.12.6
 	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
+	github.com/kcp-dev/kcp/pkg/client => ./pkg/client
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20230113194502-8f8fb5fa4eea
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20230113194502-8f8fb5fa4eea
 	k8s.io/apimachinery => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20230113194502-8f8fb5fa4eea
