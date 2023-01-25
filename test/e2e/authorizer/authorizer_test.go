@@ -81,15 +81,15 @@ func TestAuthorizer(t *testing.T) {
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, false)
 
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-1"}, nil, true)
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-2"}, nil, false)
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-3"}, nil, false)
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-2"}, nil, true)
-
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace1"), []string{"user-1"}, nil, true)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace1"), []string{"user-2"}, nil, false)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace2"), []string{"user-3"}, nil, false)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace2"), []string{"user-2"}, nil, true)
+
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-2"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-2"}, nil, true) // last, to be used for priming below
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", cfg))
 	require.NoError(t, err)
@@ -102,7 +102,8 @@ func TestAuthorizer(t *testing.T) {
 
 	t.Logf("Priming the authorization cache")
 	require.Eventually(t, func() bool {
-		_, err := user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		// test *last* of the admitted permissions
+		_, err := user2KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 		return err == nil
 	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
