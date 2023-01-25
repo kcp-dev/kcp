@@ -1,4 +1,4 @@
-baseURL = 'http://kcp-dev.github.io/kcp'
+baseURL = 'https://kcp-dev.github.io/kcp'
 contentDir = "content/en"
 defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = false
@@ -64,7 +64,7 @@ version = "main"
 #version-end
 version_menu = "Releases"
 version_menu_pagelinks = true
-url_latest_version = "https://kcp-dev.github.io/kcp/main"
+url_latest_version = "/kcp/main"
 github_repo = "https://github.com/kcp-dev/kcp"
 github_project_repo = "https://github.com/kcp-dev/kcp"
 github_subdir = "docs"
@@ -149,7 +149,11 @@ url = "https://github.com/kcp-dev/kcp/blob/main/CONTRIBUTING.md"
 
 
 # release versions
-
+# TODO: find a way to add new versions as soon a new release is available
 [[params.versions]]
 version = "main"
-url = "https://kcp-dev.github.io/kcp/main"
+url = "/kcp/main"
+
+[[params.versions]]
+version = "v0.10.0"
+url = "/kcp/v0.10.0"
