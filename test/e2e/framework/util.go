@@ -17,10 +17,18 @@ limitations under the License.
 package framework
 
 import (
+	"bytes"
 	"context"
+	cryptorand "crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"embed"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"math/rand"
 	"net"
 	"os"
@@ -47,6 +55,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -351,7 +360,62 @@ func EventuallyReady(t *testing.T, getter func() (conditions.Getter, error), msg
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, msgAndArgs...)
 }
 
-func UserConfig(username string, cfg *rest.Config) *rest.Config {
+// ClientCAUserConfig returns a config based on a dynamically created client certificate.
+// The returned client CA is signed by "test/e2e/framework/client-ca.crt".
+func ClientCAUserConfig(t *testing.T, cfg *rest.Config, clientCAConfigDirectory, username string, groups ...string) *rest.Config {
+	t.Helper()
+	caBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.crt"))
+	require.NoError(t, err, "error reading CA file")
+	caKeyBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.key"))
+	require.NoError(t, err, "error reading CA key")
+	caCerts, err := cert.ParseCertsPEM(caBytes)
+	require.NoError(t, err, "error parsing CA certs")
+	caKeys, err := tls.X509KeyPair(caBytes, caKeyBytes)
+	require.NoError(t, err, "error parsing CA keys")
+	clientPublicKey, clientPrivateKey, err := newRSAKeyPair()
+	require.NoError(t, err, "error creating client keys")
+	currentTime := time.Now()
+	clientCert := &x509.Certificate{
+		Subject: pkix.Name{
+			CommonName:   username,
+			Organization: groups,
+		},
+
+		SignatureAlgorithm: x509.SHA256WithRSA,
+
+		NotBefore:    currentTime.Add(-1 * time.Second),
+		NotAfter:     currentTime.Add(time.Hour * 2),
+		SerialNumber: big.NewInt(1),
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+	signedClientCertBytes, err := x509.CreateCertificate(cryptorand.Reader, clientCert, caCerts[0], clientPublicKey, caKeys.PrivateKey)
+	require.NoError(t, err, "error creating client certificate")
+	clientCertPEM := new(bytes.Buffer)
+	require.NoError(t, pem.Encode(clientCertPEM, &pem.Block{Type: "CERTIFICATE", Bytes: signedClientCertBytes}), "error encoding client cert")
+	clientKeyPEM := new(bytes.Buffer)
+	require.NoError(t, pem.Encode(clientKeyPEM, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientPrivateKey)}), "error encoding client private key")
+
+	cfgCopy := rest.CopyConfig(cfg)
+	cfgCopy.CertData = clientCertPEM.Bytes()
+	cfgCopy.KeyData = clientKeyPEM.Bytes()
+	cfgCopy.BearerToken = ""
+	return cfgCopy
+}
+
+func newRSAKeyPair() (*rsa.PublicKey, *rsa.PrivateKey, error) {
+	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &privateKey.PublicKey, privateKey, nil
+}
+
+// StaticTokenUserConfig returns a user config based on static user tokens defined in "test/e2e/framework/auth-tokens.csv".
+// The token being used is "[username]-token".
+func StaticTokenUserConfig(username string, cfg *rest.Config) *rest.Config {
 	return ConfigWithToken(username+"-token", cfg)
 }
 
