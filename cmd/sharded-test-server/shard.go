@@ -82,6 +82,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 			fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)),
 		)
 	}
+	externalHostPort := net.JoinHostPort(hostIP, strconv.Itoa(6443))
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))),
@@ -93,7 +94,8 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.crt")),
 		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.key")),
 		"--audit-log-path", auditFilePath,
-		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
+		fmt.Sprintf("--shard-external-url=https://%s", externalHostPort),
+		fmt.Sprintf("--external-hostname=%s", externalHostPort),
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n))),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
