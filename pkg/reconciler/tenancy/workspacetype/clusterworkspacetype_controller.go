@@ -18,19 +18,14 @@ package workspacetype
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -40,11 +35,13 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -73,6 +70,8 @@ func NewController(
 			name := string(reference.Name)
 			return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeInformer.Informer().GetIndexer(), path, name)
 		},
+
+		commit: committer.NewCommitter[*WorkspaceType, Patcher, *WorkspaceTypeSpec, *WorkspaceTypeStatus](kcpClusterClient.TenancyV1alpha1().WorkspaceTypes()),
 	}
 
 	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
@@ -108,6 +107,13 @@ func NewController(
 	return c, nil
 }
 
+type WorkspaceType = tenancyv1alpha1.WorkspaceType
+type WorkspaceTypeSpec = tenancyv1alpha1.WorkspaceTypeSpec
+type WorkspaceTypeStatus = tenancyv1alpha1.WorkspaceTypeStatus
+type Patcher = tenancyv1alpha1client.WorkspaceTypeInterface
+type Resource = committer.Resource[*WorkspaceTypeSpec, *WorkspaceTypeStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.
 type controller struct {
 	queue workqueue.RateLimitingInterface
@@ -116,6 +122,7 @@ type controller struct {
 	workspacetypeLister   tenancyv1alpha1listers.WorkspaceTypeClusterLister
 	listShards            func() ([]*corev1alpha1.Shard, error)
 	resolveWorkspaceTypes func(reference tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error)
+	commit                CommitFunc
 }
 
 // enqueueWorkspaceTypes enqueues a WorkspaceType.
@@ -222,65 +229,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	c.reconcile(ctx, obj)
 
 	// If the object being reconciled changed as a result, update it.
-	return c.patchIfNeeded(ctx, old, obj)
-}
-
-func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.WorkspaceType) error {
-	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
-	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
-
-	if specOrObjectMetaChanged && statusChanged {
-		panic("Programmer error: spec and status changed in same reconcile iteration")
-	}
-
-	if !specOrObjectMetaChanged && !statusChanged {
-		return nil
-	}
-
-	workspacetypeForPatch := func(apiExport *tenancyv1alpha1.WorkspaceType) tenancyv1alpha1.WorkspaceType {
-		var ret tenancyv1alpha1.WorkspaceType
-		if specOrObjectMetaChanged {
-			ret.ObjectMeta = apiExport.ObjectMeta
-			ret.Spec = apiExport.Spec
-		} else {
-			ret.Status = apiExport.Status
-		}
-		return ret
-	}
-
-	clusterName := logicalcluster.From(old)
-	name := old.Name
-
-	oldForPatch := workspacetypeForPatch(old)
-	// to ensure they appear in the patch as preconditions
-	oldForPatch.UID = ""
-	oldForPatch.ResourceVersion = ""
-
-	oldData, err := json.Marshal(oldForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for WorkspaceType %s|%s: %w", clusterName, name, err)
-	}
-
-	newForPatch := workspacetypeForPatch(obj)
-	// to ensure they appear in the patch as preconditions
-	newForPatch.UID = old.UID
-	newForPatch.ResourceVersion = old.ResourceVersion
-
-	newData, err := json.Marshal(newForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for WorkspaceType %s|%s: %w", clusterName, name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return fmt.Errorf("failed to create patch for WorkspaceType %s|%s: %w", clusterName, name, err)
-	}
-
-	var subresources []string
-	if statusChanged {
-		subresources = []string{"status"}
-	}
-
-	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-	return err
+	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	return c.commit(ctx, oldResource, newResource)
 }
