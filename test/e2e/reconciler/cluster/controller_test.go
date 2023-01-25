@@ -166,8 +166,8 @@ func TestClusterController(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
 
-	for i := range testCases {
-		testCase := testCases[i]
+	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 

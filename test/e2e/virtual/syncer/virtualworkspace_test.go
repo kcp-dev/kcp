@@ -1553,8 +1553,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 	}
 
-	for i := range testCases {
-		testCase := testCases[i]
+	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1904,8 +1904,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 	}
 
-	for i := range testCases {
-		testCase := testCases[i]
+	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			framework.Suite(t, "transparent-multi-cluster")

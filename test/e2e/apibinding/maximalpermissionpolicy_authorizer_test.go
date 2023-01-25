@@ -75,13 +75,10 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 		test func(t *testing.T)
 	}
 
-	for _, test := range []Test{
+	for _, testCase := range []Test{
 		{
 			name: "APIBinding resources",
 			test: func(t *testing.T) {
-				t.Helper()
-				t.Parallel()
-
 				t.Logf("Creating a WorkspaceType as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
@@ -110,9 +107,6 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 		{
 			name: "System CRDs",
 			test: func(t *testing.T) {
-				t.Helper()
-				t.Parallel()
-
 				t.Logf("Creating a APIExport as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
@@ -139,7 +133,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(test.name, test.test)
+		test := testCase
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.test(t)
+		})
 	}
 }
 
