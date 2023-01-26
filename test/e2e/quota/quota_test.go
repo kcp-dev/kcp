@@ -100,7 +100,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 			if _, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 				return apierrors.IsForbidden(err), err.Error()
 			}
-			return false, ""
+			return false, "expected an error trying to create a configmap"
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation")
 	}
 }
@@ -239,7 +239,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				if err != nil {
 					return apierrors.IsForbidden(err), err.Error()
 				}
-				return true, ""
+				return false, "expected an error trying to create a service"
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected service creation")
 		})
 	}
@@ -325,7 +325,10 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
 			_, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
-			return apierrors.IsForbidden(err), err.Error()
+			if err != nil {
+				return apierrors.IsForbidden(err), err.Error()
+			}
+			return false, "expected an error trying to create a sheriff"
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected sheriff creation")
 	}
 }
@@ -426,7 +429,7 @@ func TestClusterScopedQuota(t *testing.T) {
 			if err != nil {
 				return apierrors.IsForbidden(err), err.Error()
 			}
-			return true, ""
+			return false, "expected an error trying to create a configmap"
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", wsPath)
 
 		t.Logf("Make sure quota is enforcing workspace limits for %q", wsPath)
@@ -441,7 +444,7 @@ func TestClusterScopedQuota(t *testing.T) {
 			if err != nil {
 				return apierrors.IsForbidden(err), err.Error()
 			}
-			return true, ""
+			return false, "expected an error trying to create a workspace"
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected workspace creation in %q", wsPath)
 	}
 }
