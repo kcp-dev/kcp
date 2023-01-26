@@ -67,6 +67,7 @@ import (
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
@@ -357,6 +358,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		}
 		virtualWorkspaceServerProxyTransport = transport
 	}
+
+	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
+	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
 
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
