@@ -73,18 +73,17 @@ func TestAuditLogs(t *testing.T) {
 	require.Equal(t, workspaceNameSent, responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
 
 	for _, annotation := range []string{
-		"authorization.k8s.io",
-		"bootstrap.authorization.kcp.io",
-		"content.authorization.kcp.io",
-		"maxpermissionpolicy.authorization.kcp.io",
-		"requiredgroups.authorization.kcp.io",
-		"systemcrd.authorization.kcp.io",
+		"request.auth.kcp.io/01-requiredgroups",
+		"request.auth.kcp.io/02-content",
+		"request.auth.kcp.io/03-systemcrd",
+		"request.auth.kcp.io/04-maxpermissionpolicy",
+		"request.auth.kcp.io/05-bootstrap",
 	} {
-		if _, ok := responseAuditEvent.Annotations[annotation+"/decision"]; !ok {
-			t.Errorf("expected annotation %v/decision but got none", annotation)
+		if _, ok := responseAuditEvent.Annotations[annotation+"-decision"]; !ok {
+			t.Errorf("expected annotation %v-decision but got none", annotation)
 		}
-		if _, ok := responseAuditEvent.Annotations[annotation+"/reason"]; !ok {
-			t.Errorf("expected annotation %v/reason but got none", annotation)
+		if _, ok := responseAuditEvent.Annotations[annotation+"-reason"]; !ok {
+			t.Errorf("expected annotation %v-reason but got none", annotation)
 		}
 	}
 }

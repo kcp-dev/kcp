@@ -44,7 +44,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			requestingUser:     newUser("user-unknown"),
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to deep SAR request: allowed",
+			wantReason:         "delegating due to deep SAR request",
 		},
 		"missing cluster in request": {
 			requestingUser: newUser("user-unknown"),
@@ -55,26 +55,26 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to logical cluster admin access: allowed",
+			wantReason:         "delegating due to logical cluster admin access",
 		},
 		"service account from other cluster is granted access": {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access to logical cluster: allowed",
+			wantReason:         "delegating due to service account access to logical cluster",
 		},
 		"service account from same cluster is granted access": {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "root:ready"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access to logical cluster: allowed",
+			wantReason:         "delegating due to service account access to logical cluster",
 		},
 		"permitted user is granted access to logical cluster without required groups": {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-access", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster:     &v1alpha1.LogicalCluster{},
-			wantReason:         "delegating due to logical cluster does not require groups: allowed",
+			wantReason:         "delegating due to logical cluster does not require groups",
 		},
 		"permitted user is denied access to logical cluster with required groups": {
 			requestedWorkspace: "root:ready",
@@ -100,7 +100,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 					},
 				},
 			},
-			wantReason: "delegating due to user is member of required groups: special-group-1;special-group-2: allowed",
+			wantReason: "delegating due to user is member of required groups: special-group-1;special-group-2",
 		},
 		"permitted user is allowed access to logical cluster with matching one of multiple disjunctive groups": {
 			requestedWorkspace: "root:ready",
@@ -113,7 +113,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 					},
 				},
 			},
-			wantReason: "delegating due to user is member of required groups: special-group-1;special-group-2: allowed",
+			wantReason: "delegating due to user is member of required groups: special-group-1;special-group-2",
 		},
 		"permitted user is allowed access to logical cluster with multiple conjunctive groups": {
 			requestedWorkspace: "root:ready",
@@ -126,7 +126,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 					},
 				},
 			},
-			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2: allowed",
+			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2",
 		},
 		"permitted user is denied access to logical cluster with multiple conjunctive groups": {
 			requestedWorkspace: "root:ready",
@@ -152,7 +152,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 					},
 				},
 			},
-			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2;special-group-3: allowed",
+			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2;special-group-3",
 		},
 		"permitted user is allowed access to logical cluster with matching one of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",
@@ -165,7 +165,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 					},
 				},
 			},
-			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2;special-group-3: allowed",
+			wantReason: "delegating due to user is member of required groups: special-group-1,special-group-2;special-group-3",
 		},
 		"permitted user is denied access to logical cluster with matching only one of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",

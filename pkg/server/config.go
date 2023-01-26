@@ -369,6 +369,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithRequestIdentity(apiHandler)
+		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
@@ -377,7 +378,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		// First, remember authorizer chain with audit logging disabled.
 		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
 		// configure audit logging enabled authorizer chain and build the apiHandler using this configuration.
-		genericConfig.Authorization.Authorizer = authorization.EnableAuditLogging(genericConfig.Authorization.Authorizer)
+		genericConfig.Authorization.Authorizer = authorization.WithAuditLogging("request.auth.kcp.io", genericConfig.Authorization.Authorizer)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 		// reset authorizer chain with audit logging disabled.
 		genericConfig.Authorization.Authorizer = authorizerWithoutAudit

@@ -19,10 +19,14 @@ package authorization
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 )
 
@@ -43,18 +47,18 @@ type Decorator struct {
 }
 
 // NewDecorator returns a new authorizer which is associated with the given key.
-// The prefix key must not contain a trailing slash `/`.
+// The prefix key must not contain a slash `/`.
 // Decorating functions are applied in the order they have been invoked.
 func NewDecorator(key string, target authorizer.Authorizer) *Decorator {
-	if strings.HasSuffix(key, "/") {
-		panic(fmt.Sprintf("audit prefix must not have a trailing slash: %q", key))
+	if strings.Contains(key, "/") {
+		panic(fmt.Sprintf("audit prefix must not contain a slash: %q", key))
 	}
 	return &Decorator{target: target, key: key}
 }
 
 // AddAuditLogging logs every decision of the target authorizer for the given audit prefix key
 // if the decision is not allowed.
-// All authorizer decisions are being logged in the audit log if the context was set using EnableAuditLogging.
+// All authorizer decisions are being logged in the audit log if the context was set using WithAuditLogging.
 // This prevents double audit log entries by multiple invocations of the authorizer chain.
 func (d *Decorator) AddAuditLogging() *Decorator {
 	target := d.target
@@ -66,12 +70,11 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 			auditReasonMsg = fmt.Sprintf("reason: %v, error: %v", reason, err)
 		}
 
-		prefixKey := ctx.Value(auditLoggingKey)
-		if prefixKey != nil && prefixKey.(bool) {
+		if domain := ctx.Value(auditDomainKey); domain != nil && domain != "" {
 			kaudit.AddAuditAnnotations(
 				ctx,
-				d.key+"/"+auditDecision, decisionString(dec),
-				d.key+"/"+auditReason, auditReasonMsg,
+				fmt.Sprintf("%s/%s-%s", domain, d.key, auditDecision), decisionString(dec),
+				fmt.Sprintf("%s/%s-%s", domain, d.key, auditReason), auditReasonMsg,
 			)
 		}
 
@@ -142,23 +145,43 @@ func decisionString(dec authorizer.Decision) string {
 // and prefixes the given reason with the reason after the given delegate authorizer executed.
 func DelegateAuthorization(delegationReason string, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-		dec, delegateReason, err := delegate.Authorize(ctx, attr)
-		return dec, "delegating due to " + delegationReason + ": " + delegateReason, err
+		dec, _, err := delegate.Authorize(ctx, attr)
+		return dec, "delegating due to " + delegationReason, err
 	})
 }
 
-type auditLoggingKeyType int
+type auditLoggingDomainType int
 
 const (
-	auditLoggingKey auditLoggingKeyType = iota
+	auditDomainKey auditLoggingDomainType = iota
 )
 
-// EnableAuditLogging sets a context value that enables audit logging for the given authorizer chain.
-// If that context is not set, audit logging is skipped.
+// WithAuditLogging stores the given domain in the context to be used when logging
+// audit events in the given authorizer chain. The annotations will have the format
+// <prefix>.<domain>/<key>. If that context is not set, audit logging is skipped.
 // Note that this is only respected by authorizers that have been decorated using Decorator.AddAuditLogging.
-func EnableAuditLogging(delegate authorizer.Authorizer) authorizer.Authorizer {
+func WithAuditLogging(annotationDomain string, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-		ctx = context.WithValue(ctx, auditLoggingKey, true)
+		ctx = context.WithValue(ctx, auditDomainKey, annotationDomain)
 		return delegate.Authorize(ctx, a)
+	})
+}
+
+func WithSubjectAccessReviewAuditAnnotations(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ri, ok := genericapirequest.RequestInfoFrom(r.Context())
+		if !ok {
+			responsewriters.InternalError(w, r, fmt.Errorf("cannot get request info"))
+			return
+		}
+		if !ri.IsResourceRequest || ri.APIGroup != authorizationv1.GroupName || ri.Resource != "subjectaccessreviews" || ri.Verb != "create" {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), auditDomainKey, "sar.auth.kcp.io")
+		r = r.WithContext(ctx)
+
+		handler.ServeHTTP(w, r)
 	})
 }
