@@ -24,7 +24,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -266,14 +265,6 @@ func TestDispatch(t *testing.T) {
 				informersHaveSynced: tc.informersHaveSynced,
 				getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.apiBindings, nil
-				},
-				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-					for _, export := range tc.apiExports {
-						if export.Name == name && clusterName == logicalcluster.Name(export.Annotations[logicalcluster.AnnotationKey]) {
-							return export, nil
-						}
-					}
-					return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
 				},
 			}
 

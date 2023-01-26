@@ -85,7 +85,6 @@ type WebhookDispatcher struct {
 	dispatcher generic.Dispatcher
 	hookSource ClusterAwareSource
 
-	getAPIExport   func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 
 	informersHaveSynced func() bool
@@ -124,9 +123,9 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	var whAccessor []webhook.WebhookAccessor
 
 	// Determine the type of request, is it api binding or not.
-	if workspace, isAPIBinding, err := p.getAPIExportCluster(attr, lcluster); err != nil {
+	if workspace, err := p.getAPIExportCluster(attr, lcluster); err != nil {
 		return err
-	} else if isAPIBinding {
+	} else if !workspace.Empty() {
 		whAccessor = p.hookSource.Webhooks(workspace)
 		attr.SetCluster(workspace)
 		klog.FromContext(ctx).V(7).WithValues("cluster", workspace).Info("restricting call to api registration hooks in cluster")
@@ -139,24 +138,19 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
+func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, error) {
 	objs, err := p.getAPIBindings(clusterName)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				clusterName := logicalcluster.Name(apiBinding.Status.APIExportClusterName)
-				export, err := p.getAPIExport(clusterName, apiBinding.Spec.Reference.Export.Name)
-				if err != nil {
-					return "", false, err
-				}
-				return logicalcluster.From(export), true, nil
+				return logicalcluster.Name(apiBinding.Status.APIExportClusterName), nil
 			}
 		}
 	}
-	return "", false, nil
+	return "", nil
 }
 
 func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Name) generic.Source, hasSynced func() bool) {
@@ -173,13 +167,6 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 func (p *WebhookDispatcher) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 		return local.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
-	}
-	p.getAPIExport = func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-		export, err := local.Apis().V1alpha1().APIExports().Lister().Cluster(clusterName).Get(name)
-		if err != nil {
-			return global.Apis().V1alpha1().APIExports().Lister().Cluster(clusterName).Get(name)
-		}
-		return export, nil
 	}
 
 	synced := func() bool {
