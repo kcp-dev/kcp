@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,9 +51,8 @@ func TestWorkspaceController(t *testing.T) {
 		rootExpectShard                               framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
-		name        string
-		destructive bool
-		work        func(ctx context.Context, t *testing.T, server runningServer)
+		name string
+		work func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "check the root workspace shard has the correct base URL",
@@ -87,24 +87,27 @@ func TestWorkspaceController(t *testing.T) {
 			},
 		},
 		{
-			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
-			destructive: true,
+			name: "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
-				var previouslyValidShard corev1alpha1.Shard
-				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
-				shards, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
-				require.NoError(t, err)
-				if len(shards.Items) == 0 {
-					t.Fatalf("expected to get some shards but got none")
-				}
-				previouslyValidShard = shards.Items[0]
-				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+
+				t.Logf("Get the root shard so we can use its URLs")
+				rootShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err)
 
-				t.Logf("Create a workspace without shards")
-				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+				random := uuid.NewString()
+				t.Logf("Create a workspace with a label selector that matches nothing for now (%s)", random)
+				workspace := &tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{Name: "steve"},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						Location: &tenancyv1alpha1.WorkspaceLocation{
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"match": random},
+							},
+						},
+					},
+				}
+				_, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, workspace, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
@@ -114,18 +117,18 @@ func TestWorkspaceController(t *testing.T) {
 				err = server.orgExpect(workspace, unschedulable)
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
-				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
+				t.Logf("Add a shard with matching labels")
 				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:   previouslyValidShard.Name,
-						Labels: previouslyValidShard.Labels,
+						GenerateName: "e2e-matching-shard-",
+						Labels:       map[string]string{"match": random},
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     previouslyValidShard.Spec.BaseURL,
-						ExternalURL: previouslyValidShard.Spec.ExternalURL,
+						BaseURL:     rootShard.Spec.BaseURL,
+						ExternalURL: rootShard.Spec.ExternalURL,
 					},
 				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace shard")
+				require.NoError(t, err, "failed to create shard")
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
 				})
@@ -141,7 +144,7 @@ func TestWorkspaceController(t *testing.T) {
 					if workspace.Spec.Cluster == "" {
 						return false, fmt.Sprintf("spec.cluster is empty\n%s", toYAML(t, workspace))
 					}
-					if expected := previouslyValidShard.Spec.BaseURL + "/clusters/" + workspace.Spec.Cluster; workspace.Spec.URL != expected {
+					if expected := rootShard.Spec.ExternalURL + "/clusters/" + workspace.Spec.Cluster; workspace.Spec.URL != expected {
 						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""
@@ -151,7 +154,7 @@ func TestWorkspaceController(t *testing.T) {
 		},
 	}
 
-	sharedServer := framework.SharedKcpServer(t)
+	server := framework.SharedKcpServer(t)
 
 	for i := range testCases {
 		testCase := testCases[i]
@@ -160,14 +163,6 @@ func TestWorkspaceController(t *testing.T) {
 
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
-
-			server := sharedServer
-			if testCase.destructive {
-				// Destructive tests require their own server
-				//
-				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
-				server = framework.PrivateKcpServer(t)
-			}
 
 			cfg := server.BaseConfig(t)
 
