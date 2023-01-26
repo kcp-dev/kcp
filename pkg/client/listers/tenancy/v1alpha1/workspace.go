@@ -103,7 +103,7 @@ func (s *workspaceLister) Get(name string) (*tenancyv1alpha1.Workspace, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("Workspace"), name)
+		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("workspaces"), name)
 	}
 	return obj.(*tenancyv1alpha1.Workspace), nil
 }
@@ -137,7 +137,7 @@ func (s *workspaceScopedLister) Get(name string) (*tenancyv1alpha1.Workspace, er
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("Workspace"), name)
+		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("workspaces"), name)
 	}
 	return obj.(*tenancyv1alpha1.Workspace), nil
 }

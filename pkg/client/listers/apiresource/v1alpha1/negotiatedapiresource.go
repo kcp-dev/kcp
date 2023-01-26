@@ -103,7 +103,7 @@ func (s *negotiatedAPIResourceLister) Get(name string) (*apiresourcev1alpha1.Neg
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("NegotiatedAPIResource"), name)
+		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("negotiatedapiresources"), name)
 	}
 	return obj.(*apiresourcev1alpha1.NegotiatedAPIResource), nil
 }
@@ -137,7 +137,7 @@ func (s *negotiatedAPIResourceScopedLister) Get(name string) (*apiresourcev1alph
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("NegotiatedAPIResource"), name)
+		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("negotiatedapiresources"), name)
 	}
 	return obj.(*apiresourcev1alpha1.NegotiatedAPIResource), nil
 }

@@ -103,7 +103,7 @@ func (s *logicalClusterLister) Get(name string) (*corev1alpha1.LogicalCluster, e
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(corev1alpha1.Resource("LogicalCluster"), name)
+		return nil, errors.NewNotFound(corev1alpha1.Resource("logicalclusters"), name)
 	}
 	return obj.(*corev1alpha1.LogicalCluster), nil
 }
@@ -137,7 +137,7 @@ func (s *logicalClusterScopedLister) Get(name string) (*corev1alpha1.LogicalClus
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(corev1alpha1.Resource("LogicalCluster"), name)
+		return nil, errors.NewNotFound(corev1alpha1.Resource("logicalclusters"), name)
 	}
 	return obj.(*corev1alpha1.LogicalCluster), nil
 }

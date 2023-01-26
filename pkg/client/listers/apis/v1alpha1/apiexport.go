@@ -103,7 +103,7 @@ func (s *aPIExportLister) Get(name string) (*apisv1alpha1.APIExport, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), name)
 	}
 	return obj.(*apisv1alpha1.APIExport), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIExportScopedLister) Get(name string) (*apisv1alpha1.APIExport, error
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), name)
 	}
 	return obj.(*apisv1alpha1.APIExport), nil
 }

@@ -457,8 +457,9 @@ github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1q
 github.com/kcp-dev/apimachinery v0.0.0-20221102195355-d65878bc16be/go.mod h1:qnvUHkdxOrNzX17yX+z8r81CZEBuFdveNzWqFlwZ55w=
 github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0 h1:fb+3CdDlxvnK+o1wm3IcDbD+MJndMUa17EUGqYORsvg=
 github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0/go.mod h1:dn1hXHMY9E6JbyOGa0qXt1Dq4akd/jHMZOpFhJoX7q4=
-github.com/kcp-dev/client-go v0.0.0-20221215092857-c1e5154a9825 h1:7jgn80ujqiaAFKTZ3AE5Lx5mOwyUdDLeJzn9MhZGA3E=
 github.com/kcp-dev/client-go v0.0.0-20221215092857-c1e5154a9825/go.mod h1:sj0r6sAHNsfEpA37uLTVGZj9TMQQWjBXk4rbpcIDZ7U=
+github.com/kcp-dev/client-go v0.0.0-20230126185145-aeff170a288b h1:7Raw5C50fye3c7FkltMWI4iAarVI5DQk9fnO6kkWd1s=
+github.com/kcp-dev/client-go v0.0.0-20230126185145-aeff170a288b/go.mod h1:sj0r6sAHNsfEpA37uLTVGZj9TMQQWjBXk4rbpcIDZ7U=
 github.com/kcp-dev/kubernetes v0.0.0-20230113194502-8f8fb5fa4eea h1:nE1On54VbSjX+1vXGhLuhqNq84VBqjsnDCT2DFzEw6Q=
 github.com/kcp-dev/kubernetes v0.0.0-20230113194502-8f8fb5fa4eea/go.mod h1:OBhuoWoHtEKRlAwkOjWZ9iCMlkufgL+WlofkFmzc3lM=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20230113194502-8f8fb5fa4eea h1:CH9Nq1ClqYNVuqOeKvpsJ2oDliozy95v/kh5STJRB+g=
