@@ -40,6 +40,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/server"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 type WorkspaceOption interface {
@@ -185,24 +186,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible", ws.Spec.Type, parent.Join(ws.Name))
 
-	// best effort to get a shard name from the hash in the annotation
-	hash := ws.Annotations[reconcilerworkspace.WorkspaceShardHashAnnotationKey]
-	shard := corev1alpha1.RootShard
-	if reconcilerworkspace.ByBase36Sha224NameValue(shard) != hash {
-		found := false
-		for i := 0; i < 10; i++ {
-			shard = fmt.Sprintf("shard-%d", i)
-			if reconcilerworkspace.ByBase36Sha224NameValue(shard) == hash {
-				found = true
-				break
-			}
-		}
-		if !found {
-			shard = fmt.Sprintf("hash %s", hash)
-		}
-	}
-
-	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, shard)
+	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, WorkspaceShardOrDie(t, clusterClient, ws).Name)
 	return ws
 }
 
@@ -235,4 +219,73 @@ func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server Ru
 
 	ws := newWorkspaceFixture(t, rootClusterClient, clusterClient, core.RootCluster.Path(), append(options, O(WithType(core.RootCluster.Path(), "organization")))...)
 	return core.RootCluster.Path().Join(ws.Name), ws
+}
+
+func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) (*corev1alpha1.Shard, error) {
+	shards, err := kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// best effort to get a shard name from the hash in the annotation
+	hash := ws.Annotations[reconcilerworkspace.WorkspaceShardHashAnnotationKey]
+	if hash == "" {
+		return nil, fmt.Errorf("workspace %s does not have a shard hash annotation", logicalcluster.From(ws).Path().Join(ws.Name))
+	}
+
+	for i := range shards.Items {
+		if name := shards.Items[i].Name; reconcilerworkspace.ByBase36Sha224NameValue(name) == hash {
+			return &shards.Items[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to determine shard for workspace %s", ws.Name)
+}
+
+func WorkspaceShardOrDie(t *testing.T, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
+	t.Helper()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	shard, err := WorkspaceShard(ctx, kcpClient, ws)
+	require.NoError(t, err, "failed to determine shard for workspace %s", ws.Name)
+	return shard
+}
+
+func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
+	shard, err := WorkspaceShard(ctx, kcpClusterClient, ws)
+	if err != nil {
+		return "", false, err
+	}
+
+	for _, url := range urls {
+		if strings.HasPrefix(url, shard.Spec.VirtualWorkspaceURL) {
+			return url, true, nil
+		}
+	}
+
+	return "", false, nil
+}
+
+func VirtualWorkspaceURLOrDie(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) string {
+	t.Helper()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	url, found, err := VirtualWorkspaceURL(ctx, kcpClusterClient, ws, urls)
+	require.NoError(t, err)
+	require.True(t, found, "failed to find virtual workspace URL for workspace %s", ws.Name)
+	return url
+}
+
+func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	for _, vw := range export.Status.VirtualWorkspaces {
+		urls = append(urls, vw.URL)
+	}
+	return urls
 }
