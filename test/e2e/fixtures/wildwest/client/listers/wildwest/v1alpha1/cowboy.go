@@ -136,7 +136,7 @@ func (s *cowboyNamespaceLister) Get(name string) (*wildwestv1alpha1.Cowboy, erro
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(wildwestv1alpha1.Resource("Cowboy"), name)
+		return nil, errors.NewNotFound(wildwestv1alpha1.Resource("cowboys"), name)
 	}
 	return obj.(*wildwestv1alpha1.Cowboy), nil
 }
@@ -190,7 +190,7 @@ func (s *cowboyScopedNamespaceLister) Get(name string) (*wildwestv1alpha1.Cowboy
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(wildwestv1alpha1.Resource("Cowboy"), name)
+		return nil, errors.NewNotFound(wildwestv1alpha1.Resource("cowboys"), name)
 	}
 	return obj.(*wildwestv1alpha1.Cowboy), nil
 }

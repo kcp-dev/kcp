@@ -103,7 +103,7 @@ func (s *aPIBindingLister) Get(name string) (*apisv1alpha1.APIBinding, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIBinding"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apibindings"), name)
 	}
 	return obj.(*apisv1alpha1.APIBinding), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIBindingScopedLister) Get(name string) (*apisv1alpha1.APIBinding, err
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIBinding"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apibindings"), name)
 	}
 	return obj.(*apisv1alpha1.APIBinding), nil
 }

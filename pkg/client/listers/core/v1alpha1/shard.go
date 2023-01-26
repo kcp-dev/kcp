@@ -103,7 +103,7 @@ func (s *shardLister) Get(name string) (*corev1alpha1.Shard, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(corev1alpha1.Resource("Shard"), name)
+		return nil, errors.NewNotFound(corev1alpha1.Resource("shards"), name)
 	}
 	return obj.(*corev1alpha1.Shard), nil
 }
@@ -137,7 +137,7 @@ func (s *shardScopedLister) Get(name string) (*corev1alpha1.Shard, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(corev1alpha1.Resource("Shard"), name)
+		return nil, errors.NewNotFound(corev1alpha1.Resource("shards"), name)
 	}
 	return obj.(*corev1alpha1.Shard), nil
 }

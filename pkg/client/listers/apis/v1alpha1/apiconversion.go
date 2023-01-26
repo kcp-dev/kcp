@@ -103,7 +103,7 @@ func (s *aPIConversionLister) Get(name string) (*apisv1alpha1.APIConversion, err
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIConversion"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiconversions"), name)
 	}
 	return obj.(*apisv1alpha1.APIConversion), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIConversionScopedLister) Get(name string) (*apisv1alpha1.APIConversio
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIConversion"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiconversions"), name)
 	}
 	return obj.(*apisv1alpha1.APIConversion), nil
 }
