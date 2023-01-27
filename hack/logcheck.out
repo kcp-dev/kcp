@@ -1,0 +1,1 @@
+/pkg/reconciler/cache/labelclusterroles/labelclusterrole_controller.go:148:3: function "Errorf" should not be used, convert to contextual logging
