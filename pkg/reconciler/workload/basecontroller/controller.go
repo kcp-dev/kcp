@@ -24,8 +24,8 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -35,9 +35,11 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	workloadv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
@@ -76,6 +78,7 @@ func NewClusterReconciler(
 		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
 		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
 		queue:                    queue,
+		commit:                   committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -129,6 +132,13 @@ func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Dur
 	a.queue.AddAfter(key, dur)
 }
 
+type SyncTarget = workloadv1alpha1.SyncTarget
+type SyncTargetSpec = workloadv1alpha1.SyncTargetSpec
+type SyncTargetStatus = workloadv1alpha1.SyncTargetStatus
+type Patcher = workloadv1alpha1client.SyncTargetInterface
+type Resource = committer.Resource[*SyncTargetSpec, *SyncTargetStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 type ClusterReconciler struct {
 	name                     string
 	reconciler               ClusterReconcileImpl
@@ -137,6 +147,8 @@ type ClusterReconciler struct {
 	apiresourceImportIndexer cache.Indexer
 
 	queue workqueue.RateLimitingInterface
+
+	commit CommitFunc
 }
 
 func (c *ClusterReconciler) enqueue(obj interface{}) {
@@ -240,17 +252,18 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 	logger = logging.WithObject(logger, previous)
 	ctx = klog.NewContext(ctx, logger)
 
+	var errs []error
 	if err := c.reconciler.Reconcile(ctx, current); err != nil {
-		return err
+		errs = append(errs, err)
 	}
 
-	// If the object being reconciled changed as a result, update it.
-	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current).Path()).WorkloadV1alpha1().SyncTargets().UpdateStatus(ctx, current, metav1.UpdateOptions{})
-		return uerr
+	oldResource := &Resource{ObjectMeta: current.ObjectMeta, Spec: &current.Spec, Status: &current.Status}
+	newResource := &Resource{ObjectMeta: previous.ObjectMeta, Spec: &previous.Spec, Status: &previous.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
 
 func (c *ClusterReconciler) deletedCluster(obj interface{}) {
