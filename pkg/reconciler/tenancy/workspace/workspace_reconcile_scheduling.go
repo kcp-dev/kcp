@@ -278,6 +278,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	if err != nil {
 		return err
 	}
+	logging.WithObject(klog.FromContext(ctx), logicalCluster).Info("creating LogicalCluster")
 	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Create(ctx, logicalCluster, metav1.CreateOptions{})
 
 	if apierrors.IsAlreadyExists(err) {
@@ -335,6 +336,7 @@ func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, sh
 		return err
 	}
 	logicalCluster.Status.Phase = phase
+	logging.WithObject(klog.FromContext(ctx), logicalCluster).WithValues("phase", phase).Info("updating LogicalCluster phase")
 	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 	return err
 }
