@@ -20,6 +20,8 @@ package v1alpha1
 
 type APIBindingExpansion interface{}
 
+type APIConversionExpansion interface{}
+
 type APIExportExpansion interface{}
 
 type APIExportEndpointSliceExpansion interface{}

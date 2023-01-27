@@ -45,9 +45,9 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	source := framework.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
-	locationPath, locationWS := framework.NewWorkspaceFixture(t, source, orgPath)
-	userPath, userWS := framework.NewWorkspaceFixture(t, source, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
+	locationPath, locationWS := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
+	userPath, userWS := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)

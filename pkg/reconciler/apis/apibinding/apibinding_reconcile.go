@@ -204,6 +204,11 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, nil
 	}
 
+	// Record the APIExport's host cluster name for lookup in webhooks.
+	// The full path is unreliable for this purpose.
+	clusterName := logicalcluster.From(apiExport)
+	apiBinding.Status.APIExportClusterName = clusterName.String()
+
 	var needToWaitForRequeueWhenEstablished []string
 
 	// Process all APIResourceSchemas
@@ -262,7 +267,30 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					err,
 				)
 			}
-			return reconcileStatusContinue, nil
+			return reconcileStatusStopAndRequeue, err
+		}
+
+		// If there are multiple versions, there must be an APIConversion
+		if len(schema.Spec.Versions) > 1 {
+			if _, err := r.getAPIConversion(logicalcluster.From(schema), schema.Name); err != nil {
+				// Need to wait until the APIConversion is present before we can proceed to create the bound CRD
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.APIExportValid,
+					apisv1alpha1.InternalErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Invalid APIExport. Please contact the APIExport owner to resolve",
+				)
+
+				return reconcileStatusContinue, fmt.Errorf(
+					"error getting APIConversion %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+					apiExportPath, schemaName,
+					bindingClusterName, apiBinding.Name,
+					apiExportPath, apiExport.Name,
+					apiExportPath, schemaName,
+					err,
+				)
+			}
 		}
 
 		// Try to get the bound CRD

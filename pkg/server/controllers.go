@@ -485,7 +485,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	workspaceTypeController, err := workspacetype.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
@@ -669,8 +669,10 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
@@ -809,8 +811,28 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	// Client used to create APIBindings within the initializing workspace
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
-	// TODO(ncdc): support standalone vw server when --shard-virtual-workspace-url is set
 	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
+
+	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
+		vwURL := fmt.Sprintf("https://%s", s.GenericConfig.ExternalAddress)
+		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardVirtualWorkspaceCAFile is required")
+		}
+		if s.Options.Extra.ShardClientCertFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardClientCertFile is required")
+		}
+		if s.Options.Extra.ShardClientKeyFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardClientKeyFile is required")
+		}
+		config.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
+		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
+		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
+		config.Host = fmt.Sprintf("%v%v", vwURL, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer))
+	}
+
 	initializingWorkspacesKcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
@@ -904,7 +926,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
@@ -1253,6 +1275,8 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 	c := synctargetcontroller.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		// TODO: change to s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		// once https://github.com/kcp-dev/kcp/issues/2649 is resolved
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {

@@ -29,7 +29,7 @@ set -o xtrace
 # Note: setting GOPROXY=direct allows us to bump very quickly after the fork has been committed to.
 GITHUB_USER=${GITHUB_USER:-kcp-dev}
 GITHUB_REPO=${GITHUB_REPO:-kubernetes}
-BRANCH=${BRANCH:-feature-logical-clusters-1.24}
+BRANCH=${BRANCH:-kcp-feature-logical-clusters-1.24-v3}
 
 current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
 
@@ -40,6 +40,6 @@ if is_gnu_sed; then
 else
   SED="sed -i ''"
 fi
-${SED} -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/[^/]+/[a-zA-Z0-9_-]+,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
+${SED} -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/kcp-dev/kubernetes,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
 
 GOPROXY=direct go mod tidy

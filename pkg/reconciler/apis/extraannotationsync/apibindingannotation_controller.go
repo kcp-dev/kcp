@@ -42,7 +42,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -64,14 +63,41 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		apiExportLister:  apiExportInformer.Lister(),
-		apiExportIndexer: apiExportInformer.Informer().GetIndexer(),
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
+		},
 
-		apiBindingLister:  apiBindingInformer.Lister(),
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
+		getAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+			// APIBinding keys by full path
+			keys := sets.NewString()
+			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+				pathKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+				if err != nil {
+					return nil, err
+				}
+				keys.Insert(pathKeys...)
+			}
 
-		getAPIBindingsByAPIExport: func(path logicalcluster.Path, exportName string) ([]*apisv1alpha1.APIBinding, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingsByAPIExport, path.Join(exportName).String())
+			clusterKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+			if err != nil {
+				return nil, err
+			}
+			keys.Insert(clusterKeys...)
+
+			ret := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
+			for _, key := range keys.List() {
+				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
+				if err != nil {
+					runtime.HandleError(err)
+					continue
+				} else if !exists {
+					runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
+					continue
+				}
+				ret = append(ret, binding.(*apisv1alpha1.APIBinding))
+			}
+
+			return ret, nil
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
@@ -110,13 +136,8 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	apiExportLister  apislisters.APIExportClusterLister
-	apiExportIndexer cache.Indexer
-
-	apiBindingLister  apislisters.APIBindingClusterLister
-	apiBindingIndexer cache.Indexer
-
-	getAPIBindingsByAPIExport func(path logicalcluster.Path, name string) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding             func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	getAPIBindingsByAPIExport func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
 	getAPIExport              func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 }
 
@@ -144,34 +165,15 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	// APIBinding keys by full path
-	keys := sets.NewString()
-	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
-		pathKeys, err := c.apiBindingIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
-		if err != nil {
-			runtime.HandleError(err)
-			return
-		}
-		keys.Insert(pathKeys...)
-	}
-
-	clusterKeys, err := c.apiBindingIndexer.IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+	bindings, err := c.getAPIBindingsByAPIExport(export)
 	if err != nil {
-		runtime.HandleError(err)
+		runtime.HandleError(fmt.Errorf("error getting APIBindings for APIExport %s|%s: %w", logicalcluster.From(export), export.Name, err))
 		return
 	}
-	keys.Insert(clusterKeys...)
 
-	for _, key := range keys.List() {
-		binding, exists, err := c.apiBindingIndexer.GetByKey(key)
-		if err != nil {
-			runtime.HandleError(err)
-			continue
-		} else if !exists {
-			runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
-			continue
-		}
-		c.enqueueAPIBinding(binding, logging.WithObject(logger, obj.(*apisv1alpha1.APIExport)), " because of APIExport")
+	logger = logging.WithObject(logger, obj.(*apisv1alpha1.APIExport))
+	for _, binding := range bindings {
+		c.enqueueAPIBinding(binding, logger, " because of APIExport")
 	}
 }
 
@@ -229,7 +231,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	apiBinding, err := c.apiBindingLister.Cluster(clusterName).Get(name)
+	apiBinding, err := c.getAPIBinding(clusterName, name)
 	if apierrors.IsNotFound(err) {
 		return nil // object deleted before we handled it
 	}

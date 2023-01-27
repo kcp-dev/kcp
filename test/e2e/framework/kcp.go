@@ -53,6 +53,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
@@ -73,6 +74,12 @@ func TestServerArgs() []string {
 func TestServerWithAuditPolicyFile(auditPolicyFile string) []string {
 	return []string{
 		"--audit-policy-file", auditPolicyFile,
+	}
+}
+
+func TestServerWithClientCAFile(clientCAFile string) []string {
+	return []string{
+		"--client-ca-file", clientCAFile,
 	}
 }
 
@@ -140,7 +147,7 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		// Use a persistent server
 
 		t.Logf("shared kcp server will target configuration %q", kubeconfig)
-		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.RootShardKubeconfig())
+		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.RootShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
 		return server
 	}
@@ -155,16 +162,31 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	artifactDir, dataDir, err := ScratchDirs(t)
 	require.NoError(t, err, "failed to create scratch dirs: %v", err)
 
+	args := TestServerArgsWithTokenAuthFile(WriteTokenAuthFile(t))
+	args = append(args, TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...)
+	clientCADir, clientCAFile := CreateClientCA(t)
+	args = append(args, TestServerWithClientCAFile(clientCAFile)...)
 	f := newKcpFixture(t, kcpConfig{
-		Name: serverName,
-		Args: append(
-			TestServerArgsWithTokenAuthFile(WriteTokenAuthFile(t)),
-			TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...,
-		),
+		Name:        serverName,
+		Args:        args,
 		ArtifactDir: artifactDir,
+		ClientCADir: clientCADir,
 		DataDir:     dataDir,
 	})
 	return f.Servers[serverName]
+}
+
+func CreateClientCA(t *testing.T) (string, string) {
+	clientCADir := t.TempDir()
+	_, err := crypto.MakeSelfSignedCA(
+		filepath.Join(clientCADir, "client-ca.crt"),
+		filepath.Join(clientCADir, "client-ca.key"),
+		filepath.Join(clientCADir, "client-ca-serial.txt"),
+		"kcp-client-ca",
+		365,
+	)
+	require.NoError(t, err)
+	return clientCADir, filepath.Join(clientCADir, "client-ca.crt")
 }
 
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
@@ -183,7 +205,7 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 		if len(cfg.DataDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing DataDir", cfg.Name))
 		}
-		server, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir)
+		server, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir, cfg.ClientCADir)
 		require.NoError(t, err)
 
 		servers = append(servers, server)
@@ -245,6 +267,7 @@ type RunningServer interface {
 	BaseConfig(t *testing.T) *rest.Config
 	RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
+	ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config
 }
 
 // KcpConfigOption a function that wish to modify a given kcp configuration.
@@ -275,6 +298,7 @@ type kcpConfig struct {
 	Args        []string
 	ArtifactDir string
 	DataDir     string
+	ClientCADir string
 
 	LogToConsole bool
 	RunInProcess bool
@@ -291,6 +315,7 @@ type kcpServer struct {
 	ctx         context.Context //nolint:containedctx
 	dataDir     string
 	artifactDir string
+	clientCADir string
 
 	lock           *sync.Mutex
 	cfg            clientcmd.ClientConfig
@@ -299,7 +324,7 @@ type kcpServer struct {
 	t *testing.T
 }
 
-func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kcpServer, error) {
+func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir, clientCADir string) (*kcpServer, error) {
 	t.Helper()
 
 	kcpListenPort, err := GetFreePort(t)
@@ -339,6 +364,7 @@ func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kc
 			cfg.Args...),
 		dataDir:     dataDir,
 		artifactDir: artifactDir,
+		clientCADir: clientCADir,
 		t:           t,
 		lock:        &sync.Mutex{},
 	}, nil
@@ -622,6 +648,10 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 	return restConfig, nil
 }
 
+func (c *kcpServer) ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config {
+	return ClientCAUserConfig(t, config, c.clientCADir, name, groups...)
+}
+
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	t.Helper()
@@ -700,7 +730,7 @@ func (c *kcpServer) loadCfg() error {
 	var lastError error
 	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, 1*time.Minute, func(ctx context.Context) (bool, error) {
 		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
-		config, err := loadKubeConfig(c.kubeconfigPath)
+		config, err := LoadKubeConfig(c.kubeconfigPath, "base")
 		if err != nil {
 			// A missing file is likely caused by the server not
 			// having started up yet. Ignore these errors for the
@@ -791,11 +821,11 @@ func unreadyComponentsFromError(err error) string {
 	return strings.Join(unreadyComponents, ", ")
 }
 
-// loadKubeConfig loads a kubeconfig from disk. This method is
+// LoadKubeConfig loads a kubeconfig from disk. This method is
 // intended to be common between fixture for servers whose lifecycle
 // is test-managed and fixture for servers whose lifecycle is managed
 // separately from a test run.
-func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
+func LoadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
 	fs, err := os.Stat(kubeconfigPath)
 	if err != nil {
 		return nil, err
@@ -809,7 +839,7 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "base", nil, nil), nil
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
 }
 
 type unmanagedKCPServer struct {
@@ -817,6 +847,11 @@ type unmanagedKCPServer struct {
 	kubeconfigPath          string
 	rootShardKubeconfigPath string
 	cfg, rootShardCfg       clientcmd.ClientConfig
+	clientCADir             string
+}
+
+func (s *unmanagedKCPServer) ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config {
+	return ClientCAUserConfig(t, config, s.clientCADir, name, groups...)
 }
 
 // newPersistentKCPServer returns a RunningServer for a kubeconfig
@@ -824,13 +859,13 @@ type unmanagedKCPServer struct {
 // kubeconfig is expected to exist prior to running tests against it,
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
-func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string) (RunningServer, error) {
-	cfg, err := loadKubeConfig(kubeconfigPath)
+func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath, clientCADir string) (RunningServer, error) {
+	cfg, err := LoadKubeConfig(kubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
 
-	rootShardCfg, err := loadKubeConfig(rootShardKubeconfigPath)
+	rootShardCfg, err := LoadKubeConfig(rootShardKubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
@@ -841,6 +876,7 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string
 		rootShardKubeconfigPath: rootShardKubeconfigPath,
 		cfg:                     cfg,
 		rootShardCfg:            rootShardCfg,
+		clientCADir:             clientCADir,
 	}, nil
 }
 

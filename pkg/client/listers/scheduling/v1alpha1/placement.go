@@ -103,7 +103,7 @@ func (s *placementLister) Get(name string) (*schedulingv1alpha1.Placement, error
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(schedulingv1alpha1.Resource("Placement"), name)
+		return nil, errors.NewNotFound(schedulingv1alpha1.Resource("placements"), name)
 	}
 	return obj.(*schedulingv1alpha1.Placement), nil
 }
@@ -137,7 +137,7 @@ func (s *placementScopedLister) Get(name string) (*schedulingv1alpha1.Placement,
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(schedulingv1alpha1.Resource("Placement"), name)
+		return nil, errors.NewNotFound(schedulingv1alpha1.Resource("placements"), name)
 	}
 	return obj.(*schedulingv1alpha1.Placement), nil
 }

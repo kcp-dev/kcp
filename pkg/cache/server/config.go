@@ -17,16 +17,15 @@ limitations under the License.
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
@@ -36,7 +35,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -65,8 +63,7 @@ type completedConfig struct {
 }
 
 type ExtraConfig struct {
-	ApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
-
+	ApiExtensionsClusterClient         kcpapiextensionsclientset.ClusterInterface
 	ApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
 }
 
@@ -203,29 +200,25 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiextensionsapiserver.ExtraConfig{
-			CRDRESTOptionsGetter: apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd),
-			// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
-			// supported. The effect is that CRD webhook conversions are not supported and will always get an
-			// error.
-			ServiceResolver:        &unimplementedServiceResolver{},
+			CRDRESTOptionsGetter:   apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd),
 			MasterCount:            1,
-			AuthResolverWrapper:    webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
 			Client:                 c.ApiExtensionsClusterClient,
 			Informers:              c.ApiExtensionsSharedInformerFactory,
 			ClusterAwareCRDLister:  &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
 			DisableServerSideApply: true,
+			ConversionFactory:      &nopCRConversionFactory{},
 		},
 	}
 
 	return c, nil
 }
 
-// unimplementedServiceResolver is a webhook.ServiceResolver that always returns an error, because
-// we have not implemented support for this yet. As a result, CRD webhook conversions are not
-// supported.
-type unimplementedServiceResolver struct{}
+// nopCRConversionFactory implements conversion.Factory and always returns a no-op converter because we currently have
+// no need to perform CR conversions in the cache server.
+type nopCRConversionFactory struct{}
 
-// ResolveEndpoint always returns an error that this is not yet supported.
-func (r *unimplementedServiceResolver) ResolveEndpoint(namespace string, name string, port int32) (*url.URL, error) {
-	return nil, errors.New("CRD webhook conversions are not supported")
+// NewConverter always returns a no-op converter because we currently have no need to perform CR conversions in the
+// cache server.
+func (n nopCRConversionFactory) NewConverter(_ *apiextensionsv1.CustomResourceDefinition) (conversion.CRConverter, error) {
+	return conversion.NewNOPConverter(), nil
 }

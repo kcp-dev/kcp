@@ -152,6 +152,10 @@ spec:
           status:
             description: Status communicates the observed state.
             properties:
+              apiExportClusterName:
+                description: APIExportClusterName records the name (not path) of the
+                  logical cluster that contains the APIExport.
+                type: string
               appliedPermissionClaims:
                 description: appliedPermissionClaims is a list of the permission claims
                   the system has seen and applied, according to the requests of the

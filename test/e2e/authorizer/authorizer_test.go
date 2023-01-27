@@ -91,13 +91,13 @@ func TestAuthorizer(t *testing.T) {
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace2"), []string{"user-3"}, nil, false)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace2"), []string{"user-2"}, nil, true)
 
-	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", cfg))
+	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", cfg))
 	require.NoError(t, err)
-	user1KubeDiscoveryClient, err := kcpdiscovery.NewForConfig(framework.UserConfig("user-1", cfg))
+	user1KubeDiscoveryClient, err := kcpdiscovery.NewForConfig(framework.StaticTokenUserConfig("user-1", cfg))
 	require.NoError(t, err)
-	user2KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-2", cfg))
+	user2KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-2", cfg))
 	require.NoError(t, err)
-	user3KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-3", cfg))
+	user3KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-3", cfg))
 	require.NoError(t, err)
 
 	t.Logf("Priming the authorization cache")
@@ -169,7 +169,7 @@ func TestAuthorizer(t *testing.T) {
 			// create client talking directly to root shard to test wildcard requests
 			rootKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardCfg)
 			require.NoError(t, err)
-			user1RootKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", rootShardCfg))
+			user1RootKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", rootShardCfg))
 			require.NoError(t, err)
 
 			_, err = rootKubeClusterClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})

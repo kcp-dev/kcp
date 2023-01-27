@@ -53,6 +53,10 @@ func WithRootShard() UnprivilegedWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
+func TODO_WithoutMultiShardSupport() UnprivilegedWorkspaceOption {
+	return WithRootShard()
+}
+
 func WithShard(name string) UnprivilegedWorkspaceOption {
 	return WithLocation(tenancyv1alpha1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -137,6 +141,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
 
+	wsName := ws.Name
 	t.Cleanup(func() {
 		if preserveTestResources() {
 			return
@@ -145,11 +150,11 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, clusterClient kcpclien
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
-		require.NoErrorf(t, err, "failed to delete workspace %s", ws.Name)
+		require.NoErrorf(t, err, "failed to delete workspace %s", wsName)
 	})
 
 	Eventually(t, func() (bool, string) {

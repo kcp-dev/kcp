@@ -17,24 +17,27 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-# set -o xtrace
+set -o xtrace
 
-if [[ -z "${MAKELEVEL:-}" ]]; then
-    echo 'You must invoke this script via make'
+if [[ -z "${CONTROLLER_GEN:-}" ]]; then
+    echo "You must either set CONTROLLER_GEN to the path to controller-gen or invoke via make"
     exit 1
 fi
 
-# Update generated CRD YAML
-cd pkg/apis
-../../${CONTROLLER_GEN} \
-    crd \
-    rbac:roleName=manager-role \
-    webhook \
-    paths="./..." \
-    output:crd:artifacts:config=../../config/crds
-cd -
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-for CRD in ./config/crds/*.yaml; do
+# Update generated CRD YAML
+(
+    cd "${REPO_ROOT}/pkg/apis"
+    "../../${CONTROLLER_GEN}" \
+        crd \
+        rbac:roleName=manager-role \
+        webhook \
+        paths="./..." \
+        output:crd:artifacts:config="${REPO_ROOT}"config/crds
+)
+
+for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do
     if [ -f "${CRD}-patch" ]; then
         echo "Applying ${CRD}"
         ${YAML_PATCH} -o "${CRD}-patch" < "${CRD}" > "${CRD}.patched"
@@ -46,7 +49,10 @@ ${CONTROLLER_GEN} \
     crd \
     rbac:roleName=manager-role \
     webhook \
-    paths="./test/e2e/reconciler/cluster/..." \
-    output:crd:artifacts:config=test/e2e/reconciler/cluster/
+    paths="${REPO_ROOT}/test/e2e/reconciler/cluster/..." \
+    output:crd:artifacts:config="${REPO_ROOT}"/test/e2e/reconciler/cluster/
 
-go run ./cmd/apigen --input-dir ./config/crds --output-dir  ./config/root-phase0
+(
+    cd "${REPO_ROOT}"/cmd/apigen
+    go run main.go --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0
+)

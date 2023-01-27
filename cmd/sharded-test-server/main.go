@@ -171,9 +171,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	standaloneVW := sets.NewString(shardFlags...).Has("--run-virtual-workspaces=false")
-	if standaloneVW {
-		shardFlags = append(shardFlags, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:7444", hostIP))
-	}
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
@@ -194,7 +191,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start shards
 	var shards []*shard.Shard
 	for i := 0; i < numberOfShards; i++ {
-		shard, err := newShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath)
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
 		if err != nil {
 			return err
 		}
@@ -204,21 +201,50 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		shards = append(shards, shard)
 	}
 
+	// Start virtual-workspace servers
 	vwPort := "6444"
-	virtualWorkspacesErrCh := make(chan indexErrTuple)
+	var virtualWorkspaces []*VirtualWorkspace
 	if standaloneVW {
 		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
 		vwPort = "7444"
 
 		for i := 0; i < numberOfShards; i++ {
-			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath, workDirPath)
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA)
 			if err != nil {
-				return fmt.Errorf("error starting virtual workspaces server %d: %w", i, err)
+				return err
 			}
-			go func(vwIndex int, vwErrCh <-chan error) {
-				err := <-virtualWorkspaceErrCh
-				virtualWorkspacesErrCh <- indexErrTuple{vwIndex, err}
-			}(i, virtualWorkspaceErrCh)
+			if err := vw.start(ctx); err != nil {
+				return err
+			}
+			virtualWorkspaces = append(virtualWorkspaces, vw)
+		}
+	}
+
+	// Wait for shards to be ready
+	shardsErrCh := make(chan indexErrTuple)
+	for i, shard := range shards {
+		terminatedCh, err := shard.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		go func(i int, terminatedCh <-chan error) {
+			err := <-terminatedCh
+			shardsErrCh <- indexErrTuple{i, err}
+		}(i, terminatedCh)
+	}
+
+	// Wait for virtual workspaces to be ready
+	virtualWorkspacesErrCh := make(chan indexErrTuple)
+	if standaloneVW {
+		for i, vw := range virtualWorkspaces {
+			terminatedCh, err := vw.waitForReady(ctx)
+			if err != nil {
+				return err
+			}
+			go func(i int, terminatedCh <-chan error) {
+				err := <-terminatedCh
+				virtualWorkspacesErrCh <- indexErrTuple{i, err}
+			}(i, terminatedCh)
 		}
 	}
 
@@ -234,19 +260,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
 		return err
-	}
-
-	// Wait for shards to be ready
-	shardsErrCh := make(chan indexErrTuple)
-	for i, shard := range shards {
-		terminatedCh, err := shard.WaitForReady(ctx)
-		if err != nil {
-			return err
-		}
-		go func(i int, terminatedCh <-chan error) {
-			err := <-terminatedCh
-			shardsErrCh <- indexErrTuple{i, err}
-		}(i, terminatedCh)
 	}
 
 	select {

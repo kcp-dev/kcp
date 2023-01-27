@@ -56,6 +56,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 		&APIExportEndpointSlice{},
 		&APIExportEndpointSliceList{},
+
+		&APIConversion{},
+		&APIConversionList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

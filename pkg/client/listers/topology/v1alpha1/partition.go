@@ -103,7 +103,7 @@ func (s *partitionLister) Get(name string) (*topologyv1alpha1.Partition, error) 
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(topologyv1alpha1.Resource("Partition"), name)
+		return nil, errors.NewNotFound(topologyv1alpha1.Resource("partitions"), name)
 	}
 	return obj.(*topologyv1alpha1.Partition), nil
 }
@@ -137,7 +137,7 @@ func (s *partitionScopedLister) Get(name string) (*topologyv1alpha1.Partition, e
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(topologyv1alpha1.Resource("Partition"), name)
+		return nil, errors.NewNotFound(topologyv1alpha1.Resource("partitions"), name)
 	}
 	return obj.(*topologyv1alpha1.Partition), nil
 }

@@ -49,6 +49,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingList":                              schema_pkg_apis_apis_v1alpha1_APIBindingList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingSpec":                              schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus":                            schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion":                               schema_pkg_apis_apis_v1alpha1_APIConversion(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionList":                           schema_pkg_apis_apis_v1alpha1_APIConversionList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule":                           schema_pkg_apis_apis_v1alpha1_APIConversionRule(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec":                           schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport":                                   schema_pkg_apis_apis_v1alpha1_APIExport(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint":                           schema_pkg_apis_apis_v1alpha1_APIExportEndpoint(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSlice":                      schema_pkg_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
@@ -62,6 +66,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion":                          schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion":                        schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference":                            schema_pkg_apis_apis_v1alpha1_BindingReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
@@ -1213,6 +1218,13 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 				Description: "APIBindingStatus records which schemas are bound.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"apiExportClusterName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"boundResources": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -1290,6 +1302,174 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match the name of the APIResourceSchema for the conversions to take effect.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec holds the desired state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec"),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIConversionList is a list of APIConversion resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APIConversionRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIConversionRule specifies how to convert a single field.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "field is a JSONPath expression to the field in the originating version of the object, relative to its root, such as '.spec.name.first'.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"destination": {
+						SchemaProps: spec.SchemaProps{
+							Description: "destination is a JSONPath expression to the field in the target version of the object, relative to its root, such as '.spec.name.first'.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"transformation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "transformation is an optional CEL expression used to execute user-specified rules to transform the originating field -- identified by 'self' -- to the destination field.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"field", "destination"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIConversionSpec contains rules to convert between different API versions in an APIResourceSchema.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conversions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"from",
+									"to",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "conversions specify rules to convert between different API versions in an APIResourceSchema.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"conversions"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion"},
 	}
 }
 
@@ -1708,7 +1888,7 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "APIResourceSchema describes a resource, identified by (group, version, resource, schema).\n\nA APIResourceSchema is immutable and cannot be deleted if they are referenced by an APIExport in the same workspace.",
+				Description: "APIResourceSchema describes a resource, identified by (group, version, resource, schema).\n\nAn APIResourceSchema is immutable and cannot be deleted if they are referenced by an APIExport in the same workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1948,6 +2128,75 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceColumnDefinition", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceSubresources", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIVersionConversion contains rules to convert between two specific API versions in an APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that contains a new field to one that doesn't and back again, you can specify a list of fields to preserve (these are stored in annotations).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"from": {
+						SchemaProps: spec.SchemaProps{
+							Description: "from is the source version.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"to": {
+						SchemaProps: spec.SchemaProps{
+							Description: "to is the target version.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"rules": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"destination",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "rules contains field-specific conversion expressions.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule"),
+									},
+								},
+							},
+						},
+					},
+					"preserve": {
+						SchemaProps: spec.SchemaProps{
+							Description: "preserve contains a list of JSONPath expressions to fields to preserve in the originating version of the object, relative to its root, such as '.spec.name.first'.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"from", "to", "rules"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule"},
 	}
 }
 

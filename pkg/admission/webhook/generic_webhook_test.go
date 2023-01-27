@@ -21,16 +21,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -38,9 +34,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
-	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Operation) admission.Attributes {
@@ -150,6 +143,7 @@ func TestDispatch(t *testing.T) {
 								Resource: "cowboys",
 							},
 						},
+						APIExportClusterName: "root-org-source",
 					},
 				},
 			},
@@ -264,27 +258,15 @@ func TestDispatch(t *testing.T) {
 			ctx, cancelFn := context.WithCancel(context.Background())
 			t.Cleanup(cancelFn)
 
-			fakeClient := kcpfakeclient.NewSimpleClientset(toObjects(tc.apiBindings)...)
-			fakeInformerFactory := kcpinformers.NewSharedInformerFactory(fakeClient, time.Hour)
-
 			o := &WebhookDispatcher{
-				Handler:                 admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-				dispatcher:              &validatingDispatcher{hooks: tc.expectedHooks},
-				hookSource:              &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
-				apiBindingClusterLister: fakeInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
-				informersHaveSynced:     tc.informersHaveSynced,
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					for _, apiExport := range tc.apiExports {
-						if keys, _ := indexers.IndexByLogicalClusterPathAndName(apiExport); sets.NewString(keys...).Has(path.Join(name).String()) {
-							return apiExport, nil
-						}
-					}
-					return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+				Handler:             admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+				dispatcher:          &validatingDispatcher{hooks: tc.expectedHooks},
+				hookSource:          &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
+				informersHaveSynced: tc.informersHaveSynced,
+				getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+					return tc.apiBindings, nil
 				},
 			}
-
-			fakeInformerFactory.Start(ctx.Done())
-			fakeInformerFactory.WaitForCacheSync(ctx.Done())
 
 			if tc.informersHaveSynced == nil {
 				o.informersHaveSynced = func() bool { return true }
@@ -301,14 +283,6 @@ func TestDispatch(t *testing.T) {
 			}
 		})
 	}
-}
-
-func toObjects(bindings []*apisv1alpha1.APIBinding) []runtime.Object {
-	objs := make([]runtime.Object, 0, len(bindings))
-	for _, binding := range bindings {
-		objs = append(objs, binding)
-	}
-	return objs
 }
 
 type apiExportBuilder struct {

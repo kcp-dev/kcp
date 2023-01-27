@@ -106,6 +106,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIExportEndpointSlices().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIResourceSchemas().Informer()}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIConversions().Informer()}, nil
 	// Group=core.kcp.io, Version=V1alpha1
 	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().LogicalClusters().Informer()}, nil
@@ -157,6 +159,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		informer := f.Apis().V1alpha1().APIResourceSchemas().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"):
+		informer := f.Apis().V1alpha1().APIConversions().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=core.kcp.io, Version=V1alpha1
 	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):

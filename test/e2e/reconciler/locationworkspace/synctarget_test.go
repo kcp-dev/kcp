@@ -60,12 +60,12 @@ func TestSyncTargetExport(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
 
-	schemaPath, schemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	schemaPath, schemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 	schemaClusterName := logicalcluster.Name(schemaWorkspace.Spec.Cluster)
 
-	computePath, computeWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	computePath, computeWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 	computeClusterName := logicalcluster.Name(computeWorkspace.Spec.Cluster)
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))

@@ -206,7 +206,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					return server.kcpClusterClient.Cluster(typeSourcePath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
-				user1KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
+				user1KcpClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", rest.CopyConfig(cfg)))
 				require.NoError(t, err, "failed to construct client for user-1")
 				_ = user1KcpClient
 

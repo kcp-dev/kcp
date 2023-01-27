@@ -103,7 +103,7 @@ func (s *aPIResourceImportLister) Get(name string) (*apiresourcev1alpha1.APIReso
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("APIResourceImport"), name)
+		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("apiresourceimports"), name)
 	}
 	return obj.(*apiresourcev1alpha1.APIResourceImport), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIResourceImportScopedLister) Get(name string) (*apiresourcev1alpha1.A
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("APIResourceImport"), name)
+		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("apiresourceimports"), name)
 	}
 	return obj.(*apiresourcev1alpha1.APIResourceImport), nil
 }

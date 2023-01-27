@@ -83,7 +83,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a WorkspaceType as user-1")
-				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
+				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = userKcpClusterClient.Cluster(orgPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
@@ -114,7 +114,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a APIExport as user-1")
-				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
+				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
@@ -169,7 +169,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	user3KcpClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	serviceProviderClusterNames := []logicalcluster.Path{rbacServiceProviderPath, serviceProvider2Workspace}
@@ -228,7 +228,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
 		framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, true)
 		bindConsumerToProvider(consumer, serviceProvider)
-		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
+		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", rest.CopyConfig(cfg)))
 		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer).Cowboys("default")
 		require.NoError(t, err)
 		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
@@ -255,7 +255,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 
 			framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, consumer, []string{"user-2"}, nil, false)
-			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
+			user2Client, err := wildwestclientset.NewForConfig(framework.StaticTokenUserConfig("user-2", rest.CopyConfig(cfg)))
 			require.NoError(t, err)
 
 			t.Logf("Make sure user 2 can list cowboys in consumer workspace %q", consumer)

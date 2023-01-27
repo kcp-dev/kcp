@@ -62,12 +62,28 @@ func TestAuditLogs(t *testing.T) {
 	require.NoError(t, err, "Error reading auditfile")
 
 	lines := strings.Split(string(data), "\n")
-	var auditEvent audit.Event
-	err = json.Unmarshal([]byte(lines[0]), &auditEvent)
+	var requestAuditEvent, responseAuditEvent audit.Event
+	err = json.Unmarshal([]byte(lines[0]), &requestAuditEvent)
+	require.NoError(t, err, "Error parsing JSON data")
+	err = json.Unmarshal([]byte(lines[1]), &responseAuditEvent)
 	require.NoError(t, err, "Error parsing JSON data")
 
 	workspaceNameSent := ws.Spec.Cluster
-	workspaceNameRecvd := auditEvent.Annotations["tenancy.kcp.io/workspace"]
+	require.Equal(t, workspaceNameSent, requestAuditEvent.Annotations["tenancy.kcp.io/workspace"])
+	require.Equal(t, workspaceNameSent, responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
 
-	require.Equal(t, workspaceNameSent, workspaceNameRecvd)
+	for _, annotation := range []string{
+		"request.auth.kcp.io/01-requiredgroups",
+		"request.auth.kcp.io/02-content",
+		"request.auth.kcp.io/03-systemcrd",
+		"request.auth.kcp.io/04-maxpermissionpolicy",
+		"request.auth.kcp.io/05-bootstrap",
+	} {
+		if _, ok := responseAuditEvent.Annotations[annotation+"-decision"]; !ok {
+			t.Errorf("expected annotation %v-decision but got none", annotation)
+		}
+		if _, ok := responseAuditEvent.Annotations[annotation+"-reason"]; !ok {
+			t.Errorf("expected annotation %v-reason but got none", annotation)
+		}
+	}
 }

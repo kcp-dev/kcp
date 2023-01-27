@@ -38,6 +38,7 @@ type ApisV1alpha1ClusterInterface interface {
 	APIExportsClusterGetter
 	APIExportEndpointSlicesClusterGetter
 	APIResourceSchemasClusterGetter
+	APIConversionsClusterGetter
 }
 
 type ApisV1alpha1ClusterScoper interface {
@@ -69,6 +70,10 @@ func (c *ApisV1alpha1ClusterClient) APIExportEndpointSlices() APIExportEndpointS
 
 func (c *ApisV1alpha1ClusterClient) APIResourceSchemas() APIResourceSchemaClusterInterface {
 	return &aPIResourceSchemasClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *ApisV1alpha1ClusterClient) APIConversions() APIConversionClusterInterface {
+	return &aPIConversionsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new ApisV1alpha1ClusterClient for the given config.

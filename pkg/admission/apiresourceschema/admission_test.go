@@ -105,7 +105,7 @@ spec:
             `)),
 			expectedErrors: []string{
 				"metadata.name: Invalid value: \"may.2022.cowboys.wild.west\": must match ^[a-z]([-a-z0-9]*[a-z0-9])?$ in front of .cowboys.wild.west",
-				"spec.versions[0].schema: Required value: schemas are required",
+				"spec.versions[0].schema: Required value",
 				"spec.versions[1].schema.openAPIV3Schema.type: Unsupported value: \"thing\": supported values: \"array\", \"boolean\", \"integer\", \"number\", \"object\", \"string\"",
 				"spec.versions[1].schema.openAPIV3Schema.type: Invalid value: \"thing\": must be object at the root",
 				"spec.names.singular: Required value",

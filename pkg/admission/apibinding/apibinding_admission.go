@@ -42,7 +42,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
@@ -70,7 +69,6 @@ type apiBindingAdmission struct {
 
 	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 
-	apiExportLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
 	deepSARClient    kcpkubernetesclientset.ClusterInterface
@@ -280,9 +278,6 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 	if o.deepSARClient == nil {
 		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
 	}
-	if o.apiExportLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an APIExport lister")
-	}
 	return nil
 }
 
@@ -297,10 +292,5 @@ func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedI
 	o.SetReadyFunc(func() bool {
 		return apiExportsReady()
 	})
-	o.apiExportLister = local.Apis().V1alpha1().APIExports().Lister()
 	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-
-	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
 }

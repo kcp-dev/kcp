@@ -18,9 +18,14 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	_ "net/http/pprof"
+	"net/url"
+	"os"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
@@ -37,7 +42,6 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
-	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -62,6 +67,7 @@ import (
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
@@ -322,6 +328,40 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
+	var shardVirtualWorkspaceURL *url.URL
+	if !opts.Virtual.Enabled && opts.Extra.ShardVirtualWorkspaceURL != "" {
+		shardVirtualWorkspaceURL, err = url.Parse(opts.Extra.ShardVirtualWorkspaceURL)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var virtualWorkspaceServerProxyTransport http.RoundTripper
+	if opts.Extra.ShardClientCertFile != "" && opts.Extra.ShardClientKeyFile != "" && opts.Extra.ShardVirtualWorkspaceCAFile != "" {
+		caCert, err := os.ReadFile(opts.Extra.ShardVirtualWorkspaceCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA file %q: %w", opts.Extra.ShardVirtualWorkspaceCAFile, err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		cert, err := tls.LoadX509KeyPair(opts.Extra.ShardClientCertFile, opts.Extra.ShardClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate %q or key %q: %w", opts.Extra.ShardClientCertFile, opts.Extra.ShardClientKeyFile, err)
+		}
+
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+		}
+		virtualWorkspaceServerProxyTransport = transport
+	}
+
+	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
+	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -329,9 +369,19 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithRequestIdentity(apiHandler)
+		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
+		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
+		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
+		// This compromises audit log size and information overflow vs. having audit reasons for the main api handler only.
+		// First, remember authorizer chain with audit logging disabled.
+		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
+		// configure audit logging enabled authorizer chain and build the apiHandler using this configuration.
+		genericConfig.Authorization.Authorizer = authorization.WithAuditLogging("request.auth.kcp.io", genericConfig.Authorization.Authorizer)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
+		// reset authorizer chain with audit logging disabled.
+		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
 		if opts.HomeWorkspaces.Enabled {
 			apiHandler, err = WithHomeWorkspaces(
@@ -352,10 +402,21 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			}
 		}
 
-		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
-		genericConfig.Authorization.Authorizer = authorization.EnableAuditLogging(genericConfig.Authorization.Authorizer)
+		// Only include this when the virtual workspace server is external
+		if shardVirtualWorkspaceURL != nil && virtualWorkspaceServerProxyTransport != nil {
+			proxy := &httputil.ReverseProxy{
+				Director: func(r *http.Request) {
+					r.URL.Scheme = shardVirtualWorkspaceURL.Scheme
+					r.URL.Host = shardVirtualWorkspaceURL.Host
+					delete(r.Header, "X-Forwarded-For")
+				},
+			}
+			// Note: this has to come after DefaultBuildHandlerChainBeforeAuthz because it needs the user info, which
+			// is only available after DefaultBuildHandlerChainBeforeAuthz.
+			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
+		}
+
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
-		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
@@ -431,22 +492,17 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		informerfactoryhack.Wrap(c.Apis.ExtraConfig.VersionedInformers),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
-
-		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
-		// supported. The effect is that CRD webhook conversions are not supported and will always get an
-		// error.
-		&unimplementedServiceResolver{},
-
-		webhook.NewDefaultAuthenticationInfoResolverWrapper(
-			nil,
-			c.Apis.GenericConfig.EgressSelector,
-			c.Apis.GenericConfig.LoopbackClientConfig,
-			c.Apis.GenericConfig.TracerProvider,
-		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("configure api extensions: %w", err)
+		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
+
+	c.ApiExtensions.ExtraConfig.ConversionFactory = conversion.NewCRConverterFactory(
+		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+		opts.Extra.ConversionCELTransformationTimeout,
+	)
+	// make sure the informer gets started, otherwise conversions will not work!
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
 	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})       //nolint:errcheck
 	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck

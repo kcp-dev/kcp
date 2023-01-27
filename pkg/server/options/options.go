@@ -54,17 +54,21 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	RootDirectory                 string
-	ProfilerAddress               string
-	ShardKubeconfigFile           string
-	RootShardKubeconfigFile       string
-	ShardBaseURL                  string
-	ShardExternalURL              string
-	ShardName                     string
-	ShardVirtualWorkspaceURL      string
-	DiscoveryPollInterval         time.Duration
-	ExperimentalBindFreePort      bool
-	LogicalClusterAdminKubeconfig string
+	RootDirectory                      string
+	ProfilerAddress                    string
+	ShardKubeconfigFile                string
+	RootShardKubeconfigFile            string
+	ShardBaseURL                       string
+	ShardExternalURL                   string
+	ShardName                          string
+	ShardVirtualWorkspaceURL           string
+	ShardClientCertFile                string
+	ShardClientKeyFile                 string
+	ShardVirtualWorkspaceCAFile        string
+	DiscoveryPollInterval              time.Duration
+	ExperimentalBindFreePort           bool
+	LogicalClusterAdminKubeconfig      string
+	ConversionCELTransformationTimeout time.Duration
 
 	BatteriesIncluded []string
 }
@@ -101,15 +105,17 @@ func NewOptions(rootDir string) *Options {
 		Cache:               *NewCache(rootDir),
 
 		Extra: ExtraOptions{
-			RootDirectory:            rootDir,
-			ProfilerAddress:          "",
-			ShardKubeconfigFile:      "",
-			ShardBaseURL:             "",
-			ShardExternalURL:         "",
-			ShardName:                "root",
-			DiscoveryPollInterval:    60 * time.Second,
-			ExperimentalBindFreePort: false,
-			BatteriesIncluded:        batteries.Defaults.List(),
+			RootDirectory:                      rootDir,
+			ProfilerAddress:                    "",
+			ShardKubeconfigFile:                "",
+			ShardBaseURL:                       "",
+			ShardExternalURL:                   "",
+			ShardName:                          "root",
+			DiscoveryPollInterval:              60 * time.Second,
+			ExperimentalBindFreePort:           false,
+			ConversionCELTransformationTimeout: time.Second,
+
+			BatteriesIncluded: batteries.Defaults.List(),
 		},
 	}
 
@@ -173,12 +179,17 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardExternalURL, "shard-external-url", o.Extra.ShardExternalURL, "URL used by outside clients to talk to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
+	fs.StringVar(&o.Extra.ShardVirtualWorkspaceCAFile, "shard-virtual-workspace-ca-file", o.Extra.ShardVirtualWorkspaceCAFile, "Path to a CA certificate file that is valid for the virtual workspace server.")
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
+	fs.StringVar(&o.Extra.ShardClientCertFile, "shard-client-cert-file", o.Extra.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
+	fs.StringVar(&o.Extra.ShardClientKeyFile, "shard-client-key-file", o.Extra.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
+
+	fs.DurationVar(&o.Extra.ConversionCELTransformationTimeout, "conversion-cel-transformation-timeout", o.Extra.ConversionCELTransformationTimeout, "Maximum amount of time that CEL transformations may take per object conversion.")
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.

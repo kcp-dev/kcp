@@ -291,6 +291,9 @@ func TestReconcileBinding(t *testing.T) {
 				conflicting.Build(),
 			},
 			wantNamingConflict: true,
+			wantError:          true,
+			wantRequeue:        true,
+			wantNoReady:        true,
 		},
 		"bind existing CRD - other bindings - conflicts": {
 			apiBinding: binding.Build(),
@@ -299,6 +302,9 @@ func TestReconcileBinding(t *testing.T) {
 				conflicting.Build(),
 			},
 			wantNamingConflict: true,
+			wantError:          true,
+			wantRequeue:        true,
+			wantNoReady:        true,
 		},
 		"CRD already exists but isn't established yet": {
 			apiBinding:                binding.Build(),

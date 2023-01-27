@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -37,7 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
@@ -45,6 +47,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -53,16 +56,21 @@ type testScenario struct {
 	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface)
 }
 
-// scenarios all test scenarios that will be run against in-process and standalone cache server.
+// scenarios all test scenarios that will be run against an environment provided by the test binary.
 var scenarios = []testScenario{
 	{"TestReplicateAPIExport", replicateAPIExportScenario},
 	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
 	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
 	{"TestReplicateAPIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
-	{"TestReplicateShard", replicateShardScenario},
-	{"TestReplicateShardNegative", replicateShardNegativeScenario},
 	{"TestReplicateWorkspaceType", replicateWorkspaceTypeScenario},
 	{"TestReplicateWorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
+}
+
+// disruptiveScenarios contains a list of scenarios that will be run in a private environment
+// so that they don't disrupt other tests.
+var disruptiveScenarios = []testScenario{
+	{"TestReplicateShard", replicateShardScenario},
+	{"TestReplicateShardNegative", replicateShardNegativeScenario},
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
@@ -76,12 +84,11 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"today.sheriffs.wild.wild.west",
 		"APIResourceSchema",
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("today.sheriffs.%s", "wild.wild.west"),
+				Name: fmt.Sprintf("%s.%s", withPseudoRandomSuffix("today"), "sheriffs.wild.wild.west"),
 			},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
 				Group: "wild.wild.west",
@@ -126,12 +133,11 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"juicy.mangodbs.db.io",
 		"APIResourceSchema",
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "juicy.mangodbs.db.io",
+				Name: fmt.Sprintf("%s.%s", withPseudoRandomSuffix("juicy"), "mangodbs.db.io"),
 			},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
 				Group: "db.io",
@@ -178,11 +184,10 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"wild.wild.west",
 		"APIExport",
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 		&apisv1alpha1.APIExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("wild.wild.west")},
 		},
 		&apisv1alpha1.APIExport{
 			Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}},
@@ -200,12 +205,11 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"mangodb",
 		"APIExport",
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 		&apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "mangodb",
+				Name: withPseudoRandomSuffix("mangodb"),
 			},
 		},
 		&apisv1alpha1.APIExport{
@@ -224,11 +228,10 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		core.RootCluster,
-		"test-shard",
 		"Shard",
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"),
 		&corev1alpha1.Shard{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-shard"},
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("test-shard")},
 			Spec:       corev1alpha1.ShardSpec{BaseURL: "https://base.kcp.test.dev"},
 		},
 		&corev1alpha1.Shard{
@@ -247,12 +250,11 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		core.RootCluster,
-		"test-shard-2",
 		"Shard",
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"),
 		&corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-shard-2",
+				Name: withPseudoRandomSuffix("test-shard"),
 			},
 			Spec: corev1alpha1.ShardSpec{
 				BaseURL: "https://base.kcp.test.dev",
@@ -274,11 +276,10 @@ func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server fr
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"replicate-workspace-type",
 		"WorkspaceType",
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
 		&tenancyv1alpha1.WorkspaceType{
-			ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type"},
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("replicate-workspace-type")},
 			Spec:       tenancyv1alpha1.WorkspaceTypeSpec{},
 		},
 		&tenancyv1alpha1.WorkspaceType{
@@ -297,11 +298,10 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 		kcpShardClusterDynamicClient,
 		cacheKcpClusterDynamicClient,
 		"",
-		"replicate-workspace-type-negative",
 		"WorkspaceType",
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
 		&tenancyv1alpha1.WorkspaceType{
-			ObjectMeta: metav1.ObjectMeta{Name: "replicate-workspace-type-negative"},
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("replicate-workspace-type-negative")},
 			Spec:       tenancyv1alpha1.WorkspaceTypeSpec{},
 		},
 		&tenancyv1alpha1.WorkspaceType{
@@ -319,7 +319,6 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 //	replicateResource(
 //	  ...
 //	  "root:org:rh", // clusterName
-//	  "my-awesome-resource" // resName
 //	  "APIExports", // kind
 //	  apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), // gvr
 //	  &apisv1alpha1.APIExport{...}, // the resource
@@ -328,7 +327,6 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 func replicateResource(ctx context.Context, t *testing.T,
 	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
 	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
-	resourceName string, /*a resource name*/
 	kind string, /*kind for the given resource*/
 	gvr schema.GroupVersionResource, /*gvr for the given resource*/
 	res runtime.Object, /*a strongly typed resource object that will be created*/
@@ -340,6 +338,9 @@ func replicateResource(ctx context.Context, t *testing.T,
 		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
 		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
+	resMeta, err := meta.Accessor(res)
+	require.NoError(t, err)
+	resourceName := resMeta.GetName()
 	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
 
 	t.Logf("Create source %s %s/%s on the root shard for replication", kind, clusterName, resourceName)
@@ -379,7 +380,6 @@ func replicateResource(ctx context.Context, t *testing.T,
 func replicateResourceNegative(ctx context.Context, t *testing.T,
 	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
 	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
-	resourceName string, /*a resource name*/
 	kind string, /*kind for the given resource*/
 	gvr schema.GroupVersionResource, /*gvr for the given resource*/
 	res runtime.Object, /*a strongly typed resource object that will be created*/
@@ -391,6 +391,9 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
 		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
+	resMeta, err := meta.Accessor(res)
+	require.NoError(t, err)
+	resourceName := resMeta.GetName()
 	scenario := &replicateResourceScenario{resourceName: resourceName, kind: kind, gvr: gvr, cluster: clusterName, server: server, kcpShardClusterDynamicClient: kcpShardClusterDynamicClient, cacheKcpClusterDynamicClient: cacheKcpClusterDynamicClient}
 
 	t.Logf("Create source %s %s/%s on the root shard for replication", kind, clusterName, resourceName)
@@ -415,12 +418,37 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	scenario.VerifyReplication(ctx, t)
 }
 
-// TestCacheServerInProcess runs all test scenarios against a cache server that runs with a kcp server.
-func TestCacheServerInProcess(t *testing.T) {
+// TestReplication runs all test scenarios against a default setup possibly with the cache server running within kcp server.
+func TestReplication(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
+	server := framework.SharedKcpServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
+	kcpShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
+	require.NoError(t, err)
+	cacheClientConfig := createCacheClientConfigForEnvironment(ctx, t, kcpRootShardConfig)
+	cacheClientRT := ClientRoundTrippersFor(cacheClientConfig)
+	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
+	require.NoError(t, err)
+
+	for _, scenario := range scenarios {
+		scenario := scenario
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			scenario.work(ctx, t, server, kcpShardDynamicClient, cacheKcpClusterDynamicClient)
+		})
+	}
+}
+
+// TestReplicationDisruptive runs all disruptive tests in a private environment.
+func TestReplicationDisruptive(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
 		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
@@ -434,47 +462,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
-	for _, scenario := range scenarios {
-		scenario := scenario
-		t.Run(scenario.name, func(t *testing.T) {
-			t.Parallel()
-			scenario.work(ctx, t, server, kcpRootShardDynamicClient, cacheKcpClusterDynamicClient)
-		})
-	}
-}
-
-// TestCacheServerStandalone runs all test scenarios against a standalone cache server.
-func TestCacheServerStandalone(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
-
-	artifactDir, dataDir, err := framework.ScratchDirs(t)
-	require.NoError(t, err)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cacheKubeconfigPath := StartStandaloneCacheServer(ctx, t, dataDir)
-
-	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
-		framework.WithScratchDirectories(artifactDir, dataDir),
-	)
-	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-
-	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
-	require.NoError(t, err)
-	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
-	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
-	require.NoError(t, err)
-	cacheClientRT := ClientRoundTrippersFor(cacheClientRestConfig)
-	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
-	require.NoError(t, err)
-
-	for _, scenario := range scenarios {
+	for _, scenario := range disruptiveScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
@@ -711,4 +699,34 @@ func toUnstructured(obj interface{}, kind string, gvr schema.GroupVersionResourc
 	unstructured.SetKind(kind)
 	unstructured.SetAPIVersion(gvr.GroupVersion().String())
 	return unstructured, nil
+}
+
+func withPseudoRandomSuffix(name string) string {
+	return fmt.Sprintf("%s-%d", name, rand.Int())
+}
+
+// createCacheClientConfigForEnvironment is a helper function
+// for creating a rest config for the cache server depending on
+// the underlying test environment.
+func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kcpRootShardConfig *rest.Config) *rest.Config {
+	// TODO: in the future we might associate a shard instance with a cache server
+	// via some field on Shard resources, in that case we could read the value of
+	// that field for creating a rest config.
+	t.Helper()
+	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
+	require.NoError(t, err)
+	shards, err := kcpRootShardClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	if len(shards.Items) == 1 {
+		// assume single shard env with embedded cache server
+		return kcpRootShardConfig
+	}
+
+	// assume multi-shard env created by the sharded-test-server
+	cacheServerKubeConfigPath := filepath.Join(framework.RepositoryDir(), ".kcp-cache", "cache.kubeconfig")
+	cacheServerKubeConfig, err := framework.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
+	require.NoError(t, err)
+	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()
+	require.NoError(t, err)
+	return cacheServerRestConfig
 }

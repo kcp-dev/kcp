@@ -138,6 +138,11 @@ const (
 
 // APIBindingStatus records which schemas are bound.
 type APIBindingStatus struct {
+	// APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.
+	//
+	// +optional
+	APIExportClusterName string `json:"apiExportClusterName,omitempty"`
+
 	// boundResources records the state of bound APIs.
 	//
 	// +optional

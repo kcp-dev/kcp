@@ -335,6 +335,9 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 		return nil
 	}
 	obj, err := inf.Lister().ByCluster(lclusterName).ByNamespace(namespace).Get(name)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		logger.Error(err, "error getting object from indexer")
 		return err

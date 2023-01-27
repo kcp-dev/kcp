@@ -103,7 +103,7 @@ func (s *aPIExportEndpointSliceLister) Get(name string) (*apisv1alpha1.APIExport
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExportEndpointSlice"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexportendpointslices"), name)
 	}
 	return obj.(*apisv1alpha1.APIExportEndpointSlice), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIExportEndpointSliceScopedLister) Get(name string) (*apisv1alpha1.API
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExportEndpointSlice"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexportendpointslices"), name)
 	}
 	return obj.(*apisv1alpha1.APIExportEndpointSlice), nil
 }

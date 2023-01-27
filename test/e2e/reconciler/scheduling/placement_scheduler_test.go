@@ -48,9 +48,9 @@ func TestPlacementUpdate(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, source)
-	locationPath, _ := framework.NewWorkspaceFixture(t, source, orgPath)
-	userPath, userWorkspace := framework.NewWorkspaceFixture(t, source, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
+	locationPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
+	userPath, userWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)

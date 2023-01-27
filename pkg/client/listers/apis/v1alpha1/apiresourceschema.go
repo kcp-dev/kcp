@@ -103,7 +103,7 @@ func (s *aPIResourceSchemaLister) Get(name string) (*apisv1alpha1.APIResourceSch
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIResourceSchema"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiresourceschemas"), name)
 	}
 	return obj.(*apisv1alpha1.APIResourceSchema), nil
 }
@@ -137,7 +137,7 @@ func (s *aPIResourceSchemaScopedLister) Get(name string) (*apisv1alpha1.APIResou
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIResourceSchema"), name)
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("apiresourceschemas"), name)
 	}
 	return obj.(*apisv1alpha1.APIResourceSchema), nil
 }
