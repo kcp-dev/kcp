@@ -696,18 +696,18 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		if err != nil {
 			return false, err.Error()
 		}
-		if len(ul.Items) == 2 {
-			require.Empty(t, cmp.Diff(
-				[]string{ul.Items[0].GetName(), ul.Items[1].GetName()},
-				[]string{"in-vw", "in-vw-before"},
-			))
-			return true, ""
+		var names []string
+		for _, item := range ul.Items {
+			names = append(names, item.GetName())
+		}
+		sort.Strings(names)
+		expected := []string{"in-vw", "in-vw-before"}
+		sort.Strings(expected)
+		if diff := cmp.Diff(expected, names); diff != "" {
+			return false, fmt.Sprintf("did not find both objects: %v", diff)
 		}
 
-		binding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
-
-		return false, fmt.Sprintf("waiting on dynamic client to find both objects: %s\n%s", toJSON(t, ul.Items), toYAML(t, binding))
+		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to wait for the two objects to be returned")
 
 	t.Logf("Remove claim on configmaps from apiexport")
@@ -1085,13 +1085,6 @@ func admit(t *testing.T, kubeClusterClient kubernetesclientset.Interface, ruleNa
 func toJSON(t *testing.T, obj interface{}) string {
 	t.Helper()
 	ret, err := json.Marshal(obj)
-	require.NoError(t, err)
-	return string(ret)
-}
-
-func toYAML(t *testing.T, obj interface{}) string {
-	t.Helper()
-	ret, err := yaml.Marshal(obj)
 	require.NoError(t, err)
 	return string(ret)
 }
