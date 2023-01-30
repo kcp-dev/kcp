@@ -118,7 +118,7 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 
 	downstreamResource, ok := downstreamObject.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("Type mismatch of resource object: received %T", downstreamResource)
+		return fmt.Errorf("type mismatch of resource object: received %T", downstreamResource)
 	}
 
 	if downstreamResource.GetDeletionTimestamp() != nil {
@@ -187,7 +187,7 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	}
 	downstreamResource, ok := downstreamObject.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("Type mismatch of resource object: received %T", downstreamResource)
+		return fmt.Errorf("type mismatch of resource object: received %T", downstreamResource)
 	}
 
 	if downstreamNamespace == "" {
