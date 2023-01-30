@@ -51,7 +51,7 @@ func (c *Controller) removeUpstreamResource(ctx context.Context, gvr schema.Grou
 			return err
 		}
 		if len(existingResource.GetFinalizers()) > 0 {
-			existingResource.SetFinalizers([]string{})
+			existingResource.SetFinalizers(nil)
 			if _, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Update(ctx, existingResource, metav1.UpdateOptions{}); k8serror.IsNotFound(err) {
 				return nil
 			} else if err != nil {
