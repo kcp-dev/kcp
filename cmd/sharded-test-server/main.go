@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
@@ -68,8 +69,13 @@ func main() {
 }
 
 func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool) error {
-	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
-	defer cancelFn()
+	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
+	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
+	defer shutdownCancel()
+
+	// This context controls the life of the shards, proxy, etc.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// create request header CA and client cert for front-proxy to connect to shards
 	requestHeaderCA, err := crypto.MakeSelfSignedCA(
@@ -299,6 +305,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 	}
 
+	// Wait for either a premature termination error from the shards/proxy/etc, or for the test server process to shut down
 	select {
 	case shardIndexErr := <-shardsErrCh:
 		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
@@ -306,8 +313,17 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case cacheErr := <-cacheServerErrCh:
 		return fmt.Errorf("cache server exited: %w", cacheErr.error)
-	case <-ctx.Done():
+	case <-shutdownCtx.Done():
 	}
+
+	// We've received the notice to shut down, so try to gather metrics. Use a new context with a fixed timeout.
+	metricxCtx, metricsCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
+	defer metricsCancel()
+
+	for _, shard := range shards {
+		shard.GatherMetrics(metricxCtx)
+	}
+
 	return nil
 }
 
