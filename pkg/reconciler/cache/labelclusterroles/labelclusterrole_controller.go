@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package replicationclusterrole
+package labelclusterroles
 
 import (
 	"context"
@@ -29,6 +29,7 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,22 +40,35 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
-const (
-	ControllerName = "kcp-apiexport-replication-clusterrole"
-)
+type Controller interface {
+	Start(ctx context.Context, numThreads int)
+
+	EnqueueClusterRoles(values ...interface{})
+}
 
 // NewController returns a new controller for labelling ClusterRole that should be replicated.
 func NewController(
+	controllerName string,
+	groupName string,
+	isRelevantClusterRole func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool,
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
-) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+) Controller {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
+		controllerName: controllerName,
+		groupName:      groupName,
+
+		isRelevantClusterRole:        isRelevantClusterRole,
+		isRelevantClusterRoleBinding: isRelevantClusterRoleBinding,
+
 		queue: queue,
 
 		kubeClusterClient: kubeClusterClient,
@@ -72,36 +86,48 @@ func NewController(
 		ClusterRoleBindingByClusterRoleName: IndexClusterRoleBindingByClusterRoleName,
 	})
 
-	clusterRoleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueClusterRole(obj)
-		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueClusterRole(newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueClusterRole(obj)
-		},
-	})
-
-	clusterRoleBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueClusterRoleBinding(obj)
-		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueClusterRoleBinding(newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueClusterRoleBinding(obj)
+	clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: replication.IsNoSystemClusterName,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueClusterRole(obj)
+			},
+			UpdateFunc: func(_, newObj interface{}) {
+				c.enqueueClusterRole(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueClusterRole(obj)
+			},
 		},
 	})
 
-	return c, nil
+	clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: replication.IsNoSystemClusterName,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueClusterRoleBinding(obj)
+			},
+			UpdateFunc: func(_, newObj interface{}) {
+				c.enqueueClusterRoleBinding(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.enqueueClusterRoleBinding(obj)
+			},
+		},
+	})
+
+	return c
 }
 
 // controller reconciles ClusterRoles by labelling them to be replicated when pointing to an
 // ClusterRole content or verb bind.
 type controller struct {
+	controllerName string
+	groupName      string
+
+	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
+	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
+
 	queue workqueue.RateLimitingInterface
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
@@ -116,6 +142,17 @@ type controller struct {
 	commit func(ctx context.Context, new, old *rbacv1.ClusterRole) error
 }
 
+func (c *controller) EnqueueClusterRoles(values ...interface{}) {
+	clusterRoles, err := c.clusterRoleLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("Error listing ClusterRoles: %v", err)
+		return
+	}
+	for _, cr := range clusterRoles {
+		c.enqueueClusterRole(cr, values...)
+	}
+}
+
 // enqueueClusterRole enqueues an ClusterRole.
 func (c *controller) enqueueClusterRole(obj interface{}, values ...interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
@@ -124,7 +161,7 @@ func (c *controller) enqueueClusterRole(obj interface{}, values ...interface{}) 
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
 	logger.V(4).WithValues(values...).Info("queueing ClusterRole")
 	c.queue.Add(key)
 }
@@ -145,9 +182,11 @@ func (c *controller) enqueueClusterRoleBinding(obj interface{}) {
 	}
 
 	cr, err := c.clusterRoleLister.Cluster(logicalcluster.From(crb)).Get(crb.RoleRef.Name)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		runtime.HandleError(err)
 		return
+	} else if errors.IsNotFound(err) {
+		return // dangling ClusterRole reference, nothing to do
 	}
 
 	c.enqueueClusterRole(cr, "reason", "ClusterRoleBinding", "ClusterRoleBinding.name", crb.Name)
@@ -158,7 +197,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -192,7 +231,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {

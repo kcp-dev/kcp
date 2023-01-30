@@ -29,6 +29,7 @@ import (
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/component-base/logs"
 
+	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
@@ -44,6 +45,7 @@ type Options struct {
 	Context        string
 	RootPathPrefix string
 
+	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
 	Authorization  virtualworkspacesoptions.Authorization
@@ -61,6 +63,7 @@ func NewOptions() *Options {
 
 		RootPathPrefix: DefaultRootPathPrefix,
 
+		Cache:          *cacheoptions.NewCache(),
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
 		Authorization:  *virtualworkspacesoptions.NewAuthorization(),
@@ -79,6 +82,7 @@ func NewOptions() *Options {
 }
 
 func (o *Options) AddFlags(flags *pflag.FlagSet) {
+	o.Cache.AddFlags(flags)
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
 	o.Logs.AddFlags(flags)
@@ -94,6 +98,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 
 func (o *Options) Validate() error {
 	errs := []error{}
+	errs = append(errs, o.Cache.Validate()...)
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.VirtualWorkspaces.Validate()...)

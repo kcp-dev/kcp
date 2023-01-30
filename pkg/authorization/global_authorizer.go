@@ -63,11 +63,6 @@ func (a *GlobalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespa
 }
 
 func (a *GlobalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	if !IsDeepSubjectAccessReviewFrom(ctx, attr) {
-		// requests not being a deep SAR request are not supposed to be cached.
-		return authorizer.DecisionNoOpinion, "not a deep SAR request", nil
-	}
-
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil

@@ -173,8 +173,10 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "error creating kcp cluster client")
 
-			_, err = kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
-			require.NoError(t, err)
+			framework.Eventually(t, func() (bool, string) {
+				_, err = kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
+				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
+			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for the binding to be ready")
 			framework.Eventually(t, func() (bool, string) {

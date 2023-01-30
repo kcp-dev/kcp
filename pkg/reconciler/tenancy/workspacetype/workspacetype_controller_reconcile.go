@@ -61,14 +61,14 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 
 	desiredURLs := sets.NewString()
 	for _, shard := range shards {
-		if shard.Spec.ExternalURL == "" {
+		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(shard.Spec.ExternalURL)
+		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
-			logger.Error(err, "error parsing shard.spec.externalURL", "externalURL", shard.Spec.ExternalURL)
+			logger.Error(err, "error parsing shard.spec.virtualWorkspaceURL", "virtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL)
 			continue
 		}
 

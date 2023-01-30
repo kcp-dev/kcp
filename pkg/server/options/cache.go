@@ -19,6 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
+	cacheclientoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 )
 
@@ -29,9 +30,12 @@ type cacheCompleted struct {
 
 func (c cacheCompleted) Validate() []error {
 	var errs []error
+
 	if err := c.Server.Validate(); err != nil {
 		errs = append(errs, err...)
 	}
+	errs = append(errs, c.Extra.Client.Validate()...)
+
 	return errs
 }
 
@@ -44,18 +48,20 @@ type Extra struct {
 	// Enabled if true indicates that the cache server should be run with the kcp-server (in-process)
 	Enabled bool
 
-	// KubeconfigFile path to a file that holds a kubeconfig for the cache server
-	KubeconfigFile string
+	Client cacheclientoptions.Cache
 }
 
 func NewCache(rootDir string) *Cache {
 	return &Cache{
 		Server: cacheoptions.NewOptions(rootDir),
+		Extra: Extra{
+			Client: *cacheclientoptions.NewCache(),
+		},
 	}
 }
 
 func (c *Cache) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&c.KubeconfigFile, "cache-server-kubeconfig-file", c.KubeconfigFile, "Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).")
+	c.Client.AddFlags(fs)
 
 	// note do not add cache server's flag c.Server.AddFlags(fs)
 	// it will cause an undefined behavior as some flags will be overwritten (also defined by the kcp server)

@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/apis/scheduling"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -86,6 +87,9 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
+	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
+	require.NoError(t, err)
+
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, orgPath, []string{"service-provider-1-admin", "service-provider-2-admin", "tenant-user"}, nil, false)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, serviceProvider1Path, []string{"service-provider-1-admin"}, nil, true)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, serviceProvider2Path, []string{"service-provider-2-admin"}, nil, true)
@@ -201,51 +205,54 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	))
 
 	t.Logf("bind cowboys and claimed sherriffs in the tenant workspace %q", tenantPath)
-	require.NoError(t, apply(t, ctx, tenantPath, tenantUser,
-		&apisv1alpha1.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "wild.wild.west",
-			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
-						Path: serviceProvider1Path.String(),
-						Name: "wild.wild.west",
-					},
+	framework.Eventually(t, func() (success bool, reason string) {
+		err := apply(t, ctx, tenantPath, tenantUser,
+			&apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "wild.wild.west",
 				},
-			},
-		},
-		&apisv1alpha1.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cowboys",
-			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
-					{
-						PermissionClaim: apisv1alpha1.PermissionClaim{
-							GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
-							All:           true,
+				Spec: apisv1alpha1.APIBindingSpec{
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Path: serviceProvider1Path.String(),
+							Name: "wild.wild.west",
 						},
-						State: apisv1alpha1.ClaimAccepted,
-					},
-					{
-						PermissionClaim: apisv1alpha1.PermissionClaim{
-							GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-							IdentityHash:  sherriffsIdentityHash,
-							All:           true,
-						},
-						State: apisv1alpha1.ClaimAccepted,
-					},
-				},
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
-						Path: serviceProvider2Path.String(),
-						Name: "today-cowboys",
 					},
 				},
 			},
-		},
-	))
+			&apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cowboys",
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+						{
+							PermissionClaim: apisv1alpha1.PermissionClaim{
+								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+								All:           true,
+							},
+							State: apisv1alpha1.ClaimAccepted,
+						},
+						{
+							PermissionClaim: apisv1alpha1.PermissionClaim{
+								GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+								IdentityHash:  sherriffsIdentityHash,
+								All:           true,
+							},
+							State: apisv1alpha1.ClaimAccepted,
+						},
+					},
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Path: serviceProvider2Path.String(),
+							Name: "today-cowboys",
+						},
+					},
+				},
+			},
+		)
+		return err == nil, fmt.Sprintf("%v", err) //nolint:gocritic
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure [%q, %q] API groups shows up in consumer workspace %q group discovery", wildwest.GroupName, "wild.wild.west", tenantPath)
 	tenantUserWorkspaceKcpClient, err := kcpclientset.NewForConfig(tenantUser)
@@ -361,26 +368,20 @@ metadata:
   namespace: default
 `))
 
-	t.Logf("get virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Path)
-	var apiExport *apisv1alpha1.APIExport
+	t.Logf("Create virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Path)
+	serviceProvider2AdminApiExportVWCfg := rest.CopyConfig(serviceProvider2Admin)
 	serviceProvider2AdminClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
 	framework.Eventually(t, func() (bool, string) {
-		var err error
-		apiExport, err = serviceProvider2AdminClient.Cluster(serviceProvider2Path).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
-		}
+		apiExport, err := serviceProvider2AdminClient.Cluster(serviceProvider2Path).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		serviceProvider2AdminApiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, tenantWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		require.NoError(t, err)
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		if len(apiExport.Status.VirtualWorkspaces) > 0 {
-			return true, ""
-		}
-		return false, "waiting on virtual workspace to be ready"
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	serviceProvider2AdminApiExportVWCfg := rest.CopyConfig(serviceProvider2Admin)
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	serviceProvider2AdminApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 	user2DynamicVWClient, err := kcpdynamic.NewForConfig(serviceProvider2AdminApiExportVWCfg)
 	require.NoError(t, err)
 
@@ -415,8 +416,7 @@ metadata:
 	}
 	framework.Eventually(t, func() (success bool, reason string) {
 		for _, gvr := range claimedGVRs {
-			_, err := user2DynamicVWClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-			if err != nil {
+			if _, err := user2DynamicVWClient.Resource(gvr).List(ctx, metav1.ListOptions{}); err != nil {
 				return false, fmt.Sprintf("error while waiting to list %q: %v", gvr, err)
 			}
 		}
@@ -613,10 +613,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	}
 	framework.Eventually(t, func() (bool, string) {
 		_, err := userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("error creating API binding: %v", err)
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Wait for the binding to be ready")
@@ -634,23 +631,8 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Get virtual workspace client for service APIExport in workspace %q", servicePath)
-	var export *apisv1alpha1.APIExport
-	framework.Eventually(t, func() (bool, string) {
-		var err error
-		export, err = serviceKcpClient.Cluster(servicePath).ApisV1alpha1().APIExports().Get(ctx, apiExport.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("waiting on APIExport to be available %v", err.Error())
-		}
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		if len(export.Status.VirtualWorkspaces) > 0 {
-			return true, ""
-		}
-		return false, "waiting on virtual workspace to be ready"
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
-
 	serviceAPIExportVWCfg := framework.StaticTokenUserConfig(providerUser, rest.CopyConfig(cfg))
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	serviceAPIExportVWCfg.Host = export.Status.VirtualWorkspaces[0].URL
+	serviceAPIExportVWCfg.Host = vwURL(t, kcpClient, servicePath, apiExport.Name, userWorkspace, userPath)
 	serviceDynamicVWClient, err := kcpdynamic.NewForConfig(serviceAPIExportVWCfg)
 	require.NoError(t, err)
 
@@ -671,12 +653,35 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			},
 		},
 	}
-	_, err = serviceDynamicVWClient.Cluster(userClusterName.Path()).
-		Resource(schedulingv1alpha1.SchemeGroupVersion.WithResource("placements")).
-		Create(ctx, placement, metav1.CreateOptions{})
-	require.NoError(t, err)
+
+	framework.Eventually(t, func() (bool, string) {
+		_, err = serviceDynamicVWClient.Cluster(userClusterName.Path()).
+			Resource(schedulingv1alpha1.SchemeGroupVersion.WithResource("placements")).
+			Create(ctx, placement, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("error creating placement: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating placement")
 
 	t.Logf("Verify that consumer user can get the created resource in user workspace")
 	_, err = userKcpClient.Cluster(userClusterName.Path()).SchedulingV1alpha1().Placements().Get(ctx, placement.GetName(), metav1.GetOptions{})
 	require.NoError(t, err)
+}
+
+func vwURL(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, path logicalcluster.Path, export string, ws *tenancyv1alpha1.Workspace, wsPath logicalcluster.Path) string {
+	t.Helper()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	var vwURL string
+	framework.Eventually(t, func() (bool, string) {
+		export, err := kcpClusterClient.Cluster(path).ApisV1alpha1().APIExports().Get(ctx, export, metav1.GetOptions{})
+		require.NoError(t, err)
+		urls := framework.ExportVirtualWorkspaceURLs(export)
+		var found bool
+		vwURL, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, urls)
+		require.NoError(t, err)
+		return found, fmt.Sprintf("waiting on virtual workspace URL for workspace %s, found: %v", wsPath, urls)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
+
+	return vwURL
 }

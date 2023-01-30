@@ -184,7 +184,8 @@ var (
 		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 
 		// KCP Cache Server flags
-		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
+		"cache-kubeconfig",             // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
+		"cache-server-kubeconfig-file", // deprecated
 
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.

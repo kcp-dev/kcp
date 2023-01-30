@@ -54,8 +54,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/conversion"
@@ -187,24 +185,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	var cacheClientConfig *rest.Config
-	if len(c.Options.Cache.KubeconfigFile) > 0 {
-		cacheClientConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Cache.KubeconfigFile}, nil).ClientConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a cache client, err: %w", c.Options.Cache.KubeconfigFile, err)
-		}
-	} else {
-		cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-	}
-	rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
-	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
-	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
-
-	cacheKcpClusterClient, err := kcpclientset.NewForConfig(rt)
+	cacheClientConfig, err := c.Options.Cache.Client.RestConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return nil, err
 	}
-	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rt)
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +205,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		cacheKubeClusterClient,
 		resyncPeriod,
 	)
-	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
+	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -453,6 +442,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),
