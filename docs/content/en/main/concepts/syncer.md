@@ -89,6 +89,15 @@ To sync resources that the KCP server does not have an APIExport to support yet,
 kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources foo.bar -o syncer.yaml
 ```
 
+Make sure to have the resource name in the form of `resourcename.<gvr_of_the_resource>` to be able to
+sync succesfully to the physical cluster.
+
+For example to sync resource `routes` to physical cluster run the command below
+
+```sh
+kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources routes.route.openshift.io -o syncer.yaml
+```
+
 And apply the generated manifests to the physical cluster. The syncer will then import the API schema of foo.bar
 to the workspace of the synctarget, following up with an auto generated kubernetes APIExport/APIBinding in the same workspace.
 You can then create foo.bar in this workspace, or create an APIBinding in another workspace to bind this APIExport.
