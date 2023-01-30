@@ -85,8 +85,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				server.Artifact(t, func() (runtime.Object, error) {
 					return server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
 				})
-				err = server.expect(namespace, unscheduledMatcher(workloadnamespace.NamespaceReasonUnschedulable))
-				require.NoError(t, err, "did not see namespace marked unschedulable")
+				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+					return &workloadnamespace.NamespaceConditionsAdapter{Namespace: ns}, err
+				}, framework.IsNot(workloadnamespace.NamespaceScheduled).WithReason(workloadnamespace.NamespaceReasonUnschedulable))
 
 				t.Log("Deploy a syncer")
 				// Create and Start a syncer against a workload cluster so that there's a ready cluster to schedule to.
@@ -141,8 +143,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				})
 				require.NoError(t, err, "failed to update cluster1")
 
-				err = server.expect(namespace, unscheduledMatcher(workloadnamespace.NamespaceReasonUnschedulable))
-				require.NoError(t, err, "did not see namespace marked unschededuled")
+				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+					return &workloadnamespace.NamespaceConditionsAdapter{Namespace: ns}, err
+				}, framework.IsNot(workloadnamespace.NamespaceScheduled).WithReason(workloadnamespace.NamespaceReasonUnschedulable), "did not see namespace marked unschededuled")
 			},
 		},
 		{
@@ -297,20 +301,6 @@ func TestNamespaceScheduler(t *testing.T) {
 }
 
 type namespaceExpectation func(*corev1.Namespace) error
-
-func unscheduledMatcher(reason string) namespaceExpectation {
-	return func(object *corev1.Namespace) error {
-		if condition := conditions.Get(&workloadnamespace.NamespaceConditionsAdapter{Namespace: object}, workloadnamespace.NamespaceScheduled); condition != nil {
-			if condition.Status == corev1.ConditionTrue {
-				return fmt.Errorf("expected an unscheduled namespace, got: %#v", object.Status.Conditions)
-			}
-			if condition.Reason != reason {
-				return fmt.Errorf("expected an unscheduled namespace with reason %s, got status.conditions: %#v", reason, object.Status.Conditions)
-			}
-		}
-		return nil
-	}
-}
 
 func scheduledMatcher(target string) namespaceExpectation {
 	return func(object *corev1.Namespace) error {

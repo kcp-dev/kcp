@@ -18,17 +18,14 @@ package workspace
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
@@ -46,8 +43,6 @@ func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
-		orgExpect                                     framework.RegisterWorkspaceExpectation
-		rootExpectShard                               framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
 		name        string
@@ -79,11 +74,9 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				err = server.orgExpect(workspace, func(current *tenancyv1alpha1.Workspace) error {
-					expectationErr := scheduledAnywhere(current)
-					return expectationErr
-				})
-				require.NoError(t, err, "did not see workspace scheduled")
+				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
 			},
 		},
 		{
@@ -111,8 +104,9 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
-				err = server.orgExpect(workspace, unschedulable)
-				require.NoError(t, err, "did not see workspace marked unschedulable")
+				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				}, framework.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
 				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
@@ -131,22 +125,13 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
-				framework.Eventually(t, func() (bool, string) {
-					workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-					require.NoError(t, err)
+				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
 
-					if isUnschedulable(workspace) {
-						return false, fmt.Sprintf("unschedulable:\n%s", toYAML(t, workspace))
-					}
-					if workspace.Spec.Cluster == "" {
-						return false, fmt.Sprintf("spec.cluster is empty\n%s", toYAML(t, workspace))
-					}
-					if expected := previouslyValidShard.Spec.BaseURL + "/clusters/" + workspace.Spec.Cluster; workspace.Spec.URL != expected {
-						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
-					}
-					return true, ""
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
-				require.NoError(t, err, "did not see workspace updated")
+				workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Emptyf(t, cmp.Diff(previouslyValidShard.Spec.BaseURL+"/clusters/"+workspace.Spec.Cluster, workspace.Spec.URL), "incorrect URL")
 			},
 		},
 	}
@@ -177,47 +162,11 @@ func TestWorkspaceController(t *testing.T) {
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectWorkspaces(ctx, t, kcpClient.Cluster(orgPath))
-			require.NoError(t, err, "failed to start a workspace expecter")
-
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, kcpClient.Cluster(core.RootCluster.Path()))
-			require.NoError(t, err, "failed to start a shard expecter")
-
 			testCase.work(ctx, t, runningServer{
 				RunningServer:          server,
 				rootWorkspaceKcpClient: kcpClient.Cluster(core.RootCluster.Path()),
 				orgWorkspaceKcpClient:  kcpClient.Cluster(orgPath),
-				orgExpect:              orgExpect,
-				rootExpectShard:        rootExpectShard,
 			})
 		})
 	}
-}
-
-func toYAML(t *testing.T, obj interface{}) string {
-	t.Helper()
-	bs, err := yaml.Marshal(obj)
-	require.NoError(t, err, "failed to marshal object")
-	return string(bs)
-}
-
-func isUnschedulable(workspace *tenancyv1alpha1.Workspace) bool {
-	return utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && utilconditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable
-}
-
-func unschedulable(object *tenancyv1alpha1.Workspace) error {
-	if !isUnschedulable(object) {
-		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
-	}
-	return nil
-}
-
-func scheduledAnywhere(object *tenancyv1alpha1.Workspace) error {
-	if isUnschedulable(object) {
-		return fmt.Errorf("expected a scheduled workspace, got status.conditions: %#v", object.Status.Conditions)
-	}
-	if object.Spec.Cluster == "" {
-		return fmt.Errorf("expected workspace.spec.cluster to be anything, got %q", object.Spec.Cluster)
-	}
-	return nil
 }

@@ -266,21 +266,9 @@ func TestPlacementUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Wait for new placement to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, newPlacement.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("Failed to get placement: %v", err)
-		}
-
-		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, newPlacement.Name, metav1.GetOptions{})
+	}, framework.Is(schedulingv1alpha1.PlacementReady))
 
 	t.Logf("Wait for resource to by synced again")
 	framework.Eventually(t, func() (bool, string) {

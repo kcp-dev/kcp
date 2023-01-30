@@ -152,23 +152,9 @@ func TestSyncTargetExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
-		var reason string
-		if !done {
-			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
-			if condition != nil {
-				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
-			} else {
-				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
-			}
-		}
-		return done, reason
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	}, framework.Is(workloadv1alpha1.SyncerAuthorized))
 }
 
 func sortAPIResourceList(list []*metav1.APIResourceList) []*metav1.APIResourceList {

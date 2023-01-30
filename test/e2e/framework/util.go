@@ -45,6 +45,7 @@ import (
 	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -343,17 +344,78 @@ func Eventually(t *testing.T, condition func() (success bool, reason string), wa
 // EventuallyReady asserts that the object returned by getter() eventually has a ready condition.
 func EventuallyReady(t *testing.T, getter func() (conditions.Getter, error), msgAndArgs ...interface{}) {
 	t.Helper()
+	EventuallyCondition(t, getter, Is(conditionsv1alpha1.ReadyCondition), msgAndArgs...)
+}
+
+type ConditionEvaluator struct {
+	conditionType   conditionsv1alpha1.ConditionType
+	conditionStatus corev1.ConditionStatus
+	conditionReason *string
+}
+
+func (c *ConditionEvaluator) matches(object conditions.Getter) (*conditionsv1alpha1.Condition, string, bool) {
+	condition := conditions.Get(object, c.conditionType)
+	if condition == nil {
+		return nil, c.descriptor(), false
+	}
+	if condition.Status != c.conditionStatus {
+		return condition, c.descriptor(), false
+	}
+	if c.conditionReason != nil && condition.Reason != *c.conditionReason {
+		return condition, c.descriptor(), false
+	}
+	return condition, c.descriptor(), true
+}
+
+func (c *ConditionEvaluator) descriptor() string {
+	var descriptor string
+	switch c.conditionStatus {
+	case corev1.ConditionTrue:
+		descriptor = "to be"
+	case corev1.ConditionFalse:
+		descriptor = "not to be"
+	case corev1.ConditionUnknown:
+		descriptor = "to not know if it is"
+	}
+	descriptor += fmt.Sprintf(" %s", c.conditionType)
+	if c.conditionReason != nil {
+		descriptor += fmt.Sprintf(" (with reason %s)", *c.conditionReason)
+	}
+	return descriptor
+}
+
+func Is(conditionType conditionsv1alpha1.ConditionType) *ConditionEvaluator {
+	return &ConditionEvaluator{
+		conditionType:   conditionType,
+		conditionStatus: corev1.ConditionTrue,
+	}
+}
+
+func IsNot(conditionType conditionsv1alpha1.ConditionType) *ConditionEvaluator {
+	return &ConditionEvaluator{
+		conditionType:   conditionType,
+		conditionStatus: corev1.ConditionFalse,
+	}
+}
+
+func (c *ConditionEvaluator) WithReason(reason string) *ConditionEvaluator {
+	c.conditionReason = &reason
+	return c
+}
+
+// EventuallyCondition asserts that the object returned by getter() eventually has a condition that matches the evaluator.
+func EventuallyCondition(t *testing.T, getter func() (conditions.Getter, error), evaluator *ConditionEvaluator, msgAndArgs ...interface{}) {
+	t.Helper()
 	Eventually(t, func() (bool, string) {
 		obj, err := getter()
 		require.NoError(t, err, "Error fetching object")
-		done := conditions.IsTrue(obj, conditionsv1alpha1.ReadyCondition)
+		condition, descriptor, done := evaluator.matches(obj)
 		var reason string
 		if !done {
-			condition := conditions.Get(obj, conditionsv1alpha1.ReadyCondition)
 			if condition != nil {
-				reason = fmt.Sprintf("Not done waiting for object to be ready: %s: %s", condition.Reason, condition.Message)
+				reason = fmt.Sprintf("Not done waiting for object %s: %s: %s", descriptor, condition.Reason, condition.Message)
 			} else {
-				reason = "Not done waiting for object to be ready: no condition present"
+				reason = fmt.Sprintf("Not done waiting for object %s: no condition present", descriptor)
 			}
 		}
 		return done, reason

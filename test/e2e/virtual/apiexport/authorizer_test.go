@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -131,20 +129,15 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	))
 
 	t.Logf("get the sheriffs apiexport's generated identity hash")
-	sherriffsIdentityHash := ""
 	serviceProvider1AdminClient, err := kcpclientset.NewForConfig(serviceProvider1Admin)
 	require.NoError(t, err)
-	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err := serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("error while waiting to get API export: %v", err)
-		}
-		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
-			sherriffsIdentityHash = sheriffExport.Status.IdentityHash
-			return true, ""
-		}
-		return false, fmt.Sprintf("waiting for API export identity to be valid: %+v", conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid))
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
+
+	sheriffExport, err := serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err)
+	sherriffsIdentityHash := sheriffExport.Status.IdentityHash
 	t.Logf("Found identity hash: %v", sherriffsIdentityHash)
 
 	t.Logf("install cowboys API resource schema, API export, and permissions for tenant-user to be able to bind to the export in second service provider workspace %q", serviceProvider2Path)
@@ -340,20 +333,9 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	t.Logf("Waiting for cowboys APIBinding in consumer workspace %q to have the condition %q mentioning the conflict with the shadowing local cowboys CRD", tenantShadowCRDPath, apisv1alpha1.BindingUpToDate)
 	tenantUserKcpClient, err := kcpclientset.NewForConfig(tenantUser)
 	require.NoError(t, err)
-	framework.Eventually(t, func() (bool, string) {
-		binding, err := tenantUserKcpClient.Cluster(tenantShadowCRDPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("error creating API binding: %v", err)
-		}
-		condition := conditions.Get(binding, apisv1alpha1.BindingUpToDate)
-		if condition == nil {
-			return false, "binding condition not found"
-		}
-		if strings.Contains(condition.Message, `overlaps with "cowboys.wildwest.dev" CustomResourceDefinition`) {
-			return true, ""
-		}
-		return false, fmt.Sprintf("CRD conflict condition not yet met: %q", condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return tenantUserKcpClient.Cluster(tenantShadowCRDPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, framework.IsNot(apisv1alpha1.BindingUpToDate).WithReason(apisv1alpha1.NamingConflictsReason))
 
 	// Have to do this with Eventually because the RBAC for the maximal permission policy can be slow to propagate via
 	// the cache server.
@@ -574,9 +556,12 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Get the root scheduling APIExport's identity hash")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.io", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
+
 	schedulingAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.io", metav1.GetOptions{})
 	require.NoError(t, err)
-	require.True(t, conditions.IsTrue(schedulingAPIExport, apisv1alpha1.APIExportIdentityValid))
 	identityHash := schedulingAPIExport.Status.IdentityHash
 	require.NotNil(t, identityHash)
 
@@ -641,18 +626,9 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Wait for the binding to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		binding, err := userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-		require.NoError(t, err, "error getting binding %s", binding.Name)
-		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.InitialBindingCompleted))
 
 	t.Logf("Get virtual workspace client for service APIExport in workspace %q", servicePath)
 	serviceAPIExportVWCfg := framework.StaticTokenUserConfig(providerUser, rest.CopyConfig(cfg))

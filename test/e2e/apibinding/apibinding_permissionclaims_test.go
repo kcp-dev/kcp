@@ -28,7 +28,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -68,23 +67,13 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
-	identityHash := ""
-	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
-		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
-			identityHash = sheriffExport.Status.IdentityHash
-			return true, ""
-		}
-		condition := conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid)
-		if condition != nil {
-			return false, fmt.Sprintf("not done waiting for API Export condition status:%v - reason: %v - message: %v", condition.Status, condition.Reason, condition.Message)
-		}
-		return false, "not done waiting for APIExportIdentity to be marked valid, no condition exists"
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err)
+	identityHash := sheriffExport.Status.IdentityHash
 
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
@@ -97,21 +86,9 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 	// validate the invalid claims condition occurs
 	t.Logf("validate that the permission claim's conditions are false and invalid claims is the reason")
-	framework.Eventually(t, func() (bool, string) {
-		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		require.NoError(t, err, "failed to get binding")
-
-		cond := conditions.Get(binding, apisv1alpha1.PermissionClaimsValid)
-		if cond == nil {
-			return false, fmt.Sprintf("not done waiting for permission claims to be invalid, no %q condition exists:\n%s", apisv1alpha1.PermissionClaimsValid, toYAML(t, binding.Status.Conditions))
-		}
-
-		if cond.Status == v1.ConditionFalse && cond.Reason == apisv1alpha1.InvalidPermissionClaimsReason {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for condition to be invalid reason:\n%s", toYAML(t, binding.Status.Conditions))
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to see invalid identity hash")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, framework.IsNot(apisv1alpha1.PermissionClaimsValid).WithReason(apisv1alpha1.InvalidPermissionClaimsReason), "unable to see invalid identity hash")
 
 	t.Logf("update to correct hash")
 	// have to use eventually because controllers may be modifying the APIBinding
@@ -127,45 +104,19 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
 
 	t.Logf("Validate that the permission claims are valid")
-	framework.Eventually(t, func() (bool, string) {
-		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-
-		cond := conditions.Get(binding, apisv1alpha1.PermissionClaimsValid)
-		if cond == nil {
-			return false, "not done waiting for permission claims to be valid, no condition exits"
-		}
-
-		if cond.Status != v1.ConditionTrue {
-			return false, fmt.Sprintf("not done waiting for the condition to be valid, reason: %v - message: %v", cond.Reason, cond.Message)
-		}
-		if !reflect.DeepEqual(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims) {
-			return false, fmt.Sprintf("ExportPermissionClaims unexpected %v", cmp.Diff(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims))
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to see valid claims condition")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	require.NoError(t, err)
+	if !reflect.DeepEqual(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims) {
+		require.Emptyf(t, cmp.Diff(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
+	}
 
 	t.Logf("Validate that the permission claims were all applied")
-	framework.Eventually(t, func() (bool, string) {
-		// get the binding
-		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-
-		cond := conditions.Get(binding, apisv1alpha1.PermissionClaimsApplied)
-		if cond == nil {
-			return false, "not done waiting for permission claims to be applied, no condition exits"
-		}
-
-		if cond.Status == v1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the condition to be valid, reason: %v - message: %v", cond.Reason, cond.Message)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to see valid claims condition")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.PermissionClaimsApplied), "unable to see claims applied")
 }
 
 func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {

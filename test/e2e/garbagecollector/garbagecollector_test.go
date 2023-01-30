@@ -29,7 +29,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned/typed/apiextensions/v1"
@@ -179,18 +178,9 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for the binding to be ready")
-			framework.Eventually(t, func() (bool, string) {
-				binding, err := kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
-				require.NoError(t, err, "error getting binding %s", binding.Name)
-				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
-				if condition == nil {
-					return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
-				}
-				if condition.Status == corev1.ConditionTrue {
-					return true, ""
-				}
-				return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
-			}, wait.ForeverTestTimeout, time.Millisecond*100)
+			framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
+			}, framework.Is(apisv1alpha1.InitialBindingCompleted))
 
 			wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 			require.NoError(t, err, "failed to construct wildwest cluster client for server")

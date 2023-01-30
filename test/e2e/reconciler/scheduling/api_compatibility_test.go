@@ -21,14 +21,11 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -79,23 +76,14 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.Name(locationWS.Spec.Cluster), secondSyncTargetName)
 
 	t.Logf("check placement should be scheduled to synctarget with supported API")
-	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
-		require.NoError(t, err)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
+	}, framework.Is(schedulingv1alpha1.PlacementScheduled))
+	placement, err := kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
+	require.NoError(t, err)
 
-		if value := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; value != scheduledSyncTargetKey {
-			return false, fmt.Sprintf(
-				"Internal synctarget annotation for placement should be %s since it is the only SyncTarget with compatible API, but got %q",
-				scheduledSyncTargetKey, value)
-		}
-
-		condition := conditions.Get(placement, schedulingv1alpha1.PlacementScheduled)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementScheduled)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	if value := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; value != scheduledSyncTargetKey {
+		t.Errorf("Internal synctarget annotation for placement should be %s since it is the only SyncTarget with compatible API, but got %q",
+			scheduledSyncTargetKey, value)
+	}
 }
