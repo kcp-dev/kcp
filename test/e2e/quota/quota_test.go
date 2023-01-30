@@ -313,10 +313,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
 			_, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
-			if err != nil {
-				return apierrors.IsForbidden(err), err.Error()
-			}
-			return false, "expected an error trying to create a sheriff"
+			return apierrors.IsForbidden(err), fmt.Sprintf("expected a forbidden error, got: %v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected sheriff creation")
 	}
 }
