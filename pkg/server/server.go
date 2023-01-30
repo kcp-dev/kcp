@@ -305,8 +305,8 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			// the root ws is only present on the root shard
 			logger.Info("starting bootstrapping root workspace phase 1")
-			if err := configroot.Bootstrap(goContext(hookContext),
-				s.KcpClusterClient.Cluster(core.RootCluster.Path()),
+			if err := configroot.Bootstrap(
+				goContext(hookContext),
 				s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
 				s.BootstrapDynamicClusterClient.Cluster(core.RootCluster.Path()),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,

@@ -17,74 +17,28 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
-
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
-
-	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 type HomeWorkspaces struct {
-	Enabled bool
-
-	CreationDelaySeconds int
-	BucketLevels         int
-	BucketSize           int
-
+	Enabled           bool
 	HomeCreatorGroups []string
-	HomeRootPrefix    string
 }
 
 func NewHomeWorkspaces() *HomeWorkspaces {
 	return &HomeWorkspaces{
-		Enabled:              true,
-		CreationDelaySeconds: 2,
-		BucketLevels:         2,
-		BucketSize:           2,
-		HomeCreatorGroups:    []string{user.AllAuthenticated},
-		HomeRootPrefix:       "root:users",
+		Enabled:           true,
+		HomeCreatorGroups: []string{user.AllAuthenticated},
 	}
 }
 
 func (hw *HomeWorkspaces) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&hw.Enabled, "enable-home-workspaces", hw.Enabled, "Enable the Home Workspaces feature. Home workspaces allow a personal home workspace to provisioned on first access per-user. A user is cluster-admin inside his personal Home workspace.")
-	fs.IntVar(&hw.CreationDelaySeconds, "home-workspaces-creation-delay-seconds", hw.CreationDelaySeconds, "Delay, in seconds, before retrying accessing the Home workspace after its automatic creation. This value is used when sending 'retry-after' responses to the Kubernetes client.")
-	fs.IntVar(&hw.BucketLevels, "home-workspaces-bucket-levels", hw.BucketLevels, "Number of levels of bucket workspaces when bucketing home workspaces")
-	fs.IntVar(&hw.BucketLevels, "home-workspaces-bucket-size", hw.BucketSize, "Number of characters of bucket workspace names used when bucketing home workspaces")
-	fs.StringSliceVar(&hw.HomeCreatorGroups, "home-workspaces-home-creator-groups", hw.HomeCreatorGroups, "Groups of users who can have their home workspace created automatically create when first accessing it.")
-	fs.StringVar(&hw.HomeRootPrefix, "home-workspaces-root-prefix", hw.HomeRootPrefix, "Logical cluster name of the workspace that will contains home workspaces for all workspaces.")
-
-	fs.MarkDeprecated("home-workspaces-home-creator-groups", "This flag is deprecated and will be removed in a future release.")    //nolint:errcheck
-	fs.MarkDeprecated("home-workspaces-root-prefix", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
-	fs.MarkDeprecated("home-workspaces-creation-delay-seconds", "This flag is deprecated and will be removed in a future release.") //nolint:errcheck
-	fs.MarkDeprecated("home-workspaces-bucket-levels", "This flag is deprecated and will be removed in a future release.")          //nolint:errcheck
-	fs.MarkDeprecated("home-workspaces-bucket-size", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
+	fs.BoolVar(&hw.Enabled, "enable-home-workspaces", hw.Enabled, "Enable home workspaces, where a private workspace is provisioned upon first access per user, and the user is cluster-admin.")
+	fs.StringSliceVar(&hw.HomeCreatorGroups, "home-workspaces-home-creator-groups", hw.HomeCreatorGroups, "Groups of users who can have their home workspaces provisioned upon first access.")
 }
 
 func (hw *HomeWorkspaces) Validate() []error {
-	var errs []error
-
-	if hw.Enabled {
-		if hw.BucketLevels < 1 || hw.BucketLevels > 5 {
-			errs = append(errs, fmt.Errorf("--home-workspaces-bucket-levels should be between 1 and 5"))
-		}
-		if hw.BucketSize < 1 || hw.BucketLevels > 4 {
-			errs = append(errs, fmt.Errorf("--home-workspaces-bucket-size should be between 1 and 4"))
-		}
-		if hw.CreationDelaySeconds < 1 {
-			errs = append(errs, fmt.Errorf("--home-workspaces-creation-delay-seconds should be between 1"))
-		}
-		if homePrefix := logicalcluster.NewPath(hw.HomeRootPrefix); !homePrefix.IsValid() ||
-			homePrefix == logicalcluster.Wildcard ||
-			!homePrefix.HasPrefix(core.RootCluster.Path()) {
-			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))
-		} else if parent, ok := homePrefix.Parent(); !ok || parent != core.RootCluster.Path() {
-			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a direct child of the root logical cluster"))
-		}
-	}
-
-	return errs
+	return nil
 }

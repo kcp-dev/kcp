@@ -391,10 +391,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 				c.KubeSharedInformerFactory,
 				c.KcpSharedInformerFactory,
 				c.GenericConfig.ExternalAddress,
-				opts.HomeWorkspaces.CreationDelaySeconds,
-				logicalcluster.NewPath(opts.HomeWorkspaces.HomeRootPrefix),
-				opts.HomeWorkspaces.BucketLevels,
-				opts.HomeWorkspaces.BucketSize,
 			)
 			if err != nil {
 				panic(err) // shouldn't happen due to flag validation
