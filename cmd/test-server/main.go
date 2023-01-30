@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
@@ -77,8 +78,13 @@ func main() {
 }
 
 func start(shardFlags []string, quiet bool) error {
-	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
-	defer cancelFn()
+	// We use a shutdown context to know that it's time to gather metrics, before stopping the shard
+	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
+	defer shutdownCancel()
+
+	// This context controls the life of the shard
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
 	_, err := crypto.MakeSelfSignedCA(
@@ -111,5 +117,18 @@ func start(shardFlags []string, quiet bool) error {
 		return err
 	}
 
-	return <-errCh
+	// Wait for either a premature termination error from the shard, or for the test server process to shut down
+	select {
+	case err := <-errCh:
+		return err
+	case <-shutdownCtx.Done():
+	}
+
+	// We've received the notice to shut down, so try to gather metrics. Use a new context with a fixed timeout.
+	metricsCtx, metricsCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
+	defer metricsCancel()
+
+	shard.GatherMetrics(metricsCtx)
+
+	return nil
 }

@@ -237,6 +237,40 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 	return s.terminatedCh, nil
 }
 
+func (s *Shard) GatherMetrics(ctx context.Context) {
+	logger := klog.FromContext(ctx).WithValues("shard", s.name)
+	logger.Info("gathering shard metrics")
+
+	kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+	)
+	config, err := configLoader.ClientConfig()
+	if err != nil {
+		logger.Error(err, "unable to collect metrics: error getting client config")
+		return
+	}
+	kcpClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		logger.Error(err, "unable to collect metrics: failed to create kcp client")
+		return
+	}
+	raw, err := kcpClient.RESTClient().Get().RequestURI("/metrics").DoRaw(ctx)
+	if err != nil {
+		logger.Error(err, "error getting metrics for shard")
+		return
+	}
+
+	logDir := filepath.Dir(s.logFilePath)
+	metricsFile := filepath.Join(logDir, fmt.Sprintf("%s-metrics.txt", s.name))
+	logger.Info("writing metrics file", "path", metricsFile)
+	if err := os.WriteFile(metricsFile, raw, 0o644); err != nil {
+		logger.Error(err, "error writing metrics file", "path", metricsFile)
+	}
+
+	logger.Info("wrote metrics file", "path", metricsFile)
+}
+
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
 // the content in a string-formatted error, unfortunately.
 func unreadyComponentsFromError(err error) sets.String {

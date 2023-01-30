@@ -55,6 +55,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
@@ -177,6 +178,28 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	return f.Servers[serverName]
 }
 
+func GatherMetrics(ctx context.Context, t *testing.T, server RunningServer, directory string) {
+	cfg := server.RootShardSystemMasterBaseConfig(t)
+	client, err := kcpclientset.NewForConfig(cfg)
+	if err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error creating metrics client for server %s: %v", server.Name(), err)
+	}
+
+	raw, err := client.RESTClient().Get().RequestURI("/metrics").DoRaw(ctx)
+	if err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error getting metrics for server %s: %v", server.Name(), err)
+		return
+	}
+
+	metricsFile := filepath.Join(directory, fmt.Sprintf("%s-metrics.txt", server.Name()))
+	if err := os.WriteFile(metricsFile, raw, 0o644); err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error writing metrics file %s: %v", metricsFile, err)
+	}
+}
+
 func CreateClientCA(t *testing.T) (string, string) {
 	clientCADir := t.TempDir()
 	_, err := crypto.MakeSelfSignedCA(
@@ -241,6 +264,15 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 	if t.Failed() {
 		t.Fatal("Fixture setup failed: one or more servers did not become ready")
 	}
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
+		defer cancel()
+
+		for _, server := range servers {
+			GatherMetrics(ctx, t, server, server.artifactDir)
+		}
+	})
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
