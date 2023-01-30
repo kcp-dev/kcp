@@ -32,15 +32,15 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	apiresourceoptions "github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource/options"
 )
 
 const resyncPeriod = 10 * time.Hour
 
-func bindOptions(fs *pflag.FlagSet) *options {
+func NewOptions() *options {
 	o := options{
-		ApiResourceOptions: apiresource.BindOptions(apiresource.DefaultOptions(), fs),
+		ApiResourceOptions: apiresourceoptions.NewOptions(),
 	}
-	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 	return &o
 }
 
@@ -49,7 +49,13 @@ type options struct {
 	// standalone startup, we need to load credentials ourselves
 	kubeconfigPath string
 
-	ApiResourceOptions *apiresource.Options
+	ApiResourceOptions *apiresourceoptions.Options
+}
+
+func (o *options) AddFlags(fs *pflag.FlagSet) {
+	o.ApiResourceOptions.AddFlags(fs)
+
+	fs.StringVar(&o.kubeconfigPath, "kubeconfig", "", "Path to kubeconfig")
 }
 
 func (o *options) Validate() error {
@@ -64,18 +70,19 @@ func main() {
 	ctx := genericapiserver.SetupSignalContext()
 
 	fs := pflag.NewFlagSet("cluster-controller", pflag.ContinueOnError)
-	options := bindOptions(fs)
+	o := NewOptions()
+	o.AddFlags(fs)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if err := options.Validate(); err != nil {
+	if err := o.Validate(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.kubeconfigPath},
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: o.kubeconfigPath},
 		&clientcmd.ConfigOverrides{})
 
 	config, err := configLoader.ClientConfig()
@@ -101,7 +108,7 @@ func main() {
 	apiResource, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		options.ApiResourceOptions.AutoPublishAPIs,
+		o.ApiResourceOptions.AutoPublishAPIs,
 		kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
@@ -117,7 +124,7 @@ func main() {
 	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 	crdSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	go apiResource.Start(ctx, options.ApiResourceOptions.NumThreads)
+	go apiResource.Start(ctx, o.ApiResourceOptions.NumThreads)
 
 	<-ctx.Done()
 }

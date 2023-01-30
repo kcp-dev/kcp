@@ -29,8 +29,8 @@ import (
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
+	apiresource "github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource/options"
+	heartbeat "github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat/options"
 )
 
 type Controllers struct {
@@ -59,8 +59,8 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiResource:         *apiresource.DefaultOptions(),
-		SyncTargetHeartbeat: *heartbeat.DefaultOptions(),
+		ApiResource:         *apiresource.NewOptions(),
+		SyncTargetHeartbeat: *heartbeat.NewOptions(),
 		SAController:        *kcmDefaults.SAController,
 	}
 }
@@ -71,9 +71,8 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
-	apiresource.BindOptions(&c.ApiResource, fs)
-	heartbeat.BindOptions(&c.SyncTargetHeartbeat, fs)
-
+	c.SyncTargetHeartbeat.AddFlags(fs)
+	c.ApiResource.AddFlags(fs)
 	c.SAController.AddFlags(fs)
 }
 
