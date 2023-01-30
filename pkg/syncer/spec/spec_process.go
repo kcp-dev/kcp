@@ -304,6 +304,13 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
 	}
 
+	// Handle kcp upgrades by checking the tenant ID is set and correct
+	if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
+		unstrNamespace.GetLabels()[shared.TenantIDLabel] = desiredTenantID
+		_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
+		return err
+	}
+
 	return nil
 }
 
