@@ -120,7 +120,7 @@ func TestDNSResolution(t *testing.T) {
 	framework.Eventually(t, checkLogs(ctx, t, downstreamKubeClient, downstreamWS2NS1, "ping-fully-qualified-fail", "ping: bad"),
 		wait.ForeverTestTimeout, time.Millisecond*500, "Service name was resolved")
 
-	t.Log("Change ping-fully-qualified deployment DNS config to use workspace 2 nameserver")
+	t.Log("Change ping-fully-qualified deployment DNS config to use workspace 2 nameserver and check the DNS name does not resolve")
 	dnsServices, err := downstreamKubeClient.CoreV1().Services(syncer.SyncerID).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.True(t, len(dnsServices.Items) >= 2)
@@ -153,7 +153,7 @@ func TestDNSResolution(t *testing.T) {
 	require.NoError(t, err)
 
 	framework.Eventually(t, checkLogs(ctx, t, downstreamKubeClient, downstreamWS1NS1, "ping-fully-qualified", "ping: bad"),
-		wait.ForeverTestTimeout, time.Millisecond*500, "Service name was still not resolved")
+		wait.ForeverTestTimeout, time.Millisecond*500, "Service name was resolved")
 }
 
 func checkLogs(ctx context.Context, t *testing.T, downstreamKubeClient *kubernetes.Clientset, downstreamNamespace, containerName, expectedPrefix string) func() (success bool, reason string) {
