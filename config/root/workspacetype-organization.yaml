@@ -3,7 +3,7 @@ kind: WorkspaceType
 metadata:
   name: organization
   annotations:
-    bootstrap.kcp.io/battery: cluster-workspace-types
+    bootstrap.kcp.io/battery: workspace-types
 spec:
   extend:
     with:

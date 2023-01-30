@@ -24,7 +24,7 @@ import (
 
 const (
 	// WorkspaceTypes leads to creation of a number of default types beyond the universal type.
-	WorkspaceTypes = "cluster-workspace-types"
+	WorkspaceTypes = "workspace-types"
 
 	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin.
 	User = "user"
