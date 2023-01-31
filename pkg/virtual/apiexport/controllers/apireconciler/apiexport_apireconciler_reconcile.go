@@ -34,6 +34,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -82,6 +83,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	claims := map[schema.GroupResource]apisv1alpha1.PermissionClaim{}
 	claimsAPIBindings := false
 	for _, pc := range apiExport.Spec.PermissionClaims {
+		logger := logger.WithValues("claim", pc.String())
+		logger.V(4).Info("evaluating claim")
+
 		// APIExport resources have priority over claimed resources
 		gr := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}
 		if _, found := apiResourceSchemas[gr]; found {
@@ -131,10 +135,15 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			continue
 		}
 
+		logger = logger.WithValues("identity", pc.IdentityHash)
+
+		logger.V(4).Info("getting APIExports by identity")
 		exports, err := c.apiExportIndexer.ByIndex(indexers.APIExportByIdentity, pc.IdentityHash)
 		if err != nil {
 			return err
 		}
+
+		logger.V(4).Info("got APIExports", "count", len(exports))
 
 		// there might be multiple exports with the same identity hash all exporting the same GR.
 		// This is fine. Same identity means same owner. They have to ensure the schemas are compatible.
@@ -148,14 +157,22 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 		for _, obj := range exports {
 			export := obj.(*apisv1alpha1.APIExport)
+			logger := logger.WithValues(logging.FromPrefix("candidateAPIExport", export)...)
+			logger.V(4).Info("getting APIResourceSchemas for candidate APIExport")
 			candidates, err := c.getSchemasFromAPIExport(ctx, export)
 			if err != nil {
 				return err
 			}
+			logger.V(4).Info("got APIResourceSchemas for candidate APIExport", "count", len(candidates))
 			for _, apiResourceSchema := range candidates {
+				logger := logger.WithValues(logging.FromPrefix("candidateAPIResourceSchema", apiResourceSchema)...)
+				logger = logger.WithValues("candidateGroup", apiResourceSchema.Spec.Group, "candidateResource", apiResourceSchema.Spec.Names.Plural)
+				logger.V(4).Info("evaluating candidate APIResourceSchema")
 				if apiResourceSchema.Spec.Group != pc.Group || apiResourceSchema.Spec.Names.Plural != pc.Resource {
+					logger.V(4).Info("not a match")
 					continue
 				}
+				logger.V(4).Info("got a match!")
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
 				claims[gr] = pc

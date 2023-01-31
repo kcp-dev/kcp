@@ -84,7 +84,8 @@ func NewAPIReconciler(
 	indexers.AddIfNotPresentOrDie(
 		apiExportInformer.Informer().GetIndexer(),
 		cache.Indexers{
-			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
+			indexers.APIExportByIdentity:          indexers.IndexAPIExportByIdentity,
+			indexers.APIExportByClaimedIdentities: indexers.IndexAPIExportByClaimedIdentities,
 		},
 	)
 
@@ -174,6 +175,25 @@ func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logg
 	}
 	logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport")
 	c.queue.Add(key)
+
+	if apiExport.Status.IdentityHash != "" {
+		logger.V(4).Info("looking for APIExports to queue that have claims against this identity", "identity", apiExport.Status.IdentityHash)
+		others, err := indexers.ByIndex[*apisv1alpha1.APIExport](c.apiExportIndexer, indexers.APIExportByClaimedIdentities, apiExport.Status.IdentityHash)
+		if err != nil {
+			logger.Error(err, "error getting APIExports for claimed identity", "identity", apiExport.Status.IdentityHash)
+			return
+		}
+		logger.V(4).Info("got APIExports", "identity", apiExport.Status.IdentityHash, "count", len(others))
+		for _, other := range others {
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(other)
+			if err != nil {
+				logger.Error(err, "error getting key!")
+				continue
+			}
+			logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport for claim")
+			c.queue.Add(key)
+		}
+	}
 }
 
 func (c *APIReconciler) startWorker(ctx context.Context) {
