@@ -125,7 +125,10 @@ jobs:
 
       # copy back older versions to the current docs
       - name: Copy everything from archive to docs
-        run: rsync -av docs/v* public
+        run: |
+          if ls docs/v* >/dev/null; then
+            rsync -av docs/v* public
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v1
