@@ -383,8 +383,8 @@ verify-modules: modules  ## Verify go modules are up to date
 
 .PHONY: clean
 clean:
-	! test -e $(TOOLS_DIR) || rm -r $(TOOLS_DIR)
-	! test -e $(GOBIN_DIR)/* || rm $(GOBIN_DIR)/*
+	rm -fr $(TOOLS_DIR)
+	rm -f $(GOBIN_DIR)/*
 
 .PHONY: help
 help: ## Show this help.
