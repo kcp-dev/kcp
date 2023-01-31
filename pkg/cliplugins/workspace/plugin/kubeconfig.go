@@ -784,7 +784,7 @@ func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
 // BindFlags binds fields to cmd's flagset.
 func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
-	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspaces names")
+	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspace names")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
