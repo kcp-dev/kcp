@@ -386,11 +386,13 @@ metadata:
 	require.NoError(t, err)
 
 	t.Logf("verify that service-provider-2-admin cannot list sherrifs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
-	_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
-	require.ErrorContains(
-		t, err,
-		`sheriffs.wild.wild.west is forbidden: User "service-provider-2-admin" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: access denied`,
-		"service-provider-2-admin must not be allowed to list sheriff resources")
+	framework.Eventually(t, func() (success bool, reason string) {
+		_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			return false, "expected an error but got nil"
+		}
+		return strings.Contains(err.Error(), `sheriffs.wild.wild.west is forbidden: User "service-provider-2-admin" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: access denied`), fmt.Sprintf("unexpected error: %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "service-provider-2-admin must not be allowed to list sheriff resources")
 
 	_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "service-provider-2-admin must be allowed to list native types")
