@@ -575,6 +575,15 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
+
+	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
+	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
+	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
+	// Thanks to
+	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
+	// the idea!
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
 		cleanup()
@@ -607,9 +616,9 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	}
 
 	c.t.Cleanup(func() {
-		// Ensure child process is killed on cleanup
-		err := cmd.Process.Signal(syscall.SIGTERM)
-		if err != nil {
+		// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
+		// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
 			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
 		}
 	})
