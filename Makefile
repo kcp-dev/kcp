@@ -382,9 +382,14 @@ verify-modules: modules  ## Verify go modules are up to date
 	hack/verify-go-modules.sh
 
 .PHONY: clean
-clean:
+clean: clean-workdir
 	rm -fr $(TOOLS_DIR)
 	rm -f $(GOBIN_DIR)/*
+
+.PHONY: clean-workdir
+clean-workdir: WORK_DIR ?= .
+clean-workdir:
+	rm -fr $(WORK_DIR)/.kcp*
 
 .PHONY: help
 help: ## Show this help.
