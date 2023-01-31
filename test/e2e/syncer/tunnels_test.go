@@ -73,9 +73,6 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, synctargetWsName.Path(),
-		framework.WithExtraResources("pods"),
-		framework.WithExtraResources("deployments.apps"),
-		framework.WithAPIExports("kubernetes"),
 		framework.WithSyncedUserWorkspaces(userWs),
 	).Start(t)
 
@@ -84,7 +81,6 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Log("Binding the consumer workspace to the location workspace")
 	framework.NewBindCompute(t, userWsName.Path(), upstreamServer,
 		framework.WithLocationWorkspaceWorkloadBindOption(synctargetWsName.Path()),
-		framework.WithAPIExportsWorkloadBindOption(synctargetWsName.String()+":kubernetes"),
 	).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
