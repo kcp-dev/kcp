@@ -251,7 +251,10 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				},
 			},
 		)
-		return err == nil, fmt.Sprintf("%v", err) //nolint:gocritic
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure [%q, %q] API groups shows up in consumer workspace %q group discovery", wildwest.GroupName, "wild.wild.west", tenantPath)
@@ -352,14 +355,24 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return false, fmt.Sprintf("CRD conflict condition not yet met: %q", condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
-	require.NoError(t, apply(t, ctx, tenantPath, tenantUser, `
+	// Have to do this with Eventually because the RBAC for the maximal permission policy can be slow to propagate via
+	// the cache server.
+	t.Logf("Creating cowboy (via APIBinding) in %q", tenantPath)
+	framework.Eventually(t, func() (bool, string) {
+		err := apply(t, ctx, tenantPath, tenantUser, `
 apiVersion: wildwest.dev/v1alpha1
 kind: Cowboy
 metadata:
   name: cowboy-via-api-binding
   namespace: default
-`))
+`)
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to create cowboy (via APIBinding)")
 
+	t.Logf("Creating cowboy (via CRD) in %q", tenantShadowCRDPath)
 	require.NoError(t, apply(t, ctx, tenantShadowCRDPath, tenantUser, `
 apiVersion: wildwest.dev/v1alpha1
 kind: Cowboy
