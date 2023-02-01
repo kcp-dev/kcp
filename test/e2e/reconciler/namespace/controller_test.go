@@ -92,12 +92,9 @@ func TestNamespaceScheduler(t *testing.T) {
 
 				t.Log("Deploy a syncer")
 				// Create and Start a syncer against a workload cluster so that there's a ready cluster to schedule to.
-				//
-				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
-				// controller just needs ready clusters which can be accomplished without a syncer by having the
-				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
-					framework.WithExtraResources("services")).Start(t)
+					framework.WithExtraResources("services"),
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")

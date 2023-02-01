@@ -123,7 +123,7 @@ func TestMultipleExports(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}),
-	).Start(t)
+	).CreateAndStart(t)
 
 	t.Logf("syncTarget should have one resource to sync")
 	require.Eventually(t, func() bool {

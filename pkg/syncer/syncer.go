@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -401,6 +402,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName)
 	}
 
+	StartHeartbeatKeeper(ctx, kcpSyncTargetClient, cfg.SyncTargetName, cfg.SyncTargetUID)
+
+	return nil
+}
+
+func StartHeartbeatKeeper(ctx context.Context, kcpSyncTargetClient kcpclientset.Interface, syncTargetName, syncTargetUID string) {
+	logger := klog.FromContext(ctx)
+
 	// Attempt to heartbeat every interval
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		var heartbeatTime time.Time
@@ -409,11 +418,11 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// Attempt to heartbeat every second until successful. Errors are logged instead of being returned so the
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
-			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, cfg.SyncTargetUID, time.Now().Format(time.RFC3339)))
-			syncTarget, err = kcpSyncTargetClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, syncTargetUID, time.Now().Format(time.RFC3339)))
+			syncTarget, err := kcpSyncTargetClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				logger.Error(err, "failed to set status.lastSyncerHeartbeatTime")
-				return false, nil //nolint:nilerr
+				return false, nil
 			}
 
 			heartbeatTime = syncTarget.Status.LastSyncerHeartbeatTime.Time
@@ -421,8 +430,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		})
 		logger.V(5).Info("Heartbeat set", "heartbeatTime", heartbeatTime)
 	}, heartbeatInterval)
-
-	return nil
 }
 
 type filteredGVRSource struct {

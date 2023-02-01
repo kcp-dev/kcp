@@ -73,7 +73,7 @@ func TestSyncerTunnel(t *testing.T) {
 
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, synctargetWsName.Path(),
 		framework.WithSyncedUserWorkspaces(userWs),
-	).Start(t)
+	).CreateAndStart(t)
 
 	syncerFixture.WaitForClusterReady(ctx, t)
 

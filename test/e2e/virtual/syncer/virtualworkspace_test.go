@@ -232,7 +232,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						)
 						require.NoError(t, err)
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+
+				kubelikeSyncer.StopHeartBeat(t)
+				kubelikeSyncer.StartHeartBeat(t)
 
 				wildwestLocationWorkspacePath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				wildwestLocationWorkspaceClusterName := logicalcluster.Name(wildwestLocationWorkspace.Spec.Cluster)
@@ -251,7 +254,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncer.SyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
@@ -338,7 +341,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Create two service accounts")
 				_, err := kubeClusterClient.Cluster(wildwestLocationPath).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
@@ -458,7 +461,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind wildwest location workspace to itself")
 				framework.NewBindCompute(t, wildwestLocationPath, server,
@@ -548,10 +551,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 1 &&
-						syncTargetsWithFinalizer.Has(syncTargetKey)
+						syncTargetsToSync[syncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(wildwestLocationPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q]}}",
+					shared.SyncerFinalizerNamePrefix+syncTargetKey,
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
 				_, err = vwClusterClient.Cluster(wildwestLocationClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
@@ -612,7 +619,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -695,18 +702,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
-					for _, name := range kcpCowboy.Finalizers {
-						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
-							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
-						}
-					}
-
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 1 &&
-						syncTargetsWithFinalizer.Has(syncTargetKey)
+						syncTargetsToSync[syncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q]}}",
+					shared.SyncerFinalizerNamePrefix+syncTargetKey,
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
 				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
@@ -770,7 +774,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -789,7 +793,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -931,22 +935,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return resourceStateLabelCount == 2
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-				logWithTimestampf(t, "Wait for the 2 syncers to own lukyluke")
-				require.Eventually(t, func() bool {
-					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					}
-					require.NoError(t, err)
-					syncerFinalizerCount := 0
-					for _, name := range kcpCowboy.Finalizers {
-						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
-							syncerFinalizerCount++
-						}
-					}
-
-					return syncerFinalizerCount == 2
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
+				logWithTimestampf(t, "Add the syncer finalizers to simulate that the 2 Syncers have taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q,%q]}}",
+					shared.SyncerFinalizerNamePrefix+wildwestNorthSyncer.ToSyncTargetKey(),
+					shared.SyncerFinalizerNamePrefix+wildwestSouthSyncer.ToSyncTargetKey(),
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via north virtual workspace to report in status that joe is in northern prison")
 				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
@@ -1003,7 +997,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -1024,7 +1018,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -1164,10 +1158,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[northSyncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 1 &&
-						syncTargetsWithFinalizer.Has(northSyncTargetKey)
+						syncTargetsToSync[northSyncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Add the north syntarget finalizer to simulate that the north Syncer has taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q]}}",
+					shared.SyncerFinalizerNamePrefix+wildwestNorthSyncer.ToSyncTargetKey(),
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via north virtual workspace to report in status that joe is in northern prison")
 				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in northern prison\"}}"), metav1.PatchOptions{}, "status")
@@ -1209,20 +1207,17 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
-					for _, name := range kcpCowboy.Finalizers {
-						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
-							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
-						}
-					}
-
 					return len(syncTargetsToSync) == 2 &&
 						syncTargetsToSync[northSyncTargetKey] == "Sync" &&
-						syncTargetsToSync[southSyncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 2 &&
-						syncTargetsWithFinalizer.Has(northSyncTargetKey) &&
-						syncTargetsWithFinalizer.Has(southSyncTargetKey)
+						syncTargetsToSync[southSyncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Add the 2 syncer finalizers to simulate that the 2 Syncers have taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q,%q]}}",
+					shared.SyncerFinalizerNamePrefix+wildwestNorthSyncer.ToSyncTargetKey(),
+					shared.SyncerFinalizerNamePrefix+wildwestSouthSyncer.ToSyncTargetKey(),
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via south virtual workspace to report in status that joe is in southern prison")
 				_, err = vwSouthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in southern prison\"}}"), metav1.PatchOptions{}, "status")
@@ -1247,7 +1242,29 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				err = kcpClusterClient.Cluster(consumerPath).SchedulingV1alpha1().Placements().Delete(ctx, "north", metav1.DeleteOptions{})
 				require.NoError(t, err)
 
-				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the south synctarget only, and for the south syncer only to own it")
+				logWithTimestampf(t, "Wait for resource controller to plan removal from north synctarget")
+				require.Eventually(t, func() bool {
+					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					require.NoError(t, err)
+					syncTargetsToBeRemoved := map[string]string{}
+					for name, value := range kcpCowboy.Annotations {
+						if strings.HasPrefix(name, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
+							syncTargetsToBeRemoved[strings.TrimPrefix(name, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix)] = value
+						}
+					}
+
+					return len(syncTargetsToBeRemoved) == 1 &&
+						syncTargetsToBeRemoved[northSyncTargetKey] != ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Remove the north syntarget finalizer to simulate that the north Syncer has finished with it")
+				_, err = vwNorthClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"metadata\":{\"finalizers\":null}}"), metav1.PatchOptions{})
+				require.NoError(t, err)
+
+				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the south synctarget only")
 				require.Eventually(t, func() bool {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
@@ -1261,17 +1278,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
-					for _, name := range kcpCowboy.Finalizers {
-						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
-							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
-						}
-					}
-
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[southSyncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 1 &&
-						syncTargetsWithFinalizer.Has(southSyncTargetKey)
+						syncTargetsToSync[southSyncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Verify that luckyluke is not known on the north synctarget")
@@ -1317,7 +1325,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -1425,7 +1433,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Start(t)
+				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -1515,10 +1523,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync" &&
-						syncTargetsWithFinalizer.Len() == 1 &&
-						syncTargetsWithFinalizer.Has(syncTargetKey)
+						syncTargetsToSync[syncTargetKey] == "Sync"
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
+				kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"finalizers\":[%q]}}",
+					shared.SyncerFinalizerNamePrefix+syncTargetKey,
+				)), metav1.PatchOptions{})
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Patch luckyluke via virtual workspace to report in status that joe is in prison")
 				_, err = vwClusterClient.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Patch(ctx, "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
@@ -1936,7 +1948,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					)
 					require.NoError(t, err)
 				}),
-			).Start(t)
+			).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 			logWithTimestampf(t, "Bind upsyncer workspace")
 			framework.NewBindCompute(t, upsyncerPath, server,

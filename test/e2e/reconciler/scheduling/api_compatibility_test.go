@@ -55,14 +55,14 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWS),
 		framework.WithAPIExports(""),
-	).Start(t)
+	).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	secondSyncTargetName := fmt.Sprintf("secondsynctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget with global kubernetes APIExports and syncer in %s", locationPath)
 	_ = framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(secondSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWS),
-	).Start(t)
+	).Create(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	placementName := "placement-test-supportedapi"
 	t.Logf("Bind to location workspace")
