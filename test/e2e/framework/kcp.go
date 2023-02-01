@@ -40,6 +40,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -911,6 +912,23 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		_, err = kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("error seen waiting for pods crd to become active: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	// Install the kubernetes endpoint in the default namespace. The DNS network policies reference this endpoint.
+	require.Eventually(t, func() bool {
+		_, err = kubeClient.CoreV1().Endpoints("default").Create(ctx, &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "kubernetes",
+			},
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{IP: "172.19.0.2:6443"}},
+			}},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Logf("failed to create the kubernetes endpoint: %v", err)
 			return false
 		}
 		return true
