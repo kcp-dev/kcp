@@ -85,6 +85,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.Cache.AddFlags(flags)
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
+	o.Audit.AddFlags(flags)
 	o.Logs.AddFlags(flags)
 	o.VirtualWorkspaces.AddFlags(flags)
 
