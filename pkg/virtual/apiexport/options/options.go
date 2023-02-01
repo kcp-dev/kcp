@@ -19,7 +19,6 @@ package options
 import (
 	"path"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
@@ -67,14 +66,10 @@ func (o *APIExport) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 	deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(config)))
 	if err != nil {
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, deepSARClient, dynamicClusterClient, kcpClusterClient, cachedKcpInformers)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), config, kubeClusterClient, deepSARClient, kcpClusterClient, cachedKcpInformers)
 }

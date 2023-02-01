@@ -19,8 +19,6 @@ package forwardingregistry
 import (
 	"context"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/api/validation/path"
@@ -71,7 +69,7 @@ func NewStorage(
 	categories []string,
 	tableConvertor rest.TableConvertor,
 	replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient kcpdynamic.ClusterInterface,
+	dynamicClusterClientFunc DynamicClusterClientFunc,
 	patchConflictRetryBackoff *wait.Backoff,
 	wrapper StorageWrapper,
 ) (mainStorage, statusStorage *StoreFuncs) {
@@ -99,7 +97,7 @@ func NewStorage(
 		factory, listFactory, destroyer,
 		strategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
-		dynamicClusterClient, []string{}, *patchConflictRetryBackoff, ctx.Done(),
+		dynamicClusterClientFunc, []string{}, *patchConflictRetryBackoff, ctx.Done(),
 	)
 	if wrapper != nil {
 		wrapper.Decorate(resource.GroupResource(), store)
@@ -110,7 +108,7 @@ func NewStorage(
 		factory, listFactory, destroyer,
 		statusStrategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
-		dynamicClusterClient, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
+		dynamicClusterClientFunc, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
 	)
 	delegateUpdate := statusStore.UpdaterFunc
 	statusStore.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
@@ -126,7 +124,7 @@ func NewStorage(
 
 // ProvideReadOnlyRestStorage returns a commonly used REST storage that forwards calls to a dynamic client,
 // but only for read-only requests.
-func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, wrapper StorageWrapper, identities map[schema.GroupResource]string) (apiserver.RestProviderFunc, error) {
+func ProvideReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc DynamicClusterClientFunc, wrapper StorageWrapper, identities map[schema.GroupResource]string) (apiserver.RestProviderFunc, error) {
 	return func(
 		resource schema.GroupVersionResource,
 		kind schema.GroupVersionKind,
@@ -162,7 +160,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.Cl
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			dynamicClusterClientFunc,
 			nil,
 			wrapper,
 		)

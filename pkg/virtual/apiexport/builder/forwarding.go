@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -39,7 +38,7 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
+func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
 	labelSelector := map[string]string{
 		apisv1alpha1.InternalAPIBindingExportLabelKey: permissionclaims.ToAPIBindingExportLabelValue(clusterName, exportName),
 	}
@@ -48,11 +47,11 @@ func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpd
 		return nil, fmt.Errorf("unable to create a selector from the provided labels")
 	}
 
-	return registry.ProvideReadOnlyRestStorage(ctx, clusterClient, registry.WithStaticLabelSelector(requirements), nil)
+	return registry.ProvideReadOnlyRestStorage(ctx, dynamicClusterClientFunc, registry.WithStaticLabelSelector(requirements), nil)
 }
 
 // provideDelegatingRestStorage returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
-func provideDelegatingRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -86,7 +85,7 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient kcpdynamic.
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			dynamicClusterClientFunc,
 			nil,
 			wrapper,
 		)

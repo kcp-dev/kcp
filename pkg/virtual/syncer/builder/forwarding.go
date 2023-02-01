@@ -71,7 +71,7 @@ func NewSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Cluster
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			func(ctx context.Context) (kcpdynamic.ClusterInterface, error) { return clusterClient, nil },
 			nil,
 			wrapper,
 		)
@@ -167,7 +167,7 @@ func NewUpSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Clust
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			func(ctx context.Context) (kcpdynamic.ClusterInterface, error) { return clusterClient, nil },
 			nil,
 			wrapper,
 		)

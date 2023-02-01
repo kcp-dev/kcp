@@ -27,14 +27,17 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
@@ -53,8 +56,8 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
+	cfg *rest.Config,
 	kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface,
-	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
@@ -86,6 +89,37 @@ func BuildVirtualWorkspace(
 		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			dynamicClient, err := kcpdynamic.NewForConfig(cfg)
+			if err != nil {
+				return nil, fmt.Errorf("error creating privileged dynamic kcp client: %w", err)
+			}
+
+			impersonatedDynamicClientGetter := func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
+				cluster, err := genericapirequest.ValidClusterFrom(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("error getting valid cluster from context: %w", err)
+				}
+
+				// Wildcard requests cannot be impersonated against a concrete cluster.
+				if cluster.Wildcard {
+					return dynamicClient, nil
+				}
+
+				impersonationConfig := rest.CopyConfig(cfg)
+				impersonationConfig.Impersonate = rest.ImpersonationConfig{
+					UserName: "system:serviceaccount:default:rest",
+					Groups:   []string{bootstrap.SystemKcpAdminGroup},
+					Extra: map[string][]string{
+						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
+					},
+				}
+				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
+				if err != nil {
+					return nil, fmt.Errorf("error generating dynamic client: %w", err)
+				}
+				return impersonatedClient, nil
+			}
+
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
@@ -100,7 +134,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					storageBuilder := provideDelegatingRestStorage(ctx, dynamicClusterClient, identityHash, wrapper)
+					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -112,7 +146,7 @@ func BuildVirtualWorkspace(
 					}, nil
 				},
 				func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
-					restProvider, err := provideAPIExportFilteredRestStorage(ctx, dynamicClusterClient, clusterName, apiExportName)
+					restProvider, err := provideAPIExportFilteredRestStorage(ctx, impersonatedDynamicClientGetter, clusterName, apiExportName)
 					if err != nil {
 						return nil, err
 					}
