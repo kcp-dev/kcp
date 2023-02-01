@@ -46,17 +46,18 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 
 	desiredURLs := map[string]workloadv1alpha1.VirtualWorkspace{}
 
+	var rootShardKey string
 	for _, workspaceShard := range workspaceShards {
-		if workspaceShard.Spec.ExternalURL != "" {
-			sharedExternalURL, err := url.Parse(workspaceShard.Spec.ExternalURL)
+		if workspaceShard.Spec.VirtualWorkspaceURL != "" {
+			shardVWURL, err := url.Parse(workspaceShard.Spec.VirtualWorkspaceURL)
 			if err != nil {
-				logger.Error(err, "failed to parse workspaceShard.Spec.ExternalURL")
+				logger.Error(err, "failed to parse workspaceShard.Spec.VirtualWorkspaceURL")
 				return nil, err
 			}
 
-			syncerVirtualWorkspaceURL := *sharedExternalURL
+			syncerVirtualWorkspaceURL := *shardVWURL
 			syncerVirtualWorkspaceURL.Path = path.Join(
-				sharedExternalURL.Path,
+				shardVWURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
 				syncerbuilder.SyncerVirtualWorkspaceName,
 				logicalcluster.From(syncTargetCopy).String(),
@@ -64,9 +65,9 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 				string(syncTargetCopy.UID),
 			)
 
-			upsyncerVirtualWorkspaceURL := *sharedExternalURL
+			upsyncerVirtualWorkspaceURL := *shardVWURL
 			(&upsyncerVirtualWorkspaceURL).Path = path.Join(
-				sharedExternalURL.Path,
+				shardVWURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
 				syncerbuilder.UpsyncerVirtualWorkspaceName,
 				logicalcluster.From(syncTargetCopy).String(),
@@ -77,16 +78,26 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 			syncerURL := (&syncerVirtualWorkspaceURL).String()
 			upsyncerURL := (&upsyncerVirtualWorkspaceURL).String()
 
-			desiredURLs[sharedExternalURL.String()] = workloadv1alpha1.VirtualWorkspace{
+			if workspaceShard.Name == corev1alpha1.RootShard {
+				rootShardKey = shardVWURL.String()
+			}
+			desiredURLs[shardVWURL.String()] = workloadv1alpha1.VirtualWorkspace{
 				SyncerURL:   syncerURL,
 				UpsyncerURL: upsyncerURL,
 			}
 		}
 	}
 
-	// Let's always add the desired URL in the same order, which will be the order of the
-	// corresponding shard URLs
+	// Let's always add the desired URLs in the same order:
+	// - urls for the root shard will always be added at the first place,
+	//   in order to ensure compatibility with the shard-unaware Syncer
+	// - urls for other shards which will be added in the lexical order of the
+	// corresponding shard URLs.
 	var desiredVirtualWorkspaces []workloadv1alpha1.VirtualWorkspace //nolint:prealloc
+	if rootShardVWURLs, ok := desiredURLs[rootShardKey]; ok {
+		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, rootShardVWURLs)
+		delete(desiredURLs, rootShardKey)
+	}
 	for _, shardURL := range sets.StringKeySet(desiredURLs).List() {
 		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, desiredURLs[shardURL])
 	}
