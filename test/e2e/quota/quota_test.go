@@ -182,18 +182,9 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for binding to be ready")
-			framework.Eventually(t, func() (bool, string) {
-				binding, err := kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-				require.NoError(t, err, "error getting binding %s", binding.Name)
-				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
-				if condition == nil {
-					return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
-				}
-				if condition.Status == corev1.ConditionTrue {
-					return true, ""
-				}
-				return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
-			}, wait.ForeverTestTimeout, time.Millisecond*100)
+			framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			}, framework.Is(apisv1alpha1.InitialBindingCompleted))
 
 			t.Logf("Wait for being able to list Services in the user workspace")
 			framework.Eventually(t, func() (bool, string) {
@@ -322,10 +313,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
 			_, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
-			if err != nil {
-				return apierrors.IsForbidden(err), err.Error()
-			}
-			return false, "expected an error trying to create a sheriff"
+			return apierrors.IsForbidden(err), fmt.Sprintf("expected a forbidden error, got: %v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected sheriff creation")
 	}
 }

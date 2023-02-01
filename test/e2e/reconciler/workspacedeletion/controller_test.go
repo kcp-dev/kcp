@@ -80,16 +80,21 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 
+				t.Logf("Workspace should be scheduled")
+				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+					return server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
+
 				t.Logf("Should have finalizer added in workspace")
 				framework.Eventually(t, func() (bool, string) {
 					workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace")
 
 					if len(workspace.Finalizers) == 0 {
-						return false, toYAML(t, workspace)
+						return false, fmt.Sprintf("expected to have a finalizer set, found none: %s", toYAML(t, workspace))
 					}
 
-					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled), toYAML(t, workspace)
+					return true, ""
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Wait until the %q workspace is ready", workspace.Name)
@@ -147,11 +152,9 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 				t.Logf("The workspace condition should be updated since there is resource in the workspace pending finalization.")
-				framework.Eventually(t, func() (bool, string) {
-					workspace, err := server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
-					require.NoError(t, err)
-					return conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceContentDeleted), toYAML(t, workspace)
-				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
+				}, framework.IsNot(tenancyv1alpha1.WorkspaceContentDeleted))
 
 				t.Logf("Clean finalizer to remove the configmap")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {

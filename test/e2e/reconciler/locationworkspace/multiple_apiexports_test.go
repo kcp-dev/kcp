@@ -145,23 +145,9 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
-		var reason string
-		if !done {
-			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
-			if condition != nil {
-				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
-			} else {
-				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
-			}
-		}
-		return done, reason
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	}, framework.Is(workloadv1alpha1.SyncerAuthorized))
 
 	t.Logf("Patch synctarget with new export")
 	patchData := fmt.Sprintf(
@@ -193,14 +179,9 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should not be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-
-		return conditions.IsFalse(syncTarget, workloadv1alpha1.SyncerAuthorized)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	}, framework.IsNot(workloadv1alpha1.SyncerAuthorized))
 
 	t.Logf("Update clusterole so syncer can start to sync")
 	downstreamKubeClient := syncTarget.DownstreamKubeClient
@@ -221,23 +202,9 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
-		var reason string
-		if !done {
-			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
-			if condition != nil {
-				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
-			} else {
-				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
-			}
-		}
-		return done, reason
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	}, framework.Is(workloadv1alpha1.SyncerAuthorized))
 
 	// create virtual workspace rest configs
 	rawConfig, err := source.RawConfig()

@@ -19,7 +19,6 @@ package conversion
 import (
 	"context"
 	"embed"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -76,16 +75,9 @@ func TestAPIConversion(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100.*time.Millisecond, "failed to set up test resources")
 
 	t.Logf("Waiting for initial binding to complete")
-	framework.Eventually(t, func() (bool, string) {
-		apiBinding, err := kcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIBindings().Get(ctx, "widgets.example.io", metav1.GetOptions{})
-		require.NoError(t, err, "error getting APIBinding")
-
-		if conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
-			return true, ""
-		}
-
-		return false, fmt.Sprintf("%v", apiBinding.Status)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIBinding never completed its initial binding")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIBindings().Get(ctx, "widgets.example.io", metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.InitialBindingCompleted), "APIBinding never completed its initial binding")
 
 	framework.Eventually(t, func() (success bool, reason string) {
 		t.Logf("Resetting the RESTMapper so it can pick up widgets")

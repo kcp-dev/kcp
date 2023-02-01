@@ -101,13 +101,12 @@ func TestProtectedAPI(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create APIBinding")
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerPath)
-	require.Eventually(t, func() bool {
-		b, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-
-		return conditions.IsTrue(b, apisv1alpha1.InitialBindingCompleted) &&
-			conditions.IsTrue(b, apisv1alpha1.BindingUpToDate)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "APIBinding %q in workspace %q did not complete", apiBinding.Name, consumerPath)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.InitialBindingCompleted))
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.BindingUpToDate))
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerPath)
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
