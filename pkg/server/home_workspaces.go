@@ -88,25 +88,14 @@ func WithHomeWorkspaces(
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
-	creationDelaySeconds int,
-	homePrefix logicalcluster.Path,
-	bucketLevels,
-	bucketSize int,
 ) (http.Handler, error) {
-	if bucketLevels > 5 || bucketSize > 4 {
-		return nil, fmt.Errorf("bucketLevels and bucketSize must be <= 5 and <= 4")
-	}
 	h := &homeWorkspaceHandler{
 		delegate: apiHandler,
 
 		authz: a,
 
-		homePrefix:           homePrefix,
-		bucketLevels:         bucketLevels,
-		bucketSize:           bucketSize,
-		creationDelaySeconds: creationDelaySeconds,
-		creationTimeout:      time.Minute,
-		externalHost:         externalHost,
+		creationTimeout: time.Minute,
+		externalHost:    externalHost,
 
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
@@ -133,11 +122,8 @@ type homeWorkspaceHandler struct {
 
 	authz authorizer.Authorizer
 
-	homePrefix               logicalcluster.Path
-	bucketLevels, bucketSize int
-	creationDelaySeconds     int
-	creationTimeout          time.Duration
-	externalHost             string
+	creationTimeout time.Duration
+	externalHost    string
 
 	transitiveTypeResolver workspacetypeexists.TransitiveTypeResolver
 
@@ -258,6 +244,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 	}
 
+	const retrySeconds = "1"
+
 	// here we have a LogicalCluster. Create ClusterRoleBinding. Again: if this is pre-existing
 	// and it is not belonging to the current user, the user will get a 403 through normal authorization.
 
@@ -291,7 +279,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		logicalCluster, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
-				rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
+				rw.Header().Set("Retry-After", retrySeconds)
 				http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
 				return
 			}
@@ -306,7 +294,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
+		rw.Header().Set("Retry-After", retrySeconds)
 		http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
 		return
 	}

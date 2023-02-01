@@ -151,6 +151,13 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		t.Logf("shared kcp server will target configuration %q", kubeconfig)
 		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.ShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		t.Cleanup(cancel)
+		err = WaitForReady(ctx, t, server.RootShardSystemMasterBaseConfig(t), true)
+		require.NoError(t, err, "error waiting for readiness")
+
 		return server
 	}
 
@@ -255,7 +262,11 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 		// Wait for the server to become ready
 		go func(s *kcpServer, i int) {
 			defer wg.Done()
-			err := s.Ready(!cfgs[i].RunInProcess)
+
+			err := s.loadCfg()
+			require.NoError(t, err, "error loading config")
+
+			err = WaitForReady(s.ctx, t, s.RootShardSystemMasterBaseConfig(t), !cfgs[i].RunInProcess)
 			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
 		}(srv, i)
 	}
@@ -564,6 +575,15 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
+
+	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
+	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
+	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
+	// Thanks to
+	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
+	// the idea!
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
 		cleanup()
@@ -596,9 +616,9 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	}
 
 	c.t.Cleanup(func() {
-		// Ensure child process is killed on cleanup
-		err := cmd.Process.Signal(syscall.SIGTERM)
-		if err != nil {
+		// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
+		// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
 			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
 		}
 	})
@@ -726,50 +746,6 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	return c.cfg.RawConfig()
 }
 
-// Ready blocks until the server is healthy and ready. Before returning,
-// goroutines are started to ensure that the test is failed if the server
-// does not remain so.
-func (c *kcpServer) Ready(keepMonitoring bool) error {
-	if err := c.loadCfg(); err != nil {
-		return err
-	}
-	if c.ctx.Err() != nil {
-		// cancelling the context will preempt derivative calls but not this
-		// main Ready() body, so we check before continuing that we are live
-		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
-	}
-	cfg, err := c.config("base")
-	if err != nil {
-		return fmt.Errorf("failed to read client configuration: %w", err)
-	}
-	if cfg.NegotiatedSerializer == nil {
-		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
-	}
-	client, err := rest.UnversionedRESTClientFor(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create unversioned client: %w", err)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			defer wg.Done()
-			c.waitForEndpoint(client, endpoint)
-		}(endpoint)
-	}
-	wg.Wait()
-
-	if keepMonitoring {
-		for _, endpoint := range []string{"/livez", "/readyz"} {
-			go func(endpoint string) {
-				c.monitorEndpoint(client, endpoint)
-			}(endpoint)
-		}
-	}
-	return nil
-}
-
 func (c *kcpServer) loadCfg() error {
 	var lastError error
 	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, 1*time.Minute, func(ctx context.Context) (bool, error) {
@@ -798,55 +774,6 @@ func (c *kcpServer) loadCfg() error {
 		return fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 	return nil
-}
-
-func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
-	var lastError error
-	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
-		req := rest.NewRequest(client).RequestURI(endpoint)
-		_, err := req.Do(ctx).Raw()
-		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
-			return false, nil
-		}
-
-		c.t.Logf("success contacting %s", req.URL())
-		return true, nil
-	}); err != nil && lastError != nil {
-		c.t.Error(lastError)
-	}
-}
-
-func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
-	// we need a shorter deadline than the server, or else:
-	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
-	ctx := c.ctx
-	if deadline, ok := c.t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(c.ctx, deadline.Add(-20*time.Second))
-		ctx = deadlinedCtx
-		c.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
-	var errCount int
-	errs := sets.NewString()
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
-		if errors.Is(err, context.Canceled) || c.ctx.Err() != nil {
-			return
-		}
-		// if we're noticing an error, record it and fail the test if things stay failed for two consecutive polls
-		if err != nil {
-			errCount++
-			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
-			if errCount == 2 {
-				c.t.Errorf("error contacting %s: %v", endpoint, errs.List())
-			}
-		}
-		// otherwise, reset the counters
-		errCount = 0
-		if errs.Len() > 0 {
-			errs = sets.NewString()
-		}
-	}, 100*time.Millisecond)
 }
 
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
@@ -1053,4 +980,86 @@ func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Obj
 func NoGoRunEnvSet() bool {
 	envSet, _ := strconv.ParseBool(os.Getenv("NO_GORUN"))
 	return envSet
+}
+
+func WaitForReady(ctx context.Context, t *testing.T, cfg *rest.Config, keepMonitoring bool) error {
+	t.Logf("waiting for readiness for server at %s", cfg.Host)
+
+	cfg = rest.CopyConfig(cfg)
+	if cfg.NegotiatedSerializer == nil {
+		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+
+	client, err := rest.UnversionedRESTClientFor(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create unversioned client: %w", err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	for _, endpoint := range []string{"/livez", "/readyz"} {
+		go func(endpoint string) {
+			defer wg.Done()
+			waitForEndpoint(ctx, t, client, endpoint)
+		}(endpoint)
+	}
+	wg.Wait()
+	t.Logf("server at %s is ready", cfg.Host)
+
+	if keepMonitoring {
+		for _, endpoint := range []string{"/livez", "/readyz"} {
+			go func(endpoint string) {
+				monitorEndpoint(ctx, t, client, endpoint)
+			}(endpoint)
+		}
+	}
+	return nil
+}
+
+func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		_, err := req.Do(ctx).Raw()
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
+			return false, nil
+		}
+
+		t.Logf("success contacting %s", req.URL())
+		return true, nil
+	}); err != nil && lastError != nil {
+		t.Error(lastError)
+	}
+}
+
+func monitorEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	// we need a shorter deadline than the server, or else:
+	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
+	if deadline, ok := t.Deadline(); ok {
+		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-20*time.Second))
+		ctx = deadlinedCtx
+		t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
+	}
+	var errCount int
+	errs := sets.NewString()
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+			return
+		}
+		// if we're noticing an error, record it and fail the test if things stay failed for two consecutive polls
+		if err != nil {
+			errCount++
+			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
+			if errCount == 2 {
+				t.Errorf("error contacting %s: %v", endpoint, errs.List())
+			}
+		}
+		// otherwise, reset the counters
+		errCount = 0
+		if errs.Len() > 0 {
+			errs = sets.NewString()
+		}
+	}, 100*time.Millisecond)
 }

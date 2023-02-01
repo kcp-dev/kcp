@@ -117,6 +117,12 @@ func start(shardFlags []string, quiet bool) error {
 		return err
 	}
 
+	readyToTestFile, err := os.Create("ready-to-test")
+	if err != nil {
+		return fmt.Errorf("error creating ready-to-test file: %w", err)
+	}
+	defer readyToTestFile.Close()
+
 	// Wait for either a premature termination error from the shard, or for the test server process to shut down
 	select {
 	case err := <-errCh:
