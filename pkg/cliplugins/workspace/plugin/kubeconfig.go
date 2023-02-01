@@ -784,7 +784,7 @@ func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
 // BindFlags binds fields to cmd's flagset.
 func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
-	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspaces names")
+	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspace names")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -808,14 +808,20 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+	_, current, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return fmt.Errorf("current config context URL %q does not point to workspace", config.Host)
 	}
 
 	tree := treeprint.New()
-	err = o.populateBranch(ctx, tree, currentClusterName)
-	if err != nil {
+	// NOTE(hasheddan): the cluster URL can be used for only the tree root as
+	// the friendly name is used in kubeconfig.
+	name := current.String()
+	if !o.Full {
+		name = name[strings.LastIndex(name, ":")+1:]
+	}
+	branch := tree.AddBranch(name)
+	if err := o.populateBranch(ctx, branch, current, name); err != nil {
 		return err
 	}
 
@@ -823,15 +829,8 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Path) error {
-	var b treeprint.Tree
-	if o.Full {
-		b = tree.AddBranch(name.String())
-	} else {
-		b = tree.AddBranch(name.Base())
-	}
-
-	results, err := o.kcpClusterClient.Cluster(name).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, parent logicalcluster.Path, parentName string) error {
+	results, err := o.kcpClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -840,12 +839,18 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, n
 	}
 
 	for _, workspace := range results.Items {
-		_, currentClusterName, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
+		_, current, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
 			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
 		}
-		err = o.populateBranch(ctx, b, currentClusterName)
-		if err != nil {
+		// NOTE(hasheddan): the cluster URL from the Workspace does not use the
+		// friendly name, so we use the Workspace name instead.
+		name := workspace.Name
+		if o.Full {
+			name = parentName + ":" + name
+		}
+		branch := tree.AddBranch(name)
+		if err := o.populateBranch(ctx, branch, current, name); err != nil {
 			return err
 		}
 	}
