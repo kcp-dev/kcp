@@ -83,7 +83,13 @@ func BuildVirtualWorkspace(
 				virtualWorkspaceName:  SyncerVirtualWorkspaceName,
 				filteredResourceState: workloadv1alpha1.ResourceStateSync,
 				restProviderBuilder:   NewSyncerRestProvider,
-				allowedAPIFilter:      nil,
+				allowedAPIFilter: func(apiGroupResource schema.GroupResource) bool {
+					// Don't expose Endpoints or Pods via the Syncer VirtualWorkspace.
+					if apiGroupResource.Group == "" && (apiGroupResource.Resource == "pods" || apiGroupResource.Resource == "endpoints") {
+						return false
+					}
+					return true
+				},
 				transformer: &transformations.SyncerResourceTransformer{
 					TransformationProvider:   &transformations.SpecDiffTransformation{},
 					SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
@@ -99,7 +105,7 @@ func BuildVirtualWorkspace(
 				restProviderBuilder:   NewUpSyncerRestProvider,
 				allowedAPIFilter: func(apiGroupResource schema.GroupResource) bool {
 					// Only allow persistentvolumes and Pods to be Upsynced.
-					return apiGroupResource.Group == "" && apiGroupResource.Resource == "persistentvolumes" || apiGroupResource.Group == "" && apiGroupResource.Resource == "pods"
+					return apiGroupResource.Group == "" && (apiGroupResource.Resource == "persistentvolumes" || apiGroupResource.Resource == "pods")
 				},
 				transformer:           &upsyncer.UpsyncerResourceTransformer{},
 				storageWrapperBuilder: upsyncer.WithStaticLabelSelectorAndInWriteCallsCheck,

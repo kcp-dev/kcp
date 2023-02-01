@@ -156,27 +156,9 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name, rootCompu
 			Verbs:              metav1.Verbs{"get", "patch", "update"},
 			StorageVersionHash: "",
 		},
-		metav1.APIResource{
-			Kind:               "Pod",
-			Name:               "pods",
-			SingularName:       "pod",
-			Namespaced:         true,
-			Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-			ShortNames:         []string{"po"},
-			Categories:         []string{"all"},
-			StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "", "v1", "Pod"),
-		},
-		metav1.APIResource{
-			Kind:               "Pod",
-			Name:               "pods/status",
-			SingularName:       "",
-			Namespaced:         true,
-			Verbs:              metav1.Verbs{"get", "patch", "update"},
-			StorageVersionHash: "",
-		},
 	)
 
-	return sortAPIResourceList([]*metav1.APIResourceList{
+	return []*metav1.APIResourceList{
 		deploymentsAPIResourceList(rootComputeLogicalCluster),
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -204,7 +186,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name, rootCompu
 			},
 		},
 		coreResourceList,
-	})
+	}
 }
 
 func logWithTimestampf(t *testing.T, format string, args ...interface{}) {

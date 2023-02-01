@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"time"
 
-	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -198,14 +198,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncerNamespaceInformerFactory to watch some DNS-related resources in the dns namespace
 	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 
-	upstreamSyncerDiscoveryClient, err := kcpdiscovery.NewForConfig(upstreamConfig)
-	if err != nil {
-		return err
-	}
-
+	downstreamSyncerDiscoveryClient := discovery.NewDiscoveryClient(downstreamKubeClient.RESTClient())
 	syncTargetGVRSource, err := resourcesync.NewSyncTargetGVRSource(
 		logger,
-		upstreamSyncerDiscoveryClient.DiscoveryInterface,
+		downstreamSyncerDiscoveryClient,
 		upstreamSyncerClusterClient,
 		downstreamDynamicClient,
 		downstreamKubeClient,
@@ -219,7 +215,18 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamSyncerClusterClient, nil, nil, syncTargetGVRSource, cache.Indexers{})
+	ddsifForUpstreamSyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(upstreamSyncerClusterClient, nil, nil,
+		&filteredGVRSource{
+			GVRSource: syncTargetGVRSource,
+			keepGVR: func(gvr schema.GroupVersionResource) bool {
+				// Don't expose pods or endpoints via the syncer vw
+				if gvr.Group == corev1.GroupName && (gvr.Resource == "pods" || gvr.Resource == "endpoints") {
+					return false
+				}
+				return true
+			},
+		},
+		cache.Indexers{})
 	if err != nil {
 		return err
 	}
