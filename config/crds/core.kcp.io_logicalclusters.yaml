@@ -18,7 +18,7 @@ spec:
   versions:
   - additionalPrinterColumns:
     - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
-      jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
+      jsonPath: .status.phase
       name: Phase
       type: string
     - description: URL to access the logical cluster
