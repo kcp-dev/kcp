@@ -36,7 +36,6 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
-	rbachelper "k8s.io/kubernetes/pkg/apis/rbac/v1"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -171,38 +170,6 @@ func TestSyncerTunnel(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not created", downstreamNamespaceName, configMapName)
-
-	t.Logf("Create service account permissions for pods access to the downstream syncer user")
-	podsAllRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pods-all"},
-		Rules: []rbacv1.PolicyRule{
-			rbachelper.NewRule("*").Groups("").Resources("pods").RuleOrDie(),
-			rbachelper.NewRule("*").Groups("").Resources("pods/log").RuleOrDie(),
-			rbachelper.NewRule("*").Groups("").Resources("pods/exec").RuleOrDie(),
-		},
-	}
-
-	_, err = downstreamKubeClient.RbacV1().ClusterRoles().Create(ctx, podsAllRole, metav1.CreateOptions{})
-	if err != nil {
-		require.NoError(t, err, "failed to create downstream role")
-	}
-	//nolint:errcheck
-	defer downstreamKubeClient.RbacV1().ClusterRoles().Delete(context.TODO(), podsAllRole.Name, metav1.DeleteOptions{})
-
-	podsAllRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pods-all"},
-		Subjects: []rbacv1.Subject{
-			{Kind: "ServiceAccount", Name: syncerFixture.SyncerID, Namespace: syncerFixture.SyncerID},
-		},
-		RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "test-pods-all"},
-	}
-
-	_, err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, podsAllRoleBinding, metav1.CreateOptions{})
-	if err != nil {
-		require.NoError(t, err, "failed to create downstream rolebinding")
-	}
-	//nolint:errcheck
-	defer downstreamKubeClient.RbacV1().ClusterRoleBindings().Delete(context.TODO(), podsAllRoleBinding.Name, metav1.DeleteOptions{})
 
 	t.Log(t, "Wait for being able to list deployments in the consumer workspace via direct access")
 	require.Eventually(t, func() bool {
