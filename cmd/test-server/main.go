@@ -117,7 +117,7 @@ func start(shardFlags []string, quiet bool) error {
 		return err
 	}
 
-	readyToTestFile, err := os.Create("ready-to-test")
+	readyToTestFile, err := os.Create(filepath.Join(".kcp", "ready-to-test"))
 	if err != nil {
 		return fmt.Errorf("error creating ready-to-test file: %w", err)
 	}
