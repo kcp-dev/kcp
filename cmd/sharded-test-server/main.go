@@ -305,6 +305,12 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 	}
 
+	readyToTestFile, err := os.Create(filepath.Join(workDirPath, "ready-to-test"))
+	if err != nil {
+		return fmt.Errorf("error creating ready-to-test file: %w", err)
+	}
+	defer readyToTestFile.Close()
+
 	// Wait for either a premature termination error from the shards/proxy/etc, or for the test server process to shut down
 	select {
 	case shardIndexErr := <-shardsErrCh:
