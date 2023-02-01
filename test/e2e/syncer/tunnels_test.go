@@ -278,6 +278,10 @@ func TestSyncerTunnel(t *testing.T) {
 	labels["state.workload.kcp.io/"+workloadv1alpha1.ToSyncTargetKey(synctargetWsName, syncTarget.Name)] = "Upsync"
 	pod.SetLabels(labels)
 
+	// Try to create the pod in KCP, it should fail because the user doesn't have the right permissions
+	_, err = userKcpClient.Cluster(userWsPath).CoreV1().Pods(upstreamNamespaceName).Create(ctx, &pod, metav1.CreateOptions{})
+	require.EqualError(t, err, "pods is forbidden: User \"user-1\" cannot create resource \"pods\" in API group \"\" in the namespace \"test-syncer\": access denied")
+
 	// Create a client that uses the upsyncer URL
 	upsyncerKCPClient, err := kcpkubernetesclientset.NewForConfig(syncerFixture.UpsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
