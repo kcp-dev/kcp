@@ -298,38 +298,44 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "waiting for cowboys CRD to become established failed")
 
 	t.Logf("Create a cowboys APIBinding in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", tenantShadowCRDPath, serviceProvider2Path)
-	require.NoError(t, apply(t, ctx, tenantShadowCRDPath, tenantUser,
-		&apisv1alpha1.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cowboys",
-			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
-					{
-						PermissionClaim: apisv1alpha1.PermissionClaim{
-							GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
-							All:           true,
+	framework.Eventually(t, func() (bool, string) {
+		err := apply(t, ctx, tenantShadowCRDPath, tenantUser,
+			&apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cowboys",
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+						{
+							PermissionClaim: apisv1alpha1.PermissionClaim{
+								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+								All:           true,
+							},
+							State: apisv1alpha1.ClaimAccepted,
 						},
-						State: apisv1alpha1.ClaimAccepted,
+						{
+							PermissionClaim: apisv1alpha1.PermissionClaim{
+								GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+								IdentityHash:  sherriffsIdentityHash,
+								All:           true,
+							},
+							State: apisv1alpha1.ClaimAccepted,
+						},
 					},
-					{
-						PermissionClaim: apisv1alpha1.PermissionClaim{
-							GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-							IdentityHash:  sherriffsIdentityHash,
-							All:           true,
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Path: serviceProvider2Path.String(),
+							Name: "today-cowboys",
 						},
-						State: apisv1alpha1.ClaimAccepted,
 					},
 				},
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
-						Path: serviceProvider2Path.String(),
-						Name: "today-cowboys",
-					},
-				},
 			},
-		},
-	))
+		)
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 	t.Logf("Waiting for cowboys APIBinding in consumer workspace %q to have the condition %q mentioning the conflict with the shadowing local cowboys CRD", tenantShadowCRDPath, apisv1alpha1.BindingUpToDate)
 	tenantUserKcpClient, err := kcpclientset.NewForConfig(tenantUser)
@@ -364,7 +370,7 @@ metadata:
   namespace: default
 `))
 
-	t.Logf("Create virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Path)
+	t.Logf("Create virtual workspace client for \"today-cowboys\" APIExport in workspace %q covering APIBinding from workspace %q", serviceProvider2Path, tenantPath)
 	serviceProvider2AdminApiExportVWCfg := rest.CopyConfig(serviceProvider2Admin)
 	serviceProvider2AdminClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
@@ -378,20 +384,25 @@ metadata:
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	user2DynamicVWClient, err := kcpdynamic.NewForConfig(serviceProvider2AdminApiExportVWCfg)
+	serviceProvider2DynamicVWClientForTenantWorkspace, err := kcpdynamic.NewForConfig(serviceProvider2AdminApiExportVWCfg)
 	require.NoError(t, err)
 
-	t.Logf("verify that service-provider-2-admin cannot list sherrifs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
+	t.Logf("verify that service-provider-2-admin cannot list sheriffs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
 	framework.Eventually(t, func() (success bool, reason string) {
-		_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+		_, err = serviceProvider2DynamicVWClientForTenantWorkspace.Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
 		if err == nil {
 			return false, "expected an error but got nil"
 		}
 		return strings.Contains(err.Error(), `sheriffs.wild.wild.west is forbidden: User "service-provider-2-admin" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: access denied`), fmt.Sprintf("unexpected error: %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "service-provider-2-admin must not be allowed to list sheriff resources")
 
-	_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "service-provider-2-admin must be allowed to list native types")
+	framework.Eventually(t, func() (success bool, reason string) {
+		_, err = serviceProvider2DynamicVWClientForTenantWorkspace.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "service-provider-2-admin must be allowed to list native types")
 
 	require.NoError(t, apply(t, ctx, serviceProvider1Path, serviceProvider1Admin,
 		&rbacv1.ClusterRole{
@@ -414,7 +425,7 @@ metadata:
 	}
 	framework.Eventually(t, func() (success bool, reason string) {
 		for _, gvr := range claimedGVRs {
-			if _, err := user2DynamicVWClient.Resource(gvr).List(ctx, metav1.ListOptions{}); err != nil {
+			if _, err := serviceProvider2DynamicVWClientForTenantWorkspace.Resource(gvr).List(ctx, metav1.ListOptions{}); err != nil {
 				return false, fmt.Sprintf("error while waiting to list %q: %v", gvr, err)
 			}
 		}
@@ -423,24 +434,41 @@ metadata:
 
 	t.Logf("verify that service-provider-2-admin can lists sherriffs resources in the tenant workspace %q via the virtual apiexport apiserver", tenantPath)
 	framework.Eventually(t, func() (success bool, reason string) {
-		_, err = user2DynamicVWClient.Cluster(logicalcluster.Name(tenantWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+		_, err = serviceProvider2DynamicVWClientForTenantWorkspace.Cluster(logicalcluster.Name(tenantWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("error while waiting to list sherriffs: %v", err)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
 
+	t.Logf("Create virtual workspace client for \"today-cowboys\" APIExport in workspace %q covering APIBinding from shadow workspace %q", serviceProvider2Path, tenantShadowCRDPath)
+	shadowVWCfg := rest.CopyConfig(serviceProvider2Admin)
+	shadowVWClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
+	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		apiExport, err := shadowVWClient.Cluster(serviceProvider2Path).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		shadowVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, tenantShadowCRDWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		require.NoError(t, err)
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	serviceProvider2DynamicVWClientForShadowTenantWorkspace, err := kcpdynamic.NewForConfig(shadowVWCfg)
+	require.NoError(t, err)
+
 	t.Logf("verify that service-provider-2-admin cannot list CRD shadowed cowboy resources in the tenant workspace %q via the virtual apiexport apiserver", tenantShadowCRDPath)
 	framework.Eventually(t, func() (bool, string) {
-		_, err = user2DynamicVWClient.Cluster(logicalcluster.Name(tenantShadowCRDWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
+		_, err = serviceProvider2DynamicVWClientForShadowTenantWorkspace.Cluster(logicalcluster.Name(tenantShadowCRDWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
 		if err == nil {
 			return false, "expected error, got none"
 		}
-		if !apierrors.IsNotFound(err) {
-			return false, fmt.Sprintf("expected a not-found error, but got %v", err)
+		if apierrors.IsNotFound(err) {
+			return true, ""
 		}
-		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected service-provider-2-admin to be denied to shadowed cowboy resources")
+		return false, fmt.Sprintf("expected a not-found error, but got %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected service-provider-2-admin to get a not-found for shadowed cowboy resources")
 }
 
 var scheme *runtime.Scheme

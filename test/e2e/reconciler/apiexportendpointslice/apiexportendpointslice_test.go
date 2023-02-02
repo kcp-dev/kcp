@@ -100,17 +100,19 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	_, err = exportClient.Cluster(exportClusterPath).Create(ctx, export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
+	var sliceName string
 	t.Logf("Retrying to create the APIExportEndpointSlice after the APIExport has been created")
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
+		created, err := sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
+		sliceName = created.Name
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected APIExportEndpointSlice creation to succeed")
 
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		if conditions.IsTrue(slice, apisv1alpha1.APIExportValid) && conditions.IsTrue(slice, apisv1alpha1.APIExportEndpointSliceURLsReady) {
@@ -126,7 +128,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	require.NoError(t, err, "error updating APIExportEndpointSlice")
 
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsFalse(slice, apisv1alpha1.PartitionValid) && conditions.GetReason(slice, apisv1alpha1.PartitionValid) == apisv1alpha1.PartitionInvalidReferenceReason {
 			return true, ""
@@ -143,7 +145,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	require.NoError(t, err, "error creating Partition")
 
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsTrue(slice, apisv1alpha1.PartitionValid) {
 			return true, ""
@@ -214,9 +216,10 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	sliceClient := kcpClusterClient.ApisV1alpha1().APIExportEndpointSlices()
 	slice, err = sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
 	require.NoError(t, err)
+	sliceName := slice.Name
 
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsTrue(slice, apisv1alpha1.APIExportValid) {
 			return true, ""
@@ -236,7 +239,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	require.NoError(t, err, "error updating APIExportEndpointSlice")
 
 	framework.Eventually(t, func() (bool, string) {
-		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsTrue(s, apisv1alpha1.PartitionValid) {
 			return true, ""
@@ -247,7 +250,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 
 	t.Logf("Checking that no endpoint has been populated")
 	framework.Eventually(t, func() (bool, string) {
-		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(s.Status.APIExportEndpoints) == 0 {
 			return true, ""
@@ -276,7 +279,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	require.NoError(t, err, "error creating Shard")
 
 	framework.Eventually(t, func() (bool, string) {
-		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(slice.Status.APIExportEndpoints) == 1 {
 			return true, ""
@@ -291,7 +294,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	require.NoError(t, err, "error updating Shard")
 
 	framework.Eventually(t, func() (bool, string) {
-		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(s.Status.APIExportEndpoints) == 0 {
 			return true, ""
@@ -305,7 +308,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	require.NoError(t, err, "error updating Shard")
 
 	framework.Eventually(t, func() (bool, string) {
-		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(s.Status.APIExportEndpoints) == 1 {
 			return true, ""
@@ -318,7 +321,7 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	require.NoError(t, err, "error deleting Shard")
 
 	framework.Eventually(t, func() (bool, string) {
-		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, slice.Name, metav1.GetOptions{})
+		s, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(s.Status.APIExportEndpoints) == 0 {
 			return true, ""
@@ -341,8 +344,10 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	sliceWithAll, err = sliceClient.Cluster(partitionClusterPath).Create(ctx, sliceWithAll, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExportEndpointSlice")
 
+	sliceWithAllName := sliceWithAll.Name
+
 	framework.Eventually(t, func() (bool, string) {
-		sliceWithAll, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceWithAll.Name, metav1.GetOptions{})
+		sliceWithAll, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceWithAllName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if len(sliceWithAll.Status.APIExportEndpoints) == 1 {
 			return true, ""
