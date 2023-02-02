@@ -37,7 +37,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -59,7 +58,6 @@ type AllowedAPIfilterFunc func(apiGroupResource schema.GroupResource) bool
 
 func NewAPIReconciler(
 	virtualWorkspaceName string,
-	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
@@ -70,8 +68,6 @@ func NewAPIReconciler(
 
 	c := &APIReconciler{
 		virtualWorkspaceName: virtualWorkspaceName,
-
-		kcpClusterClient: kcpClusterClient,
 
 		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
@@ -127,8 +123,6 @@ func NewAPIReconciler(
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
 	virtualWorkspaceName string
-
-	kcpClusterClient kcpclientset.ClusterInterface
 
 	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
 	syncTargetIndexer cache.Indexer

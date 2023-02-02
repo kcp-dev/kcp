@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
@@ -49,7 +48,6 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	kcpClusterClient kcpclientset.ClusterInterface,
 	cachedKCPInformers kcpinformers.SharedInformerFactory,
 ) []rootapiserver.NamedVirtualWorkspace {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -73,7 +71,6 @@ func BuildVirtualWorkspace(
 	provider := templateProvider{
 		kubeClusterClient:    kubeClusterClient,
 		dynamicClusterClient: dynamicClusterClient,
-		kcpClusterClient:     kcpClusterClient,
 		cachedKCPInformers:   cachedKCPInformers,
 		rootPathPrefix:       rootPathPrefix,
 	}

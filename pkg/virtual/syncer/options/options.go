@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
@@ -56,10 +55,6 @@ func (o *Syncer) NewVirtualWorkspaces(
 	cachedKCPInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "syncer-virtual-workspace")
-	kcpClusterClient, err := kcpclientset.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -69,5 +64,5 @@ func (o *Syncer) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, cachedKCPInformers), nil
+	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, cachedKCPInformers), nil
 }

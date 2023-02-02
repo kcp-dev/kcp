@@ -38,7 +38,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
@@ -54,7 +53,6 @@ import (
 type templateProvider struct {
 	kubeClusterClient    kcpkubernetesclientset.ClusterInterface
 	dynamicClusterClient kcpdynamic.ClusterInterface
-	kcpClusterClient     kcpclientset.ClusterInterface
 	cachedKCPInformers   kcpinformers.SharedInformerFactory
 	rootPathPrefix       string
 }
@@ -70,8 +68,8 @@ type templateParameters struct {
 	storageWrapperBuilder func(labels.Requirements) forwardingregistry.StorageWrapper
 }
 
-func (p *templateProvider) newTemplate(parameters templateParameters) template {
-	return template{
+func (p *templateProvider) newTemplate(parameters templateParameters) *template {
+	return &template{
 		templateProvider:   *p,
 		templateParameters: parameters,
 		readyCh:            make(chan struct{}),
@@ -205,7 +203,6 @@ func (t *template) authorize(ctx context.Context, a authorizer.Attributes) (auth
 func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 	apiReconciler, err := apireconciler.NewAPIReconciler(
 		t.virtualWorkspaceName,
-		t.kcpClusterClient,
 		t.cachedKCPInformers.Workload().V1alpha1().SyncTargets(),
 		t.cachedKCPInformers.Apis().V1alpha1().APIResourceSchemas(),
 		t.cachedKCPInformers.Apis().V1alpha1().APIExports(),
@@ -263,7 +260,7 @@ func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConf
 	return apiReconciler, nil
 }
 
-func (t template) buildVirtualWorkspace() *virtualworkspacesdynamic.DynamicVirtualWorkspace {
+func (t *template) buildVirtualWorkspace() *virtualworkspacesdynamic.DynamicVirtualWorkspace {
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver:          framework.RootPathResolverFunc(t.resolveRootPath),
 		Authorizer:                authorizer.AuthorizerFunc(t.authorize),
