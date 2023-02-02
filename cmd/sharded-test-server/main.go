@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +47,7 @@ func main() {
 	logDirPath := flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
+	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
@@ -62,13 +64,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -186,7 +188,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
-	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
+	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, cacheSyntheticDelay)
 	if err != nil {
 		return fmt.Errorf("error starting the cache server: %w", err)
 	}

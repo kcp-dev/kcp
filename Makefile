@@ -317,7 +317,7 @@ test-e2e-sharded: require-kind build-all build-kind-images
 	kind get kubeconfig > "$(WORK_DIR)/.kcp/kind.kubeconfig"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 \
-		./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+		./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) --cache-synthetic-delay=500ms 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \

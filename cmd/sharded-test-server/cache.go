@@ -39,7 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-chan error, string, error) {
+func startCacheServer(ctx context.Context, logDirPath, workingDir string, syntheticDelay time.Duration) (<-chan error, string, error) {
 	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
@@ -59,6 +59,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-cha
 		"--embedded-etcd-client-port=8010",
 		"--embedded-etcd-peer-port=8011",
 		fmt.Sprintf("--secure-port=%d", cachePort),
+		fmt.Sprintf("--synthetic-delay=%s", syntheticDelay.String()),
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec

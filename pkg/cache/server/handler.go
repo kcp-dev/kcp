@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,6 +139,14 @@ func WithServiceScope(handler http.Handler) http.Handler {
 			}
 			req.URL = newURL
 		}
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithSyntheticDelay injects a synthetic delay to calls, to exacerbate timing issues and expose inconsistent client behavior.
+func WithSyntheticDelay(handler http.Handler, delay time.Duration) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		time.Sleep(delay)
 		handler.ServeHTTP(w, req)
 	})
 }
