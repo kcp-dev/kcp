@@ -64,9 +64,6 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		os.Exit(1)
 	}
 
-	if err != nil {
-		return nil, err
-	}
 	logFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "kcp.log")
 	auditFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "audit.log")
 	if logDirPath != "" {
