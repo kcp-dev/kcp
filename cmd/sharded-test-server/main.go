@@ -305,7 +305,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 	}
 
-	readyToTestFile, err := os.Create(filepath.Join(workDirPath, "ready-to-test"))
+	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
 	if err != nil {
 		return fmt.Errorf("error creating ready-to-test file: %w", err)
 	}
