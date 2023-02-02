@@ -53,7 +53,6 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:debug
-SHELL ["/busybox/sh", "-c"]
 WORKDIR /
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
@@ -61,8 +60,7 @@ COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
 COPY --from=builder workspace/bin/kubectl /usr/local/bin/
 ENV KUBECONFIG=/etc/kcp/config/admin.kubeconfig
 # Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
-RUN mkdir -p /data && \
-    chown 65532:65532 /data
+RUN ["/busybox/sh", "-c", "mkdir -p /data && chown 65532:65532 /data"]
 USER 65532:65532
 WORKDIR /data
 VOLUME /data
