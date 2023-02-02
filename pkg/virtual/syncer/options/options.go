@@ -53,7 +53,7 @@ func (o *Syncer) Validate(flagPrefix string) []error {
 func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	cachedKCPInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "syncer-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -69,5 +69,5 @@ func (o *Syncer) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers), nil
+	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, kcpClusterClient, cachedKCPInformers), nil
 }

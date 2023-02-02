@@ -67,7 +67,7 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
 	if err != nil {
 		return nil, err
 	}
