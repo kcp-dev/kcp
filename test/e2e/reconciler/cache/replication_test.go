@@ -444,28 +444,30 @@ func TestReplication(t *testing.T) {
 	}
 }
 
-// TestReplicationDisruptive runs all disruptive tests in a private environment.
+// TestReplicationDisruptive runs each disruptive test in its own private environment.
 func TestReplicationDisruptive(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-	cacheClientRT := ClientRoundTrippersFor(kcpRootShardConfig)
-	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
-	require.NoError(t, err)
-
 	for _, scenario := range disruptiveScenarios {
 		scenario := scenario
+
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
+
+			tokenAuthFile := framework.WriteTokenAuthFile(t)
+			server := framework.PrivateKcpServer(t,
+				framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+
+			kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
+			kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
+			require.NoError(t, err)
+			cacheClientRT := ClientRoundTrippersFor(kcpRootShardConfig)
+			cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
+			require.NoError(t, err)
+
 			scenario.work(ctx, t, server, kcpRootShardDynamicClient, cacheKcpClusterDynamicClient)
 		})
 	}
