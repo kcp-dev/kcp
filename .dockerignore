@@ -1,8 +1,9 @@
 # Ignore servers only used for e2e testing
-cmd/test-server
-cmd/sharded-test-server
-
+cmd/*test-server
 bin/
-
+contrib/
+dist/
+docs/
+.kcp*
 go.work
 go.work.sum
