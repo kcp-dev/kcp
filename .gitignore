@@ -5,8 +5,17 @@ contrib/demo/clusters/kind/*.kubeconfig
 coverage.*
 tools
 build
-.vscode
 
 # JetBrains IDE files
 .idea/
 *.iml
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Common editor / temporary files
+.DS_Store
+
+# Folder where each developer can store temporary files
+tmp
