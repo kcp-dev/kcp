@@ -22,6 +22,7 @@ TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
 GOBIN_DIR=$(abspath ./bin)
 PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
+KIND_CLUSTER_NAME ?= kind
 
 # Detect the path used for the install target
 ifeq (,$(shell go env GOBIN))
@@ -114,11 +115,11 @@ build-all:
 
 .PHONY: build-kind-images
 build-kind-images-ko: require-ko
-	$(eval SYNCER_IMAGE=$(shell KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer))
-	$(eval TEST_IMAGE=$(shell KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image))
+	$(eval SYNCER_IMAGE=$(shell KO_DOCKER_REPO=kind.local KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) ko build --platform=linux/$(ARCH) ./cmd/syncer))
+	$(eval TEST_IMAGE=$(shell KO_DOCKER_REPO=kind.local KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image))
 build-kind-images: build-kind-images-ko
-	test -n "$(SYNCER_IMAGE)" || (echo Failed to create syncer image; exit 1)
-	test -n "$(TEST_IMAGE)" || (echo Failed to create test image; exit 1)
+	@test -n "$(SYNCER_IMAGE)" && (echo $(SYNCER_IMAGE) pushed to "$(KIND_CLUSTER_NAME)" kind cluster) || (echo Failed to create syncer image and/or to push it to "$(KIND_CLUSTER_NAME)" kind cluster; exit 1)
+	@test -n "$(TEST_IMAGE)" && (echo $(TEST_IMAGE) pushed to "$(KIND_CLUSTER_NAME)" kind cluster) || (echo Failed to create test image and and/or to push it to "$(KIND_CLUSTER_NAME)" kind cluster; exit 1)
 
 install: WHAT ?= ./cmd/...
 install:
