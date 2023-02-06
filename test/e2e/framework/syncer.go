@@ -249,7 +249,10 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
 
 		syncTarget, err := kcpClusterClient.Cluster(sf.syncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, sf.syncTargetName, metav1.GetOptions{})
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("Error gathering sync target: %v", err)
+			return
+		}
 
 		for _, resource := range syncTarget.Status.SyncedResources {
 			for _, version := range resource.Versions {
