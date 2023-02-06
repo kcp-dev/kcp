@@ -118,7 +118,7 @@ kubernetes `APIExport` in workspace of `SyncTarget`, if any of these `APIExport`
 Alternatively, if you would like to bind other `APIExport`s which are supported by the `SyncerTarget`, run:
 
 ```
-kubectl kcp bind compute <workspace of synctarget> --apiexport <apiexport workspace>:<apiexport name>
+kubectl kcp bind compute <workspace of synctarget> --apiexports <apiexport workspace>:<apiexport name>
 ```
 
 In addition, you can specify the certain location or namespace to create placement. e.g.
