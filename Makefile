@@ -25,6 +25,9 @@ endif
 
 GO_INSTALL = ./hack/go-install.sh
 
+# Runtime CLI to use for building and pushing images
+CONTAINER_RUNTIME ?= podman
+
 TOOLS_DIR=hack/tools
 TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
 GOBIN_DIR=$(abspath ./bin)
@@ -411,6 +414,16 @@ modules: ## Run go mod tidy to ensure modules are up to date
 .PHONY: verify-modules
 verify-modules: modules  ## Verify go modules are up to date
 	hack/verify-go-modules.sh
+
+.PHONY: image-build
+image-build: IMAGE_TAG ?= latest
+image-build:
+	$(CONTAINER_RUNTIME) build . -f Dockerfile --target builder -t kcp-build:$(IMAGE_TAG)
+	$(CONTAINER_RUNTIME) build . -f images/Dockerfile.kcp -t kcp:$(IMAGE_TAG)
+	$(CONTAINER_RUNTIME) build . -f images/Dockerfile.kcp-front-proxy -t kcp-front-proxy:$(IMAGE_TAG)
+	$(CONTAINER_RUNTIME) build . -f images/Dockerfile.cache-server -t cache-server:$(IMAGE_TAG)
+	$(CONTAINER_RUNTIME) build . -f images/Dockerfile.syncer -t syncer:$(IMAGE_TAG)
+	$(CONTAINER_RUNTIME) build . -f Dockerfile -t kcp-dev:$(IMAGE_TAG)
 
 .PHONY: clean
 clean: clean-workdir
