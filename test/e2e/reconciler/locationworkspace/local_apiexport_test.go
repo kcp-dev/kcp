@@ -70,7 +70,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(syncTargetName),
 		framework.WithSyncedUserWorkspaces(computeWorkspace),
-	).CreateAndStart(t)
+	).Create(t).StartSyncer(t)
 
 	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})

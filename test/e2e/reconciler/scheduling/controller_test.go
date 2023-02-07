@@ -72,7 +72,7 @@ func TestScheduling(t *testing.T) {
 		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(syncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace, secondUserWorkspace),
-	).CreateAndStart(t)
+	).Create(t).StartSyncer(t)
 
 	t.Logf("Wait for APIResourceImports to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {

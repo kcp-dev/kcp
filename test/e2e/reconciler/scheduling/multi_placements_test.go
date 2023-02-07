@@ -65,7 +65,7 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithExtraResources("services"),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
-	).CreateAndStart(t)
+	).Create(t).StartSyncer(t)
 
 	secondSyncTargetName := "second-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationPath)
@@ -73,7 +73,7 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(secondSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
-	).CreateAndStart(t)
+	).Create(t).StartSyncer(t)
 
 	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
