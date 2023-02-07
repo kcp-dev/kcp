@@ -143,12 +143,6 @@ func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
 
 	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
-	var (
-		downstreamConfig         *rest.Config
-		downstreamKubeconfigPath string
-		syncerID                 string
-	)
-
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
@@ -183,6 +177,8 @@ func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
+	var downstreamConfig *rest.Config
+	var downstreamKubeconfigPath string
 	if useDeployedSyncer {
 		// The syncer will target the pcluster identified by `--pcluster-kubeconfig`.
 		downstreamKubeconfigPath = TestConfig.PClusterKubeconfig()
@@ -273,6 +269,7 @@ func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
 	// Extract the configuration for an in-process syncer from the resources that were
 	// applied to the downstream server. This maximizes the parity between the
 	// configuration of a deployed and in-process syncer.
+	var syncerID string
 	for _, doc := range strings.Split(string(syncerYAML), "\n---\n") {
 		var manifest struct {
 			metav1.ObjectMeta `json:"metadata"`
