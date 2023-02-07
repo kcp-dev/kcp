@@ -73,7 +73,7 @@ const (
 // (one for downstream and 2 for upstream, for syncing and upsyncing).
 func NewSyncTargetGVRSource(
 	syncerLogger logr.Logger,
-	upstreamSyncerDiscovery discovery.DiscoveryInterface,
+	downstreamSyncerDiscoveryClient discovery.DiscoveryInterface,
 	upstreamDynamicClusterClient kcpdynamic.ClusterInterface,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
@@ -84,14 +84,14 @@ func NewSyncTargetGVRSource(
 	syncTargetUID types.UID,
 ) (*controller, error) {
 	c := &controller{
-		queue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		upstreamSyncerDiscoveryClient: memory.NewMemCacheClient(upstreamSyncerDiscovery),
-		downstreamKubeClient:          downstreamKubeClient,
-		syncTargetClient:              syncTargetClient,
-		syncTargetUID:                 syncTargetUID,
-		syncTargetLister:              syncTargetInformer.Lister(),
-		synctargetInformerHasSynced:   syncTargetInformer.Informer().HasSynced,
-		gvrsToWatch:                   map[schema.GroupVersionResource]informer.GVRPartialMetadata{},
+		queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		downstreamSyncerDiscoveryClient: memory.NewMemCacheClient(downstreamSyncerDiscoveryClient),
+		downstreamKubeClient:            downstreamKubeClient,
+		syncTargetClient:                syncTargetClient,
+		syncTargetUID:                   syncTargetUID,
+		syncTargetLister:                syncTargetInformer.Lister(),
+		synctargetInformerHasSynced:     syncTargetInformer.Informer().HasSynced,
+		gvrsToWatch:                     map[schema.GroupVersionResource]informer.GVRPartialMetadata{},
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
@@ -128,7 +128,7 @@ type controller struct {
 	queue                workqueue.RateLimitingInterface
 	downstreamKubeClient kubernetes.Interface
 
-	upstreamSyncerDiscoveryClient discovery.CachedDiscoveryInterface
+	downstreamSyncerDiscoveryClient discovery.CachedDiscoveryInterface
 
 	syncTargetUID               types.UID
 	syncTargetLister            workloadv1alpha1listers.SyncTargetLister
@@ -273,7 +273,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	requiredGVRs := getAllGVRs(syncTarget)
 
-	c.upstreamSyncerDiscoveryClient.Invalidate()
+	c.downstreamSyncerDiscoveryClient.Invalidate()
 
 	var errs []error
 	var unauthorizedGVRs []string
@@ -432,7 +432,7 @@ func (c *controller) addGVR(ctx context.Context, gvr schema.GroupVersionResource
 }
 
 func (c *controller) getGVRPartialMetadata(gvr schema.GroupVersionResource) (*informer.GVRPartialMetadata, error) {
-	apiResourceList, err := c.upstreamSyncerDiscoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	apiResourceList, err := c.downstreamSyncerDiscoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
 	if err != nil {
 		return nil, err
 	}

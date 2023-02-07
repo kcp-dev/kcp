@@ -882,6 +882,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "pods"},
 		metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 	)
 
@@ -904,6 +905,11 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		_, err = kubeClient.CoreV1().Endpoints("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("error seen waiting for endpoint crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for pods crd to become active: %v", err)
 			return false
 		}
 		return true
