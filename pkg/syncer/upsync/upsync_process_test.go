@@ -19,6 +19,7 @@ package upsync
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -34,11 +35,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/util/sets"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
@@ -119,9 +122,9 @@ func TestUpsyncerprocess(t *testing.T) {
 		resourceToProcessName string
 
 		upstreamURL            string
-		upstreamLogicalCluster string
+		upstreamLogicalCluster logicalcluster.Name
 		syncTargetName         string
-		syncTargetWorkspace    logicalcluster.Name
+		syncTargetClusterName  logicalcluster.Name
 		syncTargetUID          types.UID
 		expectError            bool
 		expectActionsOnFrom    []clienttesting.Action
@@ -329,7 +332,7 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    false,
 			includeStatus: false,
 		},
-		"Upsyncer handles deletion of  upstream resources when they have finalizers set": {
+		"Upsyncer handles deletion of upstream resources when they have finalizers set": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
@@ -340,26 +343,18 @@ func TestUpsyncerprocess(t *testing.T) {
 				},
 			),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			fromResource: namespace("kcp-1dtzz0tyij19", "", map[string]string{
-				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-			},
-				map[string]string{
-					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
-				},
-			),
 			toResources: []runtime.Object{
 				createPod("test-pod", "test", "root:org:ws", map[string]string{
 					"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
-				}, nil, []string{"kcp.finalizer.io"}, "1"),
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"),
 			},
 			resourceToProcessName: "test-pod",
 			syncTargetName:        "us-west1",
 			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
 				kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "", "test",
+				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
 					toUnstructured(t, createPod("test-pod", "test", "root:org:ws", map[string]string{
 						"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 						workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
@@ -377,27 +372,29 @@ func TestUpsyncerprocess(t *testing.T) {
 			defer cancel()
 			logger := klog.FromContext(ctx)
 
-			kcpLogicalCluster := logicalcluster.Name(tc.upstreamLogicalCluster)
+			kcpLogicalCluster := tc.upstreamLogicalCluster
+			syncTargetUID := tc.syncTargetUID
 			if tc.syncTargetUID == "" {
-				tc.syncTargetUID = types.UID("syncTargetUID")
+				syncTargetUID = types.UID("syncTargetUID")
 			}
-			if tc.syncTargetWorkspace.Empty() {
-				tc.syncTargetWorkspace = logicalcluster.Name("root:org:ws")
+
+			if tc.syncTargetClusterName.Empty() {
+				tc.syncTargetClusterName = "root:org:ws"
 			}
 
 			var allFromResources []runtime.Object
 			if tc.fromNamespace != nil {
 				allFromResources = append(allFromResources, tc.fromNamespace)
 			}
-
 			if tc.fromResource != nil {
 				allFromResources = append(allFromResources, tc.fromResource)
 			}
+
 			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
+
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetClusterName, tc.syncTargetName)
+
 			toClusterClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, tc.toResources...)
-
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
-
 			ddsifForUpstreamUpsyncer, err := ddsif.NewDiscoveringDynamicSharedInformerFactory(toClusterClient, nil, nil, &mockedGVRSource{true}, cache.Indexers{})
 			require.NoError(t, err)
 
@@ -412,18 +409,6 @@ func TestUpsyncerprocess(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
-			if informer, err := ddsifForUpstreamUpsyncer.ForResource(corev1.SchemeGroupVersion.WithResource("namespaces")); err != nil {
-				require.NoError(t, err)
-			} else {
-				cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
-			}
-			if informer, err := ddsifForDownstream.ForResource(corev1.SchemeGroupVersion.WithResource("namespaces")); err != nil {
-				require.NoError(t, err)
-			} else {
-				cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
-			}
-
 			setupServersideApplyPatchReactor(toClusterClient)
 			fromClientResourceWatcherStarted := setupWatchReactor(t, tc.gvr.Resource, fromClient)
 			toClientResourceWatcherStarted := setupClusterWatchReactor(t, tc.gvr.Resource, toClusterClient)
@@ -432,33 +417,8 @@ func TestUpsyncerprocess(t *testing.T) {
 			// downstream => from (physical cluster)
 			// to === kcp
 			// from === physiccal
-			controller, err := NewUpSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, toClusterClient, fromClient, ddsifForUpstreamUpsyncer, ddsifForDownstream, tc.syncTargetUID)
+			controller, err := NewUpSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, toClusterClient, fromClient, ddsifForUpstreamUpsyncer, ddsifForDownstream, syncTargetUID)
 			require.NoError(t, err)
-
-			gvrsUpdated := make(chan struct{})
-			upstreamUpsyncerDDSIFUpdated := ddsifForUpstreamUpsyncer.Subscribe("upstreamUpsyncer")
-			downstreamDDSIFUpdated := ddsifForDownstream.Subscribe("downstream")
-			go func() {
-				<-upstreamUpsyncerDDSIFUpdated
-				t.Logf("%s: upstream ddsif synced", t.Name())
-				<-downstreamDDSIFUpdated
-				t.Logf("%s: downstream ddsif synced", t.Name())
-
-				_, unsynced := ddsifForUpstreamUpsyncer.Informers()
-				for _, gvr := range unsynced {
-					informer, _ := ddsifForUpstreamUpsyncer.ForResource(gvr)
-					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
-					t.Logf("%s: upstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
-				}
-				_, unsynced = ddsifForDownstream.Informers()
-				for _, gvr := range unsynced {
-					informer, _ := ddsifForDownstream.ForResource(gvr)
-					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
-					t.Logf("%s: downstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
-				}
-				t.Logf("%s: gvrs updated", t.Name())
-				gvrsUpdated <- struct{}{}
-			}()
 
 			ddsifForUpstreamUpsyncer.Start(ctx.Done())
 			ddsifForDownstream.Start(ctx.Done())
@@ -469,9 +429,28 @@ func TestUpsyncerprocess(t *testing.T) {
 			<-fromClientResourceWatcherStarted
 			<-toClientResourceWatcherStarted
 
-			cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
+			// The only GVRs we care about are the 4 listed below
+			t.Logf("waiting for upstream and downstream dynamic informer factories to be synced")
+			gvrs := sets.NewString(
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}.String(),
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.String(),
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}.String(),
+			)
+			require.Eventually(t, func() bool {
+				syncedUpstream, _ := ddsifForUpstreamUpsyncer.Informers()
+				foundUpstream := sets.NewString()
+				for gvr := range syncedUpstream {
+					foundUpstream.Insert(gvr.String())
+				}
 
-			<-gvrsUpdated
+				syncedDownstream, _ := ddsifForDownstream.Informers()
+				foundDownstream := sets.NewString()
+				for gvr := range syncedDownstream {
+					foundDownstream.Insert(gvr.String())
+				}
+				return foundUpstream.IsSuperset(gvrs) && foundDownstream.IsSuperset(gvrs)
+			}, wait.ForeverTestTimeout, 100*time.Millisecond)
+			t.Logf("upstream and downstream dynamic informer factories are synced")
 
 			fromClient.ClearActions()
 			toClusterClient.ClearActions()
