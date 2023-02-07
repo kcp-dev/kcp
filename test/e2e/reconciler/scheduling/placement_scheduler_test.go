@@ -67,7 +67,7 @@ func TestPlacementUpdate(t *testing.T) {
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
 		framework.WithExtraResources("services"),
-	).Create(t).StartSyncer(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	t.Log("Wait for \"default\" location")
 	require.Eventually(t, func() bool {

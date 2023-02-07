@@ -85,7 +85,7 @@ func TestSyncerLifecycle(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
 			)
 			require.NoError(t, err)
-		})).Create(t).StartSyncer(t)
+		})).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -621,7 +621,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsPath,
 		framework.WithExtraResources("services"),
-	).Create(t).StartSyncer(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

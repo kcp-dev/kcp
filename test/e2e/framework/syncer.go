@@ -130,10 +130,10 @@ func WithDownstreamPreparation(prepare func(config *rest.Config, isFakePCluster 
 	}
 }
 
-// Create creates a SyncTarget resource through the `workload sync` CLI command,
+// CreateSyncTargetAndApplyToDownstream creates a SyncTarget resource through the `workload sync` CLI command,
 // applies the syncer-related resources in the physical cluster.
 // No resource will be effectively synced after calling this method.
-func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
+func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *appliedSyncerFixture {
 	t.Helper()
 
 	artifactDir, _, err := ScratchDirs(t)

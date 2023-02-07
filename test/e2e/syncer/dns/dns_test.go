@@ -60,7 +60,7 @@ func TestDNSResolution(t *testing.T) {
 
 	syncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
-	).Create(t).StartSyncer(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 	syncer.WaitForSyncTargetReady(ctx, t)
 
 	downstreamKubeClient, err := kubernetes.NewForConfig(syncer.DownstreamConfig)

@@ -232,7 +232,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						)
 						require.NoError(t, err)
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				kubelikeSyncer.StopHeartBeat(t)
 				kubelikeSyncer.StartHeartBeat(t)
@@ -254,7 +254,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncer.SyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
@@ -341,7 +341,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Create two service accounts")
 				_, err := kubeClusterClient.Cluster(wildwestLocationPath).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
@@ -461,7 +461,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind wildwest location workspace to itself")
 				framework.NewBindCompute(t, wildwestLocationPath, server,
@@ -619,7 +619,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -774,7 +774,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -793,7 +793,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -997,7 +997,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -1018,7 +1018,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				_, err = kcpClusterClient.Cluster(wildwestLocationPath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -1325,7 +1325,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -1433,7 +1433,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						logWithTimestampf(t, "Installing test CRDs into sink cluster...")
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
@@ -1948,7 +1948,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					)
 					require.NoError(t, err)
 				}),
-			).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+			).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 			logWithTimestampf(t, "Bind upsyncer workspace")
 			framework.NewBindCompute(t, upsyncerPath, server,

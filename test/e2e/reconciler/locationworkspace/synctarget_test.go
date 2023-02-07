@@ -98,7 +98,7 @@ func TestSyncTargetExport(t *testing.T) {
 	syncTarget := framework.NewSyncerFixture(t, source, computePath,
 		framework.WithAPIExports(fmt.Sprintf("%s:%s", schemaPath.String(), cowboysAPIExport.Name)),
 		framework.WithSyncTargetName(syncTargetName),
-	).Create(t).StartSyncer(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	require.Eventually(t, func() bool {
 		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})

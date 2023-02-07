@@ -95,7 +95,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				// so that there's a ready cluster to schedule to.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
 					framework.WithExtraResources("services"),
-				).Create(t).StartAPIImporter(t).StartHeartBeat(t)
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
