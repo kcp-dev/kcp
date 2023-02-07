@@ -50,19 +50,19 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("firstsynctarget-%d", +rand.Intn(1000000))
-	t.Logf("Creating a SyncTarget with no supported APIExports and syncer in %s", locationPath)
+	t.Logf("Creating a SyncTarget with no supported APIExports in %s, and start both the Syncer APIImporter and Syncer HeartBeat", locationPath)
 	_ = framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWS),
 		framework.WithAPIExports(""),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	secondSyncTargetName := fmt.Sprintf("secondsynctarget-%d", +rand.Intn(1000000))
-	t.Logf("Creating a SyncTarget with global kubernetes APIExports and syncer in %s", locationPath)
+	t.Logf("Creating a SyncTarget with global kubernetes APIExports in %s,and start both the Syncer APIImporter and Syncer HeartBeat", locationPath)
 	_ = framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(secondSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWS),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	placementName := "placement-test-supportedapi"
 	t.Logf("Bind to location workspace")

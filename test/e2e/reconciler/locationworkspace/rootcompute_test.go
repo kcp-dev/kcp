@@ -80,7 +80,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	require.Eventually(t, func() bool {
 		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})

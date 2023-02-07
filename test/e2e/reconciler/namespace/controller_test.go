@@ -90,14 +90,12 @@ func TestNamespaceScheduler(t *testing.T) {
 					return &workloadnamespace.NamespaceConditionsAdapter{Namespace: ns}, err
 				}, framework.IsNot(workloadnamespace.NamespaceScheduled).WithReason(workloadnamespace.NamespaceReasonUnschedulable))
 
-				t.Log("Deploy a syncer")
-				// Create and Start a syncer against a workload cluster so that there's a ready cluster to schedule to.
-				//
-				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
-				// controller just needs ready clusters which can be accomplished without a syncer by having the
-				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
+				t.Log("Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat")
+				// Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat against a workload cluster
+				// so that there's a ready cluster to schedule to.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
-					framework.WithExtraResources("services")).Start(t)
+					framework.WithExtraResources("services"),
+				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")

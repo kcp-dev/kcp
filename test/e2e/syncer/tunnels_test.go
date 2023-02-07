@@ -73,9 +73,9 @@ func TestSyncerTunnel(t *testing.T) {
 
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, synctargetWsName.Path(),
 		framework.WithSyncedUserWorkspaces(userWs),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
-	syncerFixture.WaitForClusterReady(ctx, t)
+	syncerFixture.WaitForSyncTargetReady(ctx, t)
 
 	t.Log("Binding the consumer workspace to the location workspace")
 	framework.NewBindCompute(t, userWsName.Path(), upstreamServer,

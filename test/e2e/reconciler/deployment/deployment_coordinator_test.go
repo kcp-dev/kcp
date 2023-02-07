@@ -71,7 +71,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("east"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
@@ -79,13 +79,13 @@ func TestDeploymentCoordinator(t *testing.T) {
 	westSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("west"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
-	eastSyncer.WaitForClusterReady(ctx, t)
-	westSyncer.WaitForClusterReady(ctx, t)
+	eastSyncer.WaitForSyncTargetReady(ctx, t)
+	westSyncer.WaitForSyncTargetReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
 	err = framework.CreateResources(ctx, locations.FS, upstreamConfig, locationWorkspacePath)
