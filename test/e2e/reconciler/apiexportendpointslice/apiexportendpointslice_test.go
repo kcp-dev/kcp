@@ -214,8 +214,14 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 
 	t.Logf("Creating the APIExportEndpointSlice")
 	sliceClient := kcpClusterClient.ApisV1alpha1().APIExportEndpointSlices()
-	slice, err = sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
-	require.NoError(t, err)
+	// allow some time for APIExport to be synced onto the cache server
+	framework.Eventually(t, func() (bool, string) {
+		slice, err = sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected successful creation of APIExportEndpointSlice")
 	sliceName := slice.Name
 
 	framework.Eventually(t, func() (bool, string) {
