@@ -402,12 +402,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName)
 	}
 
-	StartHeartbeatKeeper(ctx, kcpSyncTargetClient, cfg.SyncTargetName, cfg.SyncTargetUID)
+	StartHeartbeat(ctx, kcpSyncTargetClient, cfg.SyncTargetName, cfg.SyncTargetUID)
 
 	return nil
 }
 
-func StartHeartbeatKeeper(ctx context.Context, kcpSyncTargetClient kcpclientset.Interface, syncTargetName, syncTargetUID string) {
+func StartHeartbeat(ctx context.Context, kcpSyncTargetClient kcpclientset.Interface, syncTargetName, syncTargetUID string) {
 	logger := klog.FromContext(ctx)
 
 	// Attempt to heartbeat every interval

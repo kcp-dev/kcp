@@ -84,8 +84,8 @@ func TestDeploymentCoordinator(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
-	eastSyncer.WaitForClusterReady(ctx, t)
-	westSyncer.WaitForClusterReady(ctx, t)
+	eastSyncer.WaitForSyncTargetReady(ctx, t)
+	westSyncer.WaitForSyncTargetReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
 	err = framework.CreateResources(ctx, locations.FS, upstreamConfig, locationWorkspacePath)

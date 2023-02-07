@@ -90,8 +90,9 @@ func TestNamespaceScheduler(t *testing.T) {
 					return &workloadnamespace.NamespaceConditionsAdapter{Namespace: ns}, err
 				}, framework.IsNot(workloadnamespace.NamespaceScheduled).WithReason(workloadnamespace.NamespaceReasonUnschedulable))
 
-				t.Log("Deploy a syncer")
-				// Create and Start a syncer against a workload cluster so that there's a ready cluster to schedule to.
+				t.Log("Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat")
+				// Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat against a workload cluster
+				// so that there's a ready cluster to schedule to.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
 					framework.WithExtraResources("services"),
 				).Create(t).StartAPIImporter(t).StartHeartBeat(t)

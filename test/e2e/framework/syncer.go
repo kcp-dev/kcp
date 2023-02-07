@@ -130,7 +130,8 @@ func WithDownstreamPreparation(prepare func(config *rest.Config, isFakePCluster 
 	}
 }
 
-// CreateAndStart creates SyncTarget resource, applies it in the physical cluster,
+// CreateAndStart creates a SyncTarget resource through the `workload sync` CLI command,
+// applies the syncer-related resources in the physical cluster,
 // and then starts a new syncer against the given upstream kcp workspace.
 // Whether the syncer runs in-process or deployed on a pcluster will depend
 // whether --pcluster-kubeconfig and --syncer-image are supplied to the test invocation.
@@ -144,7 +145,7 @@ func (sf *syncerFixture) CreateAndStart(t *testing.T) *StartedSyncerFixture {
 		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
 	}
 
-	downstreamConfig, downstreamKubeconfigPath, downstreamKubeClient, syncerConfig, syncerID := sf.createAndApplySyncTarget(t, useDeployedSyncer, artifactDir)
+	downstreamConfig, downstreamKubeconfigPath, downstreamKubeClient, syncerConfig, syncerID := sf.createSyncTargetAndApplySyncerResources(t, useDeployedSyncer, artifactDir)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -157,12 +158,12 @@ func (sf *syncerFixture) CreateAndStart(t *testing.T) *StartedSyncerFixture {
 
 	// The sync target becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
-	startedSyncer.WaitForClusterReady(ctx, t)
+	startedSyncer.WaitForSyncTargetReady(ctx, t)
 
 	return startedSyncer
 }
 
-func (sf *syncerFixture) createAndApplySyncTarget(t *testing.T, useDeployedSyncer bool, artifactDir string) (downstreamConfig *rest.Config, downstreamKubeconfigPath string, downstreamKubeClient kubernetesclient.Interface, syncerConfig *syncer.SyncerConfig, syncerID string) {
+func (sf *syncerFixture) createSyncTargetAndApplySyncerResources(t *testing.T, useDeployedSyncer bool, artifactDir string) (downstreamConfig *rest.Config, downstreamKubeconfigPath string, downstreamKubeClient kubernetesclient.Interface, syncerConfig *syncer.SyncerConfig, syncerID string) {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
@@ -528,7 +529,8 @@ func (sf *syncerFixture) buildAppliedSyncerFixture(ctx context.Context, t *testi
 	}
 }
 
-// Create creates the SyncTarget and applies it to the physical cluster.
+// CreateAndStart creates a SyncTarget resource through the `workload sync` CLI command,
+// applies the syncer-related resources in the physical cluster.
 // No resource will be effectively synced after calling this method.
 func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
 	t.Helper()
@@ -538,7 +540,7 @@ func (sf *syncerFixture) Create(t *testing.T) *appliedSyncerFixture {
 		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
 	}
 
-	downstreamConfig, _, downstreamKubeClient, syncerConfig, syncerID := sf.createAndApplySyncTarget(t, false, artifactDir)
+	downstreamConfig, _, downstreamKubeClient, syncerConfig, syncerID := sf.createSyncTargetAndApplySyncerResources(t, false, artifactDir)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -579,7 +581,7 @@ func (sf *appliedSyncerFixture) StartHeartBeat(t *testing.T) *StartedSyncerFixtu
 	kcpSyncTargetClient := kcpBootstrapClusterClient.Cluster(sf.SyncerConfig.SyncTargetPath)
 
 	// Start the heartbeat keeper to have the SyncTarget always ready during the e2e test.
-	syncer.StartHeartbeatKeeper(ctx, kcpSyncTargetClient, sf.SyncerConfig.SyncTargetName, sf.SyncerConfig.SyncTargetUID)
+	syncer.StartHeartbeat(ctx, kcpSyncTargetClient, sf.SyncerConfig.SyncTargetName, sf.SyncerConfig.SyncTargetUID)
 
 	startedSyncer := &StartedSyncerFixture{
 		sf,
@@ -587,7 +589,7 @@ func (sf *appliedSyncerFixture) StartHeartBeat(t *testing.T) *StartedSyncerFixtu
 
 	// The sync target becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
-	startedSyncer.WaitForClusterReady(ctx, t)
+	startedSyncer.WaitForSyncTargetReady(ctx, t)
 
 	return startedSyncer
 }
@@ -636,17 +638,17 @@ type StartedSyncerFixture struct {
 	*appliedSyncerFixture
 }
 
-// StopHeartBeat stop maitining the heartbeat for this Syncer SyncTarget.
+// StopHeartBeat stop maintaining the heartbeat for this Syncer SyncTarget.
 func (sf *StartedSyncerFixture) StopHeartBeat(t *testing.T) {
 	t.Helper()
 
 	sf.stopHeartBeat()
 }
 
-// WaitForClusterReady waits for the SyncTarget to be ready.
+// WaitForSyncTargetReady waits for the SyncTarget to be ready.
 // The SyncTarget becoming ready indicates that the syncer on the related
 // physical cluster is healthy and has successfully sent a heartbeat to kcp.
-func (sf *StartedSyncerFixture) WaitForClusterReady(ctx context.Context, t *testing.T) {
+func (sf *StartedSyncerFixture) WaitForSyncTargetReady(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	cfg := sf.SyncerConfig
