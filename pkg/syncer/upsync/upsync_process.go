@@ -101,7 +101,7 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 			return err
 		}
 
-		// Get namespaced upstream resource
+		// Get namespaced downstream resource
 		downstreamObject, err = downstreamLister.ByNamespace(downstreamNamespace).Get(upstreamName)
 		if k8serror.IsNotFound(err) {
 			// Resource not found downstream prune it
