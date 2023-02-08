@@ -268,14 +268,15 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				rootComputeLogicalCluster := logicalcluster.From(export)
 
 				logWithTimestampf(t, "Check discovery in kubelike virtual workspace")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.ServerGroupsAndResources()
 					if err != nil {
-						return false
+						return false, err.Error()
 					}
-					return len(cmp.Diff(
+					diff := cmp.Diff(
 						withRootComputeAPIResourceList(kubelikeLocationWorkspaceClusterName, rootComputeLogicalCluster),
-						sortAPIResourceList(kubelikeAPIResourceLists))) == 0
+						sortAPIResourceList(kubelikeAPIResourceLists))
+					return len(diff) == 0, diff
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Check discovery in wildwest virtual workspace")
@@ -357,7 +358,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 				var token1, token2 string
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					secrets, err := kubeClusterClient.Cluster(wildwestLocationPath).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 					require.NoError(t, err, "failed to list secrets")
 					for _, secret := range secrets.Items {
@@ -368,7 +369,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							token2 = string(secret.Data[corev1.ServiceAccountTokenKey])
 						}
 					}
-					return token1 != "" && token2 != ""
+					return token1 != "" && token2 != "", fmt.Sprintf("token1=%q - token2=%q", token1, token2)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
 
 				configUser1 := framework.ConfigWithToken(token1, wildwestSyncer.SyncerVirtualWorkspaceConfig)
@@ -474,15 +475,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(wildwestLocationPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Create cowboy luckyluke")
@@ -505,19 +503,22 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Len(t, kcpCowboys.Items, 1)
 
 				logWithTimestampf(t, "Wait until the virtual workspace has the resource")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
 				var cowboys *wildwestv1alpha1.CowboyList
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 					require.NoError(t, err)
 					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got %d cowboys.", len(cowboys.Items))
-					return len(cowboys.Items) == 1
+					return len(cowboys.Items) == 1, fmt.Sprintf("cowboys items length: %d", len(cowboys.Items))
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
@@ -530,10 +531,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
 				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
 
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(wildwestLocationPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -543,15 +544,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
-					for _, name := range kcpCowboy.Finalizers {
-						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
-							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
-						}
-					}
-
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync"
+						syncTargetsToSync[syncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
@@ -631,15 +625,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
@@ -664,19 +655,22 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Len(t, kcpCowboys.Items, 1)
 
 				logWithTimestampf(t, "Wait until the virtual workspace has the resource")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
 				var cowboys *wildwestv1alpha1.CowboyList
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 					require.NoError(t, err)
 					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got %d cowboys.", len(cowboys.Items))
-					return len(cowboys.Items) == 1
+					return len(cowboys.Items) == 1, fmt.Sprintf("cowboys items length: %d", len(cowboys.Items))
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
@@ -689,10 +683,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Empty(t, cmp.Diff(kcpCowboy.Spec, virtualWorkspaceCowboy.Spec))
 				require.Empty(t, cmp.Diff(kcpCowboy.Status, virtualWorkspaceCowboy.Status))
 
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -703,7 +697,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync"
+						syncTargetsToSync[syncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
@@ -870,15 +864,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "ERROR: Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Create cowboy luckyluke")
@@ -904,25 +895,31 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Len(t, kcpCowboys.Items, 1)
 
 				logWithTimestampf(t, "Wait until the north virtual workspace has the resource")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwNorthClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait until the south virtual workspace has the resource")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwSouthClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the 2 synctargets")
 				var kcpCowboy *wildwestv1alpha1.Cowboy
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					resourceStateLabelCount := 0
@@ -932,7 +929,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					return resourceStateLabelCount == 2
+					return resourceStateLabelCount == 2, fmt.Sprintf("resourceStateLabelCount: %d", resourceStateLabelCount)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the syncer finalizers to simulate that the 2 Syncers have taken ownership of it")
@@ -1089,15 +1086,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Bind(t)
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "ERROR: Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthSyncer.SyncerVirtualWorkspaceConfig)
@@ -1106,17 +1100,23 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait until the north virtual workspace has the resource type")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwNorthClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait until the south virtual workspace has the resource type")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwSouthClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Create cowboy luckyluke")
@@ -1137,10 +1137,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the north synctarget, and for the syncer to own it")
 				var kcpCowboy *wildwestv1alpha1.Cowboy
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -1158,7 +1158,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[northSyncTargetKey] == "Sync"
+						syncTargetsToSync[northSyncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the north syntarget finalizer to simulate that the north Syncer has taken ownership of it")
@@ -1194,10 +1194,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				).Bind(t)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the 2 synctargets, and for both syncers to own it")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -1209,7 +1209,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 					return len(syncTargetsToSync) == 2 &&
 						syncTargetsToSync[northSyncTargetKey] == "Sync" &&
-						syncTargetsToSync[southSyncTargetKey] == "Sync"
+						syncTargetsToSync[southSyncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the 2 syncer finalizers to simulate that the 2 Syncers have taken ownership of it")
@@ -1243,10 +1243,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait for resource controller to plan removal from north synctarget")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToBeRemoved := map[string]string{}
@@ -1257,7 +1257,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToBeRemoved) == 1 &&
-						syncTargetsToBeRemoved[northSyncTargetKey] != ""
+						syncTargetsToBeRemoved[northSyncTargetKey] != "", fmt.Sprintf("%v", syncTargetsToBeRemoved)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Remove the north syntarget finalizer to simulate that the north Syncer has finished with it")
@@ -1265,10 +1265,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy on the south synctarget only")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -1279,7 +1279,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[southSyncTargetKey] == "Sync"
+						syncTargetsToSync[southSyncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Verify that luckyluke is not known on the north synctarget")
@@ -1337,15 +1337,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
@@ -1373,19 +1370,22 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait until the virtual workspace has the resource")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
 				var cowboys *wildwestv1alpha1.CowboyList
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 					require.NoError(t, err)
 					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got %d cowboys.", len(cowboys.Items))
-					return len(cowboys.Items) == 1
+					return len(cowboys.Items) == 1, fmt.Sprintf("cowboys items length: %d", len(cowboys.Items))
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
@@ -1444,15 +1444,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestampf(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					_, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
-					if errors.IsNotFound(err) {
-						return false
-					} else if err != nil {
-						logWithTimestampf(t, "Failed to list Cowboys: %v", err)
-						return false
+					if err != nil {
+						return false, err.Error()
 					}
-					return true
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Create cowboy luckyluke")
@@ -1478,19 +1475,22 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Len(t, kcpCowboys.Items, 1)
 
 				logWithTimestampf(t, "Wait until the virtual workspace has the cowboy resource type")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
 					_, err := vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
-					return err == nil
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
 				var cowboys *wildwestv1alpha1.CowboyList
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 					require.NoError(t, err)
 					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got %d cowboys.", len(cowboys.Items))
-					return len(cowboys.Items) == 1
+					return len(cowboys.Items) == 1, fmt.Sprintf("cowboys items length: %d", len(cowboys.Items))
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
 
@@ -1502,10 +1502,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
 				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
 				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					kcpCowboy, err = wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").Get(ctx, "luckyluke", metav1.GetOptions{})
 					if errors.IsNotFound(err) {
-						return false
+						return false, err.Error()
 					}
 					require.NoError(t, err)
 					syncTargetsToSync := map[string]string{}
@@ -1523,7 +1523,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 
 					return len(syncTargetsToSync) == 1 &&
-						syncTargetsToSync[syncTargetKey] == "Sync"
+						syncTargetsToSync[syncTargetKey] == "Sync", fmt.Sprintf("%v", syncTargetsToSync)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				logWithTimestampf(t, "Add the syncer finalizer to simulate the Syncer has taken ownership of it")
