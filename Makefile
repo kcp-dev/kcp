@@ -100,7 +100,7 @@ ldflags:
 
 .PHONY: require-%
 require-%:
-	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
+	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
 
 build: WHAT ?= ./cmd/... ./tmc/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
@@ -122,7 +122,7 @@ build-kind-images: build-kind-images-ko
 	@test -n "$(TEST_IMAGE)" && (echo $(TEST_IMAGE) pushed to "$(KIND_CLUSTER_NAME)" kind cluster) || (echo Failed to create test image and and/or to push it to "$(KIND_CLUSTER_NAME)" kind cluster; exit 1)
 
 install: WHAT ?= ./cmd/...
-install:
+install: require-jq require-go require-git verify-go-versions ## Install the project
 	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $(WHAT)
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
