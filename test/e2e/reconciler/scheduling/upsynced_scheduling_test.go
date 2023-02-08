@@ -50,7 +50,7 @@ import (
 // 5. Delete the synctarget, and verify that the upsynced pod gets deleted.
 func TestUpsyncedScheduling(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "transparent-multi-cluster:requires-kind")
+	framework.Suite(t, "transparent-multi-cluster")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
