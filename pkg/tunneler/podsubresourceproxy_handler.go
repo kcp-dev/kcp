@@ -110,7 +110,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	}
 
 	if cluster.Name.Empty() {
-		logger.Error(nil, "no cluster found in the context")
 		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
