@@ -262,13 +262,11 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		return err
 	}
 
-	if upstreamObj.GetLabels() != nil {
-		newNamespace.SetLabels(map[string]string{
-			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
-			shared.TenantIDLabel:                            desiredTenantID,
-		})
-	}
+	newNamespace.SetLabels(map[string]string{
+		// TODO: this should be set once at syncer startup and propagated around everywhere.
+		workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
+		shared.TenantIDLabel:                            desiredTenantID,
+	})
 
 	namespaceLister, err := c.getDownstreamLister(namespaceGVR)
 	if err != nil {
@@ -306,7 +304,9 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// Handle kcp upgrades by checking the tenant ID is set and correct
 	if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
-		unstrNamespace.GetLabels()[shared.TenantIDLabel] = desiredTenantID
+		labels := unstrNamespace.GetLabels()
+		labels[shared.TenantIDLabel] = desiredTenantID
+		unstrNamespace.SetLabels(labels)
 		_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
 		return err
 	}

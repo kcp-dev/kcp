@@ -1052,11 +1052,21 @@ func TestSpecSyncerProcess(t *testing.T) {
 				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
+			fromResources: []runtime.Object{
+				secretWithFinalizers("foo", "test", "root:org:ws",
+					map[string]string{
+						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+						"something": "else"},
+					nil,
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
+					map[string][]byte{
+						"a": []byte("b"),
+					}),
+			},
 			toResources: []runtime.Object{
 				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7",
-				},
+					"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7"},
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
@@ -1073,17 +1083,6 @@ func TestSpecSyncerProcess(t *testing.T) {
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
-			fromResources: []runtime.Object{
-				secretWithFinalizers("foo", "test", "root:org:ws",
-					map[string]string{
-						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-						"something": "else"},
-					nil,
-					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
-					map[string][]byte{
-						"a": []byte("b"),
-					}),
-			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "foo",
 			syncTargetName:                      "us-west1",
@@ -1095,6 +1094,66 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"kcp-01c0zzvlqsi7n",
 					types.ApplyPatchType,
 					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.io/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
+				),
+			},
+		},
+		"tenant label is added to existing downstream namespaces": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+			},
+			toResources: []runtime.Object{
+				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
+					map[string]string{
+						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+					}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			syncTargetName:                      "us-west1",
+
+			expectActionsOnFrom: []kcptesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				updateNamespaceAction("kcp-01c0zzvlqsi7n",
+					toUnstructured(t, namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
+						"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+						"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7"},
+						map[string]string{
+							"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						}))),
+				patchDeploymentSingleClusterAction(
+					"theDeployment",
+					"kcp-01c0zzvlqsi7n",
+					types.ApplyPatchType,
+					toJson(t,
+						changeUnstructured(
+							toUnstructured(t, deployment("theDeployment", "kcp-01c0zzvlqsi7n", "", map[string]string{
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+							}, nil, nil)),
+							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpec("spec", "template", "spec"),
+						),
+					),
 				),
 			},
 		},
@@ -1487,5 +1546,20 @@ func patchSecretSingleClusterAction(name, namespace string, patchType types.Patc
 		Name:       name,
 		PatchType:  patchType,
 		Patch:      patch,
+	}
+}
+
+func namespaceAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
+	return clienttesting.ActionImpl{
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func updateNamespaceAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
+	return clienttesting.UpdateActionImpl{
+		ActionImpl: namespaceAction("update", namespace, subresources...),
+		Object:     object,
 	}
 }

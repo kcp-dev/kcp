@@ -200,7 +200,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 
 	downstreamSyncerDiscoveryClient := discovery.NewDiscoveryClient(downstreamKubeClient.RESTClient())
-
 	syncTargetGVRSource, err := resourcesync.NewSyncTargetGVRSource(
 		logger,
 		downstreamSyncerDiscoveryClient,
