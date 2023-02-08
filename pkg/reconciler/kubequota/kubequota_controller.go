@@ -309,10 +309,13 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 		}
 	}()
 
-	// Make sure the monitors are synced at least once
-	resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+	// Do this in a goroutine to avoid holding up a worker in the event UpdateMonitors stalls for whatever reason
+	go func() {
+		// Make sure the monitors are synced at least once
+		resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
 
-	go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
+		go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
+	}()
 
 	return nil
 }
