@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221118-9364e75c.partitionsets.topology.kcp.io
+  name: v230202-eee1a845.partitionsets.topology.kcp.io
 spec:
   group: topology.kcp.io
   names:
@@ -47,8 +47,8 @@ spec:
               items:
                 type: string
               type: array
-            selector:
-              description: selector (optional) is a label selector that filters shard
+            shardSelector:
+              description: shardSelector (optional) specifies filtering for shard
                 targets.
               properties:
                 matchExpressions:
@@ -61,11 +61,25 @@ spec:
                       key:
                         description: key is the label key that the selector applies
                           to.
+                        maxLength: 317
                         type: string
+                        x-kubernetes-validations:
+                        - message: Label key prefixes are optional and limited to
+                            253 characters. They should match "^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$".
+                            Names are limited to 63 characters and should match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$".
+                            "/" is used as separator.
+                          rule: 'self.contains("/") ? self.split("/", 2)[0].matches("^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$")
+                            && self.split("/", 2)[1].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")
+                            : self.matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")'
                       operator:
                         description: operator represents a key's relationship to a
                           set of values. Valid operators are In, NotIn, Exists and
                           DoesNotExist.
+                        enum:
+                        - In
+                        - NotIn
+                        - Exists
+                        - DoesNotExist
                         type: string
                       values:
                         description: values is an array of string values. If the operator
@@ -74,28 +88,95 @@ spec:
                           be empty. This array is replaced during a strategic merge
                           patch.
                         items:
+                          maxLength: 63
+                          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$
                           type: string
                         type: array
                     required:
                     - key
                     - operator
                     type: object
+                    x-kubernetes-validations:
+                    - message: There should be at least one value for In and NotIn
+                        operators. There should not be any value for Exists and DoesNotExist
+                        operators.
+                      rule: 'self.operator in ["In", "NotIn"] ? size(self.values)
+                        > 0 : (self.operator in ["Exists", "DoesNotExist"] ? !has(self.values)
+                        : true)'
+                  maxItems: 10
                   type: array
                 matchLabels:
                   additionalProperties:
+                    maxLength: 380
                     type: string
                   description: matchLabels is a map of {key,value} pairs. A single
                     {key,value} in the matchLabels map is equivalent to an element
                     of matchExpressions, whose key field is "key", the operator is
                     "In", and the values array contains only "value". The requirements
                     are ANDed.
+                  maxProperties: 10
                   type: object
+                  x-kubernetes-validations:
+                  - message: Label key prefixes are optional and limited to 253 characters.
+                      They should match "^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$". Names
+                      are limited to 63 characters and should match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$".
+                      "/" is used as separator.
+                    rule: 'self.all(k, k.contains("/") ? k.split("/", 2)[0].matches("^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$")
+                      && k.split("/", 2)[1].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")
+                      : k.matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$"))'
+                  - message: Label values are limited to 63 characters and should
+                      match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$".
+                    rule: self.all(k, self[k].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$"))
               type: object
               x-kubernetes-map-type: atomic
           type: object
         status:
           description: status holds information about the current status
           properties:
+            conditions:
+              description: conditions is a list of conditions that apply to the APIExportEndpointSlice.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status
+                      to another. This should be when the underlying condition changed.
+                      If that is not known, then using the time when the API field
+                      changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition. This field may be empty.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition in
+                      CamelCase. The specific API may choose whether or not this field
+                      is considered a guaranteed API. This field may not be empty.
+                    type: string
+                  severity:
+                    description: Severity provides an explicit classification of Reason
+                      code, so the users or machines can immediately understand the
+                      current situation and act accordingly. The Severity field MUST
+                      be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources
+                      like Available, but because arbitrary conditions can be useful
+                      (see .node.status.conditions), the ability to deconflict is
+                      important.
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
             count:
               description: count is the total number of partitions.
               type: integer

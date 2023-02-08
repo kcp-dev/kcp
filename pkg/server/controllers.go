@@ -83,6 +83,7 @@ import (
 	tenancyreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicatelogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
+	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
@@ -1201,6 +1202,38 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 
 	return s.AddPostStartHook(postStartHookName(apiexportendpointslice.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexportendpointslice.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installPartitionSetController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, partitionset.ControllerName)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := partitionset.NewController(
+		s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets(),
+		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		kcpClusterClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.AddPostStartHook(postStartHookName(partitionset.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(partitionset.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.

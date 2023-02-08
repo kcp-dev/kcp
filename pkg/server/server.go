@@ -500,6 +500,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
+		if err := s.installPartitionSetController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		if s.Options.Controllers.EnableAll || enabled.Has("scheduling") {
 			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, delegationChainHead); err != nil {

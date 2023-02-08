@@ -6,5 +6,5 @@ metadata:
 spec:
   latestResourceSchemas:
   - v221115-9b370eb8.partitions.topology.kcp.io
-  - v221118-9364e75c.partitionsets.topology.kcp.io
+  - v230202-eee1a845.partitionsets.topology.kcp.io
 status: {}
