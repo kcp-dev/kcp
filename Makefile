@@ -15,6 +15,14 @@
 # We need bash for some conditional logic below.
 SHELL := /usr/bin/env bash -e
 
+#-----------------------------------------------------------------------------
+# Workaround git issues on OpenShift Prow CI, where the user running in the
+# job is not guaranteed to own the repo checkout.
+#-----------------------------------------------------------------------------
+ifeq ($(CI),true)
+   $(shell git config --global --add safe.directory '*')
+endif
+
 GO_INSTALL = ./hack/go-install.sh
 
 TOOLS_DIR=hack/tools
