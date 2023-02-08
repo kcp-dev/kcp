@@ -70,11 +70,40 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		},
 	)
 
-	s.Handler, err = NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
-
+	handler, err := NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
 	if err != nil {
 		return s, err
 	}
+
+	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
+	handler = frontproxyfilters.WithOptionalAuthentication(
+		handler,
+		failedHandler,
+		s.CompletedConfig.AuthenticationInfo.Authenticator,
+		s.CompletedConfig.AdditionalAuthEnabled)
+
+	requestInfoFactory := requestinfo.NewFactory()
+	handler = server.WithInClusterServiceAccountRequestRewrite(handler)
+	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
+	handler = genericfilters.WithHTTPLogging(handler)
+	handler = metrics.WithLatencyTracking(handler)
+	handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
+
+	mux := http.NewServeMux()
+	// TODO: implement proper readyz handler
+	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK")) //nolint:errcheck
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// TODO: implement proper livez handler
+	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK")) //nolint:errcheck
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	mux.Handle("/", handler)
+	s.Handler = mux
 
 	return s, nil
 }
@@ -107,20 +136,6 @@ func (s preparedServer) Run(ctx context.Context) error {
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	// start the server
-	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
-	s.Handler = frontproxyfilters.WithOptionalAuthentication(
-		s.Handler,
-		failedHandler,
-		s.CompletedConfig.AuthenticationInfo.Authenticator,
-		s.CompletedConfig.AdditionalAuthEnabled)
-
-	requestInfoFactory := requestinfo.NewFactory()
-	s.Handler = server.WithInClusterServiceAccountRequestRewrite(s.Handler)
-	s.Handler = genericapifilters.WithRequestInfo(s.Handler, requestInfoFactory)
-	s.Handler = genericfilters.WithHTTPLogging(s.Handler)
-	s.Handler = metrics.WithLatencyTracking(s.Handler)
-	s.Handler = genericfilters.WithPanicRecovery(s.Handler, requestInfoFactory)
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {
 		return err

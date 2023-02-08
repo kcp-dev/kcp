@@ -59,18 +59,6 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 
 	mux := http.NewServeMux()
 
-	// TODO: implement proper readyz handler
-	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) //nolint:errcheck
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	// TODO: implement proper livez handler
-	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) //nolint:errcheck
-		w.WriteHeader(http.StatusOK)
-	}))
-
 	mux.Handle("/metrics", legacyregistry.Handler())
 
 	logger := klog.FromContext(ctx)
