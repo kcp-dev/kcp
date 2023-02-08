@@ -1956,13 +1956,24 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			).Bind(t)
 
 			logWithTimestampf(t, "Waiting for the persistentvolumes crd to be imported and available in the upsyncer source cluster...")
-			require.Eventually(t, func() bool {
+			framework.Eventually(t, func() (bool, string) {
 				_, err := kubeClusterClient.CoreV1().PersistentVolumes().Cluster(upsyncerPath).List(ctx, metav1.ListOptions{})
 				if err != nil {
-					logWithTimestampf(t, "error seen waiting for persistentvolumes crd to become active: %v", err)
-					return false
+					return false, err.Error()
 				}
-				return true
+				return true, ""
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+			kubelikeUpsyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncer.UpsyncerVirtualWorkspaceConfig)
+			require.NoError(t, err)
+
+			logWithTimestampf(t, "Waiting for the persistentvolumes to be available in the upsyncer virtual workspace...")
+			framework.Eventually(t, func() (bool, string) {
+				_, err := kubelikeUpsyncerVWClient.CoreV1().PersistentVolumes().Cluster(upsyncerClusterName.Path()).List(ctx, metav1.ListOptions{})
+				if err != nil {
+					return false, err.Error()
+				}
+				return true, ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			syncTargetKey := upsyncer.ToSyncTargetKey()
