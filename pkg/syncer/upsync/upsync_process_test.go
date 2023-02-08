@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -463,15 +464,14 @@ func TestUpsyncerprocess(t *testing.T) {
 				obj.Namespace = tc.fromNamespace.Name
 			}
 
-			var key string
+			getKey := cache.DeletionHandlingMetaNamespaceKeyFunc
 			if tc.isUpstream {
 				obj.Annotations = map[string]string{
 					logicalcluster.AnnotationKey: kcpLogicalCluster.String(),
 				}
-				key, err = getKey(obj, Upstream)
-			} else {
-				key, err = getKey(obj, Downstream)
+				getKey = kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc
 			}
+			key, err := getKey(obj)
 			require.NoError(t, err)
 
 			err = controller.process(context.Background(), tc.gvr, key, tc.isUpstream, tc.includeStatus)

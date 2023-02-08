@@ -42,31 +42,7 @@ const (
 	ResourceVersionAnnotation = "kcp.io/resource-version"
 )
 
-func (c *Controller) removeUpstreamResource(ctx context.Context, gvr schema.GroupVersionResource, clusterName logicalcluster.Name, namespace, name string, force bool) error {
-	if force {
-		existingResource, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-		if k8serror.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		if len(existingResource.GetFinalizers()) > 0 {
-			existingResource.SetFinalizers(nil)
-			if _, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Update(ctx, existingResource, metav1.UpdateOptions{}); k8serror.IsNotFound(err) {
-				return nil
-			} else if err != nil {
-				return err
-			}
-		}
-	}
-	if err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
-		return nil
-	} else {
-		return err
-	}
-}
-
-func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
+func (c *controller) processUpstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
 	logger := klog.FromContext(ctx)
 
 	clusterName, upstreamNamespace, upstreamName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
@@ -128,7 +104,7 @@ func (c *Controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 	return err
 }
 
-func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string, includeStatus bool) error {
+func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.GroupVersionResource, key string, includeStatus bool) error {
 	logger := klog.FromContext(ctx)
 	downstreamNamespace, downstreamName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -321,7 +297,7 @@ func (c *Controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	return nil
 }
 
-func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string, isUpstream, includeStatus bool) error {
+func (c *controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string, isUpstream, includeStatus bool) error {
 	// Upstream resources are only present upstream and not downstream; so we prune them
 	if isUpstream {
 		return c.processUpstreamResource(ctx, gvr, key)
@@ -331,7 +307,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 }
 
-func (c *Controller) prepareResourceForUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNS string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) *unstructured.Unstructured {
+func (c *controller) prepareResourceForUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNS string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) *unstructured.Unstructured {
 	// Make a deepcopy
 	resourceToUpsync := downstreamObj.DeepCopy()
 	annotations := resourceToUpsync.GetAnnotations()
@@ -354,6 +330,30 @@ func (c *Controller) prepareResourceForUpstream(ctx context.Context, gvr schema.
 	resourceToUpsync.SetFinalizers([]string{shared.SyncerFinalizerNamePrefix + c.syncTargetKey})
 
 	return resourceToUpsync
+}
+
+func (c *controller) removeUpstreamResource(ctx context.Context, gvr schema.GroupVersionResource, clusterName logicalcluster.Name, namespace, name string, force bool) error {
+	if force {
+		existingResource, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if k8serror.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if len(existingResource.GetFinalizers()) > 0 {
+			existingResource.SetFinalizers(nil)
+			if _, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Update(ctx, existingResource, metav1.UpdateOptions{}); k8serror.IsNotFound(err) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
+	}
+	if err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); k8serror.IsNotFound(err) {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func addResourceVersionAnnotation(resourceVersion string, annotations map[string]string) map[string]string {
