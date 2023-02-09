@@ -55,7 +55,7 @@ const controllerName = "kcp-resource-upsyncer"
 //
 // and optionally, for cluster-wide resources, the `kcp.io/namespace-locator` annotation
 // filled with the information necessary identify the upstream workspace to upsync to.
-func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name,
+func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface,
 	ddsifForUpstreamUpyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
@@ -87,10 +87,10 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Na
 			}
 			return informer.Lister(), nil
 		},
-		syncTargetName:      syncTargetName,
-		syncTargetWorkspace: syncTargetWorkspace,
-		syncTargetUID:       syncTargetUID,
-		syncTargetKey:       syncTargetKey,
+		syncTargetName:        syncTargetName,
+		syncTargetClusterName: syncTargetClusterName,
+		syncTargetUID:         syncTargetUID,
+		syncTargetKey:         syncTargetKey,
 	}
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
@@ -174,10 +174,10 @@ type controller struct {
 	getDownstreamLister       func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	getUpstreamUpsyncerLister func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
 
-	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Name
-	syncTargetUID       types.UID
-	syncTargetKey       string
+	syncTargetName        string
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetKey         string
 }
 
 // Queue handles keys for both upstream and downstream resources.

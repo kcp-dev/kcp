@@ -39,6 +39,11 @@ import (
 )
 
 const (
+	// ResourceVersionAnnotation is an annotation set on a resource upsynced upstream
+	// that contains the resourceVersion of the corresponding downstream resource
+	// when it was last upsynced.
+	// It is used to check easily, without having to compare the resource contents,
+	// whether an upsynced upstream resource is up-to-date with the downstream resource.
 	ResourceVersionAnnotation = "kcp.io/resource-version"
 )
 
@@ -58,7 +63,7 @@ func (c *controller) processUpstreamResource(ctx context.Context, gvr schema.Gro
 
 	var downstreamObject runtime.Object
 	if upstreamNamespace != "" {
-		desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+		desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 		downstreamNamespace, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
 		if err != nil {
 			return err
@@ -130,7 +135,7 @@ func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.G
 			// Since the namespace is already deleted downstream we can delete the resource upstream as well
 			//
 			// TODO(davidfestal): the call below won't work afaict since  the key is a downstream one, not an upstream one.
-			// And in any case we don't have the locator to find out in where the upstream reosurce should be deleted.
+			// And in any case we don't have the locator to find out in where the upstream resource should be deleted.
 			//
 			// To manage this case we should catch downstream namespace delete events, in the resource handler,
 			// and get the upstream namespace (from the locator there, to then submit the deletion of the upstream value from there)
@@ -173,7 +178,6 @@ func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	var upstreamLocator *shared.NamespaceLocator
 	if locatorHolder != nil {
 		if locator, locatorExists, err := shared.LocatorFromAnnotations(locatorHolder.GetAnnotations()); err != nil {
-			logger.Error(err, "error getting downstream locator annotation")
 			return err
 		} else if locatorExists && locator != nil {
 			upstreamLocator = locator
@@ -185,7 +189,7 @@ func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		return nil
 	}
 
-	if upstreamLocator.SyncTarget.UID != c.syncTargetUID || upstreamLocator.SyncTarget.ClusterName != c.syncTargetWorkspace.String() {
+	if upstreamLocator.SyncTarget.UID != c.syncTargetUID || upstreamLocator.SyncTarget.ClusterName != c.syncTargetClusterName.String() {
 		return nil
 	}
 

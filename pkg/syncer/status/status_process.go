@@ -165,7 +165,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
 	if u.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
-		logger.Info("do not update the status in upstream, since the downstreal resource is in Upsync mode")
+		logger.V(4).Info("do not update the status in upstream, since the downstream resource is in Upsync mode")
 		return nil
 	}
 

@@ -117,12 +117,10 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				if gvr == namespaceGVR {
 					return
 				}
-				var unstrObj *unstructured.Unstructured
-				if unstr, ok := obj.(*unstructured.Unstructured); !ok {
-					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
 					return
-				} else {
-					unstrObj = unstr
 				}
 				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
 					return
@@ -150,12 +148,10 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = d.Obj
 				}
-				var unstrObj *unstructured.Unstructured
-				if unstr, ok := obj.(*unstructured.Unstructured); !ok {
-					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
 					return
-				} else {
-					unstrObj = unstr
 				}
 				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
 					return

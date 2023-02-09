@@ -179,12 +179,10 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = d.Obj
 				}
-				var unstrObj *unstructured.Unstructured
-				if unstr, ok := obj.(*unstructured.Unstructured); !ok {
-					utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
 					return
-				} else {
-					unstrObj = unstr
 				}
 				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
 					return
@@ -203,7 +201,6 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				logger.V(3).Info("processing delete event")
 
 				var nsLocatorHolder *unstructured.Unstructured
-				var ok bool
 				// Handle namespaced resources
 				if namespace != "" {
 					// Use namespace lister
