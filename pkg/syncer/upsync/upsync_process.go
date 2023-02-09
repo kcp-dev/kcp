@@ -132,15 +132,8 @@ func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.G
 		}
 		nsObj, err := downstreamNamespaceLister.Get(downstreamNamespace)
 		if k8serror.IsNotFound(err) {
-			// Since the namespace is already deleted downstream we can delete the resource upstream as well
-			//
-			// TODO(davidfestal): the call below won't work afaict since  the key is a downstream one, not an upstream one.
-			// And in any case we don't have the locator to find out in where the upstream resource should be deleted.
-			//
-			// To manage this case we should catch downstream namespace delete events, in the resource handler,
-			// and get the upstream namespace (from the locator there, to then submit the deletion of the upstream value from there)
-			//
-			//			return c.pruneUpstreamResource(ctx, gvr, key)
+			// Since the namespace is already deleted downstream, so that we can't get the namespace locator,
+			// we won't be able to delete the resource upstream.
 			//
 			logger.Error(err, "the downstream namespace doesn't exist anymore.")
 			return nil
@@ -166,13 +159,17 @@ func (c *controller) processDownstreamResource(ctx context.Context, gvr schema.G
 	if err != nil && !k8serror.IsNotFound(err) {
 		return err
 	}
-	downstreamResource, ok := downstreamObject.(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("type mismatch of resource object: received %T", downstreamResource)
-	}
 
-	if downstreamNamespace == "" {
-		locatorHolder = downstreamResource
+	var downstreamResource *unstructured.Unstructured
+	if !k8serror.IsNotFound(err) {
+		var ok bool
+		downstreamResource, ok = downstreamObject.(*unstructured.Unstructured)
+		if !ok {
+			return fmt.Errorf("type mismatch of resource object: received %T", downstreamResource)
+		}
+		if downstreamNamespace == "" {
+			locatorHolder = downstreamResource
+		}
 	}
 
 	var upstreamLocator *shared.NamespaceLocator

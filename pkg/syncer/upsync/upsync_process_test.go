@@ -135,7 +135,7 @@ func TestUpsyncerprocess(t *testing.T) {
 	}{
 		"Upsyncer upsyncs namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "", map[string]string{
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			},
 				map[string]string{
@@ -143,22 +143,55 @@ func TestUpsyncerprocess(t *testing.T) {
 				},
 			),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			fromResource: createPod("test-pod", "test", "", map[string]string{
-				"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-				workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+			fromResource: createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			}, nil, nil, "1"),
 			toResources:           []runtime.Object{},
 			resourceToProcessName: "test-pod",
 			syncTargetName:        "us-west1",
 			expectActionsOnFrom:   []clienttesting.Action{},
 			expectActionsOnTo: []kcptesting.Action{
-				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
 				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}, map[string]string{"kcp.io/resource-version": "1"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, ""))),
 			},
 			isUpstream:    false,
 			includeStatus: false,
+		},
+		"Upsyncer upsyncs namespaced resources with status": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+			},
+				map[string]string{
+					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
+				},
+			),
+			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			fromResource: createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+			}, nil, nil, "1"),
+			toResources:           []runtime.Object{},
+			resourceToProcessName: "test-pod",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo: []kcptesting.Action{
+				kcptesting.NewCreateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, ""))),
+				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "status", "test",
+					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, ""))),
+				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
+					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}, map[string]string{"kcp.io/resource-version": "1"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, ""))),
+			},
+			isUpstream:    false,
+			includeStatus: true,
 		},
 		"Upsyncer upsyncs cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -184,10 +217,9 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    false,
 			includeStatus: false,
 		},
-
 		"Upsyncer udpates namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "", map[string]string{
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			},
 				map[string]string{
@@ -195,7 +227,7 @@ func TestUpsyncerprocess(t *testing.T) {
 				},
 			),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			fromResource: createPod("test-pod", "test", "", map[string]string{
+			fromResource: createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			}, nil, nil, "2"),
@@ -210,13 +242,53 @@ func TestUpsyncerprocess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				// kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, logicalcluster.New("root:org:ws"), "test", "test-pvc"),
 				kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
-				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "", "test",
+				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
 					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
 						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 					}, map[string]string{"kcp.io/resource-version": "2"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"))),
 			},
 			isUpstream:    false,
 			includeStatus: false,
+		},
+		"Upsyncer udpates namespaced resources with status": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+			},
+				map[string]string{
+					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
+				},
+			),
+			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			fromResource: createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+			}, nil, nil, "11"),
+			toResources: []runtime.Object{
+				createPod("test-pod", "test", "root:org:ws", map[string]string{
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, map[string]string{"kcp.io/resource-version": "10"}, nil, "1"),
+			},
+			resourceToProcessName: "test-pod",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo: []kcptesting.Action{
+				kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
+				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
+					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}, map[string]string{"kcp.io/resource-version": "10"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"))),
+				kcptesting.NewUpdateSubresourceAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "status", "test",
+					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}, map[string]string{"kcp.io/resource-version": "10"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"))),
+				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
+					toUnstructured(t, createPod("test-pod", "test", "", map[string]string{
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}, map[string]string{"kcp.io/resource-version": "11"}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"))),
+			},
+			isUpstream:    false,
+			includeStatus: true,
 		},
 		"Upsyncer updates cluster-wide resources": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -249,9 +321,9 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    false,
 			includeStatus: false,
 		},
-		"Upsyncer deletes upstream namespaced resources": {
+		"Upsyncer deletes orphan upstream namespaced resources": {
 			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "", map[string]string{
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			},
@@ -260,7 +332,71 @@ func TestUpsyncerprocess(t *testing.T) {
 				},
 			),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			fromResource: namespace("kcp-1dtzz0tyij19", "", map[string]string{
+			toResources: []runtime.Object{
+				createPod("test-pod", "test", "root:org:ws", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, nil, nil, "1"),
+			},
+			resourceToProcessName: "test-pod",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo: []kcptesting.Action{
+				kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
+				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
+			},
+			isUpstream:    false,
+			includeStatus: false,
+		},
+		"Upsyncer doesn't support deleting orphan upstream namespaced resources if the downstream namespace is also deleted": {
+			upstreamLogicalCluster: "root:org:ws",
+			gvr:                    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			toResources: []runtime.Object{
+				createPod("test-pod", "test", "root:org:ws", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, nil, nil, "1"),
+			},
+			resourceToProcessName: "test-pod",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo:     []kcptesting.Action{
+				// No action here, since resource removal from downstream when the downstream namespace has gone
+				// is not completely supported for now.
+				// The cleaning of the upstream resource will not happen at downstream resource removal.
+				// However at Syncer restart, these will be cleaned up.
+				// For now this shouldn't hurt much, since it might happen only in very edge cases.
+			},
+			isUpstream:    false,
+			includeStatus: false,
+		},
+		"Upsyncer doesn't support deleting orphan upstream cluster-wide resources": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace:          nil,
+			gvr:                    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"},
+			fromResource:           nil,
+			toResources: []runtime.Object{
+				createPV("test-pv", "", "root:org:ws", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, nil, nil, "1"),
+			},
+			resourceToProcessName: "test-pv",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo:     []kcptesting.Action{
+				// No action here, since cluster-wide resource removal from downstream is not completely supported for now.
+				// The cleaning of the upstream resource will not happen at downstream resource removal.
+				// However at Syncer restart, these will be cleaned up.
+				// For now this doesn't hurt since the only cluter-wide resources that can be upsynced are PVs, which are not
+				// whose upsying would be behind a feature gate.
+			},
+			isUpstream:    false,
+			includeStatus: false,
+		},
+		"Upsyncer deletes orphan upstream namespaced resources when upstream resource is added": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			},
@@ -268,10 +404,11 @@ func TestUpsyncerprocess(t *testing.T) {
 					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
 				},
 			),
+			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			toResources: []runtime.Object{
 				createPod("test-pod", "test", "root:org:ws", map[string]string{
-					"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}, nil, nil, "1"),
 			},
 			resourceToProcessName: "test-pod",
@@ -284,15 +421,15 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    true,
 			includeStatus: false,
 		},
-		"Upsyncer deletes upstream cluster-wide resources": {
+		"Upsyncer deletes orphan upstream cluster-wide resources when upstream resource is added": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace:          nil,
 			gvr:                    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"},
 			fromResource:           nil,
 			toResources: []runtime.Object{
 				createPV("test-pv", "", "root:org:ws", map[string]string{
-					"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}, nil, nil, "1"),
 			},
 			resourceToProcessName: "test-pv",
@@ -305,9 +442,9 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    true,
 			includeStatus: false,
 		},
-		"Upsyncer deletes upstream resources when downstream resources have deletiontimestamp set": {
+		"Upsyncer deletes upstream resources if downstream resources have deletiontimestamp set": {
 			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "", map[string]string{
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			},
 				map[string]string{
@@ -315,7 +452,7 @@ func TestUpsyncerprocess(t *testing.T) {
 				},
 			),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			fromResource: addDeletionTimeStamp(createPod("test-pod", "test", "", map[string]string{
+			fromResource: addDeletionTimeStamp(createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			}, nil, nil, "1")),
@@ -333,9 +470,37 @@ func TestUpsyncerprocess(t *testing.T) {
 			isUpstream:    false,
 			includeStatus: false,
 		},
+		"Upsyncer deletes upstream resources if downstream resources have deletiontimestamp when upstream resource is added": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+			},
+				map[string]string{
+					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
+				},
+			),
+			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			fromResource: addDeletionTimeStamp(createPod("test-pod", "kcp-33jbiactwhg0", "", map[string]string{
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+			}, nil, nil, "1")),
+			toResources: []runtime.Object{
+				createPod("test-pod", "test", "root:org:ws", map[string]string{
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}, map[string]string{"kcp.io/resource-version": "1"}, nil, "1"),
+			},
+			resourceToProcessName: "test-pod",
+			syncTargetName:        "us-west1",
+			expectActionsOnFrom:   []clienttesting.Action{},
+			expectActionsOnTo: []kcptesting.Action{
+				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
+			},
+			isUpstream:    true,
+			includeStatus: false,
+		},
 		"Upsyncer handles deletion of upstream resources when they have finalizers set": {
 			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "", map[string]string{
+			fromNamespace: namespace("kcp-33jbiactwhg0", "", map[string]string{
 				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 			},
@@ -346,8 +511,8 @@ func TestUpsyncerprocess(t *testing.T) {
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			toResources: []runtime.Object{
 				createPod("test-pod", "test", "root:org:ws", map[string]string{
-					"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}, "1"),
 			},
 			resourceToProcessName: "test-pod",
@@ -357,8 +522,8 @@ func TestUpsyncerprocess(t *testing.T) {
 				kcptesting.NewGetAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
 				kcptesting.NewUpdateAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test",
 					toUnstructured(t, createPod("test-pod", "test", "root:org:ws", map[string]string{
-						"internal.workload.kcp.io/cluster":                               "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-						workloadv1alpha1.ClusterResourceStateLabelPrefix + "root:org:ws": "Upsync",
+						"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 					}, nil, nil, "1"))),
 				kcptesting.NewDeleteAction(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
 			},
@@ -469,6 +634,10 @@ func TestUpsyncerprocess(t *testing.T) {
 				obj.Annotations = map[string]string{
 					logicalcluster.AnnotationKey: kcpLogicalCluster.String(),
 				}
+				if obj.Namespace != "" {
+					obj.Namespace = "test"
+				}
+
 				getKey = kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc
 			}
 			key, err := getKey(obj)
