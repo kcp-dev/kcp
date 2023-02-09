@@ -107,7 +107,7 @@ func TestWorkspaces(t *testing.T) {
 				framework.Eventually(t, func() (bool, string) {
 					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 					require.NoError(t, err)
-					return workspace1.Status.Phase != corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace1 phase: %s", workspace1.Status.Phase)
+					return workspace1.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace1 phase: %s", workspace1.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace1 never became ready")
 
 				t.Logf("User1 is admin of workspace1 and can list and create sub-workspaces")
