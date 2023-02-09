@@ -61,6 +61,12 @@ rules:
   - "watch"
   - "delete"
 - apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+- apiGroups:
   - "apiextensions.k8s.io"
   resources:
   - customresourcedefinitions
@@ -68,6 +74,14 @@ rules:
   - "get"
   - "watch"
   - "list"
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
 - apiGroups:
   - ""
   resources:
@@ -291,6 +305,12 @@ rules:
   - "watch"
   - "delete"
 - apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+- apiGroups:
   - "apiextensions.k8s.io"
   resources:
   - customresourcedefinitions
@@ -298,6 +318,14 @@ rules:
   - "get"
   - "watch"
   - "list"
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
 - apiGroups:
   - ""
   resources:

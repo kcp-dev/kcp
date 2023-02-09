@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,8 @@ var (
 	roleBindingGVR    = schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"}
 	serviceGVR        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	deploymentGVR     = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	endpointGVR       = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
+	networkPolicyGVR  = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
 )
 
 func init() {
@@ -55,8 +58,14 @@ func init() {
 
 func TestDNSProcess(t *testing.T) {
 	clusterName := logicalcluster.Name("root")
+	syncTargetClusterName := logicalcluster.Name("targetclustername")
 	syncTargetUID := types.UID("targetuid")
 	syncTargetName := "targetname"
+
+	locator := shared.NewNamespaceLocator(clusterName, syncTargetClusterName, syncTargetUID, syncTargetName, "")
+	tenantID, err := shared.GetTenantID(locator)
+	require.NoError(t, err)
+
 	dnsID := shared.GetDNSID(clusterName, syncTargetUID, syncTargetName)
 	dnsns := "dnsns"
 
@@ -93,6 +102,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
+				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady:   true,
 			expectActions: []clienttesting.Action{},
@@ -107,6 +117,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
+				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
@@ -116,7 +127,9 @@ func TestDNSProcess(t *testing.T) {
 			dnsImage:    "newdnsimage",
 		},
 		"endpoint does not exist, no DNS objects": {
-			resources:   []runtime.Object{},
+			resources: []runtime.Object{
+				endpoints("kubernetes", "default", "10.0.0.0"),
+			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
 				clienttesting.NewCreateAction(serviceAccountGVR, dnsns, MakeServiceAccount(dnsID, dnsns)),
@@ -124,6 +137,10 @@ func TestDNSProcess(t *testing.T) {
 				clienttesting.NewCreateAction(roleBindingGVR, dnsns, MakeRoleBinding(dnsID, dnsns)),
 				clienttesting.NewCreateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, "dnsimage")),
 				clienttesting.NewCreateAction(serviceGVR, dnsns, MakeService(dnsID, dnsns)),
+				clienttesting.NewGetAction(endpointGVR, "default", "kubernetes"),
+				clienttesting.NewCreateAction(networkPolicyGVR, dnsns, MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{
+					Addresses: []corev1.EndpointAddress{{IP: "10.0.0.0"}},
+				})),
 			},
 			initialized: true,
 			dnsImage:    "dnsimage",
@@ -135,6 +152,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
 			expectActions: []clienttesting.Action{},
@@ -148,6 +166,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
 			expectActions: []clienttesting.Action{},
@@ -161,6 +180,7 @@ func TestDNSProcess(t *testing.T) {
 				MakeRoleBinding(dnsID, dnsns),
 				MakeService(dnsID, dnsns),
 				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
@@ -185,9 +205,10 @@ func TestDNSProcess(t *testing.T) {
 			deploymentLister := informerFactory.Apps().V1().Deployments().Lister()
 			serviceLister := informerFactory.Core().V1().Services().Lister()
 			endpointLister := informerFactory.Core().V1().Endpoints().Lister()
+			networkPolicyLister := informerFactory.Networking().V1().NetworkPolicies().Lister()
 
 			controller := NewDNSProcessor(kubeClient, serviceAccountLister, roleLister, roleBindingLister,
-				deploymentLister, serviceLister, endpointLister, syncTargetName, syncTargetUID,
+				deploymentLister, serviceLister, endpointLister, networkPolicyLister, syncTargetUID, syncTargetName,
 				dnsns, tc.dnsImage)
 
 			controller.initialized.Store(dnsID, tc.initialized)
@@ -197,7 +218,7 @@ func TestDNSProcess(t *testing.T) {
 
 			kubeClient.ClearActions()
 
-			ready, err := controller.EnsureDNSUpAndReady(ctx, clusterName)
+			ready, err := controller.EnsureDNSUpAndReady(ctx, locator)
 			assert.NoError(t, err)
 
 			assert.Empty(t, cmp.Diff(tc.expectReady, ready))
@@ -207,12 +228,16 @@ func TestDNSProcess(t *testing.T) {
 }
 
 func TestMultipleDNSInitialization(t *testing.T) {
+	syncTargetClusterName := logicalcluster.Name("targetclustername")
 	syncTargetUID := types.UID("targetuid")
 	syncTargetName := "targetname"
 	dnsns := "dnsns"
 
 	clusterName1 := logicalcluster.Name("root1")
 	clusterName2 := logicalcluster.Name("root2")
+
+	locator1 := shared.NewNamespaceLocator(clusterName1, syncTargetClusterName, syncTargetUID, syncTargetName, "")
+	locator2 := shared.NewNamespaceLocator(clusterName2, syncTargetClusterName, syncTargetUID, syncTargetName, "")
 
 	dnsID1 := shared.GetDNSID(clusterName1, syncTargetUID, syncTargetName)
 	dnsID2 := shared.GetDNSID(clusterName2, syncTargetUID, syncTargetName)
@@ -232,15 +257,16 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	deploymentLister := informerFactory.Apps().V1().Deployments().Lister()
 	serviceLister := informerFactory.Core().V1().Services().Lister()
 	endpointLister := informerFactory.Core().V1().Endpoints().Lister()
+	networkPolicyLister := informerFactory.Networking().V1().NetworkPolicies().Lister()
 
 	controller := NewDNSProcessor(kubeClient, serviceAccountLister, roleLister, roleBindingLister,
-		deploymentLister, serviceLister, endpointLister, syncTargetName, syncTargetUID,
+		deploymentLister, serviceLister, endpointLister, networkPolicyLister, syncTargetUID, syncTargetName,
 		dnsns, "animage")
 
 	informerFactory.Start(ctx.Done())
 	informerFactory.WaitForCacheSync(ctx.Done())
 
-	ready, err := controller.EnsureDNSUpAndReady(ctx, clusterName1)
+	ready, err := controller.EnsureDNSUpAndReady(ctx, locator1)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ := controller.initialized.Load(dnsID1)
@@ -248,7 +274,7 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	init2, _ := controller.initialized.Load(dnsID2)
 	assert.Nil(t, init2)
 
-	ready, err = controller.EnsureDNSUpAndReady(ctx, clusterName2)
+	ready, err = controller.EnsureDNSUpAndReady(ctx, locator2)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ = controller.initialized.Load(dnsID1)
@@ -266,10 +292,12 @@ func endpoints(name, namespace, ip string) *corev1.Endpoints {
 	}
 	if ip != "" {
 		endpoint.Subsets = []corev1.EndpointSubset{
-			{Addresses: []corev1.EndpointAddress{
-				{
-					IP: ip,
-				}}},
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: ip,
+					}},
+			},
 		}
 	}
 	return endpoint

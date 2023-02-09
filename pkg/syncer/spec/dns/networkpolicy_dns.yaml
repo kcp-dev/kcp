@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: Name
+  namespace: Namespace
+spec:
+  podSelector:
+    matchLabels:
+      app: Name
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kcp.io/tenant-id: TenantID
+      ports:
+        - protocol: TCP
+          port: 5353
+        - protocol: UDP
+          port: 5353
+  egress:
+    # Only give access to coredns in kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+     # Give access to the API server to watch its associated configmap
+    - to:
+      # one ipBlock per IP (dynamically filled)
+      - ipBlock:
+          cidr: APIServerIP
+      ports:
+        - protocol: TCP
+          port: 6443
+

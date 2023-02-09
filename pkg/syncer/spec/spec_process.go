@@ -206,7 +206,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// Make sure the DNS nameserver for the current workspace is up and running
-	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, clusterName); err != nil {
+	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, desiredNSLocator); err != nil {
 		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
 		return nil, err
 	} else if !dnsUpAndReady && gvr == deploymentGVR {
@@ -257,12 +257,16 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		shared.NamespaceLocatorAnnotation: string(b),
 	})
 
-	if upstreamObj.GetLabels() != nil {
-		newNamespace.SetLabels(map[string]string{
-			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
-		})
+	desiredTenantID, err := shared.GetTenantID(desiredNSLocator)
+	if err != nil {
+		return err
 	}
+
+	newNamespace.SetLabels(map[string]string{
+		// TODO: this should be set once at syncer startup and propagated around everywhere.
+		workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
+		shared.TenantIDLabel:                            desiredTenantID,
+	})
 
 	namespaceLister, err := c.getDownstreamLister(namespaceGVR)
 	if err != nil {
@@ -296,6 +300,15 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	}
 	if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
 		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
+	}
+
+	// Handle kcp upgrades by checking the tenant ID is set and correct
+	if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
+		labels := unstrNamespace.GetLabels()
+		labels[shared.TenantIDLabel] = desiredTenantID
+		unstrNamespace.SetLabels(labels)
+		_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
+		return err
 	}
 
 	return nil

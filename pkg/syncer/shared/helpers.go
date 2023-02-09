@@ -18,7 +18,9 @@ package shared
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -70,6 +72,28 @@ func GetDNSID(clusterName logicalcluster.Name, syncTargetUID types.UID, syncTarg
 	workspace36hash := strings.ToLower(base36.EncodeBytes(workspaceHash[:]))
 
 	return fmt.Sprintf("kcp-dns-%s-%s-%s", syncTargetName, uid36hash[:8], workspace36hash[:8])
+}
+
+// GetTenantID encodes the KCP tenant to which the namespace designated by the given
+// NamespaceLocator belongs. It is based on the NamespaceLocator, but with an empty
+// namespace value. The value will be the same for all downstream namespaces originating
+// from the same KCP workspace / SyncTarget.
+// The encoding is repeatable.
+func GetTenantID(l NamespaceLocator) (string, error) {
+	clusterWideLocator := NamespaceLocator{
+		SyncTarget:  l.SyncTarget,
+		ClusterName: l.ClusterName,
+	}
+
+	b, err := json.Marshal(clusterWideLocator)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.Sum224(b)
+	var i big.Int
+	i.SetBytes(hash[:])
+	return i.Text(62), nil
 }
 
 func ContainsGVR(gvrs []schema.GroupVersionResource, gvr schema.GroupVersionResource) bool {
