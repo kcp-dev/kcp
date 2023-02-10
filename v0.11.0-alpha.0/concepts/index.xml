@@ -1,0 +1,1435 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>kcp - a multi-tenant control plane for Kubernetes APIs – kcp Concepts</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/</link><description>Recent content in kcp Concepts on kcp - a multi-tenant control plane for Kubernetes APIs</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/index.xml" rel="self" type="application/rss+xml"/><item><title>V0.11.0-Alpha.0: Authorization</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/authorization/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/authorization/</guid><description>
+&lt;p>Within workspaces, KCP implements the same RBAC-based authorization mechanism as Kubernetes.
+Other authorization schemes (i.e. ABAC) are not supported.
+Generally, the same (cluster) role and (cluster) role binding principles apply exactly as in Kubernetes.&lt;/p>
+&lt;p>In addition, additional RBAC semantics is implemented cross-workspaces, namely the following:&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Top-Level Organization&lt;/strong> access: the user must have this as pre-requisite to access any other workspace, or is
+even member and by that can create workspaces inside the organization workspace.&lt;/li>
+&lt;li>&lt;strong>Workspace Content&lt;/strong> access: the user needs access to a workspace or is even admin.&lt;/li>
+&lt;li>for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules. E.g.
+&lt;ul>
+&lt;li>workspace creation checks for organization membership (see above).&lt;/li>
+&lt;li>workspace creation checks for &lt;code>use&lt;/code> verb on the &lt;code>WorkspaceType&lt;/code>.&lt;/li>
+&lt;li>API binding via APIBinding objects requires verb &lt;code>bind&lt;/code> access to the corresponding &lt;code>APIExport&lt;/code>.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>System Workspaces&lt;/strong> access: system workspaces are prefixed with &lt;code>system:&lt;/code> and are not accessible by users.&lt;/li>
+&lt;/ul>
+&lt;p>The details are outlined below.&lt;/p>
+&lt;h2 id="authorizers">Authorizers&lt;/h2>
+&lt;p>The following authorizers are configured in kcp:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Authorizer&lt;/th>
+&lt;th>Description&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Top-Level organization authorizer&lt;/td>
+&lt;td>checks that the user is allowed to access the organization&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Workspace content authorizer&lt;/td>
+&lt;td>determines additional groups a user gets inside of a workspace&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Maximal permission policy authorizer&lt;/td>
+&lt;td>validates the maximal permission policy RBAC policy in the API exporter workspace&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Local Policy authorizer&lt;/td>
+&lt;td>validates the RBAC policy in the workspace that is accessed&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Kubernetes Bootstrap Policy authorizer&lt;/td>
+&lt;td>validates the RBAC Kubernetes standard policy&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>They are related in the following way:&lt;/p>
+&lt;ol>
+&lt;li>top-level organization authorizer must allow&lt;/li>
+&lt;li>workspace content authorizer must allow, and adds additional (virtual per-request) groups to the request user influencing the follow authorizers.&lt;/li>
+&lt;li>maximal permission policy authorizer must allow&lt;/li>
+&lt;li>one of the local authorizer or bootstrap policy authorizer must allow.&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span> ┌──────────────┐
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ┌────►│ Local Policy ├──┐
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐ │ │ authorizer │ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> request │ Workspace │ │ Required │ │ Max. Permission │ │ │ │ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>─────────►│ Content ├────►│ Groups ├────┤ Policy authorizer ├───┤ └──────────────┘ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ Authorizer │ │ Authorizer │ │ │ │ ▼
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └──────────────┘ └──────────────┘ └───────────────────┘ │ OR───►
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ ┌──────────────┐ ▲
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ │ Bootstrap │ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └────►│ Policy ├──┘
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ authorizer │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ │
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └──────────────┘
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;a href="">ASCIIFlow document&lt;/a>&lt;/p>
+&lt;h3 id="workspace-content-authorizer">Workspace Content authorizer&lt;/h3>
+&lt;p>The workspace content authorizer checks whether the user is granted access to the workspace.
+Access is granted access through &lt;code>verb=access&lt;/code> non-resource permission to &lt;code>/&lt;/code> inside of the workspace.&lt;/p>
+&lt;p>The ClusterRole &lt;code>system:kcp:workspace:access&lt;/code> is pre-defined which makes it easy
+to give a user access through a ClusterRoleBinding inside of the workspace.&lt;/p>
+&lt;p>For example, to give a user &lt;code>user1&lt;/code> access, create the following ClusterRoleBinding:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ClusterRoleBinding&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">example-access&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">subjects&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">User&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">user1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">roleRef&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">apiGroup&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ClusterRole&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">system:kcp:workspace:access&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>To give a user &lt;code>user1&lt;/code> admin access, create the following ClusterRoleBinding:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ClusterRoleBinding&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">example-admin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">subjects&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">User&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">user1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">roleRef&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">apiGroup&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ClusterRole&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">cluster-admin&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>A service-account defined in a workspace implicitly is granted access to it.&lt;/p>
+&lt;p>A service-account defined in a differant workspace is NOT given access to it.&lt;/p>
+&lt;h3 id="required-groups-authorizer">Required Groups Authorizer&lt;/h3>
+&lt;p>A &lt;code>authorization.kcp.io/required-groups&lt;/code> annotation can be added to a LogicalCluster
+to specify additional groups that are required to access a workspace for a user to be member of.
+The syntax is a disjunction (separator &lt;code>,&lt;/code>) of conjunctions (separator &lt;code>;&lt;/code>).&lt;/p>
+&lt;p>For example, &lt;code>&amp;lt;group1&amp;gt;;&amp;lt;group2&amp;gt;,&amp;lt;group3&amp;gt;&lt;/code> means that a user must be member of &lt;code>&amp;lt;group1&amp;gt;&lt;/code> AND &lt;code>&amp;lt;group2&amp;gt;&lt;/code>, OR of &lt;code>&amp;lt;group3&amp;gt;&lt;/code>.&lt;/p>
+&lt;p>The annotation is copied onto sub-workspaces during scheduling.&lt;/p>
+&lt;h4 id="initializing-workspaces">Initializing Workspaces&lt;/h4>
+&lt;p>By default, workspaces are only accessible to a user if they are in &lt;code>Ready&lt;/code> phase. Workspaces that are initializing
+can be access only by users that are granted &lt;code>admin&lt;/code> verb on the &lt;code>workspaces/content&lt;/code> resource in the
+parent workspace.&lt;/p>
+&lt;p>Service accounts declared within a workspace don&amp;rsquo;t have access to initializing workspaces.&lt;/p>
+&lt;h3 id="maximal-permission-policy-authorizer">Maximal permission policy authorizer&lt;/h3>
+&lt;p>If the requested resource type is part of an API binding, then this authorizer verifies that
+the request is not exceeding the maximum permission policy of the related API export.
+Currently, the &amp;ldquo;local policy&amp;rdquo; maximum permission policy type is supported.&lt;/p>
+&lt;h4 id="local-policy">Local policy&lt;/h4>
+&lt;p>The local maximum permission policy delegates the decision to the RBAC of the related API export.
+To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
+every name and group is prefixed with &lt;code>apis.kcp.io:binding:&lt;/code>.&lt;/p>
+&lt;p>Example:&lt;/p>
+&lt;p>Given an API binding for type &lt;code>foo&lt;/code> declared in workspace &lt;code>consumer&lt;/code> that refers to an API export declared in workspace &lt;code>provider&lt;/code>
+and a user &lt;code>user-1&lt;/code> having the group &lt;code>group-1&lt;/code> requesting a &lt;code>create&lt;/code> of &lt;code>foo&lt;/code> in the &lt;code>default&lt;/code> namespace in the &lt;code>consumer&lt;/code> workspace,
+this authorizer verifies that &lt;code>user-1&lt;/code> is allowed to execute this request by delegating to &lt;code>provider&lt;/code>&amp;rsquo;s RBAC using prefixed attributes.&lt;/p>
+&lt;p>Here, this authorizer prepends the &lt;code>apis.kcp.io:binding:&lt;/code> prefix to the username and all groups the user belongs to.
+Using prefixed attributes prevents RBAC collisions i.e. if &lt;code>user-1&lt;/code> is granted to execute requests within the &lt;code>provider&lt;/code> workspace directly.&lt;/p>
+&lt;p>For the given example RBAC request looks as follows:&lt;/p>
+&lt;ul>
+&lt;li>Username: &lt;code>apis.kcp.io:binding:user-1&lt;/code>&lt;/li>
+&lt;li>Group: &lt;code>apis.kcp.io:binding:group-1&lt;/code>&lt;/li>
+&lt;li>Resource: &lt;code>foo&lt;/code>&lt;/li>
+&lt;li>Namespace: &lt;code>default&lt;/code>&lt;/li>
+&lt;li>Workspace: &lt;code>provider&lt;/code>&lt;/li>
+&lt;li>Verb: &lt;code>create&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>The following role and role binding declared within the &lt;code>provider&lt;/code> workspace will grant access to the request:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Role&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">foo-creator&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">clusterName&lt;/span>: &lt;span style="color:#ae81ff">provider&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">rules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">apiGroups&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">foo.api&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resources&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">foos&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">verbs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">create&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">RoleBinding&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">user-1-foo-creator&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">clusterName&lt;/span>: &lt;span style="color:#ae81ff">provider&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">subjects&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">User&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">apis.kcp.io:binding:user-1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">roleRef&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">apiGroup&lt;/span>: &lt;span style="color:#ae81ff">rbac.authorization.k8s.io&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Role&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">foo-creator&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+The same authorization scheme is enforced when executing the request of a claimed resource via the virtual API Export API server,
+i.e. a claimed resource is bound to the same maximal permission policy. Only the actual owner of that resources can go beyond that policy.
+&lt;/div>
+&lt;p>TBD: Example&lt;/p>
+&lt;h3 id="kubernetes-bootstrap-policy-authorizer">Kubernetes Bootstrap Policy authorizer&lt;/h3>
+&lt;p>The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
+defined in the &lt;code>system:admin&lt;/code> system workspace.&lt;/p>
+&lt;h3 id="local-policy-authorizer">Local Policy authorizer&lt;/h3>
+&lt;p>Once the top-level organization authorizer and the workspace content authorizer granted access to a
+workspace, RBAC rules contained in the workspace derived from the request context are evaluated.&lt;/p>
+&lt;p>This authorizer ensures that RBAC rules contained within a workspace are being applied
+and work just like in a regular Kubernetes cluster.&lt;/p>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+Groups added by the workspace content authorizer can be used for role bindings in that workspace.
+&lt;/div>
+&lt;p>It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy &lt;code>RoleBinding&lt;/code> or &lt;code>ClusterRoleBinding&lt;/code>.&lt;/p>
+&lt;h3 id="service-accounts">Service Accounts&lt;/h3>
+&lt;p>Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.&lt;/p>
+&lt;p>E.g. a service account &amp;ldquo;default&amp;rdquo; in &lt;code>root:org:ws:ws&lt;/code> is granted access to &lt;code>root:org:ws:ws&lt;/code>, and through the
+workspace content authorizer it gains the &lt;code>system:kcp:clusterworkspace:access&lt;/code> group membership.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Cache Server</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/cache-server/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/cache-server/</guid><description>
+&lt;h3 id="purpose">Purpose&lt;/h3>
+&lt;p>The primary purpose of the cache server is to support cross-shard communication.
+Shards need to communicate with each other in order to enable, among other things, migration and replication features.
+Direct shard-to-shard communication is not feasible in a larger setup as it scales with n*(n-1).
+The web of connections would be hard to reason about, maintain and troubleshoot.
+Thus, the cache server serves as a central place for shards to store and read common data.
+Note, that the final topology can have more than one cache server, i.e. one in some geographic region.&lt;/p>
+&lt;h3 id="high-level-overview">High-level overview&lt;/h3>
+&lt;p>The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.
+Conceptually it supports two modes of operations.
+The first mode is in which a shard gets its private space for storing its own data.
+The second mode is in which a shard can read other shards&amp;rsquo; data.&lt;/p>
+&lt;p>The first mode of operation is implemented as a write controller that runs on a shard.
+It holds some state/data from that shard in memory and pushes it to the cache server.
+The controller uses standard informers for getting required resources both from a local kcp instance and remote cache server.
+Before pushing data it has to compare remote data to its local copy and make sure both copies are consistent.&lt;/p>
+&lt;p>The second mode of operation is implemented as a read controller(s) that runs on some shard.
+It holds other shards&amp;rsquo; data in an in-memory cache using an informer,
+effectively pulling data from the central cache.
+Thanks to having a separate informer for interacting with the cache server
+a shard can implement a different resiliency strategy.
+For example, it can tolerate the unavailability of the secondary during startup and become ready.&lt;/p>
+&lt;h3 id="running-the-server">Running the server&lt;/h3>
+&lt;p>The cache server can be run as a standalone binary or as part of a kcp server.&lt;/p>
+&lt;p>The standalone binary is in &lt;a href="">https://github.com/kcp-dev/kcp/tree/main/cmd/cache-server&lt;/a> and can be run by issuing &lt;code>go run ./cmd/cache-server/main.go&lt;/code> command.&lt;/p>
+&lt;p>To run it as part of a kcp server, pass &lt;code>--cache-url&lt;/code> flag to the kcp binary.&lt;/p>
+&lt;h3 id="client-side-functionality">Client-side functionality&lt;/h3>
+&lt;p>In order to interact with the cache server from a shard, the &lt;a href="">https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client&lt;/a>
+repository provides the following client-side functionality:&lt;/p>
+&lt;p>&lt;a href="">ShardRoundTripper&lt;/a>,
+a shard aware wrapper around &lt;code>http.RoundTripper&lt;/code>. It changes the URL path to target a shard from the context.&lt;/p>
+&lt;p>&lt;a href="">DefaultShardRoundTripper&lt;/a>
+is a &lt;code>http.RoundTripper&lt;/code> that sets a default shard name if not specified in the context.&lt;/p>
+&lt;p>For example, in order to make a client shard aware, inject the &lt;code>http.RoundTrippers&lt;/code> to a &lt;code>rest.Config&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cacheclient&lt;/span> &lt;span style="color:#e6db74">&amp;#34;github.com/kcp-dev/kcp/pkg/cache/client&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/kcp-dev/kcp/pkg/cache/client/shard&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// adds shards awareness to a client with a default `shard.Wildcard` name.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#a6e22e">NewForConfig&lt;/span>(&lt;span style="color:#a6e22e">cacheclient&lt;/span>.&lt;span style="color:#a6e22e">WithShardRoundTripper&lt;/span>(&lt;span style="color:#a6e22e">cacheclient&lt;/span>.&lt;span style="color:#a6e22e">WithDefaultShardRoundTripper&lt;/span>(&lt;span style="color:#a6e22e">serverConfig&lt;/span>.&lt;span style="color:#a6e22e">LoopbackClientConfig&lt;/span>, &lt;span style="color:#a6e22e">shard&lt;/span>.&lt;span style="color:#a6e22e">Wildcard&lt;/span>)))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// and then change the context when you need to access a specific shard and pass is when making a HTTP request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#a6e22e">ctx&lt;/span> = &lt;span style="color:#a6e22e">cacheclient&lt;/span>.&lt;span style="color:#a6e22e">WithShardInContext&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">shard&lt;/span>.&lt;span style="color:#a6e22e">New&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;cache&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="authorizationauthentication">Authorization/Authentication&lt;/h3>
+&lt;p>Not implemented at the moment&lt;/p>
+&lt;h3 id="built-in-resources">Built-in resources&lt;/h3>
+&lt;p>Out of the box, the server supports the following resources:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>apiresourceschemas&lt;/code>&lt;/li>
+&lt;li>&lt;code>apiexports&lt;/code>&lt;/li>
+&lt;li>&lt;code>shards&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>All those resources are represented as CustomResourceDefinitions and
+stored in &lt;code>system:cache:server&lt;/code> shard under &lt;code>system:system-crds&lt;/code> cluster.&lt;/p>
+&lt;h3 id="adding-new-resources">Adding new resources&lt;/h3>
+&lt;p>Not implemented at the moment.
+Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
+In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.&lt;/p>
+&lt;h3 id="deletion-of-data">Deletion of data&lt;/h3>
+&lt;p>Not implemented at the moment.
+Only deleting resources explicitly is possible.
+In the future, some form of automatic removal will be implemented.&lt;/p>
+&lt;h3 id="design-details">Design details&lt;/h3>
+&lt;p>The cache server is implemented as the &lt;code>apiextensions-apiserver&lt;/code>.
+It is based on the same fork used by the kcp server, extended with shard support.&lt;/p>
+&lt;p>Since the server serves as a secondary replica it doesn&amp;rsquo;t support versioning, validation, pruning, or admission.
+All resources persisted by the server are deprived of schema.
+That means the schema is implicit, maintained, and enforced by the shards pushing/pulling data into/from the server.&lt;/p>
+&lt;h4 id="on-the-http-level">On the HTTP level&lt;/h4>
+&lt;p>The server exposes the following path:&lt;/p>
+&lt;p>&lt;code>/services/cache/shards/{shard-name}/clusters/{cluster-name}/apis/group/version/namespaces/{namespace-name}/resource/{resource-name}&lt;/code>&lt;/p>
+&lt;p>Parameters:&lt;/p>
+&lt;p>&lt;code>{shard-name}&lt;/code>: a required string holding a shard name, a wildcard is also supported indicating a cross-shard request&lt;/p>
+&lt;p>&lt;code>{cluster-name}&lt;/code>: a required string holding a cluster name, a wildcard is also supported indicating a cross-cluster request.&lt;/p>
+&lt;p>&lt;code>{namespace-name}&lt;/code>: an optional string holding a namespace the given request is for, not all resources are stored under a namespace.&lt;/p>
+&lt;p>&lt;code>{resource-name}&lt;/code>: an optional string holding the name of a resource&lt;/p>
+&lt;p>For example:&lt;/p>
+&lt;p>&lt;code>/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports&lt;/code>: for listing apiexports for all shards and clusters&lt;/p>
+&lt;p>&lt;code>/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports&lt;/code>: for listing apiexports for amber shard for all clusters&lt;/p>
+&lt;p>&lt;code>/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha1/apiexports&lt;/code>: for listing apiexports for sapphire shard stored in system:sapphire cluster&lt;/p>
+&lt;h4 id="on-the-storage-layer">On the storage layer&lt;/h4>
+&lt;p>All resources stored by the cache server are prefixed with &lt;code>/cache&lt;/code>.
+Thanks to that the server can share the same database with the kcp server.&lt;/p>
+&lt;p>Ultimately a shard aware resources end up being stored under the following key:&lt;/p>
+&lt;p>&lt;code>/cache/group/resource/{shard-name}/{cluster-name}/{namespace-name}/{resource-name}&lt;/code>&lt;/p>
+&lt;p>For more information about inner working of the storage layer,
+please visit: TODO: add a link that explains the mapping of a URL to a storage prefix.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Cluster Mapper</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/cluster-mapper/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/cluster-mapper/</guid><description>
+&lt;h2 id="invariants">Invariants&lt;/h2>
+&lt;ol>
+&lt;li>Every object assigned by a location exists on the target location&lt;/li>
+&lt;li>Every object in the target location has appropriate metadata set indicating source&lt;/li>
+&lt;li>Every object in the target location that has status and the appropriate policy choice set will reflect that status back in the source object&lt;/li>
+&lt;li>No object exists in the target location that is not assigned by a source object(s)&lt;/li>
+&lt;/ol>
+&lt;p>&lt;code>1..N&lt;/code> mappers per location (sharding by virtual cluster?)
+mappers see only the objects assigned to them (special API)&lt;/p>
+&lt;ul>
+&lt;li>can load policy info during mapping?&lt;/li>
+&lt;li>can load policy info from side channels like regular resources
+wants to watch many different resources at once and deal with them as unstructured&lt;/li>
+&lt;/ul>
+&lt;p>assumption: all resources in the location are compatible with the target API (managed by control plane and CRD folding), and if that is broken the mapper is instructed to halt mapping&lt;/p>
+&lt;ul>
+&lt;li>how to deal with partial mapping when one object is broken&lt;/li>
+&lt;li>how does CRD folding actually work (separate doc)&lt;/li>
+&lt;/ul>
+&lt;p>assumption: higher level control (admission) manages location accessibility&lt;/p>
+&lt;p>assumption: kcp has 1k virtual clusters with 50k resources, a given mapper may see 1k to 50k resources&lt;/p>
+&lt;ul>
+&lt;li>fully syncing will take &lt;code>50k / default throttle&lt;/code> (50-100 req/s) ~ 1000s in serial&lt;/li>
+&lt;li>order may be important&lt;/li>
+&lt;li>there may be 100-1k locations, so we may have up to 1/1000 cardinality (implies indexing)&lt;/li>
+&lt;li>mappers that favor summarization objects (deployments) have scale advantages over those that don&amp;rsquo;t (pods)&lt;/li>
+&lt;/ul>
+&lt;p>Assumption: we prefer not to require order to correctly map, but some order is implicit due to resource version ordering&lt;/p>
+&lt;h2 id="basic-sync-loop">Basic sync loop&lt;/h2>
+&lt;ol>
+&lt;li>retrieve all objects assigned to a particular cluster (metadata.annotations[&amp;ldquo;kcp.io/assigned-locations&amp;rdquo;] = [&amp;ldquo;a&amp;rdquo;,&amp;ldquo;b&amp;rdquo;])&lt;/li>
+&lt;li>transform them into one or more objects for the destination
+&lt;ul>
+&lt;li>add labels?&lt;/li>
+&lt;li>map namespace from source to target&lt;/li>
+&lt;li>hide certain annotations (assigned-locations?)&lt;/li>
+&lt;li>set and maintain other annotations (like the source namespace / virtual cluster)&lt;/li>
+&lt;li>set a controller ref?&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>perform a merge into the destination object (overwrite of spec)&lt;/li>
+&lt;li>sync some fields (status?) back to source object&lt;/li>
+&lt;li>delete all objects no longer assigned to the remote location
+&lt;ul>
+&lt;li>read all mappable objects from all mappable resources?
+&lt;ul>
+&lt;li>use &lt;code>kcp.io/location=X&lt;/code> label to filter&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>detect when an object policy on mapping is changed?&lt;/li>
+&lt;li>only need the partial object (metadata)&lt;/li>
+&lt;li>can we leverage the garbage collector to delete the object?&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol></description></item><item><title>V0.11.0-Alpha.0: Kubectl kcp plugin</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/kubectl-kcp-plugin/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/kubectl-kcp-plugin/</guid><description>
+&lt;p>kcp provides a kubectl plugin that simplifies the operations with the kcp server.&lt;/p>
+&lt;p>You can install the plugin from the current repo:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ make install
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>go install ./cmd/...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>The plugin will be &lt;a href="">automatically discovered by your current &lt;code>kubectl&lt;/code> binary&lt;/a>:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl-kcp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>KCP is the easiest way to manage Kubernetes applications against one or more clusters, by giving you a personal control plane that schedules your workloads onto one or many clusters, and making it simple to pick up and move. Advanced use cases including spreading your apps across clusters &lt;span style="color:#66d9ef">for&lt;/span> resiliency, scheduling batch workloads onto clusters with free capacity, and enabling collaboration &lt;span style="color:#66d9ef">for&lt;/span> individual teams without having access to the underlying clusters.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>This command provides KCP specific sub-command &lt;span style="color:#66d9ef">for&lt;/span> kubectl.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Usage:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> kcp &lt;span style="color:#f92672">[&lt;/span>command&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Available Commands:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> completion generate the autocompletion script &lt;span style="color:#66d9ef">for&lt;/span> the specified shell
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> help Help about any command
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> workspace Manages KCP workspaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Flags:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --add_dir_header If true, adds the file directory to the header of the log messages
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --alsologtostderr log to standard error as well as files
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -h, --help help &lt;span style="color:#66d9ef">for&lt;/span> kcp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --log_backtrace_at traceLocation when logging hits line file:N, emit a stack trace &lt;span style="color:#f92672">(&lt;/span>default :0&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --log_dir string If non-empty, write log files in this directory
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --log_file string If non-empty, use this log file
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --log_file_max_size uint Defines the maximum size a log file can grow to. Unit is megabytes. If the value is 0, the maximum file size is unlimited. &lt;span style="color:#f92672">(&lt;/span>default 1800&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --logtostderr log to standard error instead of files &lt;span style="color:#f92672">(&lt;/span>default true&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --one_output If true, only write logs to their native severity level &lt;span style="color:#f92672">(&lt;/span>vs also writing to each lower severity level&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --skip_headers If true, avoid header prefixes in the log messages
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --skip_log_headers If true, avoid headers when opening log files
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --stderrthreshold severity logs at or above this threshold go to stderr &lt;span style="color:#f92672">(&lt;/span>default 2&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -v, --v Level number &lt;span style="color:#66d9ef">for&lt;/span> the log level verbosity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --vmodule moduleSpec comma-separated list of pattern&lt;span style="color:#f92672">=&lt;/span>N settings &lt;span style="color:#66d9ef">for&lt;/span> file-filtered logging
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Use &lt;span style="color:#e6db74">&amp;#34;kcp [command] --help&amp;#34;&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> more information about a command.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>V0.11.0-Alpha.0: Placement, Locations and Scheduling</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/</guid><description>
+&lt;p>KCP implements &lt;em>Compute as a Service&lt;/em> via a concept of Transparent Multi Cluster (TMC). TMC means that
+Kubernetes clusters are attached to a kcp installation to execute workload objects from the users'
+workspaces by syncing these workload objects down to those clusters and the objects&amp;rsquo; status
+back up. This gives the illusion of native compute in KCP.&lt;/p>
+&lt;p>We call it &lt;em>Compute as a Service&lt;/em> because the registered &lt;code>SyncTargets&lt;/code> live in workspaces that
+are (normally) invisible to the users, and the teams operating compute can be different from
+the compute consumers.&lt;/p>
+&lt;p>The APIs used for Compute as a Service are:&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>scheduling.kcp.io/v1alpha1&lt;/code> – we call the outcome of this &lt;em>placement&lt;/em> of namespaces.&lt;/li>
+&lt;li>&lt;code>workload.kcp.io/v1alpha1&lt;/code> – responsible for the syncer component of TMC.&lt;/li>
+&lt;/ol>
+&lt;h2 id="main-concepts">Main Concepts&lt;/h2>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;code>SyncTarget&lt;/code> in &lt;code>workload.kcp.io/v1alpha1&lt;/code> – representations of Kubernetes clusters that are attached to a kcp installation to
+execute workload objects from the users&amp;rsquo; workspaces. On a Kubernetes cluster, there is one syncer
+process for each &lt;code>SyncTarget&lt;/code> object.&lt;/p>
+&lt;p>Sync targets are invisible to users, and (medium term) at most identified via a UID.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>Location&lt;/code> in &lt;code>scheduling.kcp.io/v1alpha1&lt;/code> – represents a collection of &lt;code>SyncTarget&lt;/code> objects selected via instance labels, and
+exposes labels (potentially different from the instance labels) to the users to describe, identify and select locations to be used
+for placement of user namespaces onto sync targets.&lt;/p>
+&lt;p>Locations are visible to users, but owned by the compute service team, i.e. read-only to the users and only projected
+into their workspaces for visibility. A placement decision references a location by name.&lt;/p>
+&lt;p>&lt;code>SyncTarget&lt;/code>s in a &lt;code>Location&lt;/code> are transparent to the user. Workloads should be able to seamlessly move from one &lt;code>SyncTarget&lt;/code> to another
+within a &lt;code>Location&lt;/code>, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing
+capacity, or due to an outage of a cluster.&lt;/p>
+&lt;p>It is compute service&amp;rsquo;s responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>Placement&lt;/code> in &lt;code>scheduling.kcp.io/v1alpha1&lt;/code> – represents a selection rule to choose ONE &lt;code>Location&lt;/code> via location labels, and bind
+the selected location to MULTIPLE namespaces in a user workspace. For Workspaces with multiple Namespaces, users can create multiple
+Placements to assign specific Namespace(s) to specific Locations.&lt;/p>
+&lt;p>&lt;code>Placement&lt;/code> are visible and writable to users. A default &lt;code>Placement&lt;/code> is automatically created when a workload &lt;code>APIBinding&lt;/code> is
+created on the user workspace, which randomly select a &lt;code>Location&lt;/code> and bind to all namespaces in this workspace. The user can mutate
+or delete the default &lt;code>Placement&lt;/code>. The corresponding &lt;code>APIBinding&lt;/code> will be annotated with &lt;code>workload.kcp.io/skip-default-object-creation&lt;/code>,
+so that the default &lt;code>Placement&lt;/code> will not be recreated upon deletion.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;em>Compute Service Workspace&lt;/em> (previously &lt;em>Negotiation Workspace&lt;/em>) – the workspace owned by the compute service team to hold
+the &lt;code>APIExport&lt;/code> (named &lt;code>kubernetes&lt;/code> today) with the synced resources, and &lt;code>SyncTarget&lt;/code> and &lt;code>Location&lt;/code> objects.&lt;/p>
+&lt;p>The user binds to the &lt;code>APIExport&lt;/code> called &lt;code>kubernetes&lt;/code> using an &lt;code>APIBinding&lt;/code>. From this moment on, the users&amp;rsquo; workspaces
+are subject to placement.&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+&lt;p>Binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
+workload objects.&lt;/p>
+&lt;p>It is planned to allow multiple location workspaces for the same compute service, even with different owners.&lt;/p>
+&lt;/div>
+&lt;h3 id="placement-and-resource-scheduling">Placement and resource scheduling&lt;/h3>
+&lt;p>The placement state is one of&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>Pending&lt;/code> – the placement controller waits for a valid &lt;code>Location&lt;/code> to select&lt;/li>
+&lt;li>&lt;code>Bound&lt;/code> – at least one namespace is bound to the placement. When the user updates the spec of the &lt;code>Placement&lt;/code>, the selected location of
+the placement will be changed in &lt;code>Bound&lt;/code> state.&lt;/li>
+&lt;li>&lt;code>Unbound&lt;/code> – a location is selected by the placement, but no namespace is bound to the placement. When the user updates the spec of the &lt;code>Placement&lt;/code>, the
+selected location of the placement will be changed in &lt;code>Unbound&lt;/code> state.&lt;/li>
+&lt;/ul>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+Sync targets from different locations can be bound at the same time, while each location can only have one sync target bound to the
+namespace.
+&lt;/div>
+&lt;p>The user interface to influence the placement decisions is the &lt;code>Placement&lt;/code> object. For example, user can create a placement to bind namespace with
+label of &amp;ldquo;app=foo&amp;rdquo; to a location with label &amp;ldquo;cloud=aws&amp;rdquo; as below:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">scheduling.kcp.io/v1alpha1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Placement&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">aws&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">locationSelectors&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cloud&lt;/span>: &lt;span style="color:#ae81ff">aws&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespaceSelector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">foo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">locationWorkspace&lt;/span>: &lt;span style="color:#ae81ff">root:default:location-ws&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>A matched location will be selected for this &lt;code>Placement&lt;/code> at first, which makes the &lt;code>Placement&lt;/code> turns from &lt;code>Pending&lt;/code> to &lt;code>Unbound&lt;/code>. Then if there is at
+least one matching Namespace, the Namespace will be annotated with &lt;code>scheduling.kcp.io/placement&lt;/code> and the placement turns from &lt;code>Unbound&lt;/code> to &lt;code>Bound&lt;/code>.
+After this, a &lt;code>SyncTarget&lt;/code> will be selected from the location picked by the placement. &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label with value of &lt;code>Sync&lt;/code> will be set if a valid &lt;code>SyncTarget&lt;/code> is selected.&lt;/p>
+&lt;p>The user can create another placement targeted to a different location for this Namespace, e.g.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">scheduling.kcp.io/v1alpha1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Placement&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">gce&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">locationSelectors&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cloud&lt;/span>: &lt;span style="color:#ae81ff">gce&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespaceSelector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">foo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">locationWorkspace&lt;/span>: &lt;span style="color:#ae81ff">root:default:location-ws&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>which will result in another &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label added to the Namespace, and the Namespace will have two different
+&lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label.&lt;/p>
+&lt;p>Placement is in the &lt;code>Ready&lt;/code> status condition when&lt;/p>
+&lt;ol>
+&lt;li>selected location matches the &lt;code>Placement&lt;/code> spec.&lt;/li>
+&lt;li>selected location exists in the location workspace.&lt;/li>
+&lt;/ol>
+&lt;h4 id="sync-target-removing">Sync target removing&lt;/h4>
+&lt;p>A sync target will be removed when:&lt;/p>
+&lt;ol>
+&lt;li>corresponding &lt;code>Placement&lt;/code> is deleted.&lt;/li>
+&lt;li>corresponding &lt;code>Placement&lt;/code> is not in &lt;code>Ready&lt;/code> condition.&lt;/li>
+&lt;li>corresponding &lt;code>SyncTarget&lt;/code> is evicting/not Ready/deleted&lt;/li>
+&lt;/ol>
+&lt;p>All above cases will make the &lt;code>SyncTarget&lt;/code> represented in the label &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> invalid, which will cause
+&lt;code>finalizers.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> annotation with removing time in the format of RFC-3339 added on the Namespace.&lt;/p>
+&lt;h3 id="resource-syncing">Resource Syncing&lt;/h3>
+&lt;p>As soon as the &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label is set on the Namespace, the workload resource controller will
+copy the &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label to the resources in that namespace.&lt;/p>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+In the future, the label on the resources is first set to empty string &lt;code>&amp;quot;&amp;quot;&lt;/code>, and a coordination controller will be
+able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
+&lt;code>finalizers.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> annotation such that the coordination controller gets full control over
+the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
+have been launched on another sync target). Finally, the coordination controller will replace the empty string with &lt;code>Sync&lt;/code>
+such that the state machine continues.
+&lt;/div>
+&lt;p>With the state label set to &lt;code>Sync&lt;/code>, the syncer will start seeing the resources in the namespace
+and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set
+a finalizer &lt;code>workload.kcp.io/syncer-&amp;lt;cluster-id&amp;gt;&lt;/code> on the upstream object in order to delay upstream deletion until
+the downstream object is also deleted.&lt;/p>
+&lt;p>When the &lt;code>deletion.internal.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> is added to the Namespace. The virtual workspace apiserver
+will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
+notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
+&lt;code>finalizers.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> annotation anymore, the syncer will start a deletion of the downstream object.&lt;/p>
+&lt;p>When the downstream deletion is complete, the syncer will remove the finalizer from the upstream object, and the
+&lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> labels gets deleted as well. The syncer stops seeing the object in the virtual
+workspace.&lt;/p>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+&lt;p>There is a missing bit in the implementation (in v0.5) about removal of the &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code>
+label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
+downstream namespace deletion via &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label removal.&lt;/p>
+&lt;p>For more information on the upsync use case for storage, refer to the &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/storage/">storage doc&lt;/a>.&lt;/p>
+&lt;/div>
+&lt;h3 id="resource-upsyncing">Resource Upsyncing&lt;/h3>
+&lt;p>In most cases kcp will be the source for syncing resources to the &lt;code>SyncTarget&lt;/code>, however, in some cases,
+kcp would need to receive a resource that was provisioned by a controller on the &lt;code>SyncTarget&lt;/code>.
+This is the case with storage PVs, which are created on the &lt;code>SyncTarget&lt;/code> by a CSI driver.&lt;/p>
+&lt;p>Unlike the &lt;code>Sync&lt;/code> state, the &lt;code>Upsync&lt;/code> state is exclusive, and only a single &lt;code>SyncTarget&lt;/code> can be the source of truth for an upsynced resource.
+In addition, other &lt;code>SyncTargets&lt;/code> cannot be syncing down while the resource is being upsynced.&lt;/p>
+&lt;p>A resource coordination controller will be responsible for changing the &lt;code>state.workload.kcp.io/&amp;lt;cluster-id&amp;gt;&lt;/code> label,
+to drive the different flows on the resource. A resource can be changed from &lt;code>Upsync&lt;/code> to &lt;code>Sync&lt;/code> in order to share it across &lt;code>SyncTargets&lt;/code>.
+This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
+and all the sync targets involved will be in &lt;code>Sync&lt;/code> state.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Registering Kubernetes Clusters using syncer</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/syncer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/syncer/</guid><description>
+&lt;p>In order to register a Kubernetes clusters with the kcp server,
+users have to install a special component named &lt;a href="">syncer&lt;/a>.&lt;/p>
+&lt;h2 id="requirements">Requirements&lt;/h2>
+&lt;ul>
+&lt;li>kcp server&lt;/li>
+&lt;li>&lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/kubectl-kcp-plugin/">kcp kubectl plugin&lt;/a>&lt;/li>
+&lt;li>kubernetes cluster&lt;/li>
+&lt;/ul>
+&lt;h2 id="instructions">Instructions&lt;/h2>
+&lt;ol>
+&lt;li>
+&lt;p>(Optional) Skip this step, if you already have a physical cluster.
+Create a kind cluster to back the sync target:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kind create cluster
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Creating cluster &lt;span style="color:#e6db74">&amp;#34;kind&amp;#34;&lt;/span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;snip&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Set kubectl context to &lt;span style="color:#e6db74">&amp;#34;kind-kind&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>You can now use your cluster with:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl cluster-info --context kind-kind
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+This step sets current context to the new kind cluster. Make sure to use a KCP kubeconfig for the next steps unless told otherwise.
+&lt;/div>
+&lt;ol>
+&lt;li>
+&lt;p>Create an organisation and immediately enter it:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl kcp workspace create my-org --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type &lt;span style="color:#e6db74">&amp;#34;root:organization&amp;#34;&lt;/span>&lt;span style="color:#f92672">)&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Enable the syncer for a p-cluster:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp workload sync &amp;lt;synctarget name&amp;gt; --syncer-image &amp;lt;image name&amp;gt; -o syncer.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Where &lt;code>&amp;lt;image name&amp;gt;&lt;/code> &lt;a href="">one of the syncer images&lt;/a> for your corresponding KCP release (e.g. &lt;code>ghcr.io/kcp-dev/kcp/syncer:v0.7.5&lt;/code>).&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Apply the manifest to the p-cluster:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>&amp;lt;pcluster-config&amp;gt; kubectl apply -f syncer.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>namespace/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>serviceaccount/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>secret/kcp-syncer-kind-1owee1ci-token created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>clusterrole.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>clusterrolebinding.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>secret/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>deployment.apps/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>and it will create a &lt;code>kcp-syncer&lt;/code> deployment:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>&amp;lt;pcluster-config&amp;gt; kubectl -n kcp-syncer-kind-1owee1ci get deployments
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME READY UP-TO-DATE AVAILABLE AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kcp-syncer 1/1 &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span> 13m
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Wait for the kcp sync target to go ready:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl wait --for&lt;span style="color:#f92672">=&lt;/span>condition&lt;span style="color:#f92672">=&lt;/span>Ready synctarget/&amp;lt;mycluster&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;h3 id="select-resources-to-sync">Select resources to sync.&lt;/h3>
+&lt;p>Syncer will by default use the &lt;code>kubernetes&lt;/code> APIExport in &lt;code>root:compute&lt;/code> workspace and sync &lt;code>deployments/services/ingresses&lt;/code>
+to the physical cluster. The related API schemas of the physical cluster should be comptible with kubernetes 1.24. User can
+select to sync other resources in physical clusters or from other APIExports on kcp server.&lt;/p>
+&lt;p>To sync resources that the KCP server does not have an APIExport to support yet, run&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp workload sync &amp;lt;mycluster&amp;gt; --syncer-image &amp;lt;image name&amp;gt; --resources foo.bar -o syncer.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>And apply the generated manifests to the physical cluster. The syncer will then import the API schema of foo.bar
+to the workspace of the synctarget, following up with an auto generated kubernetes APIExport/APIBinding in the same workspace.
+You can then create foo.bar in this workspace, or create an APIBinding in another workspace to bind this APIExport.&lt;/p>
+&lt;p>To sync resource from another existing APIExport in the KCP server, run&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp workload sync &amp;lt;mycluster&amp;gt; --syncer-image &amp;lt;image name&amp;gt; --apiexports another-workspace:another-apiexport -o syncer.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Syncer will start syncing the resources in this &lt;code>APIExport&lt;/code> as long as the &lt;code>SyncTarget&lt;/code> has compatible API schemas.&lt;/p>
+&lt;p>To see if a certain resource is supported to be synced by the syncer, you can check the state of the &lt;code>syncedResources&lt;/code> in &lt;code>SyncTarget&lt;/code>
+status.&lt;/p>
+&lt;h3 id="bind-workspaces-to-the-location-workspace">Bind workspaces to the Location Workspace&lt;/h3>
+&lt;p>After the &lt;code>SyncTarget&lt;/code> is ready, switch to any workspace containing some workloads that you want to sync to this &lt;code>SyncTarget&lt;/code>, and run&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp bind compute &amp;lt;workspace of synctarget&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>This command will create a &lt;code>Placement&lt;/code> in the workspace. By default, it will also create &lt;code>APIBinding&lt;/code>s for global kubernetes &lt;code>APIExport&lt;/code> and
+kubernetes &lt;code>APIExport&lt;/code> in workspace of &lt;code>SyncTarget&lt;/code>, if any of these &lt;code>APIExport&lt;/code>s are supported by the &lt;code>SyncTarget&lt;/code>.&lt;/p>
+&lt;p>Alternatively, if you would like to bind other &lt;code>APIExport&lt;/code>s which are supported by the &lt;code>SyncerTarget&lt;/code>, run:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>kubectl kcp bind compute &amp;lt;workspace of synctarget&amp;gt; --apiexports &amp;lt;apiexport workspace&amp;gt;:&amp;lt;apiexport name&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>In addition, you can specify the certain location or namespace to create placement. e.g.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>kubectl kcp bind compute &amp;lt;workspace of synctarget&amp;gt; --location-selectors=env=test --namespace-selector=purpose=workload
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>this command will create a &lt;code>Placement&lt;/code> selecting a &lt;code>Location&lt;/code> with label &lt;code>env=test&lt;/code> and bind the selected &lt;code>Location&lt;/code> to namespaces with
+label &lt;code>purpose=workload&lt;/code>. See more details of placement and location &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/">here&lt;/a>&lt;/p>
+&lt;h3 id="running-a-workload">Running a workload&lt;/h3>
+&lt;ol>
+&lt;li>
+&lt;p>Create a deployment:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl create deployment kuard --image gcr.io/kuar-demo/kuard-amd64:blue
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+Replace &amp;ldquo;gcr.io/kuar-demo/kuard-amd64:blue&amp;rdquo; with &amp;ldquo;gcr.io/kuar-demo/kuard-arm64:blue&amp;rdquo; in case you&amp;rsquo;re running
+an Apple M1 based virtual machine.
+&lt;/div>
+&lt;ol>
+&lt;li>
+&lt;p>Verify the deployment on the local workspace:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl rollout status deployment/kuard
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Waiting &lt;span style="color:#66d9ef">for&lt;/span> deployment &lt;span style="color:#e6db74">&amp;#34;kuard&amp;#34;&lt;/span> rollout to finish: &lt;span style="color:#ae81ff">0&lt;/span> of &lt;span style="color:#ae81ff">1&lt;/span> updated replicas are available...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>deployment &lt;span style="color:#e6db74">&amp;#34;kuard&amp;#34;&lt;/span> successfully rolled out
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;h2 id="for-syncer-development">For syncer development&lt;/h2>
+&lt;h3 id="building-components">Building components&lt;/h3>
+&lt;p>The syncer, kcp and kubectl plugins should come from the same build, so they are compatible with each other.&lt;/p>
+&lt;p>To build, make the root kcp folder your current working directory and run:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>make build-all install build-kind-images
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>If your go version is not 1.19, which is the expected version, you need to run&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>IGNORE_GO_VERSION&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> make build-all install build-kind-images
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Make a note of the syncer image that is produced by this build, which is in the output near the end. It should be something like &lt;code>kind.local/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:8287441974cf604dd93da5e6d010a78d38ae49733ea3a5031048a516101dd8a2&lt;/code>. This will be used by the &lt;code>kubectl kcp workload sync ...&lt;/code> command, below.&lt;/p>
+&lt;p>The kubectl kcp plugin binaries should be first in your path so kubectl picks them up.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>which kubectl-kcp
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>should point to the kubectl-kcp you have just built in your &lt;code>$GOPATH/bin&lt;/code>, and not any other installed version.&lt;/p>
+&lt;h3 id="start-kcp-on-another-terminal">Start kcp on another terminal&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kcp start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="running-in-a-kind-cluster-with-a-local-registry">Running in a kind cluster with a local registry&lt;/h3>
+&lt;p>You can run the syncer in a kind cluster for development.&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Create a &lt;code>kind&lt;/code> cluster with a local registry to simplify syncer development
+by executing the following script:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>/bin/bash -c &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh&lt;span style="color:#66d9ef">)&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>From the kcp root directory:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>.kcp/admin.kubeconfig
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Create a location workspace and immediately enter it:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl kcp workspace create my-locations --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-locations&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-locations&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:my-locations&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type &lt;span style="color:#e6db74">&amp;#34;root:organization&amp;#34;&lt;/span>&lt;span style="color:#f92672">)&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>To create the synctarget and use the image pushed to the local registry, supply &lt;code>&amp;lt;image name&amp;gt;&lt;/code> to the
+&lt;code>kcp workload sync&lt;/code> plugin command, where &lt;code>&amp;lt;image name&amp;gt;&lt;/code> was captured in the build steps, above.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp workload sync kind --syncer-image &amp;lt;image name&amp;gt; -o syncer.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Create a second workspace for your workloads and immediately enter it:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl kcp workspace ..
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl kcp workspace create my-workloads --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-workloads&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-workloads&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:my-workloads&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type &lt;span style="color:#e6db74">&amp;#34;root:organization&amp;#34;&lt;/span>&lt;span style="color:#f92672">)&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Bind it to the &lt;code>my-locations&lt;/code> workspace with the synctarget:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl kcp bind compute &lt;span style="color:#e6db74">&amp;#34;root:my-locations&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Apply the manifest to the p-cluster:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>&amp;lt;pcluster-config&amp;gt; kubectl apply -f syncer.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>namespace/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>serviceaccount/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>secret/kcp-syncer-kind-1owee1ci-token created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>clusterrole.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>clusterrolebinding.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>secret/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>deployment.apps/kcp-syncer-kind-1owee1ci created
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>and it will create a &lt;code>kcp-syncer&lt;/code> deployment:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>&amp;lt;pcluster-config&amp;gt; kubectl -n kcp-syncer-kind-1owee1ci get deployments
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME READY UP-TO-DATE AVAILABLE AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kcp-syncer 1/1 &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span> 13m
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Wait for the kcp sync target to go ready:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl wait --for&lt;span style="color:#f92672">=&lt;/span>condition&lt;span style="color:#f92672">=&lt;/span>Ready synctarget/&amp;lt;mycluster&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Add a deployment to the my-workloads workspace and check the p-cluster to see if the workload has been created there:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl create deployment --image&lt;span style="color:#f92672">=&lt;/span>gcr.io/kuar-demo/kuard-amd64:blue --port&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">8080&lt;/span> kuard
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;h3 id="running-locally">Running locally&lt;/h3>
+&lt;p>TODO(m1kola): we need a less hacky way to run locally: needs to be more close
+to what we have when running inside the kind with own kubeconfig.&lt;/p>
+&lt;p>This assumes that KCP is also being run locally.&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Create a kind cluster to back the sync target:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kind create cluster
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Creating cluster &lt;span style="color:#e6db74">&amp;#34;kind&amp;#34;&lt;/span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;snip&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Set kubectl context to &lt;span style="color:#e6db74">&amp;#34;kind-kind&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>You can now use your cluster with:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl cluster-info --context kind-kind
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Make sure to use kubeconfig for your local KCP:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>.kcp/admin.kubeconfig
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Create an organisation and immediately enter it:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>$ kubectl kcp workspace create my-org --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:my-org&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type &lt;span style="color:#e6db74">&amp;#34;root:organization&amp;#34;&lt;/span>&lt;span style="color:#f92672">)&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Enable the syncer for a p-cluster:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sh" data-lang="sh">&lt;span style="display:flex;">&lt;span>kubectl kcp workload sync &amp;lt;mycluster&amp;gt; --syncer-image &amp;lt;image name&amp;gt; -o syncer.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>&amp;lt;image name&amp;gt;&lt;/code> can be anything here as it will only be used to generate &lt;code>syncer.yaml&lt;/code> which we are not going to apply.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Gather data required for the syncer:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>syncTargetName&lt;span style="color:#f92672">=&lt;/span>&amp;lt;mycluster&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>syncTargetUID&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>kubectl get synctarget $syncTargetName -o jsonpath&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;{.metadata.uid}&amp;#34;&lt;/span>&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fromCluster&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>kubectl ws current --short&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Run the following snippet:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>go run ./cmd/syncer &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --from-kubeconfig&lt;span style="color:#f92672">=&lt;/span>.kcp/admin.kubeconfig &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --from-context&lt;span style="color:#f92672">=&lt;/span>base &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --to-kubeconfig&lt;span style="color:#f92672">=&lt;/span>$HOME/.kube/config &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --sync-target-name&lt;span style="color:#f92672">=&lt;/span>$syncTargetName &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --sync-target-uid&lt;span style="color:#f92672">=&lt;/span>$syncTargetUID &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --from-cluster&lt;span style="color:#f92672">=&lt;/span>$fromCluster &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --resources&lt;span style="color:#f92672">=&lt;/span>configmaps &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --resources&lt;span style="color:#f92672">=&lt;/span>deployments.apps &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --resources&lt;span style="color:#f92672">=&lt;/span>secrets &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --resources&lt;span style="color:#f92672">=&lt;/span>serviceaccounts &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --qps&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">30&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --burst&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">20&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>Wait for the kcp sync target to go ready:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl wait --for&lt;span style="color:#f92672">=&lt;/span>condition&lt;span style="color:#f92672">=&lt;/span>Ready synctarget/&amp;lt;mycluster&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol></description></item><item><title>V0.11.0-Alpha.0: Quickstart: Tenancy and APIs</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/quickstart-tenancy-and-apis/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/quickstart-tenancy-and-apis/</guid><description>
+&lt;h2 id="prerequisites">Prerequisites&lt;/h2>
+&lt;p>A running kcp server, as per &lt;a href="">README.md&lt;/a>.&lt;/p>
+&lt;h2 id="set-your-kubeconfig">Set your KUBECONFIG&lt;/h2>
+&lt;p>To access a workspace, you need credentials and an Kubernetes API server URL for the workspace, both of which are stored
+in a &lt;code>kubeconfig&lt;/code> file.&lt;/p>
+&lt;p>The default context in the kcp-provided &lt;code>admin.kubeconfig&lt;/code> gives access to the &lt;code>root&lt;/code> workspace as the &lt;code>kcp-admin&lt;/code> user.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ export KUBECONFIG&lt;span style="color:#f92672">=&lt;/span>.kcp/admin.kubeconfig
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl config get-contexts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CURRENT NAME CLUSTER AUTHINFO NAMESPACE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> base base kcp-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>* root root kcp-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> system:admin base shard-admin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>You can use API discovery to see what resources are available in this &lt;code>root&lt;/code> workspace. We&amp;rsquo;re here to explore the
+&lt;code>tenancy.kcp.io&lt;/code> and &lt;code>apis.kcp.io&lt;/code> resources.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl api-resources
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME SHORTNAMES APIVERSION NAMESPACED KIND
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>configmaps cm v1 true ConfigMap
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>events ev v1 true Event
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apibindings apis.kcp.io/v1alpha1 false APIBinding
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiexports apis.kcp.io/v1alpha1 false APIExport
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>workspaces ws tenancy.kcp.io/v1alpha1 false Workspace
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="create-and-navigate-some-workspaces">Create and navigate some workspaces&lt;/h2>
+&lt;p>The &lt;code>ws&lt;/code> plugin for &lt;code>kubectl&lt;/code> makes it easy to switch your &lt;code>kubeconfig&lt;/code> between workspaces, and to create new ones:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl ws .
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws create a --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;a&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;a&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:a&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws create b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;b&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;b&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl get workspaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME TYPE PHASE URL
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b universal Ready https://myhost:6443/clusters/root:a:b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:a:b&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws ..
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:a&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:a:b&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl get workspaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME TYPE PHASE URL
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>a organization Ready https://myhost:6443/clusters/root:a
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Our &lt;code>kubeconfig&lt;/code> now contains two additional contexts, one which represents the current workspace, and the other to keep
+track of our most recently used workspace. This highlights that the &lt;code>kubectl ws&lt;/code> plugin is primarily a convenience
+wrapper for managing a &lt;code>kubeconfig&lt;/code> that can be used for working within a workspace.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl config get-contexts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CURRENT NAME CLUSTER AUTHINFO NAMESPACE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> base base kcp-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> root root kcp-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> system:admin base shard-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>* workspace.kcp.io/current workspace.kcp.io/current kcp-admin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> workspace.kcp.io/previous workspace.kcp.io/previous kcp-admin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="understand-workspace-types">Understand workspace types&lt;/h2>
+&lt;p>As we can see above, workspaces can contain sub-workspaces, and workspaces have different types. A workspace type
+defines which sub-workspace types can be created under such workspaces. So, for example:&lt;/p>
+&lt;ul>
+&lt;li>A universal workspace is the base workspace type that most other workspace types inherit from - they may contain other
+universal workspaces, and they have a &amp;ldquo;default&amp;rdquo; namespace&lt;/li>
+&lt;li>The root workspace primarily contains organization workspaces&lt;/li>
+&lt;li>An organization workspace can contain universal workspaces, or can be further subdivided using team workspaces&lt;/li>
+&lt;/ul>
+&lt;p>The final type of workspace is &amp;ldquo;home workspaces&amp;rdquo;. These are workspaces that are intended to be used privately by
+individual users. They appear under the &lt;code>root:users&lt;/code> workspace (type &lt;code>homeroot&lt;/code>) and they are further organized into a
+hierarchy of &lt;code>homebucket&lt;/code> workspaces based on a hash of their name.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl ws
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:users:zu:yc:kcp-admin&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl get workspaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME TYPE PHASE URL
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>a organization Ready https://myhost:6443/clusters/root:a
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>users homeroot Ready https://myhost:6443/clusters/root:users
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Workspace types and their behaviors are defined using the &lt;code>WorkspaceType&lt;/code> resource:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl get workspacetypes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>home 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>homebucket 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>homeroot 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>organization 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>team 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>universal 74m
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl describe workspacetype/team
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Name: team
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>API Version: tenancy.kcp.io/v1alpha1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Kind: WorkspaceType
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Spec:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Default Child Workspace Type:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Name: universal
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Path: root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Extend:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> With:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Name: universal
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Path: root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Limit Allowed Parents:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Types:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Name: organization
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Path: root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Name: team
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Path: root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Status:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Conditions:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Status: True
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Type: Ready
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="workspaces-faqs">Workspaces FAQs&lt;/h2>
+&lt;p>Q: Why do we have both &lt;code>ClusterWorkspaces&lt;/code> and &lt;code>Workspaces&lt;/code>?&lt;/p>
+&lt;p>A: &lt;code>Workspaces&lt;/code> are intended to be the user-facing resource, whereas &lt;code>ClusterWorkspaces&lt;/code> is a low-level resource for kcp
+platform admins.&lt;/p>
+&lt;p>&lt;code>Workspaces&lt;/code> are actually a &amp;ldquo;projected resource&amp;rdquo;, there is no such resource stored in etcd, instead it is served as a
+transformation of the &lt;code>ClusterWorkspace&lt;/code> resource. &lt;code>ClusterWorkspaces&lt;/code> contain details like shard assignment, which are
+low-level fields that users should not see.&lt;/p>
+&lt;p>We are working on a change of this system behind the scenes. That will probably promote Workspaces to a normal,
+non-projected resource, and ClusterWorkspaces will change in its role.&lt;/p>
+&lt;h2 id="publish-some-apis-as-a-service-provider">Publish some APIs as a service provider&lt;/h2>
+&lt;p>kcp offers &lt;code>APIExport&lt;/code> and &lt;code>APIBinding&lt;/code> resources which allow a service provider operating in one workspace to offer its
+capabilities to service consumers in other workspaces.&lt;/p>
+&lt;p>First we&amp;rsquo;ll create an organization workspace, and then within that create a service provider workspace.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl ws create wildwest --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;wildwest&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;wildwest&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:organization&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:wildwest&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws create cowboys-service --enter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;cowboys-service&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;cowboys-service&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:wildwest:cowboys-service&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Then we&amp;rsquo;ll use a CRD to generate an &lt;code>APIResourceSchema&lt;/code> and &lt;code>APIExport&lt;/code> and apply these within the service provider
+workspace.&lt;/p>
+&lt;blockquote>
+&lt;p>The &lt;code>apigen&lt;/code> tool used below can be found
+&lt;a href="">here&lt;/a>. Builds for the
+tool are not currently published as part of the kcp release process.&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ mkdir wildwest-schemas/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ./bin/apigen --input-dir test/e2e/customresourcedefinition/ --output-dir wildwest-schemas/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls -1 wildwest-schemas/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiexport-wildwest.dev.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiresourceschema-cowboys.wildwest.dev.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl apply -f wildwest-schemas/apiresourceschema-cowboys.wildwest.dev.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiresourceschema.apis.kcp.io/v220920-6039d110.cowboys.wildwest.dev created
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl apply -f wildwest-schemas/apiexport-wildwest.dev.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiexport.apis.kcp.io/wildwest.dev created
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>You can think of an &lt;code>APIResourceSchema&lt;/code> as being equivalent to a CRD, and an &lt;code>APIExport&lt;/code> makes a set of schemas
+available to consumers.&lt;/p>
+&lt;h2 id="use-those-apis-as-a-service-consumer">Use those APIs as a service consumer&lt;/h2>
+&lt;p>Now we can adopt the service consumer persona and create a workspace from which we will use this new &lt;code>APIExport&lt;/code>:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl ws
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:users:zu:yc:kcp-admin&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl ws create --enter test-consumer
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;test-consumer&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> created. Waiting &lt;span style="color:#66d9ef">for&lt;/span> it to be ready...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Workspace &lt;span style="color:#e6db74">&amp;#34;test-consumer&amp;#34;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>type root:universal&lt;span style="color:#f92672">)&lt;/span> is ready to use.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:users:zu:yc:kcp-admin:test-consumer&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl apply -f - &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">apiVersion: apis.kcp.io/v1alpha1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">kind: APIBinding
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">metadata:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> name: cowboys
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">spec:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> reference:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> workspace:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> path: root:wildwest:cowboys-service
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> exportName: wildwest.dev
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apibinding.apis.kcp.io/cowboys created
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Now this resource type is available for use within our workspace, so
+let&amp;rsquo;s create an instance!&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl api-resources | grep wildwest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cowboys wildwest.dev/v1alpha1 true Cowboy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl apply -f - &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">apiVersion: wildwest.dev/v1alpha1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">kind: Cowboy
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">metadata:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> name: one
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">spec:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> intent: one
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cowboy.wildwest.dev/one created
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="dig-deeper-into-apiexports">Dig deeper into &lt;code>APIExports&lt;/code>&lt;/h2>
+&lt;p>Switching back to the service provider persona:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl ws root:wildwest:cowboys-service
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Current workspace is &lt;span style="color:#e6db74">&amp;#34;root:wildwest:cowboys-service&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl get apiexport/wildwest.dev -o yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apiVersion: apis.kcp.io/v1alpha1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kind: APIExport
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>metadata:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> name: wildwest.dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>status:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> identityHash: a6a0cc778bec8c4b844e6326965fbb740b6a9590963578afe07276e6a0d41e20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> virtualWorkspaces:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - url: https://myhost:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>We can see that our &lt;code>APIExport&lt;/code> has two key attributes in its status - its identity (more on this below) and a &amp;ldquo;virtual
+workspace&amp;rdquo; URL. You can think of this virtual workspace as behaving just like a workspace or cluster, except it searches
+across all true workspaces for instances of the resource types provided by the &lt;code>APIExport&lt;/code>. We can use API discovery to
+see what resource types are available via this virtual workspace:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl --server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;https://myhost:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev/clusters/*/&amp;#39;&lt;/span> api-resources
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME SHORTNAMES APIVERSION NAMESPACED KIND
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cowboys wildwest.dev/v1alpha1 true Cowboy
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>The question is &amp;hellip; can we see the instance created by the consumer?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ kubectl --server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;https://myhost:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev/clusters/*/&amp;#39;&lt;/span> get -A cowboys &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -o custom-columns&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;WORKSPACE:.metadata.annotations.kcp\.dev/cluster,NAME:.metadata.name&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WORKSPACE NAME
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root:users:zu:yc:kcp-admin:test-consumer one
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Yay!&lt;/p>
+&lt;h2 id="apis-faq">APIs FAQ&lt;/h2>
+&lt;p>Q: Why is there a new &lt;code>APIResourceSchema&lt;/code> resource type that appears to be very similar to &lt;code>CustomResourceDefinition&lt;/code>?&lt;/p>
+&lt;p>A: FIXME&lt;/p>
+&lt;p>Q: Why do I have to append &lt;code>/clusters/*/&lt;/code> to the &lt;code>APIExport&lt;/code> virtual workspace URL?&lt;/p>
+&lt;p>A: The URL represents the base path of a virtual kcp API server. With a standard kcp API server, workspaces live under
+the &lt;code>/clusters/&lt;/code> path, so &lt;code>/clusters/*/&lt;/code> represents a wildcard search across all workspaces via this virtual API
+server.&lt;/p>
+&lt;p>Q: How should we understand an &lt;code>APIExport&lt;/code> &lt;code>identityHash&lt;/code>?&lt;/p>
+&lt;p>A: Unlike with CRDs, a kcp instance might have many &lt;code>APIResourceSchemas&lt;/code> of the same Group/Version/Kind, and users need
+some way of securely distinguishing them.&lt;/p>
+&lt;p>Each &lt;code>APIExport&lt;/code> is allocated a randomized private secret - this is currently just a large random number - and a public
+identity - just a SHA256 hash of the private secret - which securely identifies this &lt;code>APIExport&lt;/code> from others.&lt;/p>
+&lt;p>This is important because an &lt;code>APIExport&lt;/code> makes a virtual workspace available to interact with all instances of a
+particular &lt;code>APIResourceShema&lt;/code>, and we want to make sure that users are clear on which service provider &lt;code>APIExports&lt;/code> they
+are trusting and only the owners of those &lt;code>APIExport&lt;/code> have access to their resources via virtual workspaces.&lt;/p>
+&lt;p>Q: Why do you have to use &lt;code>--all-namespaces&lt;/code> with the apiexport virtual workspace?&lt;/p>
+&lt;p>A: Think of this virtual workspace as representing a wildcard listing across all workspaces. It doesn&amp;rsquo;t make sense to
+look at a specific namespace across all workspaces, so you have to list across all namespaces too.&lt;/p>
+&lt;p>Q: If I attempt to use an &lt;code>APIExport&lt;/code> virtual workspace before there are any &lt;code>APIBindings&lt;/code> I get the &amp;ldquo;Error from server
+(NotFound): Unable to list &amp;hellip;: the server could not find the requested resource&amp;rdquo;. Is this a bug?&lt;/p>
+&lt;p>A: It is a bug. See &lt;a href="">https://github.com/kcp-dev/kcp/issues/1183&lt;/a>&lt;/p>
+&lt;p>When fixed, we expect the &lt;code>APIExport&lt;/code> behavior will change such that there will be no virtual workspace URLs until an
+&lt;code>APIBinding&lt;/code> is created.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Terminology for kcp</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/concepts/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/concepts/</guid><description>
+&lt;h2 id="logical-cluster">Logical cluster&lt;/h2>
+&lt;p>A logical cluster is a way to subdivide a single kube-apiserver + etcd storage into multiple clusters (different APIs,
+separate semantics for access, policy, and control) without requiring multiple instances. A logical cluster is a
+mechanism for achieving separation, but may be modelled differently in different use cases. A logical cluster is
+similar to a virtual cluster as defined by sig-multicluster, but is able to amortize the cost of a new cluster to be
+zero or near-zero memory and storage so that we can create tens of millions of empty clusters cheaply.&lt;/p>
+&lt;p>A logical cluster is a storage level concept that adds an additional attribute to an object’s identifier on a
+kube-apiserver. Regular servers identify objects by (group, version, resource, optional namespace, name). A logical
+cluster enriches an identifier: (group, version, resource, &lt;strong>logical cluster name&lt;/strong>, optional namespace, name).&lt;/p>
+&lt;h2 id="workload-cluster">Workload Cluster&lt;/h2>
+&lt;p>A physical cluster is a “real Kubernetes cluster”, i.e. one that can run Kubernetes workloads and accepts standard
+Kubernetes API objects. For the near term, it is assumed that a physical cluster is a distribution of Kubernetes and
+passes the conformance tests and exposes the behavior a regular Kubernetes admin or user expects.&lt;/p>
+&lt;h2 id="workspace">Workspace&lt;/h2>
+&lt;p>A workspace models a set of user-facing APIs for CRUD. Each workspace is backed by a logical cluster, but not all
+logical clusters may be exposed as workspaces. Creating a Workspace object results in a logical cluster being available
+via a URL for the client to connect and create resources supported by the APIs in that workspace. There could be
+multiple different models that result in logical clusters being created, with different policies or lifecycles, but
+Workspace is intended to be the most generic representation of the concept with the broadest possible utility to anyone
+building control planes.&lt;/p>
+&lt;p>A workspace binds APIs and makes them accessible inside the logical cluster, allocates capacity for creating instances
+of those APIs (quota), and defines how multi-workspace operations can be performed by users, clients, and controller
+integrations.&lt;/p>
+&lt;p>To a user, a workspace appears to be a Kubernetes cluster minus all the container orchestration specific resources. It
+has its own discovery, its own OpenAPI spec, and follows the kube-like constraints about uniqueness of
+Group-Version-Resource and its behaviour (no two GVRs with different schemas can exist per workspace, but workspaces can
+have different schemas). A user can define a workspace as a context in a kubeconfig file and &lt;code>kubectl get all -A&lt;/code> would
+return all objects in all namespaces of that workspace.&lt;/p>
+&lt;p>Workspace naming is chosen to be aligned with the Kubernetes Namespace object - a Namespace subdivides a workspace by
+name, a workspace subdivides the universe into chunks of meaningful work.&lt;/p>
+&lt;p>Workspaces are the containers for all API objects, so users orient by viewing lists of workspaces from APIs.&lt;/p>
+&lt;h2 id="workspace-type">Workspace type&lt;/h2>
+&lt;p>Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed. For instance, a
+workspace intended for use deploying Kube applications might expose the same API objects a user would encounter on a
+physical cluster. A workspace intended for building functions might expose only the knative serving APIs, config maps
+and secrets, and optionally enable knative eventing APIs.&lt;/p>
+&lt;p>At the current time there is no decision on whether a workspace type represents an inheritance or composition model,
+although in general we prefer composition approaches. We also do not have a fully resolved design.&lt;/p>
+&lt;h2 id="virtual-workspace">Virtual Workspace&lt;/h2>
+&lt;p>An API object has one source of truth (is stored transactionally in one system), but may be exposed to different use
+cases with different fields or schemas. Since a workspace is the user facing interaction with an API object, if we want
+to deal with Workspaces in aggregate, we need to be able to list them. Since a user may have access to workspaces in
+multiple different contexts, or for different use cases (a workspace that belongs to the user personally, or one that
+belongs to a business organization), the list of “all workspaces” itself needs to be exposed as an API object to an end
+user inside a workspace. That workspace is “virtual” - it adapts or transforms the underlying source of truth for the
+object and potentially the schema the user sees.&lt;/p>
+&lt;h2 id="index-eg-workspace-index">Index (e.g. Workspace Index)&lt;/h2>
+&lt;p>An index is the authoritative list of a particular API in their source of truth across the system. For instance, in
+order for a user to see all the workspaces they have available, they must consult the workspace index to return a list
+of their workspaces. It is expected that indices are suitable for consistent LIST/WATCHing (in the kubernetes sense) so
+that integrations can be built to view the list of those objects.&lt;/p>
+&lt;p>Index in the control plane sense should not be confused with secondary indices (in the database sense), which may be
+used to enable a particular index.&lt;/p>
+&lt;h2 id="shard">Shard&lt;/h2>
+&lt;p>A failure domain within the larger control plane service that cuts across the primary functionality. Most distributed
+systems must separate functionality across shards to mitigate failures, and typically users interact with shards through
+some transparent serving infrastructure. Since the primary problem of building distributed systems is reasoning about
+failure domains and dependencies across them, it is critical to allow operators to effectively match shards, understand
+dependencies, and bring them together.&lt;/p>
+&lt;p>A control plane should be shardable in a way that maximizes application SLO - gives users a tool that allows them to
+better define their applications not to fail.&lt;/p>
+&lt;h2 id="api-binding">API Binding&lt;/h2>
+&lt;p>The act of associating a set of APIs with a given logical cluster. The Workspace model defines one particular
+implementation of the lifecycle of a logical cluster and the APIs within it. Because APIs and the implementations that
+back an API evolve over time, it is important that the binding be introspectable and orchestrate-able - that a consumer
+can provide a rolling deployment of a new API or new implementation across hundreds or thousands of workspaces.&lt;/p>
+&lt;p>There are likely a few objects involved in defining the APIs exposed within a workspace, but in general they probably
+define a spec (which APIs / implementations to associate with) and a status (the chosen APIs / implementations that are
+currently bound), allow a user to bulk associate APIs (i.e. multiple APIs at the same time, like “all knative serving
+APIs”), and may be defaulted based on some attributes of a workspace type (all workspaces of this “type” get the default
+Kube APIs, this other “type” get the knative apis).&lt;/p>
+&lt;p>The evolution of an API within a workspace and across workspaces is of key importance.&lt;/p>
+&lt;h2 id="syncer">Syncer&lt;/h2>
+&lt;p>A syncer is installed on a SyncTarget and is responsible for synchronizing data between kcp and that cluster.&lt;/p>
+&lt;h2 id="location">Location&lt;/h2>
+&lt;p>A collection of SyncTargets that describe runtime characteristics that allow placement of applications.
+Characteristics are not limited but could describe things like GPU, supported storage, compliance or
+regulatory fulfillment, or geographical placement.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Virtual Workspaces</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/virtual-workspaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/virtual-workspaces/</guid><description>
+&lt;p>Virtual workspaces are proxy-like apiservers under a custom URL that provide some computed view of real workspaces.&lt;/p>
+&lt;h2 id="examples">Examples&lt;/h2>
+&lt;ol>
+&lt;li>when the user does &lt;code>kubectl get workspaces&lt;/code> only workspaces are shown that the user has access to.&lt;/li>
+&lt;li>controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In &lt;a href="">April 19&amp;rsquo;s community call this virtual workspace was showcased&lt;/a>, developed during v0.4 phase.&lt;/li>
+&lt;li>if we keep the initializer model with &lt;code>WorkspaceType&lt;/code>, there must be a virtual workspace for the &amp;ldquo;workspace type owner&amp;rdquo; that gives access to initializing workspaces.&lt;/li>
+&lt;li>the syncer will get a virtual workspace view of the workspaces it syncs to physical clusters. That view will have transformed objects potentially, especially deployment-splitter-like transformations will be implemented within a virtual workspace, transparently applied from the point of view of the syncer.&lt;/li>
+&lt;/ol>
+&lt;h2 id="faq">FAQ&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>Can we use go clients to watch resources on a virtual workspace?&lt;/strong> Absolutely. From the point of view of the controllers it is just a normal (client) URL. So one can use client-go informers (or controller-runtime) to watch the objects in a virtual workspace.&lt;/li>
+&lt;/ul>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+A normal service account lives in just ONE workspace and can only access its own workspace. So in order to use a service account for accessing cross-workspace data (and that&amp;rsquo;s what is necessary in example 2 and 3 at least), we need a virtual workspace to add the necessary authz.
+&lt;/div>
+&lt;ul>
+&lt;li>&lt;strong>Are virtual workspaces read-only?&lt;/strong> No, they are not necessarily. Some are, some are not. The controller view virtual workspace will be writable, as well as the syncer virtual workspace.&lt;/li>
+&lt;li>&lt;strong>Do service teams have to write their own virtual workspace?&lt;/strong> Not for the standard cases as described above. There might be cases in the future where service teams provide their own virtual workspace for some very special purpose access patterns. But we are not there yet.&lt;/li>
+&lt;li>&lt;strong>Where does the developer get the URL from of the virtual workspace?&lt;/strong> The URLs will be &amp;ldquo;published&amp;rdquo; in some object status. E.g. APIExport.status will have a list of URLs that controllers have to connect to (example 2). Similarly, SyncTarget.status will have URLs for the syncer virtual workspaces, etc. We might do the same in WorkspaceType.status (example 3).&lt;/li>
+&lt;li>&lt;strong>Will there be multiple virtual workspace URLs my controller has to watch?&lt;/strong> Yes, as soon as we add sharding, it will become a list. So it might be that 1000 tenants are accessible under one URL, the next 1000 under another one, and so on. The controllers have to watch the mentioned URL lists in status of objects and start new instances (either with their own controller sharding eventually, or just in process with another go routine).&lt;/li>
+&lt;li>&lt;strong>Show me the code.&lt;/strong> The stock kcp virtual workspaces are in &lt;a href="">&lt;code>pkg/virtual&lt;/code>&lt;/a>.&lt;/li>
+&lt;li>&lt;strong>Who runs the virtual workspaces?&lt;/strong> The stock kcp virtual workspaces will be run through &lt;code>kcp start&lt;/code> in-process. The personal workspace one (example 1) can also be run as its own process and the kcp apiserver will forward traffic to the external address. There might be reasons in the future like scalability that the later model is preferred. For the clients of virtual workspaces that has no impact. They are supposed to &amp;ldquo;blindly&amp;rdquo; use the URLs published in the API objects&amp;rsquo; status. Those URLs might point to in-process instances or external addresses depending on deployment topology.&lt;/li>
+&lt;/ul></description></item><item><title>V0.11.0-Alpha.0: Workspaces</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/workspaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/workspaces/</guid><description>
+&lt;p>Multi-tenancy is implemented through workspaces. A workspace is a Kubernetes-cluster-like
+HTTPS endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime
+and others) and user interfaces (kubectl, helm, web console, &amp;hellip;) can talk to like to a
+Kubernetes cluster.&lt;/p>
+&lt;p>Workspaces can be backed by a traditional REST store implementation through CRDs
+or native resources persisted in etcd. But there can be alternative implementations
+for special access patterns, e.g. a virtual workspace apiserver that transforms
+other APIs e.g. by projections (Workspace in kcp is a projection of ClusterWorkspace)
+or by applying visibility filters (e.g. showing all workspaces or all namespaces
+the current user has access to).&lt;/p>
+&lt;p>Workspaces are represented to the user via the Workspace kind, e.g.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Workspace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">tenancy.kcp.io/v1alpha1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">Universal&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">status&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#ae81ff">https://kcp.example.com/clusters/myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>There are different types of workspaces, and workspaces are arranged
+in a tree. Each type of workspace may restrict the types of its
+children and may restrict the types it may be a child of; a
+parent-child relationship is allowed if and only if the parent allows
+the child and the child allows the parent. The kcp binary has a
+built-in set of workspace types, and the admin may create objects that
+define additional types.&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Root Workspace&lt;/strong> is a singleton. It holds some data that applies
+to all workspaces, such as the set of defined workspace types
+(objects of type &lt;code>WorkspaceType&lt;/code>).&lt;/li>
+&lt;li>&lt;strong>HomeRoot Workspace&lt;/strong> is normally a singleton, holding the branch
+of workspaces that contains the user home workspaces as descendants.
+Can only be a child of the root workspace, and can only have
+HomeBucket children.&lt;/li>
+&lt;li>&lt;strong>HomeBucket Workspace&lt;/strong> are intermediate vertices in the hierarhcy
+between the HomeRoot and the user home workspaces. Can be a child
+of the root or another HomeBucket workspace. Allowed children are
+home and HomeBucket workspaces.&lt;/li>
+&lt;li>&lt;strong>Home Workspace&lt;/strong> is a user&amp;rsquo;s home workspace. These hold user
+resources such as applications with services, secrets, configmaps,
+deployments, etc. Can only be a child of a HomeBucket workspace.&lt;/li>
+&lt;li>&lt;strong>Organization Workspace&lt;/strong> are workspaces holding organizational
+data, e.g. definitions of user workspaces, roles, policies,
+accounting data. Can only be a child of root.&lt;/li>
+&lt;li>&lt;strong>Team Workspace&lt;/strong> can only be a child of an Organization workspace.&lt;/li>
+&lt;li>&lt;strong>Universal Workspace&lt;/strong> is a basic type of workspace with no
+particular nature. Has no restrictions on parent or child workspace
+types.&lt;/li>
+&lt;/ul>
+&lt;h2 id="clusterworkspaces">ClusterWorkspaces&lt;/h2>
+&lt;p>ClusterWorkspaces define traditional etcd-based, CRD enabled workspaces, available
+under &lt;code>/clusters/&amp;lt;parent-workspace-name&amp;gt;:&amp;lt;cluster-workspace-name&amp;gt;&lt;/code>. E.g. organization
+workspaces are accessible at &lt;code>/clusters/root:&amp;lt;org-name&amp;gt;&lt;/code>. A user workspace is
+accessible at &lt;code>/clusters/root:users:&amp;lt;bucket-d1&amp;gt;:..:&amp;lt;bucket-dN&amp;gt;:&amp;lt;user-workspace-name&amp;gt;&lt;/code>.&lt;/p>
+&lt;p>ClusterWorkspaces have a type. A type is defined by a WorkspaceType. A type
+defines initializers. They are set on new ClusterWorkspace objects and block the
+cluster workspace from leaving the initializing phase. Both system components and
+3rd party components can use initializers to customize ClusterWorkspaces on creation,
+e.g. to bootstrap resources inside the workspace, or to set up permission in its parent.&lt;/p>
+&lt;p>A cluster workspace of type &lt;code>Universal&lt;/code> is a workspace without further initialization
+or special properties by default, and it can be used without a corresponding
+WorkspaceType object (though one can be added and its initializers will be
+applied). ClusterWorkSpaces of type &lt;code>Organization&lt;/code> are described in the next section.&lt;/p>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+In order to create cluster workspaces of a given type (including &lt;code>Universal&lt;/code>)
+you must have &lt;code>use&lt;/code> permissions against the &lt;code>workspacetypes&lt;/code> resources with the
+lower-case name of the cluster workspace type (e.g. &lt;code>universal&lt;/code>). All &lt;code>system:authenticated&lt;/code>
+users inherit this permission automatically for type &lt;code>Universal&lt;/code>.
+&lt;/div>
+&lt;p>ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges, i.e.
+they have independent behaviour and no cluster workspace sees objects from other
+cluster workspaces. In contrast to namespace in Kubernetes, this includes non-namespaced
+objects, e.g. like CRDs where each workspace can have its own set of CRDs installed.&lt;/p>
+&lt;h2 id="user-home-workspaces">User Home Workspaces&lt;/h2>
+&lt;p>User home workspaces are an optional feature of kcp. If enabled (through &lt;code>--enable-home-workspaces&lt;/code>), there is a special
+virtual &lt;code>Workspace&lt;/code> called &lt;code>~&lt;/code> in the root workspace. It is used by &lt;code>kubectl ws&lt;/code> to derive the full path to the user
+home workspace, similar to how Unix &lt;code>cd ~&lt;/code> move the users to their home.&lt;/p>
+&lt;p>The full path for a user&amp;rsquo;s home workspace has a number of parts: &lt;code>&amp;lt;prefix&amp;gt;(:&amp;lt;bucket&amp;gt;)+:&amp;lt;user-name&amp;gt;&lt;/code>. Buckets are used to
+ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
+derived from the user name (via some hash). Example for user &lt;code>adam&lt;/code> when using default configuration:
+&lt;code>root:users:a8:f1:adam&lt;/code>.&lt;/p>
+&lt;p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
+the system to only incur the cost of these workspaces when they are needed. Only users of the configured
+home-creator-groups (default &lt;code>system:authenticated&lt;/code>) will have a home workspace.&lt;/p>
+&lt;h3 id="bucket-configuration-options">Bucket configuration options&lt;/h3>
+&lt;p>The &lt;code>kcp&lt;/code> administrator can configure:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>&amp;lt;prefix&amp;gt;&lt;/code>, which defaults to &lt;code>root:users&lt;/code>&lt;/li>
+&lt;li>bucket depth, which defaults to 2&lt;/li>
+&lt;li>bucket name length, in characters, which defaults to 2&lt;/li>
+&lt;/ul>
+&lt;p>The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in
+any bucket.&lt;/p>
+&lt;div class="alert alert-warning" role="alert">
+&lt;h4 class="alert-heading">Warning&lt;/h4>
+DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
+&lt;/div>
+&lt;p>User-names have &lt;code>(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)&lt;/code> permutations, and buckets are made up of lowercase-alpha
+chars. Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
+having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.&lt;/p>
+&lt;h3 id="valid-configurations">Valid Configurations&lt;/h3>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>length&lt;/th>
+&lt;th>depth&lt;/th>
+&lt;th>sub-buckets&lt;/th>
+&lt;th>users&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>26 * 1 = 26&lt;/td>
+&lt;td>2169648 / (26)^3 = 124&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>4&lt;/td>
+&lt;td>26 * 1 = 26&lt;/td>
+&lt;td>2169648 / (26)^4 = 5&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>2&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>26 * 26 = 676&lt;/td>
+&lt;td>2169648 / (26*26)^2 = 5&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="invalid-configurations">Invalid Configurations&lt;/h3>
+&lt;p>These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
+will be sufficient.&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>length&lt;/th>
+&lt;th>depth&lt;/th>
+&lt;th>sub-buckets&lt;/th>
+&lt;th>users&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>26 * 1 = 26&lt;/td>
+&lt;td>2169648 / (26) = 83448&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>26 * 1 = 26&lt;/td>
+&lt;td>2169648 / (26)^2 = 3209&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>2&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>26 * 26 = 676&lt;/td>
+&lt;td>2169648 / (26*26) = 3209&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>2&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>26 * 26 = 676&lt;/td>
+&lt;td>2169648 / (26*26)^3 = .007&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>3&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>26 &lt;em>26&lt;/em> 26 = 17576&lt;/td>
+&lt;td>2169648 / (26&lt;em>26&lt;/em>26) = 124&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>3&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>26 &lt;em>26&lt;/em> 26 = 17576&lt;/td>
+&lt;td>2169648 / (26&lt;em>26&lt;/em>26)^2 = .007&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="organization-workspaces">Organization Workspaces&lt;/h2>
+&lt;p>Organization workspaces are ClusterWorkspaces of type &lt;code>Organization&lt;/code>, defined in the
+root workspace. Organization workspaces are accessible at &lt;code>/clusters/root:&amp;lt;org-name&amp;gt;&lt;/code>.&lt;/p>
+&lt;div class="alert alert-primary" role="alert">
+&lt;h4 class="alert-heading">Note&lt;/h4>
+The organization WorkspaceType can only be created in the root workspace
+verified through admission.
+&lt;/div>
+&lt;p>Organization workspaces have standard resources (on-top of &lt;code>Universal&lt;/code> workspaces)
+which include the &lt;code>ClusterWorkspace&lt;/code> API defined through an CRD deployed during
+organization workspace initialization.&lt;/p>
+&lt;h2 id="root-workspace">Root Workspace&lt;/h2>
+&lt;p>The root workspace is a singleton in the system accessible under &lt;code>/clusters/root&lt;/code>.
+It is not represented by a ClusterWorkspace anywhere, but shares the same properties.&lt;/p>
+&lt;p>Inside the root workspace at least the following resources are bootstrapped on
+kcp startup:&lt;/p>
+&lt;ul>
+&lt;li>ClusterWorkspace CRD&lt;/li>
+&lt;li>WorkspaceShard CRD&lt;/li>
+&lt;li>Cluster CRD.&lt;/li>
+&lt;/ul>
+&lt;p>The root workspace is the only one that holds WorkspaceShard objects. WorkspaceShards
+are used to schedule a new ClusterWorkspace to, i.e. to select in which etcd the
+cluster workspace content is to be persisted.&lt;/p>
+&lt;h2 id="system-workspaces">System Workspaces&lt;/h2>
+&lt;p>System workspaces are local to a shard and are named in the pattern &lt;code>system:&amp;lt;system-workspace-name&amp;gt;&lt;/code>.&lt;/p>
+&lt;p>They are only accessible to a shard-local admin user and there is neither a definition
+via a ClusterWorkspace nor any per-request check for workspace existence.&lt;/p>
+&lt;p>System workspace are only accessible to a shard-local admin user, and there is
+neither a definition via a ClusterWorkspace, nor is there any validation of requests
+that the system workspace exists.&lt;/p>
+&lt;p>The &lt;code>system:admin&lt;/code> system workspace is special as it is also accessible through &lt;code>/&lt;/code>
+of the shard, and at &lt;code>/cluster/system:admin&lt;/code> at the same time.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Developers</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/developers/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/developers/</guid><description/></item><item><title>V0.11.0-Alpha.0: Investigations</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/</guid><description/></item><item><title>V0.11.0-Alpha.0:</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/storage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/storage/</guid><description>
+&lt;h1 id="storage-and-stateful-applications">Storage and stateful applications&lt;/h1>
+&lt;h2 id="overview">Overview&lt;/h2>
+&lt;p>KCP provides a control plane that implements the concept of Transparent Multi Cluster (TMC) for compute, network, and storage. In order to give the illusion of transparent storage in KCP, it exposes the same Kubernetes APIs for storage (PVC/PV), so users and workloads do not need to be aware of the coordinations taken by the control plane behind the scenes.&lt;/p>
+&lt;p>Placement for storage in KCP uses the same &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/">concepts used for compute&lt;/a>: &amp;ldquo;&lt;code>SyncTargets&lt;/code> in a &lt;code>Location&lt;/code> are transparent to the user, and workloads should be able to seamlessly move from one &lt;code>SyncTarget&lt;/code> to another within a &lt;code>Location&lt;/code>, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing capacity, or due to an outage of a cluster. It is the compute service&amp;rsquo;s responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster.&amp;rdquo;&lt;/p>
+&lt;p>KCP will provide the basic controllers and coordination logic for moving volumes, as efficiently as possible, using the underlying storage topology and capabilities. It will use the &lt;code>SyncTargets&lt;/code> storage APIs to manage volumes, and not require direct access from the control plane to the storage itself. For more advanced or custom solutions, KCP will allow external coordinators to take over.&lt;/p>
+&lt;h2 id="main-concepts">Main concepts&lt;/h2>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/">Transparent multi-cluster&lt;/a> - describes the TMC concepts.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/">Placement, Locations and Scheduling&lt;/a> - describes the KCP APIs and mechanisms used to control compute placement, which will be used for storage as well. Refer to the concepts of &lt;code>SyncTarget&lt;/code>, &lt;code>Location&lt;/code>, and &lt;code>Placement&lt;/code>.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="">Kubernetes storage concepts&lt;/a> - documentation of storage APIs in Kubernetes.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="">Persistent Volumes&lt;/a> - PVCs are the main storage APIs used to request storage resources for applications. PVs are invisible to users, and used by administrators or privileged controllers to provision storage to user claims, and will be coordinated by KCP to support transparent multi-cluster storage.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="">Kubernetes CSI&lt;/a> - The Container Storage Interface (CSI) is a standard for exposing arbitrary block and file storage systems to containerized workloads. The list of &lt;a href="">drivers&lt;/a> provides a &amp;ldquo;menu&amp;rdquo; of storage systems integrated with kubernetes and their properties.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="">StatefulSets volumeClaimTemplates&lt;/a> - workload definition used to manage “sharded” stateful applications. Specifying &lt;code>volumeClaimTemplates&lt;/code> in the statefulset spec will provide stable storage by creating a PVC per instance.&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="volume-types">Volume types&lt;/h2>
+&lt;p>Each physical-cluster (aka &amp;ldquo;pcluster&amp;rdquo;) brings its own storage to multi-cluster environments, and in order to make efficient coordination decisions, KCP will identify the following types:&lt;/p>
+&lt;h4 id="shared-network-volumes">Shared network-volumes&lt;/h4>
+&lt;p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an infrastructure network. These volumes are typically provided by a shared-filesystem (aka &lt;a href="">NAS&lt;/a>), with access-mode of ReadWriteMany (RWX) or ReadOnlyMany (ROX). A shared volume can be used by any pod from any pcluster (that can reach it) at the same time. The application is responsible for the consistency of its data (for example with eventual consistency semantics, or stronger synchronization services like zookeeper). Examples of such storage are generic-NFS/SMB, AWS-EFS, Azure-File, GCP-Filestore, CephFS, GlusterFS, NetApp, GPFS, etc.&lt;/p>
+&lt;h4 id="owned-network-volumes">Owned network-volumes&lt;/h4>
+&lt;p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an infrastructure network. However unlike shared volumes, owned volumes require that only a single node/pod will mount the volume at a time. These volumes are typically provided by a block-level storage system, with access-mode of ReadWriteOnce (RWO) or ReadWriteOncePod (RWOP). It is possible to &lt;em>move&lt;/em> the ownership between pclusters (that have access to that storage), by detaching from the current owner, and then attaching to the new owner. But it would have to guarantee a single owner to prevent data inconsistencies or corruptions, and even work if the owner pcluster is offline (see forcing detach with “fencing” below). Examples of such storage are AWS-EBS, Azure-Disk, Ceph-RBD, etc.&lt;/p>
+&lt;h4 id="internal-volumes">Internal volumes&lt;/h4>
+&lt;p>These volumes are provisioned inside the pcluster itself, and rely on its internal resources (aka hyper-converged or software-defined storage). This means that the availability of the pcluster also determines the availability of the volume. In some systems these volumes are bound to a single node in the pcluster, because the storage is physically attached to a host. However, advanced clustered/distributed systems make efforts to overcome temporary and permanent node failures by adding data redundancy over multiple nodes. These volumes can have any type of access-mode (RWO/RWOP/RWX/ROX), but their strong dependency on the pcluster itself is the key difference from network volumes. Examples of such storage are host-path/local-drives, TopoLVM, Ceph-rook, Portworx, OpenEBS, etc.&lt;/p>
+&lt;h2 id="topology-and-locations">Topology and locations&lt;/h2>
+&lt;h4 id="regular-topology">Regular topology&lt;/h4>
+&lt;p>A regular storage topology is one where every &lt;code>Location&lt;/code> is defined so that all of its &lt;code>SyncTargets&lt;/code> are connected to the same storage system. This makes it trivial to move network volumes transparently between &lt;code>SyncTargets&lt;/code> inside the same location.&lt;/p>
+&lt;h4 id="multi-zone-cluster">Multi-zone cluster&lt;/h4>
+&lt;p>A more complex topology is where pclusters contain nodes from several availability-zones, for the sake of being resilient to a zone failure. Since volumes are bound to a single zone (where they were provisioned), then a volume will not be able to move between &lt;code>SyncTargets&lt;/code> without nodes on that zone. This is ok if all the &lt;code>SyncTargets&lt;/code> of the &lt;code>Location&lt;/code> span over the same set of zones, but if the zones are different, or the capacity per zone is too limited, copying to another zone might be necessary.&lt;/p>
+&lt;h4 id="internal-volumes-1">Internal volumes&lt;/h4>
+&lt;p>Internal volumes are always confined to one pcluster, which means it has to be copied outside of the pcluster continuously to keep the application available even in the case where the pcluster fails entirely (network split, region issue, etc). This is similar to how DR solutions work between locations.&lt;/p>
+&lt;h4 id="disaster-recover-between-locations">Disaster recover between locations&lt;/h4>
+&lt;p>A regular Disaster Recovery (DR) topology will create pairs of &lt;code>Locations&lt;/code> so that one is “primary” and the other is “secondary” (sometimes this relation is mutual). For volumes to be able to move between these locations, their storage systems would need to be configured to mirror/replicate/backup/snapshot (whichever approach is more appropriate depends on the case) every volume to its secondary. With such a setup, KCP would need to be able to map between the volumes on the primary and the secondary, so that it could failover and move workloads to the secondary and reconnect to the last copied volume state. See more on the DR section below.&lt;/p>
+&lt;h2 id="provisioning-volumes">Provisioning volumes&lt;/h2>
+&lt;p>Volume provisioning in Kubernetes involves the CSI controllers and sidecar, as well as a custom storage driver. It reconciles PVCs by dynamically creating a PV for a PVC, and binding them together. This process depends on the CSI driver to be running on the &lt;code>SyncTarget&lt;/code> compute resources, and would not be able to run on KCP workspaces. Instead, KCP will pick a designated &lt;code>SyncTarget&lt;/code> for the workload placement, which will include the storage claims (PVCs), and the CSI driver on the &lt;code>SyncTarget&lt;/code> will perform the storage provisioning.&lt;/p>
+&lt;p>In order to support changing workload placement overtime, even if the provisioning &lt;code>SyncTarget&lt;/code> is offline, KCP will have to retrieve the volume information from that &lt;code>SyncTarget&lt;/code>, and keep it in the KCP workspace for future coordination. The volume information inside the PV is expected to be transferable between &lt;code>SyncTargets&lt;/code> that connect to the same storage system and drivers, although some transformations would be required.&lt;/p>
+&lt;p>To retrieve the volume information and maintain it in KCP, a special sync state is required that will sync &lt;strong>UP&lt;/strong> the PV from a &lt;code>SyncTarget&lt;/code> to KCP. This state is referred to as &lt;code>Upsync&lt;/code> - see &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/locations-and-scheduling/">Resource Upsyncing&lt;/a>.&lt;/p>
+&lt;p>The provisioning flow includes: (A) PVC synced to &lt;code>SyncTarget&lt;/code>, (B) CSI provisioning on the pcluster, (C) Syncer detects PVC binding and initiates PV &lt;code>Upsync&lt;/code>. Transformations would be applied in KCP virtual workspace to make sure that the PVC and PV would appear bound in KCP, similar to how it is in a single cluster. Once provisioning itself is complete, coordination logic will switch to a normal &lt;code>Sync&lt;/code> state, to allow multiple &lt;code>SyncTargets&lt;/code> to share the same volume, and for owned volumes to move ownership to another &lt;code>SyncTarget&lt;/code>.&lt;/p>
+&lt;h2 id="moving-shared-volumes">Moving shared volumes&lt;/h2>
+&lt;p>Shared volume can easily move to any &lt;code>SyncTarget&lt;/code> in the same &lt;code>Location&lt;/code> by syncing the PVC and PV together, so they bind only to each other on the pcluster. Syncing will transform their mutual references so that the &lt;code>PVC.volumeName = PV.name&lt;/code> and &lt;code>PV.claimRef = { PVC.name, PVC.namespace }&lt;/code> are set appropriately for the &lt;code>SyncTarget&lt;/code>, since the downstream &lt;code>PVC.namespace&lt;/code> and &lt;code>PV.name&lt;/code> will not be the same as upstream.&lt;/p>
+&lt;p>Moving volumes will set the volume&amp;rsquo;s &lt;code>reclaimPolicy&lt;/code> to always &lt;code>Retain&lt;/code>, to avoid unintended deletion by any one of the &lt;code>SyncTargets&lt;/code> while others use it. Once deletion of the upstream PVC is initiated, the coordination controller will transform the &lt;code>reclaimPolicy&lt;/code> to &lt;code>Delete&lt;/code> for one of the &lt;code>SyncTargets&lt;/code>. See more in the section on deleting volumes.&lt;/p>
+&lt;h2 id="moving-owned-volumes">Moving owned volumes&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;h4 id="detach-from-owner">Detach from owner&lt;/h4>
+&lt;p>Owned volumes require that &lt;em>at most one&lt;/em> pcluster can use them at any given time. As placement changes, the coordination controller is responsible to serialize the state changes of the volume to move the ownership of the volume safely. First, it will detach the volume from the current owner, and wait for it to acknowledge that it successfully removed it, and only then will sync the volume to a new target.&lt;/p>
+&lt;h4 id="forcing-detach-with-fencing">Forcing detach with fencing&lt;/h4>
+&lt;p>However, in case the owner is not able to acknowledge that it detached the volume, a forced-detach flow might be possible. The storage system has to support a CSI extension for network fencing, effectively blocking an entire pcluster from accessing the storage until fencing is removed. Once the failed pcluster recovers, and can acknowledge that it detached from the moved volumes, fencing will be removed from the storage and that pcluster can recover the rest of its workloads.&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="">kubernetes-csi-addons&lt;/a>&lt;/li>
+&lt;li>&lt;a href="">NetworkFence&lt;/a> (currently implemented only by ceph-csi).&lt;/li>
+&lt;/ul>
+&lt;h2 id="storage-classes">Storage classes&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;p>Storage classes can be thought of as templates to PVs, which allow pclusters to support multiple storage providers, or configure different policies for the same provider. Just like PVs are invisible to users, so do storage classes. However, users may choose a storage class by name when specifying their PVCs. When the storage class field is left unspecified (which is common), the pcluster will use its default storage class. However, the default storage class is a bit limited for multi-tenancy because it is one class per the entire pcluster.&lt;/p>
+&lt;p>Matching storage classes between &lt;code>SyncTargets&lt;/code> in the same &lt;code>Location&lt;/code> would be a simple way to ensure that storage can be moved transparently. However KCP should be able to verify the storage classes match across the &lt;code>Location&lt;/code> and warn when this is not the case, to prevent future issues.&lt;/p>
+&lt;h4 id="open-questions">Open questions&lt;/h4>
+&lt;ul>
+&lt;li>How to match classes and make sure the same storage system is used in the location?&lt;/li>
+&lt;li>How to support multiple classes per pcluster (eg. RWO + RWX)?&lt;/li>
+&lt;li>Maybe a separate &lt;code>SyncTarget&lt;/code> per class?&lt;/li>
+&lt;li>Can we have a separate default class per workspace?&lt;/li>
+&lt;/ul>
+&lt;h2 id="deleting-volumes">Deleting volumes&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;a href="">Persistent-volumes reclaiming&lt;/a> allows volumes to be configured how to behave when they are reclaimed. By default, storage classes will apply a &lt;code>reclaimPolicy: Delete&lt;/code> to dynamically provisioned PVs unless explicitly specified to &lt;code>Retain&lt;/code>. This means that volumes there were provisioned, will also get de-provisioned and their storage will be deleted. However, admins can modify the class to &lt;code>Retain&lt;/code> volumes, and invoke cleanup on their own schedule.&lt;/p>
+&lt;p>While moving volumes, either shared or owned, the volume&amp;rsquo;s &lt;code>reclaimPolicy&lt;/code> will be set to &lt;code>Retain&lt;/code> to prevent any &lt;code>SyncTarget&lt;/code> from releasing the volume storage on scheduling changes.&lt;/p>
+&lt;p>Once the PVC is marked for deletion on KCP, the coordination controller will first pick one &lt;code>SyncTarget&lt;/code> as owner (or use the current owner for owned volumes) and make sure to remove all sharers, and wait for their sync state to be cleared. Then it will set the owner&amp;rsquo;s volume &lt;code>reclaimPolicy&lt;/code> to &lt;code>Delete&lt;/code> so that it will release the volume storage.&lt;/p>
+&lt;p>Setting a PV to &lt;code>Retain&lt;/code> on KCP itself should also be respected by the controllers and allow manual cleanup of the volume in KCP, instead of automatically with the PVC.&lt;/p>
+&lt;h2 id="copying-volumes">Copying volumes&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>&lt;a href="">ramen&lt;/a>&lt;/li>
+&lt;li>&lt;a href="">volume-replication-operator&lt;/a>&lt;/li>
+&lt;li>&lt;a href="">volsync&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="disaster-recovery">Disaster recovery&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>Pairing locations as continuously replicating storage between each other.&lt;/li>
+&lt;li>KCP would have to be able to map primary volumes to secondary volumes to failover workloads between locations.&lt;/li>
+&lt;/ul>
+&lt;h2 id="examples">Examples&lt;/h2>
+&lt;blockquote>
+&lt;p>&lt;strong>TBD&lt;/strong> - this section is a work in progress&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;h4 id="shared-nfs-storage">Shared NFS storage&lt;/h4>
+&lt;ul>
+&lt;li>NFS server running in every location, external to the &lt;code>SyncTarget&lt;/code>, but available over the network.&lt;/li>
+&lt;li>Note that high-availability and data-protection of the storage itself is out of scope and would be handled by storage admin or provided by enterprise products.&lt;/li>
+&lt;li>Workloads allow volumes with RWX access-mode.&lt;/li>
+&lt;li>KCP picks one &lt;code>SyncTarget&lt;/code> to be the provisioner and syncs up the volume information.&lt;/li>
+&lt;li>After provisioning completes, sync down to any &lt;code>SyncTarget&lt;/code> in the &lt;code>Location&lt;/code> that the workload decides to be placed to allow moving transparently as needed when clusters become offline or drained.&lt;/li>
+&lt;li>Once the PVC is deleted, the deletion of the volume itself is performed by one of the &lt;code>SyncTargets&lt;/code>.&lt;/li>
+&lt;/ul>
+&lt;h2 id="roadmap">Roadmap&lt;/h2>
+&lt;ul>
+&lt;li>Moving owned volumes&lt;/li>
+&lt;li>Fencing&lt;/li>
+&lt;li>Copy-on-demand&lt;/li>
+&lt;li>Copy-continuous&lt;/li>
+&lt;li>DR-location-pairing and primary-&amp;gt;secondary volume mapping&lt;/li>
+&lt;li>Statefulsets&lt;/li>
+&lt;li>COSI Bucket + BucketAccess&lt;/li>
+&lt;/ul></description></item></channel></rss>

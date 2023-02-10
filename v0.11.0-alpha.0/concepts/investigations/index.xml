@@ -1,0 +1,288 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>kcp - a multi-tenant control plane for Kubernetes APIs – Investigations</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/</link><description>Recent content in Investigations on kcp - a multi-tenant control plane for Kubernetes APIs</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/index.xml" rel="self" type="application/rss+xml"/><item><title>V0.11.0-Alpha.0: Logical clusters</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/logical-clusters/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/logical-clusters/</guid><description>
+&lt;p>Kubernetes evolved from and was influenced by earlier systems that had weaker internal tenancy than a general-purpose compute platform requires. The namespace, quota, admission, and RBAC concepts were all envisioned quite early in the project, but evolved with Kubernetes and not all impacts to future evolution were completely anticipated. Tenancy within clusters is handled at the resource and namespace level, and within a namespace there are a limited number of boundaries. Most organizations use either namespace or cluster separation as their primary unit of self service, with variations leveraging a rich ecosystem of tools.&lt;/p>
+&lt;p>The one concrete component that cannot be tenanted are API resources - from a Kubernetes perspective we have too much history and ecosystem to desire a change, and so intra-cluster tenancy will always be at its weakest when users desire to add diverse extensions and tools. In addition, controllers are practically limited to a cluster scope or a namespace scope by the design of our APIs and authorization models and so intra-cluster tenancy for extensions is particularly weak (you can&amp;rsquo;t prevent an ingress controller from viewing &amp;ldquo;all secrets&amp;rdquo;).&lt;/p>
+&lt;p>Our admission chain has historically been very powerful and allowed deep policy to be enforced for tenancy, but the lack of a dynamic plugin model in golang has limited us to what can be accomplished to external RPC webhooks which have a number of significant performance and reliability impacts (especially when coupled to the cluster the webhook is acting on). If we want to have larger numbers of tenants or stronger subdivision, we need to consider improving the scalability of our policy chain in a number of dimensions.&lt;/p>
+&lt;p>Ideally, as a community we could improve both namespace and cluster tenancy at the same time in a way that provides enhanced tools for teams and organizations, addresses extensions holistically, and improves the reliability and performance of policy control from our control planes.&lt;/p>
+&lt;h2 id="goal-getting-a-new-cluster-that-allows-a-team-to-add-extensions-efficiently-should-be-effectively-zero-cost">Goal: Getting a new cluster that allows a team to add extensions efficiently should be effectively zero cost&lt;/h2>
+&lt;p>If a cluster is a desirable unit of tenancy, clusters should be amortized &amp;ldquo;free&amp;rdquo; and easy to operationalize as self-service. We have explored in the community a number of approaches that make new clusters cheaper (specifically &lt;a href="">virtual clusters&lt;/a> in SIG-multi-tenancy, as well as the natural cloud vendor &amp;ldquo;as-a-service&amp;rdquo; options where they amortize the cost of many small clusters), but there are certain fundamental fixed costs that inflate the cost of those clusters. If we could make one more cluster the same cost as a namespace, we could dramatically improve isolation of teams as well as offering an advantage for more alignment on tenancy across the ecosystem.&lt;/p>
+&lt;h3 id="constraint-a-naive-client-should-see-no-difference-between-a-physical-or-logical-cluster">Constraint: A naive client should see no difference between a physical or logical cluster&lt;/h3>
+&lt;p>A logical cluster that behaves differently from a physical cluster is not valuable for existing tools. We would need to lean heavily on our existing abstractions to ensure clients see no difference, and to focus on implementation options that avoid reduplicating a large amount of the Kube API surface area.&lt;/p>
+&lt;h3 id="constraint-the-implementation-must-improve-isolation-within-a-single-process">Constraint: The implementation must improve isolation within a single process&lt;/h3>
+&lt;p>As clusters grow larger or are used in more complex fashion, the failure modes of a single process API server have received significant attention within the last few years. To offer cheaper clusters, we&amp;rsquo;d have to also improve isolation between simultaneous clients and manage etcd usage, traffic, and both cpu and memory use at the control plane. These stronger controls would be beneficial to physical clusters and organizations running more complex clusters as well.&lt;/p>
+&lt;h3 id="constraint-we-should-improve-in-process-options-for-policy">Constraint: We should improve in-process options for policy&lt;/h3>
+&lt;p>Early in Kubernetes we discussed our options for extension of the core capability - admission control and controllers are the two primary levers, with aggregated APIs being an escape hatch for more complex API behavior (including the ability to wrap existing APIs or CRDs). We should consider options that could reduce the cost of complex policy such as making using the Kube API more library-like (to enable forking) as well as in-process options for policy that could deliver order of magnitude higher reliability and performance than webhooks.&lt;/p>
+&lt;h2 id="areas-of-investigation">Areas of investigation&lt;/h2>
+&lt;ol>
+&lt;li>Define high level user use cases&lt;/li>
+&lt;li>Prototype modelling the simplest option to enable &lt;code>kcp&lt;/code> demo functionality and team subdivision&lt;/li>
+&lt;li>Explore client changes required to make multi-cluster controllers efficient&lt;/li>
+&lt;li>Support surfacing into a logical cluster API resources from another logical cluster&lt;/li>
+&lt;li>Layering RBAC so that changes in one logical cluster are additive to a source policy that is out of the logical cluster&amp;rsquo;s control&lt;/li>
+&lt;li>Explore quota of requests, cpu, memory, and persistent to complement P&amp;amp;F per logical cluster with hard and soft limits&lt;/li>
+&lt;li>Explore making &lt;code>kcp&lt;/code> usable as a library so that an extender could write Golang admission / hierarchal policy for logical clusters that reduces the need for external extension&lt;/li>
+&lt;li>Work through how a set of etcd objects could be moved to another etcd for sharding operations and keep clients unaware (similar to the &amp;ldquo;restore a cluster from backup&amp;rdquo; problem)&lt;/li>
+&lt;li>Explore providing a read only resource underlay from another logical cluster so that immutable default objects can be provided&lt;/li>
+&lt;li>Investigate use cases that would benefit even a single cluster (justify having this be a feature in kube-apiserver on by default)&lt;/li>
+&lt;/ol>
+&lt;h2 id="use-cases">Use cases&lt;/h2>
+&lt;p>The use cases of logical cluster can be seen to overlap heavily with &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/">transparent multi-cluster&lt;/a> use cases, and are captured at the highest level in &lt;a href="">GOALS.md&lt;/a>. The use cases below attempt to focus on logical clusters independent of the broader goals.&lt;/p>
+&lt;h3 id="as-a-developer-of-crds--controllers--extensions">As a developer of CRDs / controllers / extensions&lt;/h3>
+&lt;ul>
+&lt;li>I can launch a local Kube control plane and test out multiple different versions of the same CRD in parallel quickly&lt;/li>
+&lt;li>I can create a control plane for my organization&amp;rsquo;s cloud resources (CRDs) that is centralized but doesn&amp;rsquo;t require me to provision nodes.&lt;/li>
+&lt;/ul>
+&lt;h3 id="as-an-infrastructure-admin">As an infrastructure admin&lt;/h3>
+&lt;ul>
+&lt;li>I can have strong tenant separation between different application teams&lt;/li>
+&lt;li>Allow tenant teams to run their own custom resources (CRDs) and controllers without impacting others&lt;/li>
+&lt;li>Subdivide access to the underlying clusters, keep those clusters simpler and with fewer extensions, and reduce the impact of cluster failure&lt;/li>
+&lt;/ul>
+&lt;h3 id="as-a-user-on-an-existing-kubernetes-cluster">As a user on an existing Kubernetes cluster&lt;/h3>
+&lt;ul>
+&lt;li>I can get a temporary space to test an extension before installing it&lt;/li>
+&lt;li>I can create clusters that have my own namespaces&lt;/li>
+&lt;/ul>
+&lt;h2 id="progress">Progress&lt;/h2>
+&lt;h3 id="logical-clusters-represented-as-a-prefix-to-etcd">Logical clusters represented as a prefix to etcd&lt;/h3>
+&lt;p>In the early prototype stage &lt;code>kcp&lt;/code> has a series of patches that allow a header or API prefix path to alter the prefix used to retrieve resources from etcd. The set of available resources is stripped down to a minimal set of hardcoded APIs including namespaces, rbac, and crds by patching those out of kube-apiserver type registration.&lt;/p>
+&lt;p>The header &lt;code>X-Kubernetes-Cluster&lt;/code> supports either a named logical cluster or the value &lt;code>*&lt;/code>, or the prefix &lt;code>/cluster/&amp;lt;name&amp;gt;&lt;/code> may be used at the root. This alters the behavior of a number of components, primarily retrieval and storage of API objects in etcd by adding a new segment to the etcd key (instead of &lt;code>/&amp;lt;resource&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;name&amp;gt;&lt;/code>, &lt;code>/&amp;lt;resource&amp;gt;/&amp;lt;cluster&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;name&amp;gt;&lt;/code>). Providing &lt;code>*&lt;/code> is currently acting on watch to support watching resources across all clusters, which also has the side effect of populating the object &lt;code>metadata.clusterName&lt;/code> field. If no logical cluster name is provided, the value &lt;code>admin&lt;/code> is used (which behaves as a normal kube-apiserver would).&lt;/p>
+&lt;p>This means new logical clusters start off empty (no RBAC or CRD resources), which the &lt;code>kcp&lt;/code> prototype mitigates by calculating the set of API resources available by merging from the default &lt;code>admin&lt;/code> CRDs + the hardcoded APIs. That demonstrates one avenue of efficiency - a new logical cluster has an amortized cost near zero for both RBAC (no duplication of several hundred RBAC roles into the logical cluster) and API OpenAPI documents (built on demand as the union of another logical cluster and any CRDs added to the new cluster).&lt;/p>
+&lt;p>To LIST or WATCH these resources, the user specifies &lt;code>*&lt;/code> as their cluster name which adjusts the key prefix to fetch all resources across all logical clusters. It&amp;rsquo;s likely some intermediate step between client and server would be necessary to support &amp;ldquo;watch subset&amp;rdquo; efficiently, which would require work to better enable clients to recognize the need to relist as well as the need to make the prototype support some level of logical cluster subset retrieval besides just an etcd key prefix scan.&lt;/p>
+&lt;h4 id="next-steps">Next steps&lt;/h4>
+&lt;ul>
+&lt;li>Continuing to explore how clients might query multiple resources across multiple logical clusters&lt;/li>
+&lt;li>What changes to resource version are necessary to allow&lt;/li>
+&lt;/ul>
+&lt;h3 id="zero-configuration-on-startup-in-local-dev">Zero configuration on startup in local dev&lt;/h3>
+&lt;p>The &lt;code>kcp&lt;/code> binary embeds &lt;code>etcd&lt;/code> in a single node config and manages it for local iterative development. This is in keeping with optimize for local workflow, but can be replaced by connecting to an existing etcd instance (not currently implemented). Ideally, a &lt;code>kcp&lt;/code> like process would have minimal external dependencies and be capable of running in a shardable configuration efficiently (each shard handling 100k objects), with other components handling logical cluster sharding.&lt;/p>
+&lt;h3 id="crd-virtualization-inheritance-and-normalization">CRD virtualization, inheritance, and normalization&lt;/h3>
+&lt;p>A simple implementation of CRD virtualization (different logical clusters having different api resources), CRD inheritance (a logical cluster inheriting CRDs from a parent logical cluster), and CRD normalization (between multiple physical clusters) to find the lowest-common-denominator resource has been prototyped.&lt;/p>
+&lt;p>The CRD structure in the kube-apiserver is currently &amp;ldquo;up front&amp;rdquo; (as soon as a CRD is created it shows up in apiresources), but with the goal of reducing the up front cost of a logical cluster we may wish to suggest refactors upstream that would make the model more amenable to &amp;ldquo;on demand&amp;rdquo; construction and merging at runtime. OpenAPI merging is a very expensive part of the kube-apiserver historically (rapid CRD changes can have a massive memory and CPU impact) and this may be a logical area to invest to allow scaling within regular clusters.&lt;/p>
+&lt;p>Inheritance allows an admin to control which resources a client might use - this would be particularly useful in more opinionated platform flows for organizations that wish to offer only a subset of APIs. The simplest approach here is that all logical clusters inherit the admin virtual cluster (the default), but more complicated flows with policy and chaining should be possible.&lt;/p>
+&lt;p>Normalization involves reading OpenAPI docs from one or more child clusters, converting those to CRDs, finding the lowest compatible version of those CRDs (the version that shares all fields), and materializing those objects as CRDs in a logical cluster. This allows the minimum viable hook for turning a generic control plane into a spot where real Kube objects can run, and would be a key part of transparent multi-cluster.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Minimal API Server</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/minimal-api-server/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/minimal-api-server/</guid><description>
+&lt;p>The Kubernetes API machinery provides a pattern for declarative config-driven API with a number of conventions that simplify building configuration loops and consolidating sources of truth. There have been many efforts to make that tooling more reusable and less dependent on the rest of the Kube concepts but without a strong use case driving separation and a design the tooling is still fairly coupled to Kube.&lt;/p>
+&lt;h2 id="goal">Goal&lt;/h2>
+&lt;p>Building and sustaining an API server that:&lt;/p>
+&lt;ol>
+&lt;li>reuses much of the Kubernetes API server codebase to support Kube-like CRUD operations&lt;/li>
+&lt;li>adds, removes, or excludes some / any / all the built-in Kubernetes types&lt;/li>
+&lt;li>excludes some default assumptions of Kubernetes specific to the &amp;ldquo;Kube as a cluster&amp;rdquo; like &amp;ldquo;create the kubernetes default svc&amp;rdquo;&lt;/li>
+&lt;li>replaces / modifies some implementations like custom resources, backend storage (etcd vs others), RBAC, admission control, and other primitives&lt;/li>
+&lt;/ol>
+&lt;p>As a secondary goal, identifying where exceptions or undocumented assumptions exist in the libraries that would make clients behave differently generically (where an abstraction is not complete) should help ensure future clients can more concretely work across different API servers consistently.&lt;/p>
+&lt;h3 id="constraint-the-abstraction-for-a-minimal-api-server-should-not-hinder-kubernetes-development">Constraint: The abstraction for a minimal API server should not hinder Kubernetes development&lt;/h3>
+&lt;p>The primary consumer of the Kube API is Kubernetes - any abstraction that makes a standalone API server possible must not regress Kubernetes performance or overly complicate Kubernetes evolution. The abstraction &lt;em>should&lt;/em> be an opportunity to improve interfaces within Kubernetes to decouple components and improve comprehension.&lt;/p>
+&lt;h3 id="constraint-reusing-the-existing-code-base">Constraint: Reusing the existing code base&lt;/h3>
+&lt;p>While it is certainly possible to rebuild all of Kube from scratch, a large amount of client tooling and benefit exists within patterns like declarative apply. This investigation is scoped to working within the context of improving the existing code and making the minimal changes within the bounds of API compatibility to broaden utility.&lt;/p>
+&lt;p>It should be possible to add an arbitrary set of the existing Kube resources to the minimal API server, up to and including what an existing kube-apiserver exposes. Several use cases desire RBAC, Namespaces, Secrets, or other parts of the workload, while ensuring a &amp;ldquo;pick and choose&amp;rdquo; mindset keeps the interface supporting the needs of the full Kubernetes server.&lt;/p>
+&lt;p>In the short term, it would not be a goal of this investigation to replace the underlying storage implementation &lt;code>etcd&lt;/code>, but it should be possible to more easily inject the appropriate initialization code so that someone can easily start an API server that uses a different storage mechanism.&lt;/p>
+&lt;h2 id="areas-of-investigation">Areas of investigation&lt;/h2>
+&lt;ol>
+&lt;li>Define high level user use cases&lt;/li>
+&lt;li>Document existing efforts inside and outside of the SIG process&lt;/li>
+&lt;li>Identify near-term SIG API-Machinery work that would benefit from additional decoupling (also wg-code-organization)&lt;/li>
+&lt;li>Find consensus points on near term changes and draft a KEP&lt;/li>
+&lt;/ol>
+&lt;h2 id="use-cases">Use cases&lt;/h2>
+&lt;h3 id="as-a-developer-of-crds--controllers--extensions">As a developer of CRDs / controllers / extensions&lt;/h3>
+&lt;ul>
+&lt;li>I can launch a local Kube API and test out multiple different versions of the same CRD in parallel quickly (shared with &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/logical-clusters/">logical-clusters&lt;/a>)&lt;/li>
+&lt;li>I can create a control plane for my organization&amp;rsquo;s cloud resources (CRDs) that is centralized but doesn&amp;rsquo;t require me to provision nodes (shared with &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/logical-clusters/">logical-clusters&lt;/a>)&lt;/li>
+&lt;li>&amp;hellip; benefits for unit testing CRDs in controller projects?&lt;/li>
+&lt;/ul>
+&lt;h3 id="as-a-kubernetes-core-developer">As a Kubernetes core developer&lt;/h3>
+&lt;ul>
+&lt;li>The core API server libraries are better separated and more strongly reviewed&lt;/li>
+&lt;li>Additional contributors are incentivized to maintain the core libraries of Kube because of a broader set of use cases&lt;/li>
+&lt;li>Kube client tools have fewer edge cases because they are tested against multiple sets of resources&lt;/li>
+&lt;li>&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;h3 id="as-an-aggregated-api-server-developer">As an aggregated API server developer&lt;/h3>
+&lt;ul>
+&lt;li>It is easy to reuse the k8s.io/apiserver code base to provide:
+&lt;ul>
+&lt;li>A virtual read-only resource that proxies to another type
+&lt;ul>
+&lt;li>e.g. metrics-server&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>An end user facing resource backed by a CRD (editable only by admins) that has additional validation and transformation
+&lt;ul>
+&lt;li>e.g. service catalog&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>A subresource implementation for a core type (pod/logs) that is not embedded in the Kube apiserver code&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="as-a-devops-team">As a devops team&lt;/h3>
+&lt;ul>
+&lt;li>I want to be able to create declarative APIs using the controller pattern &amp;hellip;
+&lt;ul>
+&lt;li>So that I can have declarative infrastructure without a full Kube cluster (&lt;a href="">https://github.com/thetirefire/badidea&lt;/a> and &lt;a href="">https://docs.google.com/presentation/d/1TfCrsBEgvyOQ1MGC7jBKTvyaelAYCZzl3udRjPlVmWg/edit#slide=id.g401c104a3c_0_0&lt;/a>)&lt;/li>
+&lt;li>So that I can have controllers that list/watch/sync/react to user focused changes&lt;/li>
+&lt;li>So that I can have a kubectl apply loop for my intent (spec) and see the current state (status)&lt;/li>
+&lt;li>So that I can move cloud infrastructure integrations like &lt;a href="">AWS Controllers for k8s&lt;/a> out of individual clusters into a centrally secured spot&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>I want to be offer a &amp;ldquo;cluster-like&amp;rdquo; user experience to a Kube application author without exposing the cluster directly (&lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/">transparent multi-cluster&lt;/a>)
+&lt;ul>
+&lt;li>So that I can keep app authors from directly knowing about where the app runs for security / infrastructure abstraction&lt;/li>
+&lt;li>So that I can control where applications run across multiple clusters centrally&lt;/li>
+&lt;li>So that I can offer self-service provisioning at a higher level than namespace or cluster&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>I want to consolidate all of my infrastructure and use gitops to talk to them the same way I do for clusters
+&lt;ul>
+&lt;li>&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>More detailed requests&lt;/p>
+&lt;ul>
+&lt;li>With some moderate boilerplate (50-100 lines of code) I can start a Kube compliant API server with (some / any of):
+&lt;ul>
+&lt;li>Only custom built-in types (code -&amp;gt; generic registry -&amp;gt; etcd)&lt;/li>
+&lt;li>CRDs (CustomResourceDefinition)&lt;/li>
+&lt;li>Aggregated API support (APIService)&lt;/li>
+&lt;li>Quotas and rate control and priority and fairness&lt;/li>
+&lt;li>A custom admission chain that does not depend on webhooks but is inline code&lt;/li>
+&lt;li>A different backend for storage other than etcd (projects like &lt;a href="">kine&lt;/a>)&lt;/li>
+&lt;li>Add / wrap some HTTP handlers with middleware&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="progress">Progress&lt;/h2>
+&lt;p>Initial work in k/k fork involved stripping out elements of kube-apiserver start that required &amp;ldquo;the full stack&amp;rdquo; or internal controllers such as the kubernetes.default.svc maintainer (roughly &lt;code>pkg/master&lt;/code>). It also looked at how to pull a subset of Kube resources (namespaces, rbac, but not pods) from the core resource group. The &lt;code>kcp&lt;/code> binary uses fairly normal &lt;code>k8s.io/apiserver&lt;/code> methods to init the apiserver process.&lt;/p>
+&lt;p>Next steps include identifying example use cases and the interfaces they wish to customize in the control plane (see above) and then looking at how those could be composed in an approachable way. That also involves exploring what refactors and organization makes sense within the k/k project in concert with 1-2 sig-apimachinery members.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Self-service policy</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/self-service-policy/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/self-service-policy/</guid><description>
+&lt;h2 id="goal">Goal&lt;/h2>
+&lt;p>Improve consistency and reusability of self-service and policy enforcement across multiple Kubernetes clusters.&lt;/p>
+&lt;blockquote>
+&lt;p>Just like Kubernetes standardized deploying containerized software onto a small set of machines, we want to standardize self-service of application focused integration across multiple teams with organizational control.&lt;/p>
+&lt;/blockquote>
+&lt;p>Or possibly&lt;/p>
+&lt;blockquote>
+&lt;p>Kubernetes standardized deploying applications into chunks of capacity. We want to standardize isolating and integrating application teams across organizations, and to do that in a way that makes applications everywhere more secure.&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="problem">Problem&lt;/h2>
+&lt;p>A key component of large Kubernetes clusters is shared use, where the usage pattern might vary from externally controlled (via gitops / existing operational tools) to a permissive self-service model. The most common partitioning model in Kubernetes is namespace, and the second most common model is cluster.&lt;/p>
+&lt;p>Self-service is currently limited by the set of resources that are namespace scoped for the former, and by the need to parameterize and configure multiple clusters consistently for the latter. Cluster partitioning can uniquely offer distinct sets of APIs to consumers. Namespace partitioning is cheap up until the scale limits of the cluster (~10k namespaces), while cluster partitioning usually has a fixed cost per cluster in operational and resource usage, as well as lower total utilization.&lt;/p>
+&lt;p>Once a deployment reaches the scale limit of a single cluster, operators often need to redefine their policies and tools to work in a multi-cluster environment. Many large deployers create their own systems for managing self-service policy above their clusters and leverage individual subsystems within Kubernetes to accomplish those goals.&lt;/p>
+&lt;h2 id="approach">Approach&lt;/h2>
+&lt;p>The logical cluster concept offers an opportunity to allow self-service at a cluster scope, with the effective cost of the namespace partitioning scheme. In addition, the separation of workload at control plane (kcp) and data plane (physical cluster) via &lt;a href="https://kcp-dev.github.io/kcp/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/">transparent multi-cluster&lt;/a> or similar schemes allows strong policy control of what configuration is allowed (reject early), restriction of the supported API surface area for workload APIs (limit / control certain fields like pod security), and limits the access of individual users to the underlying infra (much like clusters limit access to nodes).&lt;/p>
+&lt;p>It should be possible to accomplish current self-service namespace and cluster partitioning via the logical cluster mechanism + policy enforcement, and to incentivize a wider range of &amp;ldquo;external policy control&amp;rdquo; users to adopt self-service via stronger control points and desirable use cases (multi-cluster resiliency for apps).&lt;/p>
+&lt;p>We want to enable concrete points of injection of policy that are difficult today in Kubernetes tenancy:&lt;/p>
+&lt;ol>
+&lt;li>The acquisition of a new logical cluster with &lt;strong>capabilities&lt;/strong> and &lt;strong>constraints&lt;/strong>&lt;/li>
+&lt;li>How the APIs in a logical cluster are &lt;strong>transformed&lt;/strong> to an underlying cluster&lt;/li>
+&lt;li>How to manage the evolution of APIs available to a logical cluster over time&lt;/li>
+&lt;li>New hierarchal policy options are more practical since different logical clusters can have different APIs&lt;/li>
+&lt;/ol>
+&lt;h2 id="areas-of-investigation">Areas of investigation&lt;/h2>
+&lt;ul>
+&lt;li>Using logical clusters as a mechanism for tenancy, but having a backing implementation that can change
+&lt;ul>
+&lt;li>I.e. materialize logical clusters as an API resource in a separate logical cluster&lt;/li>
+&lt;li>Or implementing logical clusters outside the system and having the kcp server implementation be a shim&lt;/li>
+&lt;li>Formal &amp;ldquo;policy module&amp;rdquo; implementations that can be plugged into a minimal API server while using logical cluster impl&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Catalog the set of tenancy constructs in use in Kube
+&lt;ul>
+&lt;li>Draw heavily on sig-multitenancy explorations - work done by &lt;a href="">cluster api nested&lt;/a>, &lt;a href="">virtual clusters&lt;/a>, namespace tenancy, and &lt;a href="">hierarchal namespace&lt;/a> designs&lt;/li>
+&lt;li>Look at reference materials created by large organizational adopters of Kube&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Consider making &amp;ldquo;cost&amp;rdquo; a first class control concept alongside quota and RBAC (i.e. a service load balancer &amp;ldquo;costs&amp;rdquo; $1, whereas a regular service costs $0.001)
+&lt;ul>
+&lt;li>Could this more effectively limit user action&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Explore hierarchy of policy - if logical clusters are selectable by label, could you have composability of policy using controllers&lt;/li>
+&lt;li>Explore using implicit resources
+&lt;ul>
+&lt;li>i.e. within a logical cluster have all resources of type RoleBinding be fetched from two sources - within the cluster, and in a separate logical cluster - and merged, so that you could change the global source and watches would still fire&lt;/li>
+&lt;li>Impliict resources have risk though - no way to &amp;ldquo;lock&amp;rdquo; them so the consequences of an implicit change can be expensive&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="progress">Progress&lt;/h2>
+&lt;h3 id="simple-example-of-a-policy-implementation">Simple example of a policy implementation&lt;/h3>
+&lt;p>Building out an example flow that goes from creating a logical cluster resource that results in a logical cluster being accessible to client, with potential hook points for deeper integration.&lt;/p>
+&lt;h3 id="describe-a-complicated-policy-implementation">Describe a complicated policy implementation&lt;/h3>
+&lt;p>An example hosted multi-tenant service with billing, organizational policy, and tenancy isolation.&lt;/p></description></item><item><title>V0.11.0-Alpha.0: Transparent multi-cluster</title><link>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://kcp-dev.github.io/kcp/v0.11.0-alpha.0/concepts/investigations/transparent-multi-cluster/</guid><description>
+&lt;p>A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can &amp;ldquo;break-glass&amp;rdquo; and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it&amp;rsquo;s a detail determined by some human or automated process.&lt;/p>
+&lt;p>A key area of investigation for &lt;code>kcp&lt;/code> is exploring transparency of workloads to clusters. Aspirationally we want Kube workloads to be resilient to the operational characteristics of the underlying infrastructure and clusters orthogonally to the workload, by isolating the user from knowing of the details of the infrastructure. If workload APIs are more consistently &amp;ldquo;node-less&amp;rdquo; and &amp;ldquo;cluster-agnostic&amp;rdquo; that opens up ways to drive workload consistency across a large swathe of the compute landscape.&lt;/p>
+&lt;h2 id="goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail">Goal: The majority of applications and teams should have workflows where cluster is a detail&lt;/h2>
+&lt;p>A number of projects have explored this since the beginning of Kubernetes - this prototype should explore in detail how we can make a normal Kubernetes flow for most users be cluster-independent but still &amp;ldquo;break-glass&amp;rdquo; and describe placement in detail. Since this is a broad topic and we want to benefit the majority of users, we need to also add constraints that maximize the chance of these approaches being adopted.&lt;/p>
+&lt;h3 id="constraint-the-workflows-and-practices-teams-use-today-should-be-minimally-disrupted">Constraint: The workflows and practices teams use today should be minimally disrupted&lt;/h3>
+&lt;p>Users typically only change their workflows when an improvement offers a significant multiplier. To be effective we must reduce friction (which reduces multipliers) and offer significant advantages to that workflow.&lt;/p>
+&lt;p>Tools, practices, user experiences, and automation should &amp;ldquo;just work&amp;rdquo; when applied to cluster-agnostic or cluster-aware workloads. This includes gitops, rich web interfaces, &lt;code>kubectl&lt;/code>, etc. That implies that a &amp;ldquo;cluster&amp;rdquo; and a &amp;ldquo;Kube API&amp;rdquo; is our key target, and that we must preserve a majority of semantic meaning of existing APIs.&lt;/p>
+&lt;h3 id="constraint-95-of-workloads-should-just-work-when-kubectl-applyd-to-kcp">Constraint: 95% of workloads should &amp;ldquo;just work&amp;rdquo; when &lt;code>kubectl apply&lt;/code>d to &lt;code>kcp&lt;/code>&lt;/h3>
+&lt;p>It continues to be possible to build different abstractions on top of Kube, but existing workloads are what really benefit users. They have chosen the Kube abstractions deliberately because they are general purpose - rather than describe a completely new system we believe it is more effective to uplevel these existing apps. That means that existing primitives like Service, Deployment, PersistentVolumeClaim, StatefulSet must all require no changes to move from single-cluster to multi-cluster&lt;/p>
+&lt;p>By choosing this constraint, we also accept that we will have to be opinionated on making the underlying clusters consistent, and we will have to limit / constrain certain behaviors. Ideally, we focus on preserving the user&amp;rsquo;s view of the changes on a logical cluster, while making the workloads on a physical cluster look more consistent for infrastructure admins. This implies we need to explore both what these workloads might look like (a review of applications) and describe the points of control / abstraction between levels.&lt;/p>
+&lt;h3 id="constraint-90-of-application-infrastructure-controllers-should-be-useful-against-kcp">Constraint: 90% of application infrastructure controllers should be useful against &lt;code>kcp&lt;/code>&lt;/h3>
+&lt;p>A controller that performs app infra related functions should be useful without change against &lt;code>kcp&lt;/code>. For instance, the etcd operator takes an &lt;code>Etcd&lt;/code> cluster CRD and creates pods. It should be possible for that controller to target a &lt;code>kcp&lt;/code> logical cluster with the CRD and create pods on the logical cluster that are transparently placed onto a cluster.&lt;/p>
+&lt;h2 id="areas-of-investigation">Areas of investigation&lt;/h2>
+&lt;ol>
+&lt;li>Define high level user use cases&lt;/li>
+&lt;li>Study approaches from the ecosystem that do not require workloads to change significantly to spread&lt;/li>
+&lt;li>Explore characteristics of most common Kube workload objects that could allow them to be transparently placed&lt;/li>
+&lt;li>Identify the control points and data flow between workload and physical cluster that would be generally useful across a wide range of approaches - such as:
+&lt;ol>
+&lt;li>How placement is assigned, altered, and removed (&amp;ldquo;scheduling&amp;rdquo; or &amp;ldquo;placement&amp;rdquo;)&lt;/li>
+&lt;li>How workloads are transformed from high level to low level and then summarized back&lt;/li>
+&lt;li>Categorize approaches in the ecosystem and gaps where collaboration could improve velocity&lt;/li>
+&lt;li>&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Identify key infrastructure characteristics for multi-cluster
+&lt;ol>
+&lt;li>Networking between components and transparency of location to movement&lt;/li>
+&lt;li>Data movement, placement, and replication&lt;/li>
+&lt;li>Abstraction/interception of off-cluster dependencies (external to the system)&lt;/li>
+&lt;li>Consistency of infrastructure (where does Kube not sufficiently drive operational consistency)&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Seek consensus in user communities on whether the abstractions are practical&lt;/li>
+&lt;li>Invest in key technologies in the appropriate projects&lt;/li>
+&lt;li>Formalize parts of the prototype into project(s) drawing on the elements above if successful!&lt;/li>
+&lt;/ol>
+&lt;h2 id="use-cases">Use cases&lt;/h2>
+&lt;p>Representing feedback from a number of multi-cluster users with a diverse set of technologies in play:&lt;/p>
+&lt;h3 id="as-a-user">As a user&lt;/h3>
+&lt;ol>
+&lt;li>I can &lt;code>kubectl apply&lt;/code> a workload that is agnostic to node placement to &lt;code>kcp&lt;/code> and see the workload assigned to real resources and start running and the status summarized back to me.&lt;/li>
+&lt;li>I can move an application (defined in 1) between two physical clusters by changing a single high level attribute&lt;/li>
+&lt;li>As a user when I move an application (as defined in 2) no disruption of internal or external traffic is visible to my consumers&lt;/li>
+&lt;li>As a user I can debug my application in a familiar manner regardless of cluster&lt;/li>
+&lt;li>As a user with a stateful application by persistent volumes can move / replicate / be shared across clusters in a manner consistent with my storage type (read-write-one / read-write-many).&lt;/li>
+&lt;/ol>
+&lt;h3 id="as-an-infrastructure-admin">As an infrastructure admin&lt;/h3>
+&lt;ol>
+&lt;li>I can decommision an physical cluster and see workloads moved without disruption&lt;/li>
+&lt;li>I can set capacity bounds that control admission to a particular cluster and react to workload growth organically&lt;/li>
+&lt;/ol>
+&lt;h2 id="progress">Progress&lt;/h2>
+&lt;p>In the early prototype stage &lt;code>kcp&lt;/code> uses the &lt;code>syncer&lt;/code> and the &lt;code>deployment-splitter&lt;/code> as stand-ins for more complex scheduling and transformation. This section should see more updates in the near term as we move beyond areas 1-2 (use cases and ecosystem research)&lt;/p>
+&lt;h3 id="possible-design-simplifications">Possible design simplifications&lt;/h3>
+&lt;ol>
+&lt;li>Focus on every object having an annotation saying which clusters it is targeted at
+&lt;ul>
+&lt;li>We can control the annotation via admission eventually, works for all objects&lt;/li>
+&lt;li>Tracking declarative and atomic state change (NONE -&amp;gt; A, A-&amp;gt;(A,B), A-&amp;gt;NONE) on
+objects&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>RBAC stays at the higher level and applies to the logical clusters, is not synced
+&lt;ul>
+&lt;li>Implication is that controllers won&amp;rsquo;t be syncable today, BUT that&amp;rsquo;s ok because it&amp;rsquo;s likely giving workloads control over the underlying cluster is a non-goal to start and would have to be explicit opt-in by admin&lt;/li>
+&lt;li>Controllers already need to separate input from output - most controllers assume they&amp;rsquo;re the same (but things like service load balancer)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Think of scheduling as a policy at global, per logical cluster, and optionally the namespace (policy of object type -&amp;gt; 0..N clusters)
+&lt;ul>
+&lt;li>Simplification over doing a bunch of per object work, since we want to be transparent (per object is a future optimization with some limits)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol></description></item></channel></rss>
