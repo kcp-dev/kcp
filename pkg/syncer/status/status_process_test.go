@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
@@ -606,51 +608,12 @@ func TestStatusSyncerProcess(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
-			for _, alwaysRequired := range []string{"secrets", "namespaces"} {
-				if informer, err := ddsifForUpstreamSyncer.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
-					require.NoError(t, err)
-				} else {
-					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
-				}
-				if informer, err := ddsifForDownstream.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: alwaysRequired}); err != nil {
-					require.NoError(t, err)
-				} else {
-					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
-				}
-			}
-
 			setupServersideApplyPatchReactor(toClusterClient)
 			fromClientResourceWatcherStarted := setupWatchReactor(t, tc.gvr.Resource, fromClient)
 			toClientResourceWatcherStarted := setupClusterWatchReactor(t, tc.gvr.Resource, toClusterClient)
 
 			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, ddsifForUpstreamSyncer, ddsifForDownstream, tc.syncTargetUID)
 			require.NoError(t, err)
-
-			gvrsUpdated := make(chan struct{})
-			upstreamSyncerDDSIFUpdated := ddsifForDownstream.Subscribe("upstreamSyncer")
-			downstreamDDSIFUpdated := ddsifForDownstream.Subscribe("downstream")
-			go func() {
-				<-upstreamSyncerDDSIFUpdated
-				t.Logf("%s: upstream ddsif synced", t.Name())
-				<-downstreamDDSIFUpdated
-				t.Logf("%s: downstream ddsif synced", t.Name())
-
-				_, unsynced := ddsifForUpstreamSyncer.Informers()
-				for _, gvr := range unsynced {
-					informer, _ := ddsifForUpstreamSyncer.ForResource(gvr)
-					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
-					t.Logf("%s: upstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
-				}
-				_, unsynced = ddsifForDownstream.Informers()
-				for _, gvr := range unsynced {
-					informer, _ := ddsifForDownstream.ForResource(gvr)
-					cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
-					t.Logf("%s: downstream ddsif informer synced for gvr %s", t.Name(), gvr.String())
-				}
-				t.Logf("%s: gvrs updated", t.Name())
-				gvrsUpdated <- struct{}{}
-			}()
 
 			ddsifForUpstreamSyncer.Start(ctx.Done())
 			ddsifForDownstream.Start(ctx.Done())
@@ -661,11 +624,32 @@ func TestStatusSyncerProcess(t *testing.T) {
 			<-fromClientResourceWatcherStarted
 			<-toClientResourceWatcherStarted
 
-			cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
-			t.Logf("%s: informers synced for always required GVRs", t.Name())
+			// The only GVRs we care about are the 4 listed below
+			t.Logf("waiting for upstream and downstream dynamic informer factories to be synced")
+			gvrs := sets.NewString(
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}.String(),
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}.String(),
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}.String(),
+				schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}.String(),
+			)
+			require.Eventually(t, func() bool {
+				syncedUpstream, _ := ddsifForUpstreamSyncer.Informers()
+				foundUpstream := sets.NewString()
+				for gvr := range syncedUpstream {
+					foundUpstream.Insert(gvr.String())
+				}
 
-			<-gvrsUpdated
+				syncedDownstream, _ := ddsifForDownstream.Informers()
+				foundDownstream := sets.NewString()
+				for gvr := range syncedDownstream {
+					foundDownstream.Insert(gvr.String())
+				}
+				return foundUpstream.IsSuperset(gvrs) && foundDownstream.IsSuperset(gvrs)
+			}, wait.ForeverTestTimeout, 100*time.Millisecond)
+			t.Logf("upstream and downstream dynamic informer factories are synced")
 
+			// Now that we know the informer factories have the GVRs we care about synced, we need to clear the
+			// actions so our expectations will be accurate.
 			fromClient.ClearActions()
 			toClusterClient.ClearActions()
 
