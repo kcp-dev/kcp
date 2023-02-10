@@ -180,14 +180,13 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 	}
 
 	// apply placement
-	placement, err := o.applyPlacement(ctx, userWorkspaceKcpClient)
-	if err != nil {
+	if err := o.applyPlacement(ctx, userWorkspaceKcpClient); err != nil {
 		return err
 	}
 
 	// and wait for it to be ready
 	if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
-		placement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
+		placement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, o.PlacementName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -195,12 +194,12 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 		done, message = placementReadyAndScheduled(placement)
 		return done, nil
 	}); err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
-		return fmt.Errorf("placement %q not ready: %s", placement.Name, message)
+		return fmt.Errorf("placement %q not ready: %s", o.PlacementName, message)
 	} else if err != nil {
-		return fmt.Errorf("placement %q not ready: %w", placement.Name, err)
+		return fmt.Errorf("placement %q not ready: %w", o.PlacementName, err)
 	}
 
-	_, err = fmt.Fprintf(o.IOStreams.ErrOut, "Placement %q is ready.\n", placement.Name)
+	_, err = fmt.Fprintf(o.IOStreams.ErrOut, "Placement %q is ready.\n", o.PlacementName)
 	return err
 }
 
@@ -352,7 +351,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	return bindings, utilerrors.NewAggregate(errs)
 }
 
-func (o *BindComputeOptions) applyPlacement(ctx context.Context, client kcpclient.Interface) (*schedulingv1alpha1.Placement, error) {
+func (o *BindComputeOptions) applyPlacement(ctx context.Context, client kcpclient.Interface) error {
 	placement := &schedulingv1alpha1.Placement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: o.PlacementName,
@@ -369,11 +368,16 @@ func (o *BindComputeOptions) applyPlacement(ctx context.Context, client kcpclien
 		},
 	}
 
-	placement, err := client.SchedulingV1alpha1().Placements().Create(ctx, placement, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return nil, err
+	_, err := client.SchedulingV1alpha1().Placements().Create(ctx, placement, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			_, err = fmt.Fprintf(o.Out, "placement %s already exists.\n", o.PlacementName)
+			return err
+		}
+
+		return err
 	}
 
-	_, err = fmt.Fprintf(o.Out, "placement %s created.\n", placement.Name)
-	return placement, err
+	_, err = fmt.Fprintf(o.Out, "placement %s created.\n", o.PlacementName)
+	return err
 }
