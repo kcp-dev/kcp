@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -55,10 +56,28 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 		return nil
 	}
 
-	logger.V(2).Info("patch needed", "expectedClaimLabels", expectedLabels, "actualClaimLabels", actualClaimLabels, "diff", cmp.Diff(expectedLabels, actualClaimLabels))
+	actualGVR := *gvr
+	if actualVersion := obj.GetAnnotations()[handlers.KCPOriginalAPIVersionAnnotation]; actualVersion != "" {
+		actualGV, err := schema.ParseGroupVersion(actualVersion)
+		if err != nil {
+			logger.Error(err, "error parsing original API version annotation", "annotation", actualVersion)
+			// Returning an error and reprocessing will presumably result in the same parse error, so just return
+			// nil here.
+			return nil
+		}
+		actualGVR.Version = actualGV.Version
+		logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
+	}
+
+	logger.V(2).Info("patch needed",
+		"expectedClaimLabels", expectedLabels,
+		"actualClaimLabels", actualClaimLabels,
+		"diff", cmp.Diff(actualClaimLabels, expectedLabels),
+		"actualGVR", actualGVR,
+	)
 	_, err = c.dynamicClusterClient.
 		Cluster(clusterName.Path()).
-		Resource(*gvr).
+		Resource(actualGVR).
 		Namespace(obj.GetNamespace()).
 		Patch(ctx, obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
 
@@ -68,7 +87,7 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 			return nil
 		}
 
-		return fmt.Errorf("error patching GVR %q %s/%s: %w", gvr, obj.GetNamespace(), obj.GetName(), err)
+		return fmt.Errorf("error patching GVR %q %s/%s: %w", actualGVR, obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	return nil

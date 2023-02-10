@@ -658,10 +658,6 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err := kcpdynamic.NewForConfig(apiBindingConfig)
-	if err != nil {
-		return err
-	}
 
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(apiBindingConfig)
 	if err != nil {
@@ -671,8 +667,6 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	c, err := apibinding.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		dynamicClusterClient,
-		ddsif,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
@@ -718,7 +712,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err = kcpdynamic.NewForConfig(permissionClaimLabelConfig)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(permissionClaimLabelConfig)
 	if err != nil {
 		return err
 	}

@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -185,6 +186,18 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	upstreamObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		return nil, fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
+	}
+
+	if actualVersion := upstreamObj.GetAnnotations()[handlers.KCPOriginalAPIVersionAnnotation]; actualVersion != "" {
+		actualGV, err := schema.ParseGroupVersion(actualVersion)
+		if err != nil {
+			logger.Error(err, "error parsing original API version annotation", "annotation", actualVersion)
+			// Returning an error and reprocessing will presumably result in the same parse error, so just return
+			// nil here.
+			return nil, nil
+		}
+		gvr.Version = actualGV.Version
+		logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
 	}
 
 	if downstreamNamespace != "" {
