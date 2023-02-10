@@ -165,15 +165,15 @@ func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger, lo
 		return
 	}
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(IndexSyncTargetsByExport, key)
+	syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](c.syncTargetIndexer, IndexSyncTargetsByExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range synctargets {
-		logger := logging.WithObject(logger, obj.(*workloadv1alpha1.SyncTarget))
-		c.enqueueSyncTarget(obj, logger, " because of APIExport")
+	for _, syncTarget := range syncTargets {
+		logger := logging.WithObject(logger, syncTarget)
+		c.enqueueSyncTarget(syncTarget, logger, " because of APIExport")
 	}
 }
 
@@ -185,15 +185,15 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	apiExports, err := c.apiExportIndexer.ByIndex(IndexAPIExportsByAPIResourceSchema, key)
+	apiExports, err := indexers.ByIndex[*apisv1alpha1.APIExport](c.apiExportIndexer, IndexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range apiExports {
-		logger := logging.WithObject(logger, obj.(*apisv1alpha1.APIExport))
-		c.enqueueAPIExport(obj, logger, " because of APIResourceSchema")
+	for _, apiExport := range apiExports {
+		logger := logging.WithObject(logger, apiExport)
+		c.enqueueAPIExport(apiExport, logger, " because of APIResourceSchema")
 	}
 }
 
