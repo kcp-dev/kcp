@@ -75,7 +75,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	require.NoError(t, err)
 	identityHash := sheriffExport.Status.IdentityHash
 
-	t.Logf("Found identity hash: %v", identityHash)
+	t.Logf("found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
 
 	t.Logf("set up service provider with permission claims")
@@ -103,7 +103,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
 
-	t.Logf("Validate that the permission claims are valid")
+	t.Logf("validate the permission claims")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
@@ -113,7 +113,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 		require.Emptyf(t, cmp.Diff(makeBroadPermissionClaims(identityHash), binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
 	}
 
-	t.Logf("Validate that the permission claims were all applied")
+	t.Logf("confirm that the permission claims were all applied")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.PermissionClaimsApplied), "unable to see claims applied")
@@ -151,7 +151,7 @@ func setUpServiceProviderWithPermissionClaims(
 	cfg *rest.Config,
 ) {
 	t.Helper()
-	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
+	t.Logf("install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
@@ -159,7 +159,7 @@ func setUpServiceProviderWithPermissionClaims(
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
-	t.Logf("Create an APIExport for it")
+	t.Logf("create an APIExport for it")
 	cowboysAPIExport := &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
@@ -209,7 +209,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 
 func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
 	t.Helper()
-	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
+	t.Logf("create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
@@ -233,7 +233,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
+	t.Logf("make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
 		groups, err := consumerWorkspaceClient.Cluster(consumerWorkspace).Discovery().ServerGroups()
 		if err != nil {
@@ -242,7 +242,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 		return groupExists(groups, wildwest.GroupName), nil
 	})
 	require.NoError(t, err)
-	t.Logf("Make sure cowboys API resource shows up in consumer workspace %q group version discovery", consumerWorkspace)
+	t.Logf("make sure cowboys API resource shows up in consumer workspace %q group version discovery", consumerWorkspace)
 	resources, err := consumerWorkspaceClient.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
 	require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
 	require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)

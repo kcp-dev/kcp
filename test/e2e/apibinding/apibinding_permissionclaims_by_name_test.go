@@ -1,4 +1,4 @@
-/*
+/*/
 Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,8 +56,8 @@ func TestPermissionClaimsByName(t *testing.T) {
 	serviceProviderPath := logicalcluster.NewPath(serviceProviderWorkspace.Spec.Cluster)
 	consumerPath := logicalcluster.NewPath(consumerWorkspace.Spec.Cluster)
 
-	t.Logf("Provider workspace: %s", serviceProviderWorkspace.Spec.Cluster)
-	t.Logf("Consumer workspace: %s", consumerWorkspace.Spec.Cluster)
+	t.Logf("provider workspace: %s", serviceProviderWorkspace.Spec.Cluster)
+	t.Logf("consumer workspace: %s", consumerWorkspace.Spec.Cluster)
 
 	cfg := server.BaseConfig(t)
 
@@ -67,7 +67,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kube cluster client for server")
 
-	t.Logf("Installing a sheriff APIResourceSchema and APIExport into workspace %q", serviceProviderPath)
+	t.Logf("installing a sheriff APIResourceSchema and APIExport into workspace %q", serviceProviderPath)
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
 	sheriffExport := &apisv1alpha1.APIExport{}
@@ -90,9 +90,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 	require.NotNil(t, sheriffExport)
 
-	t.Logf("Found identity hash: %v", identityHash)
+	t.Logf("found identity hash: %v sheriff export", identityHash)
 
-	t.Logf("Creating consumer namespace")
+	t.Logf("creating consumer namespace")
 	consumerNS1, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Create(ctx, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "consumer-ns-1",
@@ -100,7 +100,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create ns-1")
 
-	t.Logf("Waiting for namespace to exist")
+	t.Logf("waiting for consumer namespace to exist")
 	framework.Eventually(t, func() (done bool, str string) {
 		consumerNS1, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Get(ctx, consumerNS1.Name, metav1.GetOptions{})
 		if err != nil {
@@ -113,7 +113,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		return false, "not done waiting for ns1 to be created"
 	}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
-	t.Logf("Namespace %s ready", consumerNS1.Name)
+	t.Logf("namespace %s ready", consumerNS1.Name)
 
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
 	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", "consumer-ns-1")
@@ -126,7 +126,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
-	t.Logf("binding consumer to provider export")
+	t.Logf("binding consumer cluster and namespace to provider export")
 	binding := bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
 	require.NotNil(t, binding)
 
@@ -138,7 +138,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	apiExportClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
 
-	t.Logf("verify we can create a new configmap in consumer namespace via the virtual workspace")
+	t.Logf("verify we can create a new configmap in consumer namespace via the sheriff export view URL")
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "confmap1",
@@ -155,7 +155,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	require.Equal(t, "consumer-ns-1", cm.Namespace)
 	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
 
-	t.Logf("verify we can update a configmap in consumer workspace via the virtual workspace")
+	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
 	cm.Data = map[string]string{
 		"something": "new",
 	}
@@ -166,12 +166,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return true, ""
-	}, wait.ForeverTestTimeout, 110*time.Millisecond, "timed out trying to update configmap in consumer namespace")
+	}, wait.ForeverTestTimeout, 110*time.Millisecond, "timed out trying to update configmap in consumer namespace %s", consumerNS1)
 	require.Equal(t, cm.Data["something"], "new")
 
-	t.Logf("ensure that configmaps in an unspecified namespace cannot be created")
+	t.Logf("ensure that configmaps in an unspecified namespace cannot be created via view URL")
 
-	t.Logf("Creating unclaimed consumer namespace")
+	t.Logf("creating unclaimed consumer namespace")
 	consumerNS2, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Create(ctx, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "consumer-ns-2",
@@ -179,7 +179,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create %s", consumerNS2.Name)
 
-	t.Logf("Waiting for namespace %s to exist", consumerNS2.Name)
+	t.Logf("waiting for namespace %s to exist", consumerNS2.Name)
 	framework.Eventually(t, func() (done bool, str string) {
 		consumerNS1, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Get(ctx, consumerNS2.Name, metav1.GetOptions{})
 		if err != nil {
@@ -192,9 +192,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		return false, "not done waiting for ns2 to be created"
 	}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
-	t.Logf("Namespace %s ready", consumerNS2.Name)
+	t.Logf("namespace %s ready", consumerNS2.Name)
 
-	t.Logf("Updating permission claims to allow configmap by explicit name in any namespace")
+	t.Logf("updating permission claims to allow configmap by explicit name in any namespace")
 
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
 	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("confmap1", "*")
@@ -207,7 +207,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
-	t.Logf("Updating consumer API Bindings")
+	t.Logf("updating consumer API Bindings with new permissionclaim")
 	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "confmap1", "*")
 	require.NotNil(t, binding)
 
@@ -216,7 +216,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 			Name: "confmap1",
 		},
 	}
-	t.Logf("Creating configmap %s in NS %s", cm.Name, consumerNS2.Name)
+	t.Logf("creating configmap %s in NS %s", cm.Name, consumerNS2.Name)
 	framework.Eventually(t, func() (done bool, str string) {
 		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
 		if err != nil {
@@ -240,28 +240,27 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 
-	// t.Logf("verify we can update a configmap in consumer workspace via the virtual workspace")
-	// cm.Data = map[string]string{
-	// 	"something": "new",
-	// }
-	// updateCM := func() (bool, string) {
-	// 	t.Logf("cm name: %s", cm.Name)
-	// 	var newCM *v1.ConfigMap
-	// 	newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Update(ctx, cm, metav1.UpdateOptions{})
-	// 	if apierrors.IsNotFound(err) {
-	// 		t.Logf("Couldn't find it in NS2")
-	// 	}
-	// 	if err != nil {
-	// 		return false, err.Error()
-	// 	}
-	// 	cm = newCM
-	// 	return true, ""
-	// }
-	// framework.Eventually(t, updateCM, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to update configmap in consumer namespace")
-	// require.Equal(t, cm.Data["something"], "new")
+	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
+	cm.Data = map[string]string{
+		"something": "new",
+	}
+	updateCM := func() (bool, string) {
+		t.Logf("cm name: %s", cm.Name)
+		var newCM *v1.ConfigMap
+		newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Update(ctx, cm, metav1.UpdateOptions{})
+		if apierrors.IsNotFound(err) {
+			t.Logf("couldn't find configmap in NS2")
+		}
+		if err != nil {
+			return false, err.Error()
+		}
+		cm = newCM
+		return true, ""
+	}
+	framework.Eventually(t, updateCM, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to update configmap in consumer namespace")
+	require.Equal(t, cm.Data["something"], "new")
 
-	// This case is being fixed in PR #2845, commenting until that is done.
-	t.Logf("Update PermissionClaims to only work in one namespace")
+	t.Logf("update PermissionClaims to only work in one namespace")
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
 	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", consumerNS1.Name)
 	framework.Eventually(t, func() (done bool, str string) {
@@ -273,7 +272,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
-	t.Logf("Updating consumer API Bindings")
+	t.Logf("updating consumer API Bindings")
 	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
 	require.NotNil(t, binding)
 	cm = &v1.ConfigMap{
@@ -294,7 +293,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return false, "unexpected create"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
 
-	t.Logf("End of test")
+	t.Logf("end of test")
 }
 
 // makeNarrowCMPermissionClaim creates a PermissionClaim for ConfigMaps scoped to just a name, just a namespace, or both.
@@ -339,7 +338,7 @@ func bindConsumerToProviderCMExport(
 	cmName, cmNamespace string,
 ) *apisv1alpha1.APIBinding {
 	t.Helper()
-	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerPath, providerClusterPath)
+	t.Logf("create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerPath, providerClusterPath)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sheriffs-and-configmaps",
@@ -363,7 +362,7 @@ func bindConsumerToProviderCMExport(
 			binding, err = kcpClusterClients.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			binding.Spec.PermissionClaims = makeAcceptedCMPermissionClaims(cmName, cmNamespace)
-			t.Logf("Resource version on the APIBinding: %s", binding.ResourceVersion)
+			t.Logf("resource version on the APIBinding: %s", binding.ResourceVersion)
 			binding, err = kcpClusterClients.Cluster(consumerPath).ApisV1alpha1().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
 			require.NoError(t, err)
 			return true, ""
