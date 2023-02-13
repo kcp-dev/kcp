@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
@@ -48,31 +48,30 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	kcpClusterClient kcpclientset.ClusterInterface,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	cachedKCPInformers kcpinformers.SharedInformerFactory,
 ) []rootapiserver.NamedVirtualWorkspace {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
 
 	// Setup the APIReconciler indexes to share between both virtualworkspaces.
-	if err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().AddIndexers(cache.Indexers{
-		apireconciler.IndexSyncTargetsByExport: apireconciler.IndexSyncTargetsByExports,
-	}); err != nil {
-		return nil
-	}
-
-	if err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
-		apireconciler.IndexAPIExportsByAPIResourceSchema: apireconciler.IndexAPIExportsByAPIResourceSchemas,
-	}); err != nil {
-		return nil
-	}
+	indexers.AddIfNotPresentOrDie(
+		cachedKCPInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer(),
+		cache.Indexers{
+			apireconciler.IndexSyncTargetsByExport: apireconciler.IndexSyncTargetsByExports,
+		},
+	)
+	indexers.AddIfNotPresentOrDie(
+		cachedKCPInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		cache.Indexers{
+			apireconciler.IndexAPIExportsByAPIResourceSchema: apireconciler.IndexAPIExportsByAPIResourceSchemas,
+		},
+	)
 
 	provider := templateProvider{
 		kubeClusterClient:    kubeClusterClient,
 		dynamicClusterClient: dynamicClusterClient,
-		kcpClusterClient:     kcpClusterClient,
-		wildcardKcpInformers: wildcardKcpInformers,
+		cachedKCPInformers:   cachedKCPInformers,
 		rootPathPrefix:       rootPathPrefix,
 	}
 

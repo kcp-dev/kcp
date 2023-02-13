@@ -39,7 +39,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -114,12 +116,12 @@ func NewController(
 				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 				global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 			},
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("synctargets"): {
+			workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"): {
 				kind:   "SyncTarget",
 				local:  localKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
 				global: globalKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
 			},
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("locations"): {
+			schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"): {
 				kind:   "Location",
 				local:  localKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
 				global: globalKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
