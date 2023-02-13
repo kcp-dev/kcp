@@ -45,7 +45,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiDomainKey dynamicconte
 	logger := klog.FromContext(ctx)
 
 	// collect APIResourceSchemas by syncTarget.
-	apiResourceSchemas, schemaIdentites, err := c.getAllAcceptedResourceSchemas(syncTarget)
+	apiResourceSchemas, schemaIdentites, err := c.getAllAcceptedResourceSchemas(ctx, syncTarget)
 	if err != nil {
 		return err
 	}
@@ -150,40 +150,63 @@ func gvrString(gvr schema.GroupVersionResource) string {
 
 // getAllAcceptedResourceSchemas return all resourceSchemas from APIExports defined in this syncTarget filtered by the status.syncedResource
 // of syncTarget such that only resources with accepted state is returned, together with their identityHash.
-func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alpha1.SyncTarget) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, map[schema.GroupResource]string, error) {
+func (c *APIReconciler) getAllAcceptedResourceSchemas(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, map[schema.GroupResource]string, error) {
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 
 	identityHashByGroupResource := map[schema.GroupResource]string{}
 
+	logger := klog.FromContext(ctx)
+	logger.V(4).Info("getting identity hashes for compatible APIs", "count", len(syncTarget.Status.SyncedResources))
+
 	// get all identityHash for compatible APIs
 	for _, syncedResource := range syncTarget.Status.SyncedResources {
+		logger := logger.WithValues(
+			"group", syncedResource.Group,
+			"resource", syncedResource.Resource,
+			"identity", syncedResource.IdentityHash,
+		)
 		if syncedResource.State == workloadv1alpha1.ResourceSchemaAcceptedState {
+			logger.V(4).Info("including synced resource because it is accepted")
 			identityHashByGroupResource[schema.GroupResource{
 				Group:    syncedResource.Group,
 				Resource: syncedResource.Resource,
 			}] = syncedResource.IdentityHash
+		} else {
+			logger.V(4).Info("excluding synced resource because it is unaccepted")
 		}
 	}
 
+	logger.V(4).Info("processing supported APIExports", "count", len(syncTarget.Spec.SupportedAPIExports))
 	var errs []error
 	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		logger.V(4).Info("looking at export", "path", exportRef.Path, "name", exportRef.Export)
+
 		path := logicalcluster.NewPath(exportRef.Path)
 		if path.Empty() {
+			logger.V(4).Info("falling back to sync target's logical cluster for path")
 			path = logicalcluster.From(syncTarget).Path()
 		}
 
+		logger := logger.WithValues("path", path, "name", exportRef.Export)
+		logger.V(4).Info("getting APIExport")
 		apiExport, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), c.apiExportIndexer, path, exportRef.Export)
 		if err != nil {
+			logger.V(4).Error(err, "error getting APIExport")
 			errs = append(errs, err)
 			continue
 		}
 
+		logger.V(4).Info("checking APIExport's schemas", "count", len(apiExport.Spec.LatestResourceSchemas))
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+			logger := logger.WithValues("schema", schemaName)
+			logger.V(4).Info("getting APIResourceSchema")
 			apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
 			if apierrors.IsNotFound(err) {
+				logger.V(4).Info("APIResourceSchema not found")
 				continue
 			}
 			if err != nil {
+				logger.V(4).Error(err, "error getting APIResourceSchema")
 				errs = append(errs, err)
 				continue
 			}
@@ -193,9 +216,14 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 				Resource: apiResourceSchema.Spec.Names.Plural,
 			}
 
+			logger = logger.WithValues("group", gr.Group, "resource", gr.Resource)
+
 			// if identityHash does not exist, it is not a compatible API.
 			if _, ok := identityHashByGroupResource[gr]; ok {
+				logger.V(4).Info("identity found, including resource")
 				apiResourceSchemas[gr] = apiResourceSchema
+			} else {
+				logger.V(4).Info("identity not found, excluding resource")
 			}
 		}
 	}
