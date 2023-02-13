@@ -290,10 +290,13 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		}
 	}()
 
-	// Make sure the GC monitors are synced at least once
-	garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
+	go func() {
+		// Make sure the GC monitors are synced at least once
+		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 
-	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
+		go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
+	}()
 
 	return nil
 }
