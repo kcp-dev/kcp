@@ -82,7 +82,10 @@ func (b *BindOptions) Validate() error {
 		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
 	}
 
-	if !logicalcluster.NewPath(b.APIExportRef).IsValid() {
+	// We validate the path component of the APIExport. Its name component will be implicitly validated at API look-up time.
+	path, _ := logicalcluster.NewPath(b.APIExportRef).Split()
+
+	if !path.IsValid() {
 		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `<logical-cluster-name>:<apiexport>` or `<full>:<path>:<to>:<apiexport>`")
 	}
 
