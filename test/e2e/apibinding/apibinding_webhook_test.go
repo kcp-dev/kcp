@@ -19,6 +19,7 @@ package apibinding
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	gohttp "net/http"
 	"path/filepath"
 	"testing"
@@ -111,10 +112,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	scheme := runtime.NewScheme()
@@ -261,10 +259,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err := kcpClients.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	scheme := runtime.NewScheme()

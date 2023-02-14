@@ -166,8 +166,8 @@ func TestClusterController(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
 
-	for i := range testCases {
-		testCase := testCases[i]
+	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -195,7 +195,7 @@ func TestClusterController(t *testing.T) {
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-				})).Start(t)
+				})).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 			t.Logf("Bind second user workspace to location workspace")
 			framework.NewBindCompute(t, wsPath, source).Bind(t)

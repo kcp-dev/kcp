@@ -87,6 +87,20 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
+	// parse cache kubeconfig
+	defaultCacheClientConfig, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	cacheConfig, err := o.Cache.RestConfig(defaultCacheClientConfig)
+	if err != nil {
+		return err
+	}
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheConfig)
+	if err != nil {
+		return err
+	}
+
 	// Don't throttle
 	nonIdentityConfig.QPS = -1
 
@@ -127,6 +141,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
+	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
 
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck,gosec
@@ -134,7 +149,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create apiserver
-	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers)
+	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}
@@ -157,6 +172,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
+		cacheKcpInformers.Start,
 	}, virtualWorkspaces)
 	if err != nil {
 		return err

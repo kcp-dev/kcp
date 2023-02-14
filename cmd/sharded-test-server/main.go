@@ -25,14 +25,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
 func main() {
@@ -62,11 +69,16 @@ func main() {
 }
 
 func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool) error {
-	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
-	defer cancelFn()
+	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
+	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
+	defer shutdownCancel()
+
+	// This context controls the life of the shards, proxy, etc.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// create request header CA and client cert for front-proxy to connect to shards
-	requestHeaderCA, err := crypto.MakeSelfSignedCA(
+	requestHeaderCA, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp/requestheader-ca.crt"),
 		filepath.Join(workDirPath, ".kcp/requestheader-ca.key"),
 		filepath.Join(workDirPath, ".kcp/requestheader-ca-serial.txt"),
@@ -76,7 +88,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err != nil {
 		return fmt.Errorf("failed to create requestheader-ca: %w", err)
 	}
-	_, err = requestHeaderCA.MakeClientCertificate(
+	_, _, err = requestHeaderCA.EnsureClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
 		&kuser.DefaultInfo{Name: "kcp-front-proxy"},
@@ -87,7 +99,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
-	clientCA, err := crypto.MakeSelfSignedCA(
+	clientCA, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp/client-ca.crt"),
 		filepath.Join(workDirPath, ".kcp/client-ca.key"),
 		filepath.Join(workDirPath, ".kcp/client-ca-serial.txt"),
@@ -97,7 +109,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err != nil {
 		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
-	_, err = clientCA.MakeClientCertificate(
+	_, _, err = clientCA.EnsureClientCertificate(
 		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
 		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
 		&kuser.DefaultInfo{
@@ -111,7 +123,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// client cert for logical-cluster-admin
-	_, err = clientCA.MakeClientCertificate(
+	_, _, err = clientCA.EnsureClientCertificate(
 		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.crt"),
 		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.key"),
 		&kuser.DefaultInfo{
@@ -128,7 +140,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// so that it can make wildcard requests against shards
 	// for now we will use the privileged system group to bypass the authz stack
 	// create privileged system user client cert to connect to shards
-	_, err = clientCA.MakeClientCertificate(
+	_, _, err = clientCA.EnsureClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.key"),
 		&kuser.DefaultInfo{
@@ -142,7 +154,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// create server CA to be used to sign shard serving certs
-	servingCA, err := crypto.MakeSelfSignedCA(
+	servingCA, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
 		filepath.Join(workDirPath, ".kcp/serving-ca.key"),
 		filepath.Join(workDirPath, ".kcp/serving-ca-serial.txt"),
@@ -154,7 +166,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// create service account signing and verification key
-	if _, err := crypto.MakeSelfSignedCA(
+	if _, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp/service-account.crt"),
 		filepath.Join(workDirPath, ".kcp/service-account.key"),
 		filepath.Join(workDirPath, ".kcp/service-account-serial.txt"),
@@ -209,7 +221,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		vwPort = "7444"
 
 		for i := 0; i < numberOfShards; i++ {
-			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA)
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
 			if err != nil {
 				return err
 			}
@@ -262,6 +274,44 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	// Label region of shards
+	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp/admin.kubeconfig"), "base")
+	if err != nil {
+		return err
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	client, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	for i := range shards {
+		name := fmt.Sprintf("shard-%d", i)
+		if i == 0 {
+			name = "root"
+		}
+
+		if i >= len(regions) {
+			break
+		}
+		patch := fmt.Sprintf(`{"metadata":{"labels":{"region":%q}}}`, regions[i])
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			_, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Patch(ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+			return err
+		}); err != nil {
+			return err
+		}
+	}
+
+	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
+	if err != nil {
+		return fmt.Errorf("error creating ready-to-test file: %w", err)
+	}
+	defer readyToTestFile.Close()
+
+	// Wait for either a premature termination error from the shards/proxy/etc, or for the test server process to shut down
 	select {
 	case shardIndexErr := <-shardsErrCh:
 		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
@@ -269,12 +319,67 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case cacheErr := <-cacheServerErrCh:
 		return fmt.Errorf("cache server exited: %w", cacheErr.error)
-	case <-ctx.Done():
+	case <-shutdownCtx.Done():
 	}
+
+	// We've received the notice to shut down, so try to gather metrics. Use a new context with a fixed timeout.
+	metricxCtx, metricsCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
+	defer metricsCancel()
+
+	for _, shard := range shards {
+		shard.GatherMetrics(metricxCtx)
+	}
+
 	return nil
 }
 
 type indexErrTuple struct {
 	index int
 	error error
+}
+
+func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+	fs, err := os.Stat(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	if fs.Size() == 0 {
+		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+	}
+
+	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
+}
+
+var regions = []string{
+	"us-east-2",
+	"us-east-1",
+	"us-west-1",
+	"us-west-2",
+	"af-south-1",
+	"ap-east-1",
+	"ap-south-2",
+	"ap-southeast-3",
+	"ap-south-1",
+	"ap-northeast-3",
+	"ap-northeast-2",
+	"ap-southeast-1",
+	"ap-southeast-2",
+	"ap-northeast-1",
+	"ca-central-1",
+	"eu-central-1",
+	"eu-west-1",
+	"eu-west-2",
+	"eu-south-1",
+	"eu-west-3",
+	"eu-south-2",
+	"eu-north-1",
+	"eu-central-2",
+	"me-south-1",
+	"me-central-1",
+	"sa-east-1",
 }

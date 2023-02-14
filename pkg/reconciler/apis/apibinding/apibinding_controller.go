@@ -23,7 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -48,7 +47,6 @@ import (
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -65,8 +63,6 @@ var (
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	dynamicClusterClient kcpdynamic.ClusterInterface,
-	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
@@ -79,11 +75,9 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
-		queue:                queue,
-		crdClusterClient:     crdClusterClient,
-		kcpClusterClient:     kcpClusterClient,
-		dynamicClusterClient: dynamicClusterClient,
-		ddsif:                dynamicDiscoverySharedInformerFactory,
+		queue:            queue,
+		crdClusterClient: crdClusterClient,
+		kcpClusterClient: kcpClusterClient,
 
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			list, err := apiBindingInformer.Lister().List(labels.Everything())
@@ -328,10 +322,8 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient     kcpapiextensionsclientset.ClusterInterface
-	kcpClusterClient     kcpclientset.ClusterInterface
-	dynamicClusterClient kcpdynamic.ClusterInterface
-	ddsif                *informer.DiscoveringDynamicSharedInformerFactory
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 
 	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	listAPIBindingsByAPIExport func(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)

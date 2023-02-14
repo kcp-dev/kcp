@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -97,8 +98,11 @@ func NewController(
 
 		getSyncTargetFromKey: func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error) {
 			syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return nil, false, err
+			}
+			if errors.IsNotFound(err) {
+				return nil, false, nil
 			}
 			// This shouldn't happen, more than one SyncTarget with the same key means a hash collision.
 			if len(syncTargets) > 1 {
@@ -349,7 +353,20 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	unstr = unstr.DeepCopy()
 
-	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
+	actualGVR := gvr
+	if actualVersion := unstr.GetAnnotations()[handlers.KCPOriginalAPIVersionAnnotation]; actualVersion != "" {
+		actualGV, err := schema.ParseGroupVersion(actualVersion)
+		if err != nil {
+			logger.Error(err, "error parsing original API version annotation", "annotation", actualVersion)
+			// Returning an error and reprocessing will presumably result in the same parse error, so just return
+			// nil here.
+			return nil
+		}
+		actualGVR.Version = actualGV.Version
+		logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
+	}
+
+	return c.reconcileResource(ctx, lclusterName, unstr, actualGVR)
 }
 
 func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {

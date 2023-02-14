@@ -23,11 +23,9 @@ import (
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -70,17 +68,7 @@ func BindToExport(
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	framework.Eventually(t, func() (bool, string) {
-		b, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-		require.NoError(t, err, "error getting APIBinding %s|%s", bindingClusterName, binding.Name)
-
-		return conditions.IsTrue(b, apisv1alpha1.InitialBindingCompleted), toYAML(t, b.Status.Conditions)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-}
-
-func toYAML(t *testing.T, obj interface{}) string {
-	t.Helper()
-	bs, err := yaml.Marshal(obj)
-	require.NoError(t, err, "error converting to YAML")
-	return string(bs)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+	}, framework.Is(apisv1alpha1.InitialBindingCompleted))
 }

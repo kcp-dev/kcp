@@ -19,7 +19,6 @@ package options
 import (
 	"path"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
@@ -56,7 +55,7 @@ func (o *APIExport) Validate(flagPrefix string) []error {
 func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -67,14 +66,10 @@ func (o *APIExport) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 	deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(config)))
 	if err != nil {
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, deepSARClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), config, kubeClusterClient, deepSARClient, kcpClusterClient, cachedKcpInformers)
 }

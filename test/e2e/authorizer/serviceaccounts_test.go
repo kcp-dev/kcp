@@ -153,8 +153,10 @@ func TestServiceAccounts(t *testing.T) {
 	}
 	for i, ttc := range testCases {
 		i := i
+		ttc := ttc
 		t.Run(ttc.name, func(t *testing.T) {
 			t.Parallel()
+
 			saRestConfig := framework.ConfigWithToken(ttc.token(t), server.BaseConfig(t))
 			saKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(saRestConfig)
 			require.NoError(t, err)

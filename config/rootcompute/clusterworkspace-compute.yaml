@@ -9,3 +9,7 @@ spec:
   type:
     name: universal
     path: root
+  location:
+    selector:
+      matchLabels:
+        name: root

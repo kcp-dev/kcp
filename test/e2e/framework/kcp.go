@@ -40,6 +40,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +55,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
@@ -147,8 +150,15 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		// Use a persistent server
 
 		t.Logf("shared kcp server will target configuration %q", kubeconfig)
-		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.RootShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
+		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.ShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		t.Cleanup(cancel)
+		err = WaitForReady(ctx, t, server.RootShardSystemMasterBaseConfig(t), true)
+		require.NoError(t, err, "error waiting for readiness")
+
 		return server
 	}
 
@@ -174,6 +184,28 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		DataDir:     dataDir,
 	})
 	return f.Servers[serverName]
+}
+
+func GatherMetrics(ctx context.Context, t *testing.T, server RunningServer, directory string) {
+	cfg := server.RootShardSystemMasterBaseConfig(t)
+	client, err := kcpclientset.NewForConfig(cfg)
+	if err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error creating metrics client for server %s: %v", server.Name(), err)
+	}
+
+	raw, err := client.RESTClient().Get().RequestURI("/metrics").DoRaw(ctx)
+	if err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error getting metrics for server %s: %v", server.Name(), err)
+		return
+	}
+
+	metricsFile := filepath.Join(directory, fmt.Sprintf("%s-metrics.txt", server.Name()))
+	if err := os.WriteFile(metricsFile, raw, 0o644); err != nil {
+		// Don't fail the test if we couldn't scrape metrics
+		t.Logf("error writing metrics file %s: %v", metricsFile, err)
+	}
 }
 
 func CreateClientCA(t *testing.T) (string, string) {
@@ -231,7 +263,11 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 		// Wait for the server to become ready
 		go func(s *kcpServer, i int) {
 			defer wg.Done()
-			err := s.Ready(!cfgs[i].RunInProcess)
+
+			err := s.loadCfg()
+			require.NoError(t, err, "error loading config")
+
+			err = WaitForReady(s.ctx, t, s.RootShardSystemMasterBaseConfig(t), !cfgs[i].RunInProcess)
 			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
 		}(srv, i)
 	}
@@ -240,6 +276,15 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 	if t.Failed() {
 		t.Fatal("Fixture setup failed: one or more servers did not become ready")
 	}
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
+		defer cancel()
+
+		for _, server := range servers {
+			GatherMetrics(ctx, t, server, server.artifactDir)
+		}
+	})
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
@@ -266,6 +311,7 @@ type RunningServer interface {
 	RawConfig() (clientcmdapi.Config, error)
 	BaseConfig(t *testing.T) *rest.Config
 	RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config
+	ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 	ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config
 }
@@ -530,6 +576,15 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
 	cmd := exec.Command(commandLine[0], commandLine[1:]...)
+
+	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
+	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
+	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
+	// Thanks to
+	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
+	// the idea!
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
 	if err != nil {
 		cleanup()
@@ -562,9 +617,9 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	}
 
 	c.t.Cleanup(func() {
-		// Ensure child process is killed on cleanup
-		err := cmd.Process.Signal(syscall.SIGTERM)
-		if err != nil {
+		// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
+		// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
 			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
 		}
 	})
@@ -672,6 +727,16 @@ func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
+// ShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context of a given shard. Client-side throttling is disabled (QPS=-1).
+func (c *kcpServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
+	t.Helper()
+
+	if shard != corev1alpha1.RootShard {
+		t.Fatalf("only root shard is supported for now")
+	}
+	return c.RootShardSystemMasterBaseConfig(t)
+}
+
 // RawConfig exposes a copy of the client config for this server.
 func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	c.lock.Lock()
@@ -680,50 +745,6 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 		return clientcmdapi.Config{}, fmt.Errorf("programmer error: kcpServer.RawConfig() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
 	return c.cfg.RawConfig()
-}
-
-// Ready blocks until the server is healthy and ready. Before returning,
-// goroutines are started to ensure that the test is failed if the server
-// does not remain so.
-func (c *kcpServer) Ready(keepMonitoring bool) error {
-	if err := c.loadCfg(); err != nil {
-		return err
-	}
-	if c.ctx.Err() != nil {
-		// cancelling the context will preempt derivative calls but not this
-		// main Ready() body, so we check before continuing that we are live
-		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
-	}
-	cfg, err := c.config("base")
-	if err != nil {
-		return fmt.Errorf("failed to read client configuration: %w", err)
-	}
-	if cfg.NegotiatedSerializer == nil {
-		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
-	}
-	client, err := rest.UnversionedRESTClientFor(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create unversioned client: %w", err)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			defer wg.Done()
-			c.waitForEndpoint(client, endpoint)
-		}(endpoint)
-	}
-	wg.Wait()
-
-	if keepMonitoring {
-		for _, endpoint := range []string{"/livez", "/readyz"} {
-			go func(endpoint string) {
-				c.monitorEndpoint(client, endpoint)
-			}(endpoint)
-		}
-	}
-	return nil
 }
 
 func (c *kcpServer) loadCfg() error {
@@ -754,55 +775,6 @@ func (c *kcpServer) loadCfg() error {
 		return fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 	return nil
-}
-
-func (c *kcpServer) waitForEndpoint(client *rest.RESTClient, endpoint string) {
-	var lastError error
-	if err := wait.PollImmediateWithContext(c.ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
-		req := rest.NewRequest(client).RequestURI(endpoint)
-		_, err := req.Do(ctx).Raw()
-		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
-			return false, nil
-		}
-
-		c.t.Logf("success contacting %s", req.URL())
-		return true, nil
-	}); err != nil && lastError != nil {
-		c.t.Error(lastError)
-	}
-}
-
-func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
-	// we need a shorter deadline than the server, or else:
-	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
-	ctx := c.ctx
-	if deadline, ok := c.t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(c.ctx, deadline.Add(-20*time.Second))
-		ctx = deadlinedCtx
-		c.t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
-	var errCount int
-	errs := sets.NewString()
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
-		if errors.Is(err, context.Canceled) || c.ctx.Err() != nil {
-			return
-		}
-		// if we're noticing an error, record it and fail the test if things stay failed for two consecutive polls
-		if err != nil {
-			errCount++
-			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
-			if errCount == 2 {
-				c.t.Errorf("error contacting %s: %v", endpoint, errs.List())
-			}
-		}
-		// otherwise, reset the counters
-		errCount = 0
-		if errs.Len() > 0 {
-			errs = sets.NewString()
-		}
-	}, 100*time.Millisecond)
 }
 
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
@@ -843,11 +815,12 @@ func LoadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig,
 }
 
 type unmanagedKCPServer struct {
-	name                    string
-	kubeconfigPath          string
-	rootShardKubeconfigPath string
-	cfg, rootShardCfg       clientcmd.ClientConfig
-	clientCADir             string
+	name                 string
+	kubeconfigPath       string
+	shardKubeconfigPaths map[string]string
+	cfg                  clientcmd.ClientConfig
+	shardCfgs            map[string]clientcmd.ClientConfig
+	clientCADir          string
 }
 
 func (s *unmanagedKCPServer) ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config {
@@ -859,24 +832,29 @@ func (s *unmanagedKCPServer) ClientCAUserConfig(t *testing.T, config *rest.Confi
 // kubeconfig is expected to exist prior to running tests against it,
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
-func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath, clientCADir string) (RunningServer, error) {
+func newPersistentKCPServer(name, kubeconfigPath string, shardKubeconfigPaths map[string]string, clientCADir string) (RunningServer, error) {
 	cfg, err := LoadKubeConfig(kubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
 
-	rootShardCfg, err := LoadKubeConfig(rootShardKubeconfigPath, "base")
-	if err != nil {
-		return nil, err
+	shardCfgs := map[string]clientcmd.ClientConfig{}
+	for shard, path := range shardKubeconfigPaths {
+		shardCfg, err := LoadKubeConfig(path, "base")
+		if err != nil {
+			return nil, err
+		}
+
+		shardCfgs[shard] = shardCfg
 	}
 
 	return &unmanagedKCPServer{
-		name:                    name,
-		kubeconfigPath:          kubeconfigPath,
-		rootShardKubeconfigPath: rootShardKubeconfigPath,
-		cfg:                     cfg,
-		rootShardCfg:            rootShardCfg,
-		clientCADir:             clientCADir,
+		name:                 name,
+		kubeconfigPath:       kubeconfigPath,
+		shardKubeconfigPaths: shardKubeconfigPaths,
+		cfg:                  cfg,
+		shardCfgs:            shardCfgs,
+		clientCADir:          clientCADir,
 	}, nil
 }
 
@@ -885,7 +863,7 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath, clien
 func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Path, syncTargetName string) RunningServer {
 	t.Helper()
 
-	path, ws := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
+	path, ws := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"), TODO_WithoutMultiShardSupport())
 	logicalClusterName := logicalcluster.Name(ws.Spec.Cluster)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
@@ -905,7 +883,9 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "pods"},
 		metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
+		metav1.GroupResource{Group: "networking.k8s.io", Resource: "networkpolicies"},
 	)
 
 	// Wait for the required crds to become ready
@@ -927,6 +907,28 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		_, err = kubeClient.CoreV1().Endpoints("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("error seen waiting for endpoint crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for pods crd to become active: %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	// Install the kubernetes endpoint in the default namespace. The DNS network policies reference this endpoint.
+	require.Eventually(t, func() bool {
+		_, err = kubeClient.CoreV1().Endpoints("default").Create(ctx, &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "kubernetes",
+			},
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{IP: "172.19.0.2:6443"}},
+			}},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			t.Logf("failed to create the kubernetes endpoint: %v", err)
 			return false
 		}
 		return true
@@ -969,7 +971,19 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	t.Helper()
 
-	raw, err := s.rootShardCfg.RawConfig()
+	return s.ShardSystemMasterBaseConfig(t, corev1alpha1.RootShard)
+}
+
+// ShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context of the given shard. Client-side throttling is disabled (QPS=-1).
+func (s *unmanagedKCPServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
+	t.Helper()
+
+	cfg, found := s.shardCfgs[shard]
+	if !found {
+		t.Fatalf("kubeconfig for shard %q not found", shard)
+	}
+
+	raw, err := cfg.RawConfig()
 	require.NoError(t, err)
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
@@ -991,4 +1005,86 @@ func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Obj
 func NoGoRunEnvSet() bool {
 	envSet, _ := strconv.ParseBool(os.Getenv("NO_GORUN"))
 	return envSet
+}
+
+func WaitForReady(ctx context.Context, t *testing.T, cfg *rest.Config, keepMonitoring bool) error {
+	t.Logf("waiting for readiness for server at %s", cfg.Host)
+
+	cfg = rest.CopyConfig(cfg)
+	if cfg.NegotiatedSerializer == nil {
+		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+
+	client, err := rest.UnversionedRESTClientFor(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create unversioned client: %w", err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	for _, endpoint := range []string{"/livez", "/readyz"} {
+		go func(endpoint string) {
+			defer wg.Done()
+			waitForEndpoint(ctx, t, client, endpoint)
+		}(endpoint)
+	}
+	wg.Wait()
+	t.Logf("server at %s is ready", cfg.Host)
+
+	if keepMonitoring {
+		for _, endpoint := range []string{"/livez", "/readyz"} {
+			go func(endpoint string) {
+				monitorEndpoint(ctx, t, client, endpoint)
+			}(endpoint)
+		}
+	}
+	return nil
+}
+
+func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		_, err := req.Do(ctx).Raw()
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
+			return false, nil
+		}
+
+		t.Logf("success contacting %s", req.URL())
+		return true, nil
+	}); err != nil && lastError != nil {
+		t.Error(lastError)
+	}
+}
+
+func monitorEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	// we need a shorter deadline than the server, or else:
+	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
+	if deadline, ok := t.Deadline(); ok {
+		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-20*time.Second))
+		ctx = deadlinedCtx
+		t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
+	}
+	var errCount int
+	errs := sets.NewString()
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+			return
+		}
+		// if we're noticing an error, record it and fail the test if things stay failed for two consecutive polls
+		if err != nil {
+			errCount++
+			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
+			if errCount == 2 {
+				t.Errorf("error contacting %s: %v", endpoint, errs.List())
+			}
+		}
+		// otherwise, reset the counters
+		errCount = 0
+		if errs.Len() > 0 {
+			errs = sets.NewString()
+		}
+	}, 100*time.Millisecond)
 }

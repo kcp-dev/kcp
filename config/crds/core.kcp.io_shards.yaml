@@ -18,6 +18,10 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - description: The region this workspace is in
+      jsonPath: .metadata.labels['region']
+      name: Region
+      type: string
     - description: Type URL to directly connect to the shard
       jsonPath: .spec.baseURL
       name: URL

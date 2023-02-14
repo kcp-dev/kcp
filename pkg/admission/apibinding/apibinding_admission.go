@@ -57,7 +57,11 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.apiExportIndexer, path, name)
+				export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.apiExportIndexer, path, name)
+				if apierrors.IsNotFound(err) {
+					return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.cacheAPIExportIndexer, path, name)
+				}
+				return export, err
 			}
 
 			return p, nil
@@ -69,7 +73,8 @@ type apiBindingAdmission struct {
 
 	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 
-	apiExportIndexer cache.Indexer
+	apiExportIndexer      cache.Indexer
+	cacheAPIExportIndexer cache.Indexer
 
 	deepSARClient    kcpkubernetesclientset.ClusterInterface
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -278,6 +283,12 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 	if o.deepSARClient == nil {
 		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
 	}
+	if o.apiExportIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs an APIExport indexer")
+	}
+	if o.cacheAPIExportIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a cache APIExport indexer")
+	}
 	return nil
 }
 
@@ -289,8 +300,17 @@ func (o *apiBindingAdmission) SetDeepSARClient(client kcpkubernetesclientset.Clu
 
 func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	apiExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
+	cacheAPIExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
-		return apiExportsReady()
+		return apiExportsReady() && cacheAPIExportsReady()
 	})
 	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	o.cacheAPIExportIndexer = global.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+
+	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+	indexers.AddIfNotPresentOrDie(global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }

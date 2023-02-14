@@ -72,7 +72,7 @@ func filteredLogicalClusterReadOnlyRestStorage(
 
 	return registry.ProvideReadOnlyRestStorage(
 		ctx,
-		clusterClient,
+		func(ctx context.Context) (kcpdynamic.ClusterInterface, error) { return clusterClient, nil },
 		registry.WithStaticLabelSelector(requirements),
 		nil,
 	)
@@ -130,7 +130,7 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			func(ctx context.Context) (kcpdynamic.ClusterInterface, error) { return clusterClient, nil },
 			nil,
 			&registry.StorageWrappers{
 				registry.WithStaticLabelSelector(requirements),

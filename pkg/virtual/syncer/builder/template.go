@@ -38,7 +38,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
@@ -54,8 +53,7 @@ import (
 type templateProvider struct {
 	kubeClusterClient    kcpkubernetesclientset.ClusterInterface
 	dynamicClusterClient kcpdynamic.ClusterInterface
-	kcpClusterClient     kcpclientset.ClusterInterface
-	wildcardKcpInformers kcpinformers.SharedInformerFactory
+	cachedKCPInformers   kcpinformers.SharedInformerFactory
 	rootPathPrefix       string
 }
 
@@ -70,8 +68,8 @@ type templateParameters struct {
 	storageWrapperBuilder func(labels.Requirements) forwardingregistry.StorageWrapper
 }
 
-func (p *templateProvider) newTemplate(parameters templateParameters) template {
-	return template{
+func (p *templateProvider) newTemplate(parameters templateParameters) *template {
+	return &template{
 		templateProvider:   *p,
 		templateParameters: parameters,
 		readyCh:            make(chan struct{}),
@@ -120,7 +118,7 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 
 	// In order to avoid conflicts with reusing deleted synctarget names, let's make sure that the synctarget name and synctarget UID match, if not,
 	// that likely means that a syncer is running with a stale synctarget that got deleted.
-	syncTarget, err := t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Cluster(clusterName).Lister().Get(syncTargetName)
+	syncTarget, err := t.cachedKCPInformers.Workload().V1alpha1().SyncTargets().Cluster(clusterName).Lister().Get(syncTargetName)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", path, syncTargetName, err))
 		return
@@ -205,10 +203,9 @@ func (t *template) authorize(ctx context.Context, a authorizer.Attributes) (auth
 func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 	apiReconciler, err := apireconciler.NewAPIReconciler(
 		t.virtualWorkspaceName,
-		t.kcpClusterClient,
-		t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
-		t.wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
-		t.wildcardKcpInformers.Apis().V1alpha1().APIExports(),
+		t.cachedKCPInformers.Workload().V1alpha1().SyncTargets(),
+		t.cachedKCPInformers.Apis().V1alpha1().APIResourceSchemas(),
+		t.cachedKCPInformers.Apis().V1alpha1().APIExports(),
 		func(syncTargetClusterName logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, syncTargetName)
 			requirements, selectable := labels.SelectorFromSet(map[string]string{
@@ -244,9 +241,9 @@ func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConf
 		defer close(t.readyCh)
 
 		for name, informer := range map[string]cache.SharedIndexInformer{
-			"synctargets":        t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
-			"apiresourceschemas": t.wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-			"apiexports":         t.wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+			"synctargets":        t.cachedKCPInformers.Workload().V1alpha1().SyncTargets().Informer(),
+			"apiresourceschemas": t.cachedKCPInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+			"apiexports":         t.cachedKCPInformers.Apis().V1alpha1().APIExports().Informer(),
 		} {
 			if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
 				klog.Background().Error(nil, "informer not synced")
@@ -263,7 +260,7 @@ func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConf
 	return apiReconciler, nil
 }
 
-func (t template) buildVirtualWorkspace() *virtualworkspacesdynamic.DynamicVirtualWorkspace {
+func (t *template) buildVirtualWorkspace() *virtualworkspacesdynamic.DynamicVirtualWorkspace {
 	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver:          framework.RootPathResolverFunc(t.resolveRootPath),
 		Authorizer:                authorizer.AuthorizerFunc(t.authorize),

@@ -19,7 +19,9 @@ package cmd
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
@@ -38,6 +40,8 @@ import (
 const numThreads = 2
 
 func NewSyncerCommand() *cobra.Command {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	options := synceroptions.NewOptions()
 	syncerCommand := &cobra.Command{
 		Use:   "syncer",

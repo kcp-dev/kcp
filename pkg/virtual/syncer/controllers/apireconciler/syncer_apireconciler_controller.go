@@ -37,7 +37,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -59,7 +58,6 @@ type AllowedAPIfilterFunc func(apiGroupResource schema.GroupResource) bool
 
 func NewAPIReconciler(
 	virtualWorkspaceName string,
-	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
@@ -70,8 +68,6 @@ func NewAPIReconciler(
 
 	c := &APIReconciler{
 		virtualWorkspaceName: virtualWorkspaceName,
-
-		kcpClusterClient: kcpClusterClient,
 
 		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
@@ -128,8 +124,6 @@ func NewAPIReconciler(
 type APIReconciler struct {
 	virtualWorkspaceName string
 
-	kcpClusterClient kcpclientset.ClusterInterface
-
 	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
 	syncTargetIndexer cache.Indexer
 
@@ -165,15 +159,15 @@ func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger, lo
 		return
 	}
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(IndexSyncTargetsByExport, key)
+	syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](c.syncTargetIndexer, IndexSyncTargetsByExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range synctargets {
-		logger := logging.WithObject(logger, obj.(*workloadv1alpha1.SyncTarget))
-		c.enqueueSyncTarget(obj, logger, " because of APIExport")
+	for _, syncTarget := range syncTargets {
+		logger := logging.WithObject(logger, syncTarget)
+		c.enqueueSyncTarget(syncTarget, logger, " because of APIExport")
 	}
 }
 
@@ -185,15 +179,15 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	apiExports, err := c.apiExportIndexer.ByIndex(IndexAPIExportsByAPIResourceSchema, key)
+	apiExports, err := indexers.ByIndex[*apisv1alpha1.APIExport](c.apiExportIndexer, IndexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range apiExports {
-		logger := logging.WithObject(logger, obj.(*apisv1alpha1.APIExport))
-		c.enqueueAPIExport(obj, logger, " because of APIResourceSchema")
+	for _, apiExport := range apiExports {
+		logger := logging.WithObject(logger, apiExport)
+		c.enqueueAPIExport(apiExport, logger, " because of APIResourceSchema")
 	}
 }
 

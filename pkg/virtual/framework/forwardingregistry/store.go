@@ -65,6 +65,8 @@ type Strategy interface {
 	rest.ResetFieldsStrategy
 }
 
+type DynamicClusterClientFunc func(ctx context.Context) (kcpdynamic.ClusterInterface, error)
+
 func DefaultDynamicDelegatedStoreFuncs(
 	factory FactoryFunc,
 	listFactory ListFactoryFunc,
@@ -74,13 +76,13 @@ func DefaultDynamicDelegatedStoreFuncs(
 	resource schema.GroupVersionResource,
 	apiExportIdentityHash string,
 	categories []string,
-	dynamicClusterClient kcpdynamic.ClusterInterface,
+	dynamicClusterClientFunc DynamicClusterClientFunc,
 	subResources []string,
 	patchConflictRetryBackoff wait.Backoff,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
-	listerWatcher := listerWatcherGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	client := clientGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	listerWatcher := listerWatcherGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -263,16 +265,22 @@ func DefaultDynamicDelegatedStoreFuncs(
 	return s
 }
 
-func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+func clientGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
 			return nil, apiErrorBadRequest(err)
 		}
+
 		gvr := resource
 		clusterName := cluster.Name
 		if apiExportIdentityHash != "" {
 			gvr.Resource += ":" + apiExportIdentityHash
+		}
+
+		dynamicClusterClient, err := dynamicClusterClientFunc(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error generating dynamic client: %w", err)
 		}
 
 		if namespaceScoped {
@@ -292,7 +300,7 @@ type listerWatcher interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
-func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (listerWatcher, error) {
+func listerWatcherGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (listerWatcher, error) {
 	return func(ctx context.Context) (listerWatcher, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
@@ -303,6 +311,11 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 			gvr.Resource += ":" + apiExportIdentityHash
 		}
 		namespace, namespaceSet := genericapirequest.NamespaceFrom(ctx)
+
+		dynamicClusterClient, err := dynamicClusterClientFunc(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error generating dynamic client: %w", err)
+		}
 
 		switch {
 		case cluster.Wildcard:

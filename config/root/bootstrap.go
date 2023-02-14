@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 //go:embed *.yaml
@@ -34,13 +33,19 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, homeWorkspaceCreatorGroups []string, batteriesIncluded sets.String) error {
+func Bootstrap(
+	ctx context.Context,
+	rootDiscoveryClient discovery.DiscoveryInterface,
+	rootDynamicClient dynamic.Interface,
+	homeWorkspaceCreatorGroups []string,
+	batteriesIncluded sets.String,
+) error {
 	homeWorkspaceCreatorGroupReplacement := ""
 	for _, group := range homeWorkspaceCreatorGroups {
 		homeWorkspaceCreatorGroupReplacement += `
-- apiGroup: rbac.authorization.k8s.io
-  kind: Group
-  name: ` + group
+ - apiGroup: rbac.authorization.k8s.io
+   kind: Group
+   name: ` + group
 	}
 	if homeWorkspaceCreatorGroupReplacement == "" {
 		homeWorkspaceCreatorGroupReplacement = "[]"

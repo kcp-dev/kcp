@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -187,6 +188,18 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil, fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
 
+	if actualVersion := upstreamObj.GetAnnotations()[handlers.KCPOriginalAPIVersionAnnotation]; actualVersion != "" {
+		actualGV, err := schema.ParseGroupVersion(actualVersion)
+		if err != nil {
+			logger.Error(err, "error parsing original API version annotation", "annotation", actualVersion)
+			// Returning an error and reprocessing will presumably result in the same parse error, so just return
+			// nil here.
+			return nil, nil
+		}
+		gvr.Version = actualGV.Version
+		logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
+	}
+
 	if downstreamNamespace != "" {
 		if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
 			return nil, err
@@ -206,7 +219,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// Make sure the DNS nameserver for the current workspace is up and running
-	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, clusterName); err != nil {
+	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, desiredNSLocator); err != nil {
 		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
 		return nil, err
 	} else if !dnsUpAndReady && gvr == deploymentGVR {
@@ -257,12 +270,16 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		shared.NamespaceLocatorAnnotation: string(b),
 	})
 
-	if upstreamObj.GetLabels() != nil {
-		newNamespace.SetLabels(map[string]string{
-			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
-		})
+	desiredTenantID, err := shared.GetTenantID(desiredNSLocator)
+	if err != nil {
+		return err
 	}
+
+	newNamespace.SetLabels(map[string]string{
+		// TODO: this should be set once at syncer startup and propagated around everywhere.
+		workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
+		shared.TenantIDLabel:                            desiredTenantID,
+	})
 
 	namespaceLister, err := c.getDownstreamLister(namespaceGVR)
 	if err != nil {
@@ -296,6 +313,15 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	}
 	if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
 		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
+	}
+
+	// Handle kcp upgrades by checking the tenant ID is set and correct
+	if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
+		labels := unstrNamespace.GetLabels()
+		labels[shared.TenantIDLabel] = desiredTenantID
+		unstrNamespace.SetLabels(labels)
+		_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
+		return err
 	}
 
 	return nil

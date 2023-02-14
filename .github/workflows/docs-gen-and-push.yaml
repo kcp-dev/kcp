@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -26,6 +26,7 @@ jobs:
     name: Generate and push docs
     runs-on: ubuntu-latest
     steps:
+      # checkout main branch and gh-pages branch on different path
       - uses: actions/checkout@v3
         with:
           submodules: true # Fetch Hugo themes (true OR recursive)
@@ -38,6 +39,8 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: v1.19
+
+      # docsy requires extended version of hugo
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v2
         with:
@@ -50,7 +53,7 @@ jobs:
         with:
           node-version: "16"
       - name: Cache dependencies
-        uses: actions/cache@v3.2.3
+        uses: actions/cache@v3.2.5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -86,14 +89,17 @@ jobs:
       # config.toml file and mark it as archived, since the tag is also a latest main, the same
       # content is rebuilt using updated config and folder name. The folder thus generated is saved
       # as archive in gh-pages branch.
+      # TODO: refactor this section to a shell script
       - name: Update version info on tag for archive
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cd kcp/docs
+          IFS='/'
+          read -ra arr <<< "${{ github.ref }}"
           cat <<EOF > temp.txt
           #version-start
           archived_version = true
-          version = "${{ github.ref }}"
+          version = "${arr[2]}"
           EOF
           ed config.toml<<EOF
           /^#version-start
@@ -102,23 +108,27 @@ jobs:
           w
           q
           EOF
-          mkdir -p content/en/${{ github.ref }}
-          mv content/en/main content/en/${{ github.ref }}
+          mv content/en/main content/en/${arr[2]}
           hugo --minify
-          rsync -av public/${{ github.ref }} ../../docs
+          rsync -av public/${arr[2]} ../../docs
 
+      # push older version HTML renders on gh-pages to be included in docs
       - name: Push to gh-pages on tag for archive
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cd docs
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Static archive of docs for ${{ github.ref }}"
-          git push
+          git push origin gh-pages
 
+      # copy back older versions to the current docs
       - name: Copy everything from archive to docs
-        run: rsync -av docs public
+        run: |
+          if ls docs/v* >/dev/null; then
+            rsync -av docs/v* public
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v1

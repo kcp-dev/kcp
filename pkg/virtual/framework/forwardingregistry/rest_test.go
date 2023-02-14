@@ -112,7 +112,7 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 		nil,
 		table,
 		nil,
-		clusterClient,
+		func(ctx context.Context) (kcpdynamic.ClusterInterface, error) { return clusterClient, nil },
 		patchConflictRetryBackoff,
 		forwardingregistry.StorageWrapperFunc(func(_ schema.GroupResource, store *forwardingregistry.StoreFuncs) {
 		}))

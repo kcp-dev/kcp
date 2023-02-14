@@ -29,7 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
@@ -42,17 +42,23 @@ const (
 
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored
 // on the LogicalCluster object. Service account by-pass this.
-func NewRequiredGroupsAuthorizer(logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewRequiredGroupsAuthorizer(local, global corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &requiredGroupsAuthorizer{
-		getLogicalCluster: func(logicalCluster logicalcluster.Name) (*v1alpha1.LogicalCluster, error) {
-			return logicalClusterLister.Cluster(logicalCluster).Get(v1alpha1.LogicalClusterName)
+		getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			obj, err := local.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			} else if errors.IsNotFound(err) {
+				return global.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+			}
+			return obj, nil
 		},
 		delegate: delegate,
 	}
 }
 
 type requiredGroupsAuthorizer struct {
-	getLogicalCluster func(logicalCluster logicalcluster.Name) (*v1alpha1.LogicalCluster, error)
+	getLogicalCluster func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	delegate          authorizer.Authorizer
 }
 

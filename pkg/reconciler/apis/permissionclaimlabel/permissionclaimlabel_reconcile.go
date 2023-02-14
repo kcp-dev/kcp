@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -115,6 +116,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			}
 			continue
 		}
+		claimLogger = claimLogger.WithValues("gvr", gvr)
 
 		claimLogger.V(4).Info("listing resources")
 		objs, err := informer.Lister().ByCluster(clusterName).List(labels.Everything())
@@ -145,12 +147,25 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				continue
 			}
 
+			actualGVR := gvr
+			if actualVersion := u.GetAnnotations()[handlers.KCPOriginalAPIVersionAnnotation]; actualVersion != "" {
+				actualGV, err := schema.ParseGroupVersion(actualVersion)
+				if err != nil {
+					logger.Error(err, "error parsing original API version annotation", "annotation", actualVersion)
+					claimErrs = append(claimErrs, fmt.Errorf("error parsing original API version annotation %q: %w", actualVersion, err))
+					continue
+				}
+				actualGVR.Version = actualGV.Version
+				logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
+			}
+			logger = logger.WithValues("actualGVR", actualGVR)
+
 			logger.V(4).Info("patching to get claim labels updated")
 
 			// Empty patch, allowing the admission plugin to update the resource to the correct labels
-			err = c.patchGenericObject(ctx, u, gvr, clusterName.Path())
+			err = c.patchGenericObject(ctx, u, actualGVR, clusterName.Path())
 			if err != nil {
-				patchErr := fmt.Errorf("error patching %q %s|%s/%s: %w", gvr, clusterName, u.GetNamespace(), u.GetName(), err)
+				patchErr := fmt.Errorf("error patching %q %s|%s/%s: %w", actualGVR, clusterName, u.GetNamespace(), u.GetName(), err)
 				claimErrs = append(claimErrs, patchErr)
 				continue
 			}

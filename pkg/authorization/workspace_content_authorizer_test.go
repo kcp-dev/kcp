@@ -207,7 +207,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			ctx := context.Background()
 
-			kubeClient := kcpfakeclient.NewSimpleClientset(
+			localKubeClient := kcpfakeclient.NewSimpleClientset(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -303,45 +303,50 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					},
 				},
 			)
-			kubeShareInformerFactory := kcpkubernetesinformers.NewSharedInformerFactory(kubeClient, controller.NoResyncPeriodFunc())
-			informers := []cache.SharedIndexInformer{
-				kubeShareInformerFactory.Rbac().V1().Roles().Informer(),
-				kubeShareInformerFactory.Rbac().V1().RoleBindings().Informer(),
-				kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer(),
-				kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer(),
-			}
+			globalKubeClient := kcpfakeclient.NewSimpleClientset() // TODO(sttts): add some global fixtures
+			local := kcpkubernetesinformers.NewSharedInformerFactory(localKubeClient, controller.NoResyncPeriodFunc())
+			global := kcpkubernetesinformers.NewSharedInformerFactory(globalKubeClient, controller.NoResyncPeriodFunc())
 			var syncs []cache.InformerSynced
-			for i := range informers {
-				go informers[i].Run(ctx.Done())
-				syncs = append(syncs, informers[i].HasSynced)
+			for _, inf := range []cache.SharedIndexInformer{
+				local.Rbac().V1().ClusterRoles().Informer(),
+				local.Rbac().V1().ClusterRoleBindings().Informer(),
+				global.Rbac().V1().ClusterRoles().Informer(),
+				global.Rbac().V1().ClusterRoleBindings().Informer(),
+			} {
+				go inf.Run(ctx.Done())
+				syncs = append(syncs, inf.HasSynced)
 			}
 			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
-			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+			localIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseScheduling},
 			}))
-			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseInitializing},
 			}))
-			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
-			lister := corev1alpha1listers.NewLogicalClusterClusterLister(indexer)
+			localLogicalClusters := corev1alpha1listers.NewLogicalClusterClusterLister(localIndexer)
+
+			globalIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+			// TODO(sttts): add global fixtures
+			globalLogicalClusters := corev1alpha1listers.NewLogicalClusterClusterLister(globalIndexer)
 
 			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow, reason: "allowed"}
-			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)
+			w := NewWorkspaceContentAuthorizer(local, global, localLogicalClusters, globalLogicalClusters, recordingAuthorizer)
 
 			requestedCluster := request.Cluster{
 				Name: logicalcluster.Name(tt.requestedWorkspace),

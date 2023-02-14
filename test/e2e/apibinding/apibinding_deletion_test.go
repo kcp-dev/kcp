@@ -103,10 +103,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return true, ""
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Should have finalizer added in apibinding")
@@ -181,14 +178,9 @@ func TestAPIBindingDeletion(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("apibinding should have BindingResourceDeleteSuccess with false status")
-	require.Eventually(t, func() bool {
-		apibinding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-
-		return conditions.IsFalse(apibinding, apisv1alpha1.BindingResourceDeleteSuccess)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, framework.IsNot(apisv1alpha1.BindingResourceDeleteSuccess))
 
 	t.Logf("ensure resource does not have create verb when deleting")
 	require.Eventually(t, func() bool {

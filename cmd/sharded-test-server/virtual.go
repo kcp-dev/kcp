@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"io"
 	"net"
@@ -44,6 +45,9 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+//go:embed *.yaml
+var embeddedResources embed.FS
+
 type headWriter interface {
 	io.Writer
 	StopOut()
@@ -59,7 +63,7 @@ type VirtualWorkspace struct {
 	writer       headWriter
 }
 
-func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA) (*VirtualWorkspace, error) {
+func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA, cacheServerConfigPath string) (*VirtualWorkspace, error) {
 	logger := klog.FromContext(ctx)
 
 	// create serving cert
@@ -128,14 +132,34 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	authenticationKubeconfigPath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", index), "admin.kubeconfig")
 	clientCAFilePath := filepath.Join(workDirPath, ".kcp", "client-ca.crt")
 
-	args := []string{}
+	// write audit policy
+	bs, err := embeddedResources.ReadFile("audit-policy.yaml")
+	if err != nil {
+		return nil, err
+	}
+	auditPolicyFile := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", index), "audit-policy.yaml")
+	if err := os.WriteFile(auditPolicyFile, bs, 0644); err != nil {
+		return nil, err
+	}
+
+	var args []string
 	args = append(args,
 		fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
+		fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath),
 		fmt.Sprintf("--authentication-kubeconfig=%s", authenticationKubeconfigPath),
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
 		fmt.Sprintf("--tls-private-key-file=%s", servingKeyFile),
 		fmt.Sprintf("--tls-cert-file=%s", servingCertFile),
 		fmt.Sprintf("--secure-port=%s", virtualWorkspacePort(index)),
+		"--audit-log-maxsize=1024",
+		"--audit-log-mode=batch",
+		"--audit-log-batch-max-wait=1s",
+		"--audit-log-batch-max-size=1000",
+		"--audit-log-batch-buffer-size=10000",
+		"--audit-log-batch-throttle-burst=15",
+		"--audit-log-batch-throttle-enable=true",
+		"--audit-log-batch-throttle-qps=10",
+		fmt.Sprintf("--audit-policy-file=%s", auditPolicyFile),
 	)
 
 	return &VirtualWorkspace{
@@ -154,6 +178,13 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		lineprefix.Color(color.New(color.FgHiYellow)),
 	)
 
+	logFilePath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.log", v.index))
+	auditFilePath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", v.index), "audit.log")
+	if v.logDirPath != "" {
+		logFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d.log", v.index))
+		auditFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d-audit.log", v.index))
+	}
+
 	commandLine := framework.DirectOrGoRunCommand("virtual-workspaces")
 	commandLine = append(commandLine, v.args...)
 	commandLine = append(
@@ -163,15 +194,11 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		"--requestheader-group-headers=X-Remote-Group",
 		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(v.workDirPath, ".kcp/requestheader-ca.crt")),
 		"--v=4",
+		"--audit-log-path", auditFilePath,
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
-
-	logFilePath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.log", v.index))
-	if v.logDirPath != "" {
-		logFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d.log", v.index))
-	}
 
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
 		return err

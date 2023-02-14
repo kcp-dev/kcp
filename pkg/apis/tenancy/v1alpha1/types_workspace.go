@@ -111,7 +111,8 @@ const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp,shortName=ws
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
+// +kubebuilder:printcolumn:name="Region",type=string,JSONPath=`.metadata.labels['region']`,description="The region this workspace is in"
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.io/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Workspace struct {
@@ -150,7 +151,7 @@ type WorkspaceSpec struct {
 	// If the no location is specified, an arbitrary location is chosen.
 	//
 	// +optional
-	Location *WorkspaceLocation `json:"shard,omitempty"`
+	Location *WorkspaceLocation `json:"location,omitempty"`
 
 	// cluster is the name of the logical cluster this workspace is stored under.
 	//

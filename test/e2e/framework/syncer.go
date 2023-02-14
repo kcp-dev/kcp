@@ -33,6 +33,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -52,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -127,18 +130,23 @@ func WithDownstreamPreparation(prepare func(config *rest.Config, isFakePCluster 
 	}
 }
 
-// Start starts a new syncer against the given upstream kcp workspace. Whether the syncer run
-// in-process or deployed on a pcluster will depend whether --pcluster-kubeconfig and
-// --syncer-image are supplied to the test invocation.
-func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
+// CreateSyncTargetAndApplyToDownstream creates a SyncTarget resource through the `workload sync` CLI command,
+// applies the syncer-related resources in the physical cluster.
+// No resource will be effectively synced after calling this method.
+func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *appliedSyncerFixture {
 	t.Helper()
+
+	artifactDir, _, err := ScratchDirs(t)
+	if err != nil {
+		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+	}
+
+	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
 	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", sf.syncTargetPath)
-
-	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
 	syncerImage := TestConfig.SyncerImage()
 	if useDeployedSyncer {
@@ -200,11 +208,6 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Apply the yaml output from the plugin to the downstream server
 	KubectlApply(t, downstreamKubeconfigPath, syncerYAML)
 
-	artifactDir, _, err := ScratchDirs(t)
-	if err != nil {
-		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
-	}
-
 	// collect both in deployed and in-process mode
 	t.Cleanup(func() {
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(wait.ForeverTestTimeout))
@@ -246,7 +249,10 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
 
 		syncTarget, err := kcpClusterClient.Cluster(sf.syncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, sf.syncTargetName, metav1.GetOptions{})
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("Error gathering sync target: %v", err)
+			return
+		}
 
 		for _, resource := range syncTarget.Status.SyncedResources {
 			for _, version := range resource.Versions {
@@ -282,180 +288,11 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerID, syncerID)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
 	downstreamKubeClient, err := kubernetesclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
-	if useDeployedSyncer {
-		t.Cleanup(func() {
-			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(wait.ForeverTestTimeout))
-			defer cancelFn()
-
-			// collect syncer logs
-			t.Logf("Collecting syncer pod logs")
-			func() {
-				t.Logf("Listing downstream pods in namespace %s", syncerID)
-				pods, err := downstreamKubeClient.CoreV1().Pods(syncerID).List(ctx, metav1.ListOptions{})
-				if err != nil {
-					t.Logf("failed to list pods in %s: %v", syncerID, err)
-					return
-				}
-
-				for _, pod := range pods.Items {
-					// Check if the POD is ready before trying to get the logs, ignore if not to avoid the test failing.
-					if pod.Status.Phase != corev1.PodRunning {
-						t.Logf("Pod %s is not running", pod.Name)
-						continue
-					}
-					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
-
-					// if the log is stopped or has crashed we will try to get --previous logs.
-					extraArg := ""
-					if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-						extraArg = "--previous"
-					}
-
-					t.Logf("Collecting downstream logs for pod %s/%s: %s", syncerID, pod.Name, artifactPath)
-					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name, extraArg)
-
-					err = os.WriteFile(artifactPath, logs, 0644)
-					if err != nil {
-						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
-						continue // not fatal
-					}
-				}
-			}()
-
-			if preserveTestResources() {
-				return
-			}
-
-			t.Logf("Deleting syncer resources for sync target %s|%s", syncerConfig.SyncTargetPath, syncerConfig.SyncTargetName)
-			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
-			if err != nil {
-				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
-			}
-			err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, syncerID, metav1.DeleteOptions{})
-			if err != nil {
-				t.Errorf("failed to delete ClusterRoleBinding %q: %v", syncerID, err)
-			}
-			err = downstreamKubeClient.RbacV1().ClusterRoles().Delete(ctx, syncerID, metav1.DeleteOptions{})
-			if err != nil {
-				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
-			}
-
-			t.Logf("Deleting synced resources for sync target %s|%s", syncerConfig.SyncTargetPath, syncerConfig.SyncTargetName)
-			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-			if err != nil {
-				t.Errorf("failed to list namespaces: %v", err)
-			}
-			for _, ns := range namespaces.Items {
-				locator, exists, err := shared.LocatorFromAnnotations(ns.Annotations)
-				require.NoError(t, err, "failed to extract locator from namespace %s", ns.Name)
-				if !exists {
-					continue // Not a kcp-synced namespace
-				}
-				found := false
-				for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
-					if locator.ClusterName == syncedUserWorkspace {
-						found = true
-						break
-					}
-				}
-				if !found {
-					continue // Not a namespace synced by this Syncer
-				}
-				if locator.SyncTarget.ClusterName != syncerConfig.SyncTargetPath.String() ||
-					locator.SyncTarget.Name != syncerConfig.SyncTargetName {
-					continue // Not a namespace synced by this syncer
-				}
-				if err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{}); err != nil {
-					t.Logf("failed to delete Namespace %q: %v", ns.Name, err)
-				}
-			}
-		})
-	} else {
-		// Start an in-process syncer
-		syncerConfig.DNSImage = "TODO"
-		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second, syncerID)
-		require.NoError(t, err, "syncer failed to start")
-
-		_, err = downstreamKubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "syncer-rbac-fix",
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					Verbs:     []string{"*"},
-					APIGroups: []string{rbacv1.SchemeGroupVersion.Group},
-					Resources: []string{"roles", "rolebindings"},
-				},
-			},
-		}, metav1.CreateOptions{})
-		if !apierrors.IsNotFound(err) {
-			require.NoError(t, err)
-		} else {
-			t.Log("Fix ClusterRoleBinding already added")
-		}
-
-		_, err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "syncer-rbac-fix-" + syncerID,
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: rbacv1.SchemeGroupVersion.Group,
-				Kind:     "ClusterRole",
-				Name:     "syncer-rbac-fix",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      syncerID,
-					Namespace: syncerID,
-				},
-			},
-		}, metav1.CreateOptions{})
-		require.NoError(t, err)
-
-		for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
-			dnsID := shared.GetDNSID(syncedUserWorkspace, types.UID(syncerConfig.SyncTargetUID), syncerConfig.SyncTargetName)
-			_, err := downstreamKubeClient.CoreV1().Endpoints(syncerID).Create(ctx, endpoints(dnsID, syncerID), metav1.CreateOptions{})
-			if apierrors.IsAlreadyExists(err) {
-				t.Logf("Failed creating the fake Syncer Endpoint since it already exists - ignoring: %v", err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			// The DNS service may or may not have been created by the spec controller. In any cases, we want to make sure
-			// the service ClusterIP is set
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				svc, err := downstreamKubeClient.CoreV1().Services(syncerID).Get(ctx, dnsID, metav1.GetOptions{})
-				if err != nil && !apierrors.IsNotFound(err) {
-					return err
-				}
-				if apierrors.IsNotFound(err) {
-					_, err = downstreamKubeClient.CoreV1().Services(syncerID).Create(ctx, service(dnsID, syncerID), metav1.CreateOptions{})
-					if err == nil {
-						return nil
-					}
-					if !apierrors.IsAlreadyExists(err) {
-						return err
-					}
-					svc, err = downstreamKubeClient.CoreV1().Services(syncerID).Get(ctx, dnsID, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-				}
-
-				svc.Spec.ClusterIP = "8.8.8.8"
-				_, err = downstreamKubeClient.CoreV1().Services(syncerID).Update(ctx, svc, metav1.UpdateOptions{})
-				return err
-			})
-			require.NoError(t, err)
-		}
-	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	rawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
@@ -493,42 +330,320 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	upsyncerVWConfig = rest.AddUserAgent(rest.CopyConfig(upsyncerVWConfig), t.Name())
 	require.NoError(t, err)
 
-	startedSyncer := &StartedSyncerFixture{
-		SyncerConfig:          syncerConfig,
-		SyncerID:              syncerID,
-		SyncTargetClusterName: syncTargetClusterName,
-		DownstreamConfig:      downstreamConfig,
-		DownstreamKubeClient:  downstreamKubeClient,
+	return &appliedSyncerFixture{
+		syncerFixture: *sf,
+
+		SyncerConfig:             syncerConfig,
+		SyncerID:                 syncerID,
+		SyncTargetClusterName:    syncTargetClusterName,
+		DownstreamConfig:         downstreamConfig,
+		DownstreamKubeClient:     downstreamKubeClient,
+		DownstreamKubeconfigPath: downstreamKubeconfigPath,
 
 		SyncerVirtualWorkspaceConfig:   syncerVWConfig,
 		UpsyncerVirtualWorkspaceConfig: upsyncerVWConfig,
 	}
+}
+
+// StartSyncer starts a new Syncer against the upstream kcp workspaces
+// Whether the syncer runs in-process or deployed on a pcluster will depend
+// whether --pcluster-kubeconfig and --syncer-image are supplied to the test invocation.
+func (sf *appliedSyncerFixture) StartSyncer(t *testing.T) *StartedSyncerFixture {
+	t.Helper()
+
+	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
+	artifactDir, _, err := ScratchDirs(t)
+	if err != nil {
+		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
+	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	if useDeployedSyncer {
+		t.Cleanup(func() {
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(wait.ForeverTestTimeout))
+			defer cancelFn()
+
+			// collect syncer logs
+			t.Logf("Collecting syncer pod logs")
+			func() {
+				t.Logf("Listing downstream pods in namespace %s", sf.SyncerID)
+				pods, err := sf.DownstreamKubeClient.CoreV1().Pods(sf.SyncerID).List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("failed to list pods in %s: %v", sf.SyncerID, err)
+					return
+				}
+
+				for _, pod := range pods.Items {
+					// Check if the POD is ready before trying to get the logs, ignore if not to avoid the test failing.
+					if pod.Status.Phase != corev1.PodRunning {
+						t.Logf("Pod %s is not running", pod.Name)
+						continue
+					}
+					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", sf.SyncerID, pod.Name))
+
+					// if the log is stopped or has crashed we will try to get --previous logs.
+					extraArg := ""
+					if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+						extraArg = "--previous"
+					}
+
+					t.Logf("Collecting downstream logs for pod %s/%s: %s", sf.SyncerID, pod.Name, artifactPath)
+					logs := Kubectl(t, sf.DownstreamKubeconfigPath, "-n", sf.SyncerID, "logs", pod.Name, extraArg)
+
+					err = os.WriteFile(artifactPath, logs, 0644)
+					if err != nil {
+						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, sf.SyncerID, artifactPath, err)
+						continue // not fatal
+					}
+				}
+			}()
+
+			if preserveTestResources() {
+				return
+			}
+
+			t.Logf("Deleting syncer resources for sync target %s|%s", sf.SyncerConfig.SyncTargetPath, sf.SyncerConfig.SyncTargetName)
+			err := sf.DownstreamKubeClient.CoreV1().Namespaces().Delete(ctx, sf.SyncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete Namespace %q: %v", sf.SyncerID, err)
+			}
+			err = sf.DownstreamKubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, sf.SyncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete ClusterRoleBinding %q: %v", sf.SyncerID, err)
+			}
+			err = sf.DownstreamKubeClient.RbacV1().ClusterRoles().Delete(ctx, sf.SyncerID, metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("failed to delete ClusterRole %q: %v", sf.SyncerID, err)
+			}
+
+			t.Logf("Deleting synced resources for sync target %s|%s", sf.SyncerConfig.SyncTargetPath, sf.SyncerConfig.SyncTargetName)
+			namespaces, err := sf.DownstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Errorf("failed to list namespaces: %v", err)
+			}
+			for _, ns := range namespaces.Items {
+				locator, exists, err := shared.LocatorFromAnnotations(ns.Annotations)
+				require.NoError(t, err, "failed to extract locator from namespace %s", ns.Name)
+				if !exists {
+					continue // Not a kcp-synced namespace
+				}
+				found := false
+				for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
+					if locator.ClusterName == syncedUserWorkspace {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue // Not a namespace synced by this Syncer
+				}
+				if locator.SyncTarget.ClusterName != sf.SyncerConfig.SyncTargetPath.String() ||
+					locator.SyncTarget.Name != sf.SyncerConfig.SyncTargetName {
+					continue // Not a namespace synced by this syncer
+				}
+				if err = sf.DownstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{}); err != nil {
+					t.Logf("failed to delete Namespace %q: %v", ns.Name, err)
+				}
+			}
+		})
+	} else {
+		// Start an in-process syncer
+		sf.SyncerConfig.DNSImage = "TODO"
+		err := syncer.StartSyncer(ctx, sf.SyncerConfig, 2, 5*time.Second, sf.SyncerID)
+		require.NoError(t, err, "syncer failed to start")
+
+		_, err = sf.DownstreamKubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "syncer-rbac-fix",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:     []string{"*"},
+					APIGroups: []string{rbacv1.SchemeGroupVersion.Group},
+					Resources: []string{"roles", "rolebindings"},
+				},
+			},
+		}, metav1.CreateOptions{})
+		if !apierrors.IsNotFound(err) {
+			require.NoError(t, err)
+		} else {
+			t.Log("Fix ClusterRoleBinding already added")
+		}
+
+		_, err = sf.DownstreamKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "syncer-rbac-fix-" + sf.SyncerID,
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: rbacv1.SchemeGroupVersion.Group,
+				Kind:     "ClusterRole",
+				Name:     "syncer-rbac-fix",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "ServiceAccount",
+					Name:      sf.SyncerID,
+					Namespace: sf.SyncerID,
+				},
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		for _, syncedUserWorkspace := range sf.syncedUserClusterNames {
+			dnsID := shared.GetDNSID(syncedUserWorkspace, types.UID(sf.SyncerConfig.SyncTargetUID), sf.SyncerConfig.SyncTargetName)
+			_, err := sf.DownstreamKubeClient.CoreV1().Endpoints(sf.SyncerID).Create(ctx, endpoints(dnsID, sf.SyncerID), metav1.CreateOptions{})
+			if apierrors.IsAlreadyExists(err) {
+				t.Logf("Failed creating the fake Syncer Endpoint since it already exists - ignoring: %v", err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// The DNS service may or may not have been created by the spec controller. In any cases, we want to make sure
+			// the service ClusterIP is set
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				svc, err := sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Get(ctx, dnsID, metav1.GetOptions{})
+				if err != nil && !apierrors.IsNotFound(err) {
+					return err
+				}
+				if apierrors.IsNotFound(err) {
+					_, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Create(ctx, service(dnsID, sf.SyncerID), metav1.CreateOptions{})
+					if err == nil {
+						return nil
+					}
+					if !apierrors.IsAlreadyExists(err) {
+						return err
+					}
+					svc, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Get(ctx, dnsID, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+				}
+
+				svc.Spec.ClusterIP = "8.8.8.8"
+				_, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Update(ctx, svc, metav1.UpdateOptions{})
+				return err
+			})
+			require.NoError(t, err)
+		}
+	}
+
+	startedSyncer := &StartedSyncerFixture{
+		sf,
+	}
 
 	// The sync target becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
-	startedSyncer.WaitForClusterReady(ctx, t)
+	startedSyncer.WaitForSyncTargetReady(ctx, t)
 
 	return startedSyncer
 }
 
-// StartedSyncerFixture contains the configuration used to start a syncer and interact with its
+// appliedSyncerFixture contains the configuration required to start a syncer and interact with its
 // downstream cluster.
-type StartedSyncerFixture struct {
+type appliedSyncerFixture struct {
+	syncerFixture
+
 	SyncerConfig          *syncer.SyncerConfig
 	SyncerID              string
 	SyncTargetClusterName logicalcluster.Name
 
 	// Provide cluster-admin config and client for test purposes. The downstream config in
 	// SyncerConfig will be less privileged.
-	DownstreamConfig     *rest.Config
-	DownstreamKubeClient kubernetesclient.Interface
+	DownstreamConfig         *rest.Config
+	DownstreamKubeClient     kubernetesclient.Interface
+	DownstreamKubeconfigPath string
 
 	SyncerVirtualWorkspaceConfig   *rest.Config
 	UpsyncerVirtualWorkspaceConfig *rest.Config
+
+	stopHeartBeat context.CancelFunc
 }
 
-// WaitForClusterReady waits for the cluster to be ready with the given reason.
-func (sf *StartedSyncerFixture) WaitForClusterReady(ctx context.Context, t *testing.T) {
+// StartHeartBeat starts the Heartbeat keeper to maintain
+// the SyncTarget to the Ready state.
+// No resource will be effectively synced after calling this method.
+func (sf *appliedSyncerFixture) StartHeartBeat(t *testing.T) *StartedSyncerFixture {
+	t.Helper()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+	sf.stopHeartBeat = cancelFunc
+
+	kcpBootstrapClusterClient, err := kcpclientset.NewForConfig(sf.SyncerConfig.UpstreamConfig)
+	require.NoError(t, err)
+	kcpSyncTargetClient := kcpBootstrapClusterClient.Cluster(sf.SyncerConfig.SyncTargetPath)
+
+	// Start the heartbeat keeper to have the SyncTarget always ready during the e2e test.
+	syncer.StartHeartbeat(ctx, kcpSyncTargetClient, sf.SyncerConfig.SyncTargetName, sf.SyncerConfig.SyncTargetUID)
+
+	startedSyncer := &StartedSyncerFixture{
+		sf,
+	}
+
+	// The sync target becoming ready indicates the syncer is healthy and has
+	// successfully sent a heartbeat to kcp.
+	startedSyncer.WaitForSyncTargetReady(ctx, t)
+
+	return startedSyncer
+}
+
+// StartAPIImporter starts the APIImporter the same way as the Syncer would have done if started.
+// This will allow KCP to do the API compatibilitiy checks and update the SyncTarget accordingly.
+// The real syncer is not started, and resource will be effectively synced after calling this method.
+func (sf *appliedSyncerFixture) StartAPIImporter(t *testing.T) *appliedSyncerFixture {
+	t.Helper()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	kcpBootstrapClusterClient, err := kcpclientset.NewForConfig(sf.SyncerConfig.UpstreamConfig)
+	require.NoError(t, err)
+	kcpSyncTargetClient := kcpBootstrapClusterClient.Cluster(sf.SyncerConfig.SyncTargetPath)
+
+	// Import the resource schemas of the resources to sync from the physical cludster, to enable compatibility check in KCP.
+	resources := sf.SyncerConfig.ResourcesToSync.List()
+	kcpSyncTargetInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpSyncTargetClient, 10*time.Hour, kcpinformers.WithTweakListOptions(
+		func(listOptions *metav1.ListOptions) {
+			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", sf.SyncerConfig.SyncTargetName).String()
+		},
+	))
+	kcpImporterInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpSyncTargetClient, 10*time.Hour)
+	apiImporter, err := syncer.NewAPIImporter(
+		sf.SyncerConfig.UpstreamConfig, sf.SyncerConfig.DownstreamConfig,
+		kcpSyncTargetInformerFactory.Workload().V1alpha1().SyncTargets(),
+		kcpImporterInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		resources,
+		sf.SyncerConfig.SyncTargetPath, sf.SyncerConfig.SyncTargetName, types.UID(sf.SyncerConfig.SyncTargetUID))
+	require.NoError(t, err)
+
+	kcpImporterInformerFactory.Start(ctx.Done())
+	kcpSyncTargetInformerFactory.Start(ctx.Done())
+	kcpSyncTargetInformerFactory.WaitForCacheSync(ctx.Done())
+
+	go apiImporter.Start(klog.NewContext(ctx, klog.FromContext(ctx).WithValues("resources", resources)), 5*time.Second)
+
+	return sf
+}
+
+// StartedSyncerFixture contains the configuration used to start a syncer and interact with its
+// downstream cluster.
+type StartedSyncerFixture struct {
+	*appliedSyncerFixture
+}
+
+// StopHeartBeat stop maintaining the heartbeat for this Syncer SyncTarget.
+func (sf *StartedSyncerFixture) StopHeartBeat(t *testing.T) {
+	t.Helper()
+
+	sf.stopHeartBeat()
+}
+
+// WaitForSyncTargetReady waits for the SyncTarget to be ready.
+// The SyncTarget becoming ready indicates that the syncer on the related
+// physical cluster is healthy and has successfully sent a heartbeat to kcp.
+func (sf *StartedSyncerFixture) WaitForSyncTargetReady(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	cfg := sf.SyncerConfig

@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // +crd
@@ -58,15 +60,42 @@ type PartitionSetSpec struct {
 
 	// +optional
 
-	// selector (optional) is a label selector that filters shard targets.
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	// shardSelector (optional) specifies filtering for shard targets.
+	ShardSelector *metav1.LabelSelector `json:"shardSelector,omitempty"`
 }
 
-// PartitionSetStaus records the status of the PartitionSet.
+// PartitionSetStatus records the status of the PartitionSet.
 type PartitionSetStatus struct {
 	// count is the total number of partitions.
 	Count uint16 `json:"count,omitempty"`
+
+	// +optional
+
+	// conditions is a list of conditions that apply to the APIExportEndpointSlice.
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
+
+func (in *PartitionSet) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+func (in *PartitionSet) SetConditions(conditions conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = conditions
+}
+
+// These are valid conditions of PartitionSet.
+const (
+	// PartitionSetValid reflects the validity of the PartitionSet spec.
+	PartitionSetValid conditionsv1alpha1.ConditionType = "PartitionSetValid"
+	// PartitionsReady indicates whether matching partitions could be created.
+	PartitionsReady conditionsv1alpha1.ConditionType = "PartitionsReady"
+
+	// PartitionSetInvalidSelectorReason indicates that the specified selector could not be
+	// marshalled into a valid one.
+	PartitionSetInvalidSelectorReason = "InvalidSelector"
+	// ErrorGeneratingPartitionsReason indicates that the partitions could not be generated
+	ErrorGeneratingPartitionsReason = "ErrorGeneratingPartitions"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

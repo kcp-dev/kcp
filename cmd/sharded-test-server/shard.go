@@ -64,9 +64,6 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		os.Exit(1)
 	}
 
-	if err != nil {
-		return nil, err
-	}
 	logFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "kcp.log")
 	auditFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "audit.log")
 	if logDirPath != "" {
@@ -103,7 +100,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(workDirPath, ".kcp", "serving-ca.crt")),
 	)
 	if len(cacheServerConfigPath) > 0 {
-		args = append(args, fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheServerConfigPath))
+		args = append(args, fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath))
 	}
 
 	if standaloneVW {

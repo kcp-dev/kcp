@@ -54,8 +54,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/conversion"
@@ -187,24 +185,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	var cacheClientConfig *rest.Config
-	if len(c.Options.Cache.KubeconfigFile) > 0 {
-		cacheClientConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Cache.KubeconfigFile}, nil).ClientConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a cache client, err: %w", c.Options.Cache.KubeconfigFile, err)
-		}
-	} else {
-		cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-	}
-	rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
-	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
-	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
-
-	cacheKcpClusterClient, err := kcpclientset.NewForConfig(rt)
+	cacheClientConfig, err := c.Options.Cache.Client.RestConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return nil, err
 	}
-	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rt)
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +205,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		cacheKubeClusterClient,
 		resyncPeriod,
 	)
-	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
+	c.CacheDynamicClient, err = kcpdynamic.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -372,6 +361,16 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
+			tunneler := tunneler.NewTunneler()
+			apiHandler = tunneler.WithSyncerTunnelHandler(apiHandler)
+			apiHandler = tunneler.WithPodSubresourceProxying(
+				apiHandler,
+				c.DynamicClusterClient,
+				c.KcpSharedInformerFactory,
+			)
+		}
+
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
 		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
 		// This compromises audit log size and information overflow vs. having audit reasons for the main api handler only.
@@ -392,10 +391,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 				c.KubeSharedInformerFactory,
 				c.KcpSharedInformerFactory,
 				c.GenericConfig.ExternalAddress,
-				opts.HomeWorkspaces.CreationDelaySeconds,
-				logicalcluster.NewPath(opts.HomeWorkspaces.HomeRootPrefix),
-				opts.HomeWorkspaces.BucketLevels,
-				opts.HomeWorkspaces.BucketSize,
 			)
 			if err != nil {
 				panic(err) // shouldn't happen due to flag validation
@@ -430,10 +425,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
 		apiHandler = mux
 
-		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
-		}
-
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
 		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
@@ -453,6 +444,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),

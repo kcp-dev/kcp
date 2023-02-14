@@ -85,7 +85,7 @@ func TestSyncerLifecycle(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
 			)
 			require.NoError(t, err)
-		})).Start(t)
+		})).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -620,7 +620,8 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsPath,
-		framework.WithExtraResources("services")).Start(t)
+		framework.WithExtraResources("services"),
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

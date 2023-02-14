@@ -305,8 +305,8 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			// the root ws is only present on the root shard
 			logger.Info("starting bootstrapping root workspace phase 1")
-			if err := configroot.Bootstrap(goContext(hookContext),
-				s.KcpClusterClient.Cluster(core.RootCluster.Path()),
+			if err := configroot.Bootstrap(
+				goContext(hookContext),
 				s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
 				s.BootstrapDynamicClusterClient.Cluster(core.RootCluster.Path()),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
@@ -363,9 +363,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
 		// bootstrap root compute workspace
-		computeBoostraphookName := "rootComputeBoostrap"
-		if err := s.AddPostStartHook(computeBoostraphookName, func(hookContext genericapiserver.PostStartHookContext) error {
-			logger := logger.WithValues("postStartHook", computeBoostraphookName)
+		computeBoostrapHookName := "rootComputeBoostrap"
+		if err := s.AddPostStartHook(computeBoostrapHookName, func(hookContext genericapiserver.PostStartHookContext) error {
+			logger := logger.WithValues("postStartHook", computeBoostrapHookName)
 			if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 				// the root ws is only present on the root shard
 				logger.Info("waiting to bootstrap root compute workspace until root phase1 is complete")
@@ -441,6 +441,53 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
+		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrolebinding") {
+		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicatelogicalcluster") {
+		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicatelogicalcluster") {
+		if err := s.installTenancyReplicateLogicalClusterControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrole") {
+		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrolebinding") {
+		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
+		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicationclusterrolebinding") {
+		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
 		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
@@ -449,6 +496,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
 		if err := s.installAPIBinderController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
+		if err := s.installPartitionSetController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
@@ -496,7 +549,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if len(s.Options.Cache.KubeconfigFile) == 0 {
+	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err
 		}

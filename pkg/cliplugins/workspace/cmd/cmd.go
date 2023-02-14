@@ -38,9 +38,6 @@ var (
 	# short-hand for the use syntax
 	%[1]s workspace my-workspace
 
-	# list sub-workspaces in the current workspace
-	%[1]s get workspaces
-
 	# enter a given absolute workspace
 	%[1]s workspace root:default:my-workspace
 

@@ -30,6 +30,7 @@ import (
 
 const (
 	NamespaceLocatorAnnotation = "kcp.io/namespace-locator"
+	TenantIDLabel              = "kcp.io/tenant-id"
 )
 
 // NamespaceLocator stores a logical cluster and namespace and is used

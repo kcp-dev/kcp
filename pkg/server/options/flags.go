@@ -168,12 +168,8 @@ var (
 		"embedded-etcd-force-new-cluster",   // Starts a new cluster from existing data restored from a different system
 
 		// Home workspaces flags
-		"enable-home-workspaces",                 // Enable the Home Workspaces feature (enabled by default). Home workspaces allow a personal home workspace to provisioned on first access per-user. A user is cluster-admin inside his personal Home workspace.
-		"home-workspaces-creation-delay-seconds", // Delay, in seconds, before accessing the Home is retried after its automatic creation. This value is used when sending 'retry-after' responses to the Kubernetes client.
-		"home-workspaces-bucket-levels",          // Number of levels of bucket workspaces when bucketing home workspaces
-		"home-workspaces-bucket-size",            // Number of characters of bucket workspace names used when bucketing home workspaces
-		"home-workspaces-home-creator-groups",    // Groups of users who can have their home workspace created automatically create when first accessing it.
-		"home-workspaces-root-prefix",            // Logical cluster name of the workspace that will contains home workspaces for all workspaces.
+		"enable-home-workspaces",              // Enable the Home Workspaces feature (enabled by default). Home workspaces allow a personal home workspace to provisioned on first access per-user. A user is cluster-admin inside his personal Home workspace.
+		"home-workspaces-home-creator-groups", // Groups of users who can have their home workspaces provisioned upon first access.
 
 		// KCP Controllers flags
 		"auto-publish-apis",                      // If true, the APIs imported from physical clusters will be published automatically as CRDs
@@ -184,7 +180,8 @@ var (
 		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 
 		// KCP Cache Server flags
-		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
+		"cache-kubeconfig",             // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
+		"cache-server-kubeconfig-file", // deprecated
 
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.

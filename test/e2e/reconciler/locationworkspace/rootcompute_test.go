@@ -80,7 +80,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}),
-	).Start(t)
+	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	require.Eventually(t, func() bool {
 		syncTarget, err := kcpClients.Cluster(computePath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
@@ -88,7 +88,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 			return false
 		}
 
-		if len(syncTarget.Status.SyncedResources) != 3 {
+		if len(syncTarget.Status.SyncedResources) != 4 {
 			return false
 		}
 
@@ -96,12 +96,16 @@ func TestRootComputeWorkspace(t *testing.T) {
 			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
-		if syncTarget.Status.SyncedResources[1].Resource != "ingresses" ||
+		if syncTarget.Status.SyncedResources[1].Resource != "pods" ||
 			syncTarget.Status.SyncedResources[1].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
-		if syncTarget.Status.SyncedResources[2].Resource != "deployments" ||
+		if syncTarget.Status.SyncedResources[2].Resource != "ingresses" ||
 			syncTarget.Status.SyncedResources[2].State != workloadv1alpha1.ResourceSchemaAcceptedState {
+			return false
+		}
+		if syncTarget.Status.SyncedResources[3].Resource != "deployments" ||
+			syncTarget.Status.SyncedResources[3].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
 

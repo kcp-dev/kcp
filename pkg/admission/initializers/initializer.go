@@ -17,6 +17,7 @@ limitations under the License.
 package initializers
 
 import (
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"k8s.io/apiserver/pkg/admission"
@@ -28,11 +29,32 @@ import (
 )
 
 // NewKcpInformersInitializer returns an admission plugin initializer that injects
-// kcp shared informer factories into admission plugins.
+// both local and global kcp shared informer factories into admission plugins.
 func NewKcpInformersInitializer(
 	local, global kcpinformers.SharedInformerFactory,
 ) *kcpInformersInitializer {
 	return &kcpInformersInitializer{
+		localKcpInformers:  local,
+		globalKcpInformers: global,
+	}
+}
+
+type kubeInformersInitializer struct {
+	localKcpInformers, globalKcpInformers kcpkubernetesinformers.SharedInformerFactory
+}
+
+func (i *kubeInformersInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsKubeInformers); ok {
+		wants.SetKubeInformers(i.localKcpInformers, i.globalKcpInformers)
+	}
+}
+
+// NewKubeInformersInitializer returns an admission plugin initializer that injects
+// both local and global kube shared informer factories into admission plugins.
+func NewKubeInformersInitializer(
+	local, global kcpkubernetesinformers.SharedInformerFactory,
+) *kubeInformersInitializer {
+	return &kubeInformersInitializer{
 		localKcpInformers:  local,
 		globalKcpInformers: global,
 	}

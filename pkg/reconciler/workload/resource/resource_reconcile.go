@@ -47,11 +47,6 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
 
-	if isUpSynced(obj.GetLabels()) {
-		logger.V(4).Info("resource is in Upsync mode; ignoring")
-		return nil
-	}
-
 	// if the resource is a namespace, let's return early. nothing to do.
 	namespaceGVR := &schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	if gvr == namespaceGVR {
@@ -59,10 +54,26 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
+	// If the resource is upsynced, let's check if the synctarget still exists, if not delete the resource.
+	for k, v := range obj.GetLabels() {
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateUpsync) {
+			syncTargetKey := strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix)
+			_, exists, err := c.getSyncTargetFromKey(syncTargetKey)
+			if err != nil {
+				return fmt.Errorf("error reconciling resource %s|%s/%s: error getting synctarget: %w", lclusterName, obj.GetNamespace(), obj.GetName(), err)
+			}
+			if !exists {
+				logger.V(4).Info("synctarget does not exist, deleting resource")
+				return c.dynClusterClient.Resource(*gvr).Cluster(logicalcluster.From(obj).Path()).Namespace(obj.GetNamespace()).Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
+			}
+			// nothing to do, the resource is upsynced and the synctarget still exists.
+			return nil
+		}
+	}
+
 	var err error
 	var expectedSyncTargetKeys sets.String
 	expectedDeletedSynctargetKeys := make(map[string]string)
-
 	namespaceName := obj.GetNamespace()
 	// We need to handle namespaced and non-namespaced resources differently, as namespaced resources
 	// will get the locations from its namespace, and non-namespaced will get the locations from all the
@@ -304,15 +315,4 @@ func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
 		c.enqueueResource(gvr, obj)
 	}
 	return nil
-}
-
-// isUpSynced returns true if the labels of the resource contain at least
-// one `ResourceState` label with the `Upsync` value.
-func isUpSynced(labels map[string]string) bool {
-	for k, v := range labels {
-		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateUpsync) {
-			return true
-		}
-	}
-	return false
 }

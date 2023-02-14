@@ -60,12 +60,14 @@ Server Version: version.Info{Major:"1", Minor:"24", GitVersion:"v1.24.3+kcp-v0.8
 ### Configure kcp to sync to your cluster
 
 kcp can't run pods by itself - it needs at least one physical cluster for that. For this example, we'll be using a
-local `kind` cluster.
+local `kind` cluster.  It does not have to exist yet.
 
-Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed):
+In this recipe we use the root workspace to hold the description of the workload and where it goes.  These usually would go elsewhere, but we use the root workspace here for simplicity.
+
+Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed; CI now puts built images in https://github.com/orgs/kcp-dev/packages):
 
 ```shell
-$ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.8.0 -o syncer-kind-main.yaml
+$ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.10.0 -o syncer-kind-main.yaml
 Creating synctarget "kind"
 Creating service account "kcp-syncer-kind-25coemaz"
 Creating cluster role "kcp-syncer-kind-25coemaz" to give service account "kcp-syncer-kind-25coemaz"
@@ -87,7 +89,7 @@ to verify the syncer pod is running.
 ```
 
 Next, we need to install the syncer pod on our `kind` cluster - this is what actually syncs content from kcp to the
-physical cluster. Run the following command:
+physical cluster. The kind cluster needs to be running by now. Run the following command:
 
 ```shell
 $ KUBECONFIG=</path/to/kind/kubeconfig> kubectl apply -f "syncer-kind-main.yaml"
@@ -98,6 +100,18 @@ clusterrole.rbac.authorization.k8s.io/kcp-syncer-kind-25coemaz created
 clusterrolebinding.rbac.authorization.k8s.io/kcp-syncer-kind-25coemaz created
 secret/kcp-syncer-kind-25coemaz created
 deployment.apps/kcp-syncer-kind-25coemaz created
+```
+
+### Bind to workload APIs and create default placement
+
+If you are running kcp version v0.10.0 or higher, you will need to run the following commmand (continuing in the `root` workspace)
+to create a binding to the workload APIs export and a default placement for your physical cluster:
+
+```shell
+$ kubectl kcp bind compute root
+Binding APIExport "root:compute:kubernetes".
+placement placement-1pfxsevk created.
+Placement "placement-1pfxsevk" is ready.
 ```
 
 ### Create a deployment in kcp

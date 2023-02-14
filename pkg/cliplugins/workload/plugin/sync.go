@@ -123,7 +123,8 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 
-	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp.")
+	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp, each resource should be in the format of resourcename.<gvr_of_the_resource>,"+
+		"e.g. to sync routes to physical cluster the resource name should be given as --resource routes.route.openshift.io")
 	cmd.Flags().StringSliceVar(&o.APIExports, "apiexports", o.APIExports,
 		"APIExport to be supported by the syncer, each APIExport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
 			"e.g. root:compute:kubernetes is the kubernetes APIExport in root:compute workspace")
@@ -502,6 +503,12 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 			Resources:     []string{"synctargets"},
 		},
 		{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
+			ResourceNames: []string{syncTargetName},
+			Resources:     []string{"synctargets/tunnel"},
+		},
+		{
 			Verbs:         []string{"get", "list", "watch"},
 			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
 			Resources:     []string{"synctargets"},
@@ -799,6 +806,20 @@ func getGroupMappings(resourcesToSync []string) []groupMapping {
 			groupMap[apiGroup] = []string{name}
 		} else {
 			groupMap[apiGroup] = append(groupMap[apiGroup], name)
+		}
+		// If pods are being synced, add the subresources that are required to
+		// support the pod subresources.
+		if apiGroup == "" && name == "pods" {
+			podSubresources := []string{
+				"pods/log",
+				"pods/exec",
+				"pods/attach",
+				"pods/binding",
+				"pods/portforward",
+				"pods/proxy",
+				"pods/ephemeralcontainers",
+			}
+			groupMap[apiGroup] = append(groupMap[apiGroup], podSubresources...)
 		}
 	}
 

@@ -19,12 +19,14 @@ package replication
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +39,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -84,15 +88,43 @@ func NewController(
 				local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
 				global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
 			},
+			admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
+				kind:   "MutatingWebhookConfiguration",
+				local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+			},
+			admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
+				kind:   "ValidatingWebhookConfiguration",
+				local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+			},
 			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 				kind:   "Shard",
 				local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
 				global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 			},
+			corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
+				kind: "LogicalCluster",
+				filter: func(u *unstructured.Unstructured) bool {
+					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+				},
+				local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+				global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+			},
 			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
 				kind:   "WorkspaceType",
 				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 				global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+			},
+			workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"): {
+				kind:   "SyncTarget",
+				local:  localKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
+				global: globalKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
+			},
+			schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"): {
+				kind:   "Location",
+				local:  localKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
+				global: globalKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
 			},
 			rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
 				kind: "ClusterRole",
@@ -124,16 +156,22 @@ func NewController(
 		// shadow gvr to get the right value in the closure
 		gvr := gvr
 
-		info.local.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
-			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr) },
+		info.local.AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: IsNoSystemClusterName,
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
+				UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
+				DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr) },
+			},
 		})
 
-		info.global.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
-			DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		info.global.AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: IsNoSystemClusterName, // not really needed, but cannot harm
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+				UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+				DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+			},
 		})
 	}
 
@@ -199,6 +237,24 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	runtime.HandleError(fmt.Errorf("%v failed with: %w", grKey, err))
 	c.queue.AddRateLimited(grKey)
 
+	return true
+}
+
+func IsNoSystemClusterName(obj interface{}) bool {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return false
+	}
+
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return false
+	}
+	if strings.HasPrefix(clusterName.String(), "system:") {
+		return false
+	}
 	return true
 }
 

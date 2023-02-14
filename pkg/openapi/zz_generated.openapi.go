@@ -3668,7 +3668,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
-					"shard": {
+					"location": {
 						SchemaProps: spec.SchemaProps{
 							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceLocation"),
@@ -4327,9 +4327,9 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetSpec(ref common.ReferenceCall
 							},
 						},
 					},
-					"selector": {
+					"shardSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "selector (optional) is a label selector that filters shard targets.",
+							Description: "shardSelector (optional) specifies filtering for shard targets.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
 						},
 					},
@@ -4345,7 +4345,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PartitionSetStaus records the status of the PartitionSet.",
+				Description: "PartitionSetStatus records the status of the PartitionSet.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"count": {
@@ -4355,9 +4355,25 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 							Format:      "int32",
 						},
 					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the APIExportEndpointSlice.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
