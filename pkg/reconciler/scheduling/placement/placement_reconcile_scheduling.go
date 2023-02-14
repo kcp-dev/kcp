@@ -46,7 +46,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 		locationWorkspace = logicalcluster.From(placement).Path()
 	}
 
-	validLocationNames, err := r.validLocationNames(placement, locationWorkspace)
+	locationWorkspace, validLocationNames, err := r.validLocationNames(placement, locationWorkspace)
 	if err != nil {
 		conditions.MarkFalse(placement, schedulingv1alpha1.PlacementReady, schedulingv1alpha1.LocationNotFoundReason, conditionsv1alpha1.ConditionSeverityError, err.Error())
 		return reconcileStatusContinue, placement, err
@@ -108,18 +108,20 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 	return reconcileStatusContinue, placement, nil
 }
 
-func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Path) (sets.String, error) {
+func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Path) (logicalcluster.Path, sets.String, error) {
+	var locationCluster logicalcluster.Path
 	selectedLocations := sets.NewString()
 
 	locations, err := r.listLocationsByPath(locationWorkspace)
 	if err != nil {
-		return selectedLocations, err
+		return logicalcluster.None, selectedLocations, err
 	}
 
 	for _, loc := range locations {
 		if loc.Spec.Resource != placement.Spec.LocationResource {
 			continue
 		}
+		locationCluster = logicalcluster.From(loc).Path()
 
 		for i := range placement.Spec.LocationSelectors {
 			s := placement.Spec.LocationSelectors[i]
@@ -135,7 +137,7 @@ func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.P
 		}
 	}
 
-	return selectedLocations, nil
+	return locationCluster, selectedLocations, nil
 }
 
 func isValidLocationSelected(placement *schedulingv1alpha1.Placement, cluster logicalcluster.Path, validLocationNames sets.String) bool {
