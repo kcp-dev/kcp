@@ -19,6 +19,7 @@ package upsync
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,10 +29,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -40,12 +45,16 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	syncerindexers "github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const controllerName = "kcp-resource-upsyncer"
+
+var namespaceGVR schema.GroupVersionResource = corev1.SchemeGroupVersion.WithResource("namespaces")
 
 // NewUpSyncer returns a new controller which upsyncs, through the Usyncer virtual workspace, downstream resources
 // which are part of the upsyncable resource types (fixed limited list for now), and provide
@@ -76,6 +85,13 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			}
 			return informer.Lister(), nil
 		},
+		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
+			nsInformer, err := ddsifForDownstream.ForResource(namespaceGVR)
+			if err != nil {
+				return nil, err
+			}
+			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
+		},
 		getUpstreamUpsyncerLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
 			informers, notSynced := ddsifForUpstreamUpyncer.Informers()
 			informer, ok := informers[gvr]
@@ -87,6 +103,18 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			}
 			return informer.Lister(), nil
 		},
+		getUpsyncedGVRs: func() ([]schema.GroupVersionResource, error) {
+			informers, notSynced := ddsifForUpstreamUpyncer.Informers()
+			var result []schema.GroupVersionResource
+			for k := range informers {
+				result = append(result, k)
+			}
+			if len(notSynced) > 0 {
+				return result, fmt.Errorf("informers not synced in the upstream upsyncer informer factory for gvrs %v", notSynced)
+			}
+			return result, nil
+		},
+
 		syncTargetName:        syncTargetName,
 		syncTargetClusterName: syncTargetClusterName,
 		syncTargetUID:         syncTargetUID,
@@ -94,8 +122,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 	}
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
-	namespaceGVR := corev1.SchemeGroupVersion.WithResource("namespaces")
-
+	emptyMap := map[string]interface{}{}
 	ddsifForDownstream.AddEventHandler(ddsif.GVREventHandlerFuncs{
 		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
 			if gvr == namespaceGVR {
@@ -103,13 +130,14 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			}
 			new, ok := obj.(*unstructured.Unstructured)
 			if !ok {
-				runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", obj))
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", obj))
 				return
 			}
 			if new.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
 				return
 			}
-			c.enqueue(gvr, obj, logger, false, new.UnstructuredContent()["status"] != nil)
+			status := new.UnstructuredContent()["status"]
+			c.enqueueDownstream(gvr, new, logger, status != nil && !equality.Semantic.DeepEqual(status, emptyMap))
 		},
 		UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
 			if gvr == namespaceGVR {
@@ -117,12 +145,12 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			}
 			old, ok := oldObj.(*unstructured.Unstructured)
 			if !ok {
-				runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", oldObj))
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", oldObj))
 				return
 			}
 			new, ok := newObj.(*unstructured.Unstructured)
 			if !ok {
-				runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", newObj))
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", newObj))
 				return
 			}
 			if new.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
@@ -131,27 +159,27 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 
 			oldStatus := old.UnstructuredContent()["status"]
 			newStatus := new.UnstructuredContent()["status"]
-			isStatusUpdated := newStatus != nil && !equality.Semantic.DeepEqual(oldStatus, newStatus)
-			c.enqueue(gvr, newObj, logger, false, isStatusUpdated)
+			c.enqueueDownstream(gvr, new, logger, newStatus != nil && !equality.Semantic.DeepEqual(oldStatus, newStatus))
 		},
 		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			if gvr == namespaceGVR {
-				return
-			}
 			if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = d.Obj
 			}
 			unstr, ok := obj.(*unstructured.Unstructured)
 			if !ok {
-				runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
 				return
 			}
+
+			if gvr == namespaceGVR {
+				c.enqueueDeletedDownstreamNamespace(unstr, logger)
+				return
+			}
+
 			if unstr.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
 				return
 			}
-			// TODO(davidfestal): do we want to extract the namespace from where the resource was deleted,
-			// as done in the SpecController ?
-			c.enqueue(gvr, obj, logger, false, false)
+			c.enqueueDownstream(gvr, unstr, logger, false)
 		},
 	})
 
@@ -160,19 +188,33 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			if gvr == namespaceGVR {
 				return
 			}
-			c.enqueue(gvr, obj, logger, true, false)
+			unstr, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
+				return
+			}
+			if unstr.GetAnnotations()[ResourceVersionAnnotation] == "" {
+				// The upstream resource hasn't been completely upsynced, and is being created.
+				// Cleanup doesn't make sense here.
+				return
+			}
+			c.enqueueUpstream(gvr, obj, logger, false)
 		},
 	})
 	return c, nil
 }
 
 type controller struct {
-	queue            workqueue.RateLimitingInterface
+	queue           workqueue.RateLimitingInterface
+	dirtyStatusKeys sync.Map
+
 	upstreamClient   kcpdynamic.ClusterInterface
 	downstreamClient dynamic.Interface
 
-	getDownstreamLister       func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
-	getUpstreamUpsyncerLister func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
+	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
+	getUpstreamUpsyncerLister         func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getUpsyncedGVRs                   func() ([]schema.GroupVersionResource, error)
 
 	syncTargetName        string
 	syncTargetClusterName logicalcluster.Name
@@ -184,34 +226,117 @@ type controller struct {
 type queueKey struct {
 	gvr schema.GroupVersionResource
 	key string
-	// indicates whether it's an upstream key
-	isUpstream    bool
-	includeStatus bool
 }
 
-func (c *controller) enqueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger, isUpstream, includeStatus bool) {
-	getKey := cache.DeletionHandlingMetaNamespaceKeyFunc
-	if isUpstream {
-		getKey = kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc
-	}
-	key, err := getKey(obj)
+func (c *controller) enqueueUpstream(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger, dirtyStatus bool) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
-	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String(), "isUpstream", isUpstream, "includeStatus", includeStatus)
-	c.queue.Add(
-		queueKey{
-			gvr:           gvr,
-			key:           key,
-			isUpstream:    isUpstream,
-			includeStatus: includeStatus,
+	logging.WithQueueKey(logger, key).V(2).Info("queueing", "gvr", gvr.String())
+	queueKey := queueKey{
+		gvr: gvr,
+		key: key,
+	}
+
+	if dirtyStatus {
+		c.dirtyStatusKeys.Store(queueKey, true)
+	}
+	c.queue.Add(queueKey)
+}
+
+func (c *controller) enqueueDeletedDownstreamNamespace(deletedNamespace *unstructured.Unstructured, logger logr.Logger) {
+	upstreamLocator, locatorExists, err := shared.LocatorFromAnnotations(deletedNamespace.GetAnnotations())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	if !locatorExists || upstreamLocator == nil {
+		logger.V(4).Info("the namespace locator doesn't exist on deleted downstream namespace.")
+		return
+	}
+
+	if upstreamLocator.SyncTarget.UID != c.syncTargetUID || upstreamLocator.SyncTarget.ClusterName != c.syncTargetClusterName.String() {
+		return
+	}
+
+	upsyncedGVRs, err := c.getUpsyncedGVRs()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	for _, gvr := range upsyncedGVRs {
+		upstreamLister, err := c.getUpstreamUpsyncerLister(gvr)
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+
+		upstreamUpsyncedResources, err := upstreamLister.ByCluster(upstreamLocator.ClusterName).ByNamespace(upstreamLocator.Namespace).List(labels.Everything())
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+
+		for _, upstreamUpsyncedResource := range upstreamUpsyncedResources {
+			c.enqueueUpstream(gvr, upstreamUpsyncedResource, logger, false)
+		}
+	}
+}
+
+func (c *controller) enqueueDownstream(gvr schema.GroupVersionResource, downstreamObj *unstructured.Unstructured, logger logr.Logger, dirtyStatus bool) {
+	downstreamNamespace := downstreamObj.GetNamespace()
+	locatorHolder := downstreamObj
+	if downstreamNamespace != "" {
+		downstreamNamespaceLister, err := c.getDownstreamLister(corev1.SchemeGroupVersion.WithResource("namespaces"))
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+		nsObj, err := downstreamNamespaceLister.Get(downstreamNamespace)
+		if errors.IsNotFound(err) {
+			logger.V(4).Info("the downstream namespace doesn't exist anymore.")
+			return
+		}
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
+		if unstr, ok := nsObj.(*unstructured.Unstructured); !ok {
+			utilruntime.HandleError(fmt.Errorf("downstream ns expected to be *unstructured.Unstructured got %T", nsObj))
+			return
+		} else {
+			locatorHolder = unstr
+		}
+	}
+
+	upstreamLocator, locatorExists, err := shared.LocatorFromAnnotations(locatorHolder.GetAnnotations())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	if !locatorExists || upstreamLocator == nil {
+		logger.V(4).Info("the namespace locator doesn't exist on downstream namespace.")
+		return
+	}
+
+	if upstreamLocator.SyncTarget.UID != c.syncTargetUID || upstreamLocator.SyncTarget.ClusterName != c.syncTargetClusterName.String() {
+		return
+	}
+
+	c.enqueueUpstream(gvr, &metav1.ObjectMeta{
+		Name:      downstreamObj.GetName(),
+		Namespace: upstreamLocator.Namespace,
+		Annotations: map[string]string{
+			logicalcluster.AnnotationKey: upstreamLocator.ClusterName.String(),
 		},
-	)
+	}, logging.WithObject(logger, downstreamObj), dirtyStatus)
 }
 
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
@@ -231,23 +356,82 @@ func (c *controller) startWorker(ctx context.Context) {
 }
 
 func (c *controller) processNextWorkItem(ctx context.Context) bool {
-	key, quit := c.queue.Get()
+	// Wait until there is a new item in the working queue
+	k, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	qk := key.(queueKey)
-	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String(), "isUpstream", qk.isUpstream, "includeStatus", qk.includeStatus)
+	key := k.(queueKey)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key.key).WithValues("gvr", key.gvr)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("Processing key")
+	logger.V(1).Info("processing key")
+
+	// No matter what, tell the queue we're done with this key, to unblock
+	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, qk.gvr, qk.key, qk.isUpstream, qk.includeStatus); err != nil {
-		runtime.HandleError(fmt.Errorf("%s failed to upsync %q, err: %w", controllerName, key, err))
+	if requeue, err := c.process(ctx, key.key, key.gvr); err != nil {
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q (%s), err: %w", controllerName, key.key, key.gvr.String(), err))
 		c.queue.AddRateLimited(key)
 		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
+		return true
+	}
+	c.queue.Forget(key)
+	return true
+}
+
+func (c *controller) process(ctx context.Context, key string, gvr schema.GroupVersionResource) (bool, error) {
+	logger := klog.FromContext(ctx)
+
+	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return false, nil
 	}
 
-	c.queue.Forget(key)
+	dirtyStatus := false
+	if dirtyStatusObj, found := c.dirtyStatusKeys.LoadAndDelete(queueKey{
+		gvr: gvr,
+		key: key,
+	}); found {
+		dirtyStatus = dirtyStatusObj.(bool)
+	}
 
-	return true
+	upstreamLister, err := c.getUpstreamUpsyncerLister(gvr)
+	if err != nil {
+		return false, err
+	}
+	getter := upstreamLister.ByCluster(clusterName).Get
+	if namespace != "" {
+		getter = upstreamLister.ByCluster(clusterName).ByNamespace(namespace).Get
+	}
+
+	upstreamObj, err := getter(name)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, err
+	}
+
+	var upstreamResource *unstructured.Unstructured
+	var ok bool
+	if upstreamObj != nil {
+		upstreamResource, ok = upstreamObj.(*unstructured.Unstructured)
+		if !ok {
+			logger.Error(nil, "got unexpected type", "type", fmt.Sprintf("%T", upstreamObj))
+			return false, nil // retrying won't help
+		}
+	}
+	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NamespaceKey, namespace, logging.NameKey, name)
+	ctx = klog.NewContext(ctx, logger)
+
+	var errs []error
+	requeue, err := c.reconcile(ctx, upstreamResource, gvr, clusterName, namespace, name, dirtyStatus)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return requeue, utilerrors.NewAggregate(errs)
 }
