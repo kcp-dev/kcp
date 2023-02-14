@@ -1,7 +1,0 @@
-.DS_Store
-.hugo_build.lock
-./docsy/
-node_modules/
-package-lock.json
-/public
-resources/
