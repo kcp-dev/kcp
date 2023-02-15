@@ -22,8 +22,7 @@ Please visit [docs.kcp.io/kcp](https://docs.kcp.io/kcp) for our documentation.
 
 ## Contributing
 
-We ❤️ our contributors! If you're interested in helping us out, please check out [contributing to kcp](https://docs.
-kcp.io/kcp/main/en/CONTRIBUTING.md).
+We ❤️ our contributors! If you're interested in helping us out, please check out [contributing to kcp](https://docs.kcp.io/kcp/main/en/CONTRIBUTING).
 
 ## Getting in touch
 
