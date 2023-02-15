@@ -14,6 +14,12 @@ on:
     branches:
       - main
       - 'release-*'
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/ISSUE_TEMPLATE/*"
+      - ".github/workflows/docs-gen-and-push.yaml"
+      - ".goreleaser.yaml"
 
 jobs:
   build:

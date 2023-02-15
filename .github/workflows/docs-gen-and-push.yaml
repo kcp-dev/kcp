@@ -1,6 +1,7 @@
 name: Generate and push docs
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
