@@ -11,6 +11,7 @@ on:
       - "cmd/**"
       - "docs/**"
       - "pkg/**"
+      - - ".github/workflows/docs-gen-and-push.yaml"
 
 permissions:
   contents: write
