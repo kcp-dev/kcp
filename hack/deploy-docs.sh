@@ -31,7 +31,7 @@ if [[ -n "${CI:-}" ]]; then
 fi
 
 if [[ -n "${LOCAL:-}" ]]; then
-  mike deploy --config-file docs/mkdocs.yml "$VERSION"
+  mike deploy --config-file docs/mkdocs.yml "$PUSH" "$VERSION"
 else
   docker run --rm -it \
     -v "$REPO_ROOT/.git":/.git \
