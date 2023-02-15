@@ -20,3 +20,6 @@ kcp-docs-image
 
 # Folder where each developer can store temporary files
 tmp
+
+kcp-docs-image
+docs/site

@@ -10,38 +10,40 @@ theme:
   language: en
   custom_dir: '../../overrides/'
   features:
-  - navigation.indexes
-  - content.code.copy
-  - content.code.annotate
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
   logo: logo.png
   favicon: favicons/favicon.ico
 
 extra:
+  git_version: !ENV [GITHUB_REF_NAME, 'main']
   version:
     provider: mike
   alternate:
-  - name: English
-    # This has to be changed per version!!!
-    link: /kcp/main/en/
-    lang: en
+    - name: English
+      link: en
+      lang: en
 
 plugins:
   - awesome-pages
   - search
   - macros
+  - modify-base-url:
+      prefix: '../'
 
 markdown_extensions:
-- pymdownx.highlight:
-    anchor_linenums: true
-- pymdownx.inlinehilite
-- pymdownx.snippets
-- pymdownx.superfences
-- admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
 
 extra_css:
-- stylesheets/kcp.css
+  - stylesheets/kcp.css
 
 watch:
-- mkdocs.yml
-- ../../content/en
-- ../../overrides
+  - mkdocs.yml
+  - ../../content/en
+  - ../../overrides
