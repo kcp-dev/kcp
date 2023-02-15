@@ -125,7 +125,6 @@ func TestUpsyncerprocess(t *testing.T) {
 
 		resourceToProcessName string
 
-		upstreamURL            string
 		upstreamLogicalCluster logicalcluster.Name
 		syncTargetName         string
 		syncTargetClusterName  logicalcluster.Name
