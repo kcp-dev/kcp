@@ -21,27 +21,6 @@ import (
 )
 
 var (
-	namedFlagSetOrder = []string{
-		"auditing",
-		"authentication",
-		"etcd",
-		"Embedded etcd",
-		"features",
-		"generic",
-		"logs",
-		"metrics",
-		"misc",
-		"secure serving",
-		"traces",
-		"KCP Authentication",
-		"KCP Authorization",
-		"KCP Virtual Workspaces",
-		"KCP Controllers",
-		"KCP Home Workspaces",
-		"KCP Cache Server",
-		"KCP",
-	}
-
 	allowedFlags = sets.NewString(
 		// auditing flags
 		"audit-log-batch-buffer-size",           // The size of the buffer to store events before batching and writing. Only used in batch mode.
@@ -98,18 +77,6 @@ var (
 		"requestheader-username-headers",     // List of request headers to inspect for usernames. X-Remote-User is common.
 		"token-auth-file",                    // If set, the file that will be used to secure the secure port of the API server via token authentication.
 
-		// KCP Authorization flags
-		"authorization-always-allow-paths", // A list of HTTP paths to skip during authorization, i.e. these are authorized without contacting the 'core' kubernetes server.
-
-		// KCP Admin Authentication flags
-		"authentication-admin-token-path", // Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.
-		"kubeconfig-path",                 // Path to which the administrative kubeconfig should be written at startup.
-
-		// Kubernetes ServiceAccount Token Controller
-		"concurrent-serviceaccount-token-syncs", // The number of service account token objects that are allowed to sync concurrently. Larger number = more responsive token generation, but more CPU (and network) load
-		"service-account-private-key-file",      // Filename containing a PEM-encoded private RSA or ECDSA key used to sign service account tokens.
-		"root-ca-file",                          // If set, this root certificate authority will be included in service account's token secret. This must be a valid PEM-encoded CA bundle.
-
 		// Kubernetes ServiceAccount Authentication flags
 		"service-account-api-audiences",           // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences.
 		"service-account-extend-token-expiration", // Turns on projected service account expiration extension during token generation, which helps safe transition from legacy token to bound service account token feature. If this flag is enabled, admission injected tokens would be extended up to 1 year to prevent unexpected failure during transition, ignoring value of service-account-max-token-expiration.
@@ -128,23 +95,6 @@ var (
 		// traces flags
 		"tracing-config-file", // File with apiserver tracing configuration.
 
-		// KCP flags
-		"profiler-address",                      // [Address]:port to bind the profiler to
-		"root-directory",                        // Root directory.
-		"shard-base-url",                        // Base URL to this kcp shard. Defaults to external address.
-		"shard-external-url",                    // URL used by outside clients to talk to this kcp shard. Defaults to external address.
-		"shard-virtual-workspace-ca-file",       // Path to a CA certificate file that is valid for the virtual workspace server.
-		"shard-virtual-workspace-url",           // An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.
-		"shard-client-cert-file",                // Path to a client certificate file the shard uses to communicate with other system components.
-		"shard-client-key-file",                 // Path to a client certificate key file the shard uses to communicate with other system components.
-		"shard-name",                            // A name of this kcp shard.
-		"shard-kubeconfig-file",                 // Kubeconfig holding admin(!) credentials to peer kcp shards.
-		"root-shard-kubeconfig-file",            // Kubeconfig holding admin(!) credentials to the root kcp shard.
-		"experimental-bind-free-port",           // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
-		"conversion-cel-transformation-timeout", // Maximum amount of time that CEL transformations may take per object conversion.
-		"batteries-included",                    // A list of batteries included (= default objects that might be unwanted in production, but very helpful in trying out kcp or development).
-		"logical-cluster-admin-kubeconfig",      // Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client.
-
 		// secure serving flags
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.
 		"cert-dir",                         // The directory where the TLS certs are located. If --tls-cert-file and --tls-private-key-file are provided, this flag will be ignored.
@@ -157,31 +107,6 @@ var (
 		"tls-min-version",                  // Minimum TLS version supported. Possible values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13
 		"tls-private-key-file",             // File containing the default x509 private key matching --tls-cert-file.
 		"tls-sni-cert-key",                 // A pair of x509 certificate and private key file paths, optionally suffixed with a list of domain patterns which are fully qualified domain names, possibly with prefixed wildcard segments. The domain patterns also allow IP addresses, but IPs should only be used if the apiserver has visibility to the IP address requested by a client. If no domain patterns are provided, the names of the certificate are extracted. Non-wildcard matches trump over wildcard matches, explicit domain patterns trump over extracted names. For multiple key/certificate pairs, use the --tls-sni-cert-key multiple times. Examples: "example.crt,example.key" or "foo.crt,foo.key:*.foo.com,foo.com".
-
-		// Embedded etcd flags
-		"embedded-etcd-client-port",         // Port for embedded etcd client
-		"embedded-etcd-directory",           // Directory for embedded etcd
-		"embedded-etcd-peer-port",           // Port for embedded etcd peer
-		"embedded-etcd-listen-metrics-urls", // The list of protocol://host:port where embedded etcd server listens for Prometheus scrapes
-		"embedded-etcd-wal-size-bytes",      // Size of embedded etcd WAL
-		"embedded-etcd-quota-backend-bytes", // Alarm threshold for embedded etcd backend bytes
-		"embedded-etcd-force-new-cluster",   // Starts a new cluster from existing data restored from a different system
-
-		// Home workspaces flags
-		"enable-home-workspaces",              // Enable the Home Workspaces feature (enabled by default). Home workspaces allow a personal home workspace to provisioned on first access per-user. A user is cluster-admin inside his personal Home workspace.
-		"home-workspaces-home-creator-groups", // Groups of users who can have their home workspaces provisioned upon first access.
-
-		// KCP Controllers flags
-		"auto-publish-apis",                      // If true, the APIs imported from physical clusters will be published automatically as CRDs
-		"apiresource-controller-threads",         // Number of threads to use for the apiresource controller.
-		"run-controllers",                        // Run the controllers in-process
-		"run-virtual-workspaces",                 // Run the virtual workspaces apiservers in-process
-		"unsupported-run-individual-controllers", // Run individual controllers in-process. The controller names can change at any time.
-		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
-
-		// KCP Cache Server flags
-		"cache-kubeconfig",             // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
-		"cache-server-kubeconfig-file", // deprecated
 
 		// generic flags
 		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.

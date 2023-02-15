@@ -36,13 +36,11 @@ import (
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
-	configrootcompute "github.com/kcp-dev/kcp/config/rootcompute"
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
@@ -61,6 +59,10 @@ type Server struct {
 
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {
 	return s.MiniAggregator.GenericAPIServer.AddPostStartHook(name, hook)
+}
+
+func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdownHookFunc) error {
+	return s.MiniAggregator.GenericAPIServer.AddPreShutdownHook(name, hook)
 }
 
 func NewServer(c CompletedConfig) (*Server, error) {
@@ -117,7 +119,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 func (s *Server) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
 	ctx = klog.NewContext(ctx, logger)
-	delegationChainHead := s.MiniAggregator.GenericAPIServer
 
 	if err := s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy()); err != nil {
 		return err
@@ -327,7 +328,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	controllerConfig := rest.CopyConfig(s.identityConfig)
+	controllerConfig := rest.CopyConfig(s.IdentityConfig)
 
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err
@@ -349,57 +350,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installApiExportIdentityController(ctx, controllerConfig, delegationChainHead); err != nil {
+	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
-	if err := s.installReplicationController(ctx, controllerConfig, delegationChainHead); err != nil {
+	if err := s.installReplicationController(ctx, controllerConfig); err != nil {
 		return err
 	}
 
 	enabled := sets.NewString(s.Options.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		logger.WithValues("controllers", enabled).Info("starting controllers individually")
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
-		// bootstrap root compute workspace
-		computeBoostrapHookName := "rootComputeBoostrap"
-		if err := s.AddPostStartHook(computeBoostrapHookName, func(hookContext genericapiserver.PostStartHookContext) error {
-			logger := logger.WithValues("postStartHook", computeBoostrapHookName)
-			if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-				// the root ws is only present on the root shard
-				logger.Info("waiting to bootstrap root compute workspace until root phase1 is complete")
-				<-s.rootPhase1FinishedCh
-
-				logger.Info("starting bootstrapping root compute workspace")
-				if err := configrootcompute.Bootstrap(goContext(hookContext),
-					s.BootstrapApiExtensionsClusterClient,
-					s.BootstrapDynamicClusterClient,
-					sets.NewString(s.Options.Extra.BatteriesIncluded...),
-				); err != nil {
-					logger.Error(err, "failed to bootstrap root compute workspace")
-					return nil // don't klog.Fatal. This only happens when context is cancelled.
-				}
-				logger.Info("finished bootstrapping root compute workspace")
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		// TODO(marun) Consider enabling each controller via a separate flag
-		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installSyncTargetHeartbeatController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installSyncTargetController(ctx, controllerConfig, delegationChainHead); err != nil {
-			return err
-		}
-		if err := s.installWorkloadsSyncTargetExportController(ctx, controllerConfig, delegationChainHead); err != nil {
-			return err
-		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
@@ -417,126 +377,97 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.Options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
-			return err
-		}
-	}
-
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, delegationChainHead, s.DiscoveringDynamicSharedInformerFactory); err != nil {
+		if err := s.installAPIBindingController(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
 			return err
 		}
-		if err := s.installCRDCleanupController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installCRDCleanupController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
-		if err := s.installAPIExportController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installAPIExportController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
-		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrolebinding") {
-		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicatelogicalcluster") {
-		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicatelogicalcluster") {
-		if err := s.installTenancyReplicateLogicalClusterControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installTenancyReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrole") {
-		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrolebinding") {
-		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
-		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicationclusterrolebinding") {
-		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
-		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
-		if err := s.installAPIBinderController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installAPIBinderController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
-		if err := s.installPartitionSetController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installPartitionSetController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		if s.Options.Controllers.EnableAll || enabled.Has("scheduling") {
-			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installWorkloadPlacementScheduler(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installSchedulingPlacementController(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-		}
-	}
-
 	if s.Options.Controllers.EnableAll || enabled.Has("quota") {
-		if err := s.installKubeQuotaController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installKubeQuotaController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
-		if err := s.installGarbageCollectorController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
@@ -544,7 +475,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.Options.Virtual.Enabled {
 		virtualWorkspacesConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
 		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
-		if err := s.installVirtualWorkspaces(ctx, virtualWorkspacesConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, virtualWorkspacesConfig, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
 			return err
 		}
 	}
@@ -559,7 +490,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	return delegationChainHead.PrepareRun().Run(ctx.Done())
+	return s.MiniAggregator.GenericAPIServer.PrepareRun().Run(ctx.Done())
 }
 
 type handlerChainMuxes []*http.ServeMux
@@ -580,4 +511,8 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 		cancel()
 	}(parent.StopCh)
 	return ctx
+}
+
+func (s *Server) WaitForPhase1Finished() {
+	<-s.rootPhase1FinishedCh
 }

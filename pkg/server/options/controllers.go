@@ -36,9 +36,8 @@ import (
 type Controllers struct {
 	EnableAll           bool
 	IndividuallyEnabled []string
-	ApiResource         ApiResourceController
-	SyncTargetHeartbeat SyncTargetHeartbeatController
-	SAController        kcmoptions.SAControllerOptions
+
+	SAController kcmoptions.SAControllerOptions
 }
 
 type ApiResourceController = apiresource.Options
@@ -59,9 +58,7 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiResource:         *apiresource.NewOptions(),
-		SyncTargetHeartbeat: *heartbeat.NewOptions(),
-		SAController:        *kcmDefaults.SAController,
+		SAController: *kcmDefaults.SAController,
 	}
 }
 
@@ -71,8 +68,6 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
 
-	c.SyncTargetHeartbeat.AddFlags(fs)
-	c.ApiResource.AddFlags(fs)
 	c.SAController.AddFlags(fs)
 }
 
@@ -105,12 +100,6 @@ func (c *Controllers) Complete(rootDir string) error {
 func (c *Controllers) Validate() []error {
 	var errs []error
 
-	if err := c.ApiResource.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.SyncTargetHeartbeat.Validate(); err != nil {
-		errs = append(errs, err)
-	}
 	if saErrs := c.SAController.Validate(); saErrs != nil {
 		errs = append(errs, saErrs...)
 	}

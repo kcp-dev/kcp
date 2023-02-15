@@ -38,11 +38,11 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/cmd/kcp/options"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/server"
-	"github.com/kcp-dev/kcp/pkg/server/options"
+	"github.com/kcp-dev/kcp/tmc/pkg/server"
 )
 
 func main() {
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	serverOptions := options.NewOptions(rootDir)
-	serverOptions.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
+	serverOptions.Server.Core.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -105,7 +105,7 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
-			if err := serverOptions.GenericControlPlane.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := serverOptions.Server.Core.GenericControlPlane.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 
@@ -119,9 +119,9 @@ func main() {
 			}
 
 			logger := klog.FromContext(cmd.Context())
-			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Extra.BatteriesIncluded, ","))
+			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Core.Extra.BatteriesIncluded, ","))
 
-			config, err := server.NewConfig(completed)
+			config, err := server.NewConfig(completed.Server)
 			if err != nil {
 				return err
 			}
@@ -134,8 +134,8 @@ func main() {
 			ctx := genericapiserver.SetupSignalContext()
 
 			// the etcd server must be up before NewServer because storage decorators access it right away
-			if completedConfig.EmbeddedEtcd.Config != nil {
-				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+			if completedConfig.Core.EmbeddedEtcd.Config != nil {
+				if err := embeddedetcd.NewServer(completedConfig.Core.EmbeddedEtcd).Run(ctx); err != nil {
 					return err
 				}
 			}
@@ -149,10 +149,11 @@ func main() {
 	}
 
 	// add start named flag sets to start flags
-	namedStartFlagSets := serverOptions.Flags()
-	globalflag.AddGlobalFlags(namedStartFlagSets.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
+	fss := cliflag.NamedFlagSets{}
+	serverOptions.AddFlags(&fss)
+	globalflag.AddGlobalFlags(fss.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
 	startFlags := startCmd.Flags()
-	for _, f := range namedStartFlagSets.FlagSets {
+	for _, f := range fss.FlagSets {
 		startFlags.AddFlagSet(f)
 	}
 
@@ -172,14 +173,14 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.OutOrStderr(), usageFmt, startCmd.UseLine())
-			cliflag.PrintSections(cmd.OutOrStderr(), namedStartFlagSets, cols)
+			cliflag.PrintSections(cmd.OutOrStderr(), fss, cols)
 			return nil
 		},
 	}
 	startCmd.AddCommand(startOptionsCmd)
 	cmd.AddCommand(startCmd)
 
-	setPartialUsageAndHelpFunc(startCmd, namedStartFlagSets, cols, []string{
+	setPartialUsageAndHelpFunc(startCmd, fss, cols, []string{
 		"etcd-servers",
 		"batteries-included",
 		"run-virtual-workspaces",

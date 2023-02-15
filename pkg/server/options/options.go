@@ -17,10 +17,8 @@ limitations under the License.
 package options
 
 import (
-	"errors"
 	"fmt"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
-	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
@@ -54,7 +51,6 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	RootDirectory                      string
 	ProfilerAddress                    string
 	ShardKubeconfigFile                string
 	RootShardKubeconfigFile            string
@@ -105,7 +101,6 @@ func NewOptions(rootDir string) *Options {
 		Cache:               *NewCache(rootDir),
 
 		Extra: ExtraOptions{
-			RootDirectory:                      rootDir,
 			ProfilerAddress:                    "",
 			ShardKubeconfigFile:                "",
 			ShardBaseURL:                       "",
@@ -144,22 +139,10 @@ func NewOptions(rootDir string) *Options {
 	return o
 }
 
-func (o *Options) Flags() cliflag.NamedFlagSets {
-	fss := filter(o.rawFlags(), allowedFlags)
-
-	// add flags that are filtered out from upstream, but overridden here with our own version
-	fs := fss.FlagSet("KCP")
-	fs.Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
-		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
-		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
-
-	fss.Order = namedFlagSetOrder
-
-	return fss
-}
-
-func (o *Options) rawFlags() cliflag.NamedFlagSets {
-	fss := o.GenericControlPlane.Flags()
+func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
+	for name, fs := range o.GenericControlPlane.Flags().FlagSets {
+		fss.FlagSet(name).AddFlagSet(filter(name, fs, allowedFlags))
+	}
 
 	etcdServers := fss.FlagSet("etcd").Lookup("etcd-servers")
 	etcdServers.Usage += " By default an embedded etcd server is started."
@@ -183,7 +166,6 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
 	fs.StringVar(&o.Extra.ShardClientCertFile, "shard-client-cert-file", o.Extra.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
 	fs.StringVar(&o.Extra.ShardClientKeyFile, "shard-client-key-file", o.Extra.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
-	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
@@ -202,7 +184,10 @@ Prefixing with - or + means to remove from the default set or add to the default
 		strings.Join(batteries.All.List(), ","),
 	))
 
-	return fss
+	// add flags that are filtered out from upstream, but overridden here with our own version
+	fs.Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 }
 
 func (o *CompletedOptions) Validate() []error {
@@ -248,22 +233,9 @@ func (o *CompletedOptions) Validate() []error {
 	return errs
 }
 
-func (o *Options) Complete() (*CompletedOptions, error) {
+func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	if servers := o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
 		o.EmbeddedEtcd.Enabled = true
-	}
-
-	if !filepath.IsAbs(o.Extra.RootDirectory) {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		o.Extra.RootDirectory = filepath.Join(pwd, o.Extra.RootDirectory)
-	}
-
-	// Create the configuration root correctly before other components get a chance.
-	if err := mkdirRoot(o.Extra.RootDirectory); err != nil {
-		return nil, err
 	}
 
 	var err error
@@ -306,7 +278,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.GenericControlPlane.SecureServing.Listener = listener
 	}
 
-	if err := o.Controllers.Complete(o.Extra.RootDirectory); err != nil {
+	if err := o.Controllers.Complete(rootDir); err != nil {
 		return nil, err
 	}
 	if o.Controllers.SAController.ServiceAccountKeyFile != "" && !filepath.IsAbs(o.Controllers.SAController.ServiceAccountKeyFile) {
@@ -383,51 +355,12 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	}, nil
 }
 
-func filter(ffs cliflag.NamedFlagSets, allowed sets.String) cliflag.NamedFlagSets {
-	filtered := cliflag.NamedFlagSets{}
-	for title, fs := range ffs.FlagSets {
-		section := filtered.FlagSet(title)
-		fs.VisitAll(func(f *pflag.Flag) {
-			if allowed.Has(f.Name) {
-				section.AddFlag(f)
-			}
-		})
-	}
+func filter(name string, fs *pflag.FlagSet, allowed sets.String) *pflag.FlagSet {
+	filtered := pflag.NewFlagSet(name, pflag.ContinueOnError)
+	fs.VisitAll(func(f *pflag.Flag) {
+		if allowed.Has(f.Name) {
+			filtered.AddFlag(f)
+		}
+	})
 	return filtered
-}
-
-// mkdirRoot creates the root configuration directory for the KCP
-// server. This has to be done early before we start bringing up server
-// components to ensure that we set the initial permissions correctly,
-// since otherwise components will create it as a side-effect.
-func mkdirRoot(dir string) error {
-	if dir == "" {
-		return errors.New("missing root directory configuration")
-	}
-	logger := klog.Background().WithValues("dir", dir)
-
-	fi, err := os.Stat(dir)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-
-		logger.Info("creating root directory")
-
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-
-		// Ensure the leaf directory is moderately private
-		// because this may contain private keys and other
-		// sensitive data
-		return os.Chmod(dir, 0700)
-	}
-
-	if !fi.IsDir() {
-		return fmt.Errorf("%q is a file, please delete or select another location", dir)
-	}
-
-	logger.Info("using root directory")
-	return nil
 }
