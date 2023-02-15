@@ -222,9 +222,11 @@ type controller struct {
 	syncTargetKey         string
 }
 
-// Queue handles keys for both upstream and downstream resources.
+// queueKey is a composite queue key that combines the gvr and the key of the upstream
+// resource that should be reconciled.
 type queueKey struct {
 	gvr schema.GroupVersionResource
+	// key is the cluster-aware cache key of the upstream resource
 	key string
 }
 
@@ -290,7 +292,8 @@ func (c *controller) enqueueDownstream(gvr schema.GroupVersionResource, downstre
 	downstreamNamespace := downstreamObj.GetNamespace()
 	locatorHolder := downstreamObj
 	if downstreamNamespace != "" {
-		downstreamNamespaceLister, err := c.getDownstreamLister(corev1.SchemeGroupVersion.WithResource("namespaces"))
+		// get locator from namespace for namespaced objects
+		downstreamNamespaceLister, err := c.getDownstreamLister(namespaceGVR)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -401,9 +404,19 @@ func (c *controller) process(ctx context.Context, key string, gvr schema.GroupVe
 		dirtyStatus = dirtyStatusObj.(bool)
 	}
 
+	resetDirty := func(requeue bool, err error) (bool, error) {
+		if dirtyStatus && err != nil {
+			c.dirtyStatusKeys.Store(queueKey{
+				gvr: gvr,
+				key: key,
+			}, true)
+		}
+		return requeue, err
+	}
+
 	upstreamLister, err := c.getUpstreamUpsyncerLister(gvr)
 	if err != nil {
-		return false, err
+		return resetDirty(false, err)
 	}
 	getter := upstreamLister.ByCluster(clusterName).Get
 	if namespace != "" {
@@ -412,12 +425,12 @@ func (c *controller) process(ctx context.Context, key string, gvr schema.GroupVe
 
 	upstreamObj, err := getter(name)
 	if err != nil && !errors.IsNotFound(err) {
-		return false, err
+		return resetDirty(false, err)
 	}
 
 	var upstreamResource *unstructured.Unstructured
-	var ok bool
 	if upstreamObj != nil {
+		var ok bool
 		upstreamResource, ok = upstreamObj.(*unstructured.Unstructured)
 		if !ok {
 			logger.Error(nil, "got unexpected type", "type", fmt.Sprintf("%T", upstreamObj))
@@ -433,5 +446,5 @@ func (c *controller) process(ctx context.Context, key string, gvr schema.GroupVe
 		errs = append(errs, err)
 	}
 
-	return requeue, utilerrors.NewAggregate(errs)
+	return resetDirty(requeue, utilerrors.NewAggregate(errs))
 }
