@@ -22,12 +22,6 @@ import (
 	_ "github.com/kcp-dev/kcp/pkg/features"
 )
 
-//
-// Mostly copied from k8s.io/kubernetes/cmd/kube-apiserver/app/options
-//
-// TODO: move all back into genericcontrolplane
-//
-
 type ServerRunOptions struct {
 	options.ServerRunOptions
 }
