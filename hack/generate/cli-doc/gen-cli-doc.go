@@ -17,30 +17,29 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	kubectlKcp "github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
 	"github.com/kcp-dev/kcp/hack/third_party/github.com/spf13/cobra/doc"
 )
 
 func main() {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("Failed to get current directory: %v", err)
+	output := flag.String("output", "", "Path to output directory")
+	flag.Parse()
+
+	if output == nil || *output == "" {
+		fmt.Fprintln(os.Stderr, "output is required")
+		os.Exit(1)
 	}
 
-	cliDocsPath := filepath.Join(currentDir, "docs", "content", "en", "main", "cli")
-
-	if err := os.RemoveAll(cliDocsPath); err != nil {
-		log.Fatalf("Failed to remove existing generated docs: %v", err)
-	}
-	if err := os.MkdirAll(cliDocsPath, 0755); err != nil {
+	if err := os.MkdirAll(*output, 0755); err != nil {
 		log.Fatalf("Failed to re-create docs directory: %v", err)
 	}
 
-	if err := doc.GenMarkdownTree(kubectlKcp.KubectlKcpCommand(), cliDocsPath); err != nil {
+	if err := doc.GenMarkdownTree(kubectlKcp.KubectlKcpCommand(), *output); err != nil {
 		log.Fatalf("Failed to generate docs: %v", err)
 	}
 }

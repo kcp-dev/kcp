@@ -1,0 +1,3 @@
+nav:
+    - CLI: cli
+    - CRD: crd

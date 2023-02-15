@@ -10,13 +10,9 @@ on:
       - "cmd/**"
       - "docs/**"
       - "pkg/**"
-      - "README.md"
-  workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,123 +22,10 @@ jobs:
     name: Generate and push docs
     runs-on: ubuntu-latest
     steps:
-      # checkout main branch and gh-pages branch on different path
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          submodules: true # Fetch Hugo themes (true OR recursive)
-          fetch-depth: 0 # Fetch all history for .GitInfo and .Lastmod
-          path: kcp
-      - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
-          path: docs
-      - uses: actions/setup-go@v3
-        with:
-          go-version: v1.19
-
-      # docsy requires extended version of hugo
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2
-        with:
-          hugo-version: "0.104.3"
-          extended: true
-
-      # install npm dependencies
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-      - name: Cache dependencies
-        uses: actions/cache@v3.2.5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - name: Install dependencies
-        run: cd kcp/docs && npm install && npm ci
-
-      - name: Copy readmes
-        run: tail -n +4 kcp/README.md >> kcp/docs/content/en/main/_index.md
-
-      - name: Generate CLI and CRD docs
-        run: |
-          cd kcp
-          make generate-docs
-          cat <<EOF > docs/content/en/main/cli/_index.md
-          ---
-          title: "CLI Reference"
-          linkTitle: "CLI Reference"
-          weight: 4
-          description: >
-            Reference documentation for the kcp CLI.
-          ---
-          EOF
-
-      - name: Build hugo docs
-        run: |
-          cd kcp/docs
-          hugo --minify
-          mv public ../../public
-
-      # This step check if the trigger is a tag and if so, it will update the version in the
-      # config.toml file and mark it as archived, since the tag is also a latest main, the same
-      # content is rebuilt using updated config and folder name. The folder thus generated is saved
-      # as archive in gh-pages branch.
-      # TODO: refactor this section to a shell script
-      - name: Update version info on tag for archive
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cd kcp/docs
-          IFS='/'
-          read -ra arr <<< "${{ github.ref }}"
-          cat <<EOF > temp.txt
-          #version-start
-          archived_version = true
-          version = "${arr[2]}"
-          EOF
-          ed config.toml<<EOF
-          /^#version-start
-          +,/^#version-end/-1d
-          -r !sed -n '/^#version-start/,/^#version-end/p' temp.txt | grep -v '^#'
-          w
-          q
-          EOF
-          mv content/en/main content/en/${arr[2]}
-          hugo --minify
-          rsync -av public/${arr[2]} ../../docs
-
-      # push older version HTML renders on gh-pages to be included in docs
-      - name: Push to gh-pages on tag for archive
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cd docs
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Static archive of docs for ${{ github.ref }}"
-          git push origin gh-pages
-
-      # copy back older versions to the current docs
-      - name: Copy everything from archive to docs
-        run: |
-          if ls docs/v* >/dev/null; then
-            rsync -av docs/v* public
-          fi
-
-      - name: Upload build artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: public/
-
-  # Deployment Job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-22.04
-    needs: generate-and-push
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v1
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install mkdocs-material mkdocs-awesome-pages-plugin mkdocs-macros-plugin mike
+      - run: make generate-docs deploy-docs LOCAL=1
