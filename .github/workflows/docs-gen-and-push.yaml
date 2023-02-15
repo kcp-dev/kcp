@@ -12,6 +12,9 @@ on:
       - "docs/**"
       - "pkg/**"
       - ".github/workflows/docs-gen-and-push.yaml"
+      - "hack/generate"
+      - "hack/build-docs.sh"
+      - "hack/deploy-docs.sh"
 
 permissions:
   contents: write
