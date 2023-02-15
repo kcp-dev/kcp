@@ -1,6 +1,5 @@
 ---
-title: {{ .Title }} CRD schema reference (group {{ .Group }})
-linkTitle: {{ .Title }}
+title: {{ .Title }}
 description: |
 {{- if .Description }}
 {{ .Description | indent 2 }}
@@ -10,7 +9,6 @@ description: |
   Management API documentation.
 {{- end }}
 weight: {{ .Weight }}
-layout: crd
 ---
 
 {{- with .Metadata.Deprecation }}
@@ -24,7 +22,8 @@ This CRD is being replaced by <a href="../{{ .FullName }}/">{{ .ShortName }}</a>
 {{"{{% /pageinfo %}}"}}
 {{- end }}
 
-## {{ .Title }}
+## {{ .Title }} CRD schema reference (group {{ .Group }})
+<div class="lead">{{`{{`}} page.meta.description {{`}}`}}</div>
 
 <dl class="crd-meta">
 <dt class="fullname">Full name:</dt>
