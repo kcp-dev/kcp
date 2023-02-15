@@ -173,7 +173,7 @@ serve-docs:
 	hack/serve-docs.sh LANGUAGE=$(LANGUAGE)
 
 .PHONY: deploy-docs
-deploy-docs: kcp-docs-img
+deploy-docs: kcp-docs-image
 	hack/deploy-docs.sh
 
 .PHONY: clean-generated-docs

@@ -24,9 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: v1.19
+          cache: true
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
-      - run: pip install mkdocs-material mkdocs-awesome-pages-plugin mkdocs-macros-plugin mike
+      - run: pip install -r requirements.txt
       - run: make generate-docs deploy-docs LOCAL=1
