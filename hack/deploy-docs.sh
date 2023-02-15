@@ -23,14 +23,14 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 VERSION=${VERSION:-main}
 
 PUSH=''
-if [[ -n "$CI" ]]; then
+if [[ -n "${CI:-}" ]]; then
   PUSH='--push'
   git config user.name kcp-docs-bot
   git config user.email no-reply@kcp.io
 fi
 
 if [[ -n "${LOCAL:-}" ]]; then
-  mike deploy "$VERSION"
+  mike deploy --config-file docs/mkdocs.yml "$VERSION"
 else
   docker run --rm -it \
     -v "$REPO_ROOT/.git":/.git \
