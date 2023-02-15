@@ -5,6 +5,8 @@ contrib/demo/clusters/kind/*.kubeconfig
 coverage.*
 tools
 build
+kcp-docs-image
+.kcp-playground.yaml
 
 # JetBrains IDE files
 .idea/

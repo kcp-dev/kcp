@@ -1,0 +1,58 @@
+# This playground configuration show case deploying workloads on KCP;
+# those workloads are then run on a compute cluster randomly picked from a pool of two.
+#
+# 1. Start the playground:
+#
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/deploy-to-a-pool-of-clusters.yaml
+#
+#  (from another window)
+#
+# 2. Deploy a workload in KCP:
+#
+#  kubectl kcp playground use shard main
+#  kubectl ws root:my-org:applications
+#  kubectl create deployment kuard --image=gcr.io/kuar-demo/kuard-amd64:blue --port=8080 --replicas=2
+#  kubectl get deploy -A
+#
+# 3. Check workload have been deployed on one (and only one) compute cluster:
+#
+#  kubectl kcp playground use pcluster [compute-1|compute-2]
+#  kubectl get deploy -A
+#
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  # Configure KCP for this playground scenario.
+  shards:
+    # Using a single KCP instance (the only option supported so far).
+    - name: main
+      workspaces:
+        # Setup a new org for this playground scenario.
+        - name: my-org
+          workspaces:
+            # Defining an infrastructure workspace, where pClusters are made available for usage in KCP using sync targets.
+            # When a new sync target is created, it is automatically bound to a default Location; in this example
+            # the default location is going to consist of a pool of two clusters (two instances).
+            # Note: pCluster names must match pCluster defined down in this yaml.
+            - name: infrastructure
+              syncTargets:
+                - name: compute-1
+                  pCluster: compute-1
+                - name: compute-2
+                  pCluster: compute-2
+            # Setup an application workspace, where we are going to deploy workloads.
+            - name: applications
+              # Define a placement rule for the workloads defined in this workspace.
+              # This placement rule is going to target all the locations in the infrastructure workspace;
+              # Given that there is only one location, backed by a pool of two clusters, the Placement
+              # rule will pick one server randomly and deploy workloads there.
+              placements:
+                - name: pick-one-server
+                  locationWorkspace: "root:my-org:infrastructure"
+  # Setup pCluster to be used as a compute capacity for this playground scenario.
+  pClusters:
+    - name: compute-1
+      type: kind
+    - name: compute-2
+      type: kind

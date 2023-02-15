@@ -58,12 +58,24 @@ func (c *testConfig) SyncerImage() string {
 	return c.syncerImage
 }
 
+func (c *testConfig) SetSyncerImage(image string) {
+	c.syncerImage = image
+}
+
 func (c *testConfig) KCPTestImage() string {
 	return c.kcpTestImage
 }
 
+func (c *testConfig) SetKCPTestImage(image string) {
+	c.kcpTestImage = image
+}
+
 func (c *testConfig) PClusterKubeconfig() string {
 	return c.pclusterKubeconfig
+}
+
+func (c *testConfig) SetPClusterKubeconfig(path string) {
+	c.pclusterKubeconfig = path
 }
 
 func (c *testConfig) KCPKubeconfig() string {

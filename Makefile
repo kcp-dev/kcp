@@ -110,11 +110,12 @@ ldflags:
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
 
-build: WHAT ?= ./cmd/... ./tmc/cmd/...
+build: WHAT ?= ./cmd/... ./tmc/cmd/... ./test/kubectl-kcp-playground
 build: require-jq require-go require-git verify-go-versions ## Build the project
 	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 	ln -sf kubectl-workspace bin/kubectl-workspaces
 	ln -sf kubectl-workspace bin/kubectl-ws
+	ln -sf kubectl-kcp-playground bin/kubectl-kpl
 .PHONY: build
 
 .PHONY: build-all
@@ -239,7 +240,7 @@ $(TOOLS_DIR)/verify_boilerplate.py:
 
 .PHONY: verify-boilerplate
 verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv
+	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip tmp
 
 ifdef ARTIFACT_DIR
 GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml
