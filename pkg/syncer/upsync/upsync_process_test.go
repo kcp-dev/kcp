@@ -18,6 +18,7 @@ package upsync
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,7 +148,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}).
-				Object(),
+				Unstructured(t).WithoutFields("status").Unstructured,
 			upstreamResource:          nil,
 			resourceToProcessName:     "test-pod",
 			syncTargetName:            "us-west1",
@@ -162,7 +163,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "1",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithoutFields("status").Unstructured),
 			},
 			includeStatus: false,
 		},
@@ -185,8 +186,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}).
-				Object(),
-			upstreamResource:          nil,
+				Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured,
 			resourceToProcessName:     "test-pod",
 			syncTargetName:            "us-west1",
 			expectActionsOnDownstream: []clienttesting.Action{},
@@ -197,26 +197,24 @@ func TestUpsyncerprocess(t *testing.T) {
 						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
-				kcptesting.NewUpdateSubresourceAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "status", "test",
-					pod("test-pod").
-						WithNamespace("test").
-						WithLabels(map[string]string{
-							"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-						}).
-						WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-						Unstructured(t)),
-				kcptesting.NewUpdateAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "test",
-					pod("test-pod").
-						WithNamespace("test").
-						WithLabels(map[string]string{
-							"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
-						}).
-						WithAnnotations(map[string]string{
-							"workload.kcp.io/rv": "1",
-						}).
-						WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-						Unstructured(t)),
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
+				kcptesting.NewUpdateSubresourceAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "status", "test", pod("test-pod").
+					WithNamespace("test").
+					WithLabels(map[string]string{
+						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}).
+					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
+				kcptesting.NewUpdateAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "test", pod("test-pod").
+					WithNamespace("test").
+					WithLabels(map[string]string{
+						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+					}).
+					WithAnnotations(map[string]string{
+						"workload.kcp.io/rv": "1",
+					}).
+					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
 			},
 			includeStatus: true,
 		},
@@ -234,7 +232,7 @@ func TestUpsyncerprocess(t *testing.T) {
 				WithAnnotations(map[string]string{
 					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":""}`,
 				}).
-				Object(),
+				Unstructured(t).WithoutFields("status").Unstructured,
 			upstreamResource:          nil,
 			resourceToProcessName:     "test-pv",
 			syncTargetName:            "us-west1",
@@ -248,7 +246,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "1",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithoutFields("status").Unstructured),
 			},
 			includeStatus: false,
 		},
@@ -271,7 +269,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}).
-				Object(),
+				Unstructured(t).WithoutFields("status").Unstructured,
 			upstreamResource: pod("test-pod").
 				WithClusterName("root:org:ws").
 				WithNamespace("test").
@@ -298,7 +296,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
 					WithResourceVersion("1").
-					Unstructured(t)),
+					Unstructured(t).WithoutFields("status").Unstructured),
 			},
 			includeStatus: false,
 		},
@@ -322,7 +320,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}).
-				Object(),
+				Unstructured(t).WithoutFields("status").Unstructured,
 			upstreamResource: pod("test-pod").
 				WithClusterName("root:org:ws").
 				WithNamespace("test").
@@ -350,7 +348,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "2",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithoutFields("status").Unstructured),
 			},
 			includeStatus: false,
 		},
@@ -373,7 +371,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 				}).
-				Object(),
+				Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured,
 			upstreamResource: pod("test-pod").
 				WithClusterName("root:org:ws").
 				WithNamespace("test").
@@ -384,7 +382,7 @@ func TestUpsyncerprocess(t *testing.T) {
 				WithAnnotations(map[string]string{
 					"workload.kcp.io/rv": "10",
 				}).
-				Object(),
+				Unstructured(t).Unstructured,
 			resourceToProcessName:     "test-pod",
 			syncTargetName:            "us-west1",
 			expectActionsOnDownstream: []clienttesting.Action{},
@@ -398,7 +396,7 @@ func TestUpsyncerprocess(t *testing.T) {
 					}).
 					WithAnnotations(map[string]string{"workload.kcp.io/rv": "10"}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
 				kcptesting.NewUpdateSubresourceAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "status", "test", pod("test-pod").
 					WithNamespace("test").
 					WithResourceVersion("1").
@@ -409,7 +407,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "10",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
 				kcptesting.NewUpdateAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "test", pod("test-pod").
 					WithNamespace("test").
 					WithResourceVersion("1").
@@ -420,7 +418,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "11",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithField("status", map[string]interface{}{"phase": "Running"}).Unstructured),
 			},
 			includeStatus: true,
 		},
@@ -438,7 +436,7 @@ func TestUpsyncerprocess(t *testing.T) {
 				WithAnnotations(map[string]string{
 					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":""}`,
 				}).
-				Object(),
+				Unstructured(t).WithoutFields("status").Unstructured,
 			upstreamResource: pv("test-pv").
 				WithClusterName("root:org:ws").
 				WithResourceVersion("1").
@@ -464,7 +462,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"workload.kcp.io/rv": "2",
 					}).
 					WithFinalizers("workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g").
-					Unstructured(t)),
+					Unstructured(t).WithoutFields("status").Unstructured),
 			},
 			includeStatus: false,
 		},
@@ -663,7 +661,7 @@ func TestUpsyncerprocess(t *testing.T) {
 						"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
 					}).
-					Unstructured(t)),
+					Unstructured(t).Unstructured),
 				kcptesting.NewDeleteAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
 			},
 			includeStatus: false,
@@ -856,11 +854,30 @@ func (r *resourceBuilder[Type]) Object() Type {
 	return r.obj
 }
 
-func (r *resourceBuilder[Type]) Unstructured(t *testing.T) *unstructured.Unstructured {
-	var result unstructured.Unstructured
-	err := scheme.Convert(r.obj, &result, nil)
-	require.NoError(t, err)
+type unstructuredType struct {
+	*unstructured.Unstructured
+	t *testing.T
+}
 
+func (u *unstructuredType) WithoutFields(fieldsToPrune ...string) *unstructuredType {
+	for _, field := range fieldsToPrune {
+		unstructured.RemoveNestedField(u.Object, strings.Split(field, ".")...)
+	}
+
+	return u
+}
+
+func (u *unstructuredType) WithField(key string, value interface{}) *unstructuredType {
+	err := unstructured.SetNestedField(u.Object, value, strings.Split(key, ".")...)
+	require.NoError(u.t, err)
+	return u
+}
+
+func (r *resourceBuilder[Type]) Unstructured(t *testing.T) *unstructuredType {
+	var unstr unstructured.Unstructured
+	err := scheme.Convert(r.obj, &unstr, nil)
+	require.NoError(t, err)
+	result := unstructuredType{&unstr, t}
 	return &result
 }
 
