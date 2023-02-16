@@ -149,10 +149,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create apiserver
-	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
-	if err != nil {
-		return err
-	}
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
@@ -163,9 +159,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err := o.Authentication.ApplyTo(&recommendedConfig.Authentication, recommendedConfig.SecureServing, recommendedConfig.OpenAPIConfig); err != nil {
 		return err
 	}
-	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
-		return err
-	}
 	if err := o.Audit.ApplyTo(&recommendedConfig.Config); err != nil {
 		return err
 	}
@@ -173,8 +166,16 @@ func Run(ctx context.Context, o *options.Options) error {
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
 		cacheKcpInformers.Start,
-	}, virtualWorkspaces)
+	})
 	if err != nil {
+		return err
+	}
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	if err != nil {
+		return err
+	}
+
+	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, rootAPIServerConfig.Extra.VirtualWorkspaces); err != nil {
 		return err
 	}
 

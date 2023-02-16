@@ -48,17 +48,6 @@ func (s *Server) installVirtualWorkspaces(
 	preHandlerChainMux mux,
 ) error {
 	logger := klog.FromContext(ctx)
-	// create virtual workspaces
-	virtualWorkspaces, err := s.Options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
-		config,
-		virtualcommandoptions.DefaultRootPathPrefix,
-		s.KubeSharedInformerFactory,
-		s.KcpSharedInformerFactory,
-		s.CacheKcpSharedInformerFactory,
-	)
-	if err != nil {
-		return err
-	}
 
 	// create apiserver, with its own delegation chain
 	scheme := runtime.NewScheme()
@@ -75,18 +64,28 @@ func (s *Server) installVirtualWorkspaces(
 	recommendedConfig.LivezChecks = []healthz.HealthChecker{}
 	recommendedConfig.Authentication = auth
 
-	authorizationOptions := virtualoptions.NewAuthorization()
-	authorizationOptions.AlwaysAllowGroups = s.Options.Authorization.AlwaysAllowGroups
-	authorizationOptions.AlwaysAllowPaths = s.Options.Authorization.AlwaysAllowPaths
-	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
-		return err
-	}
-
-	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig, nil, virtualWorkspaces)
+	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig, nil)
 	if err != nil {
 		return err
 	}
 	rootAPIServerConfig.Generic.ExternalAddress = externalAddress
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = s.Options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+		config,
+		virtualcommandoptions.DefaultRootPathPrefix,
+		s.KubeSharedInformerFactory,
+		s.KcpSharedInformerFactory,
+		s.CacheKcpSharedInformerFactory,
+	)
+	if err != nil {
+		return err
+	}
+
+	authorizationOptions := virtualoptions.NewAuthorization()
+	authorizationOptions.AlwaysAllowGroups = s.Options.Authorization.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = s.Options.Authorization.AlwaysAllowPaths
+	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, rootAPIServerConfig.Extra.VirtualWorkspaces); err != nil {
+		return err
+	}
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	completedRootAPIServerConfig.Generic.AuditBackend = s.MiniAggregator.GenericAPIServer.AuditBackend
