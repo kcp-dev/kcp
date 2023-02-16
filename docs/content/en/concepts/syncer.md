@@ -5,8 +5,7 @@ description: >
 
 # Registering Kubernetes Clusters using syncer
 
-To register a Kubernetes cluster with kcp,
-you have to install a special component named [syncer](https://github.com/kcp-dev/kcp/tree/main/docs/architecture#syncer).
+To register a Kubernetes cluster with kcp, you have to install a special component named syncer.
 
 ## Requirements
 
