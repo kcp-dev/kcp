@@ -21,7 +21,7 @@
     
     
       
-        <title>`kcp` as a minimal control plane for Kube-like Applications - kcp Documentation</title>
+        <title>Project Goals - kcp Documentation</title>
       
     
     
@@ -71,7 +71,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#kcp-as-a-minimal-control-plane-for-kube-like-applications" class="md-skip">
+        <a href="#project-goals" class="md-skip">
           Skip to content
         </a>
       
@@ -147,7 +147,7 @@
                 <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              `kcp` as a minimal control plane for Kube-like Applications
+              Project Goals
             
           </span>
                 </div>
@@ -335,12 +335,12 @@
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          `kcp` as a minimal control plane for Kube-like Applications
+          Project Goals
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        `kcp` as a minimal control plane for Kube-like Applications
+        Project Goals
       </a>
       
         
@@ -1353,8 +1353,11 @@
 
 
 
-<h1 id="kcp-as-a-minimal-control-plane-for-kube-like-applications"><code>kcp</code> as a minimal control plane for Kube-like Applications</h1>
-<p>IMPORTANT: This is a prototype!  It is not production software, or a fully realized project with a definite road map. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. This document describes the aspirations and inspirations and is written in a "this is what we could do" style, not "what we do today".</p>
+<h1 id="project-goals">Project Goals</h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This is a prototype!  It is not production software, or a fully realized project with a definite road map. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. This document describes the aspirations and inspirations and is written in a "this is what we could do" style, not "what we do today".</p>
+</div>
 <p><code>kcp</code> can be used to manage Kubernetes-like applications across one or more clusters and integrate with cloud services. To an end user, <code>kcp</code> should appear to be a normal cluster (supports the same APIs, client tools, and extensibility) but allows you to move your workloads between clusters or span multiple clusters without effort. <code>kcp</code> lets you keep your existing workflow and abstract Kube clusters like a Kube cluster abstracts individual machines. <code>kcp</code> also helps broaden the definition of "Kubernetes applications" by being extensible, only loosely dependent on nodes, pods, or clusters, and thinking more broadly about what an application is than "just some containers".</p>
 <h2 id="what-should-it-do-for-me">What should it do for me?</h2>
 <h3 id="1-3-years">1-3 years</h3>
