@@ -1,5 +1,6 @@
 FROM squidfunk/mkdocs-material
-RUN pip install mkdocs-awesome-pages-plugin mkdocs-macros-plugin mike
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 ENTRYPOINT []
 CMD []
 RUN git config --global user.name kcp-docs-bot; \
