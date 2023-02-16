@@ -1876,14 +1876,14 @@
 
 
 <h1 id="contributing-to-kcp">Contributing to kcp</h1>
-<p>kcp is <a href="LICENSE">Apache 2.0 licensed</a> and we accept contributions via
+<p>kcp is <a href="https://github.com/kcp-dev/kcp/tree/main/LICENSE">Apache 2.0 licensed</a> and we accept contributions via
 GitHub pull requests.</p>
 <p>Please read the following guide if you're interested in contributing to kcp.</p>
 <h2 id="certificate-of-origin">Certificate of Origin</h2>
 <p>By contributing to this project you agree to the Developer Certificate of
 Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
-contribution. See the <a href="DCO">DCO</a> file for details.</p>
+contribution. See the <a href="https://github.com/kcp-dev/kcp/tree/main/DCO">DCO</a> file for details.</p>
 <h2 id="getting-started">Getting started</h2>
 <h3 id="prerequisites">Prerequisites</h3>
 <ol>
@@ -1976,8 +1976,9 @@ contribution. See the <a href="DCO">DCO</a> file for details.</p>
 <li>New features start under a feature-gate (<code>--feature-gate GateName=true</code>). (At some point in the future), new feature-gates are off by default <em>at least</em> until the APIs are promoted to beta (we are not there before we have reached MVP).</li>
 <li>Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. <strong>We do not compromise on unit tests</strong>. Every feature-gated code needs full unit tests as every other code-path.</li>
 <li>Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.</li>
-<li>We use <a href="github.com/stretchr/testify/require">https://github.com/stretchr/testify/tree/master/require</a> a lot in tests, and avoid
-  <a href="https://github.com/stretchr/testify/assert">https://github.com/stretchr/testify/tree/master/assert</a>.</li>
+<li>We use Testify's <a href="https://pkg.go.dev/github.com/stretchr/testify/require">require</a> a 
+  lot in tests, and avoid
+  <a href="https://pkg.go.dev/github.com/stretchr/testify/assert">assert</a>.</li>
 </ul>
 <p>Note this subtle distinction of nested <code>require</code> statements:
   <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">require</span><span class="p">.</span><span class="nx">Eventually</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
