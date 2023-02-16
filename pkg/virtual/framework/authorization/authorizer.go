@@ -26,7 +26,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
-func NewVirtualWorkspaceAuthorizer(virtualWorkspaces []rootapiserver.NamedVirtualWorkspace) authorizer.Authorizer {
+func NewVirtualWorkspaceAuthorizer(virtualWorkspaces func() []rootapiserver.NamedVirtualWorkspace) authorizer.Authorizer {
 	return &virtualWorkspaceAuthorizer{
 		virtualWorkspaces: virtualWorkspaces,
 	}
@@ -35,7 +35,7 @@ func NewVirtualWorkspaceAuthorizer(virtualWorkspaces []rootapiserver.NamedVirtua
 var _ authorizer.Authorizer = (*virtualWorkspaceAuthorizer)(nil)
 
 type virtualWorkspaceAuthorizer struct {
-	virtualWorkspaces []rootapiserver.NamedVirtualWorkspace
+	virtualWorkspaces func() []rootapiserver.NamedVirtualWorkspace
 }
 
 func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -44,7 +44,7 @@ func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs author
 		return authorizer.DecisionNoOpinion, "Path not resolved to a valid virtual workspace", nil
 	}
 
-	for _, vw := range a.virtualWorkspaces {
+	for _, vw := range a.virtualWorkspaces() {
 		if vw.Name == virtualWorkspaceName {
 			return vw.VirtualWorkspace.Authorize(ctx, attrs)
 		}

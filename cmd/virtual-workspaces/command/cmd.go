@@ -162,20 +162,20 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err := o.Audit.ApplyTo(&recommendedConfig.Config); err != nil {
 		return err
 	}
-	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
-		wildcardKubeInformers.Start,
-		wildcardKcpInformers.Start,
-		cacheKcpInformers.Start,
-	})
-	if err != nil {
-		return err
-	}
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+
+	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig)
 	if err != nil {
 		return err
 	}
 
-	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, rootAPIServerConfig.Extra.VirtualWorkspaces); err != nil {
+	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return rootAPIServerConfig.Extra.VirtualWorkspaces
+	}); err != nil {
+		return err
+	}
+
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	if err != nil {
 		return err
 	}
 
@@ -191,8 +191,15 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.GenericConfig.ExternalAddress, "version", version.Get().String())
+	logger.Info("Starting informers")
+	wildcardKubeInformers.Start(ctx.Done())
+	wildcardKcpInformers.Start(ctx.Done())
+	cacheKcpInformers.Start(ctx.Done())
+	wildcardKubeInformers.WaitForCacheSync(ctx.Done())
+	wildcardKcpInformers.WaitForCacheSync(ctx.Done())
+	cacheKcpInformers.WaitForCacheSync(ctx.Done())
 
+	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.Generic.ExternalAddress, "version", version.Get().String())
 	return preparedRootAPIServer.Run(ctx.Done())
 }
 

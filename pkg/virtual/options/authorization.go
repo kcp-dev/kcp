@@ -80,7 +80,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces []rootapiserver.NamedVirtualWorkspace) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces func() []rootapiserver.NamedVirtualWorkspace) error {
 	var authorizers []authorizer.Authorizer
 
 	// group authorizer

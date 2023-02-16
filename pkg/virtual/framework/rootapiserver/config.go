@@ -33,12 +33,7 @@ type Config struct {
 	Extra   ExtraConfig
 }
 
-type InformerStart func(stopCh <-chan struct{})
-
 type ExtraConfig struct {
-	// we phrase it like this so we can build the post-start-hook, but no one can take more indirect dependencies on informers
-	informerStart func(stopCh <-chan struct{})
-
 	VirtualWorkspaces []NamedVirtualWorkspace
 }
 
@@ -53,22 +48,24 @@ type CompletedConfig struct {
 }
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
-func (c *Config) Complete() completedConfig {
+func (c *Config) Complete() CompletedConfig {
+	if c == nil {
+		return CompletedConfig{}
+	}
+
 	cfg := completedConfig{
 		c.Generic.Complete(),
 		&c.Extra,
 	}
 
-	return cfg
+	return CompletedConfig{&cfg}
 }
 
 func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *genericapiserver.GenericAPIServer) error {
 	return nil
 }
 
-func NewConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerStarts []InformerStart) (*Config, error) {
-	// TODO: genericConfig.ExternalAddress = ... allow a command line flag or it to be overridden by a top-level multiroot apiServer
-
+func NewConfig(recommendedConfig *genericapiserver.RecommendedConfig) (*Config, error) {
 	// Loopback is not wired for now, since virtual workspaces are expected to delegate to
 	// some APIServer.
 	// The RootAPISrver is just a proxy to the various virtual workspaces.
@@ -80,13 +77,7 @@ func NewConfig(recommendedConfig *genericapiserver.RecommendedConfig, informerSt
 
 	ret := &Config{
 		Generic: recommendedConfig,
-		Extra: ExtraConfig{
-			informerStart: func(stopCh <-chan struct{}) {
-				for _, informerStart := range informerStarts {
-					informerStart(stopCh)
-				}
-			},
-		},
+		Extra:   ExtraConfig{},
 	}
 
 	return ret, nil

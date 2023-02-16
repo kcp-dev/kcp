@@ -46,14 +46,14 @@ func init() {
 	)
 }
 
-// RootAPIServer is only responsible for serving the APIs for the virtual workspace
+// Server is only responsible for serving the APIs for the virtual workspace
 // at a given root path or root path family
 // It does NOT expose oauth, related oauth endpoints, or any kube APIs.
-type RootAPIServer struct {
+type Server struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 }
 
-func NewServer(c completedConfig, delegationTarget genericapiserver.DelegationTarget) (*RootAPIServer, error) {
+func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTarget) (*Server, error) {
 	delegateAPIServer := delegationTarget
 	for _, vw := range c.Extra.VirtualWorkspaces {
 		var err error
@@ -71,20 +71,14 @@ func NewServer(c completedConfig, delegationTarget genericapiserver.DelegationTa
 		return nil, err
 	}
 
-	s := &RootAPIServer{
+	s := &Server{
 		GenericAPIServer: genericServer,
 	}
-
-	// register our poststarthooks
-	s.GenericAPIServer.AddPostStartHookOrDie("virtual-workspace-startinformers", func(context genericapiserver.PostStartHookContext) error {
-		c.Extra.informerStart(context.StopCh)
-		return nil
-	})
 
 	return s, nil
 }
 
-func getRootHandlerChain(c completedConfig, delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
+func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
 		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
