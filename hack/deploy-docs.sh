@@ -27,10 +27,16 @@ else
   VERSION=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
 fi
 
+if echo "$VERSION" | grep -E '^release-\d'; then
+  VERSION=v$(echo "$VERSION" | cut -d - -f 2)
+elif echo "$VERSION" | grep -E '^v\d+\.\d+'; then
+  VERSION=$(echo "$VERSION" | grep -E -o '^v\d+\.\d+')
+fi
+
 MIKE_OPTIONS=()
 
 if [[ -n "${CI:-}" ]]; then
- MIKE_OPTIONS+=(--push)
+  MIKE_OPTIONS+=(--push)
   git config user.name kcp-docs-bot
   git config user.email no-reply@kcp.io
 fi
