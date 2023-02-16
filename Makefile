@@ -161,8 +161,10 @@ serve-docs:
 	hack/serve-docs.sh LANGUAGE=$(LANGUAGE)
 
 .PHONY: deploy-docs
+deploy-docs: VERSION ?= $(GITHUB_REF_NAME)
+deploy-docs: VERSION ?= $(shell git rev-parse --abbrev-ref HEAD)
 deploy-docs: kcp-docs-image
-	hack/deploy-docs.sh
+	hack/deploy-docs.sh VERSION=$(VERSION)
 
 .PHONY: clean-generated-docs
 clean-generated-docs:

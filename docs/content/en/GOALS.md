@@ -1,6 +1,7 @@
-# `kcp` as a minimal control plane for Kube-like Applications
+# Project Goals
 
-IMPORTANT: This is a prototype!  It is not production software, or a fully realized project with a definite road map. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. This document describes the aspirations and inspirations and is written in a "this is what we could do" style, not "what we do today".
+!!! warning
+    This is a prototype!  It is not production software, or a fully realized project with a definite road map. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. This document describes the aspirations and inspirations and is written in a "this is what we could do" style, not "what we do today".
 
 `kcp` can be used to manage Kubernetes-like applications across one or more clusters and integrate with cloud services. To an end user, `kcp` should appear to be a normal cluster (supports the same APIs, client tools, and extensibility) but allows you to move your workloads between clusters or span multiple clusters without effort. `kcp` lets you keep your existing workflow and abstract Kube clusters like a Kube cluster abstracts individual machines. `kcp` also helps broaden the definition of "Kubernetes applications" by being extensible, only loosely dependent on nodes, pods, or clusters, and thinking more broadly about what an application is than "just some containers".
 
