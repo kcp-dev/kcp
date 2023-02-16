@@ -146,9 +146,27 @@ update-contextual-logging: $(LOGCHECK)
 	UPDATE=true ./hack/verify-contextual-logging.sh
 .PHONY: update-contextual-logging
 
-generate-docs:
-	go run hack/generate/cli-doc/gen-cli-doc.go
-	./hack/generate/crd-ref/run-crd-ref-gen.sh
+kcp-docs-image: docs/Dockerfile
+	# Skip if LOCAL is set
+	[[ -n "$$LOCAL" ]] || docker buildx build -f docs/Dockerfile -t kcp-docs --load docs
+	touch $@
+
+.PHONY: generate-docs
+generate-docs: clean-generated-docs kcp-docs-image
+	hack/build-docs.sh
+
+LANGUAGE ?= en
+.PHONY: serve-docs kcp-docs-image
+serve-docs:
+	hack/serve-docs.sh LANGUAGE=$(LANGUAGE)
+
+.PHONY: deploy-docs
+deploy-docs: kcp-docs-image
+	hack/deploy-docs.sh
+
+.PHONY: clean-generated-docs
+clean-generated-docs:
+	git clean -fdX docs
 
 vendor: ## Vendor the dependencies
 	go mod tidy

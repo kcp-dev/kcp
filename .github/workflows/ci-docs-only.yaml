@@ -12,6 +12,7 @@ on:
       - "**/*.md"
       - ".github/ISSUE_TEMPLATE/*"
       - ".goreleaser.yaml"
+      - ".github/workflows/docs-gen-and-push.yaml"
 
 jobs:
   e2e-shared-server:

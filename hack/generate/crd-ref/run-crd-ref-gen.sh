@@ -14,18 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o xtrace
 
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+
+CONTAINER_ENGINE=${CONTAINER_ENGINE:-podman}
 CRD_DOCS_GENERATOR_VERSION=0.10.0
-# set destination to crd-reference directory in the docs
-DESTINATION="docs/content/en/main/crd-reference"
 
-# Clear output folder
-find "${PWD}/${DESTINATION}" -type f -not -name "_index.md" | xargs -I '{}' rm '{}'
+#TODO(ncdc): i18n
+DESTINATION="${REPO_ROOT}/docs/content/en/reference/crd"
+mkdir -p "${DESTINATION}"
+
+BIND_MOUNT_OPTS=":z"
+if [[ $(uname -s) == "Darwin" ]]; then
+  BIND_MOUNT_OPTS=""
+fi
 
 # Generate new content
-podman run --rm \
-    -v ${PWD}/${DESTINATION}:/opt/crd-docs-generator/output:z \
-    -v ${PWD}/hack/generate/crd-ref:/opt/crd-docs-generator/config:z \
+$CONTAINER_ENGINE run --rm \
+    -v "${DESTINATION}":/opt/crd-docs-generator/output"${BIND_MOUNT_OPTS}" \
+    -v "${REPO_ROOT}"/hack/generate/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
     quay.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
     --config /opt/crd-docs-generator/config/config.yaml
