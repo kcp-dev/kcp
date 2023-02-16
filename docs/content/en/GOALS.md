@@ -116,7 +116,7 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
 ### Process
 
-Right now we are interested in assessing how these goals fit within the larger ecosystem. The [investigations directory](https://github.com/kcp-dev/kcp/tree/main/docs/content/en/investigations) is where we will capture specific deep dive details.
+Right now we are interested in assessing how these goals fit within the larger ecosystem.
 
 
 ### Terminology
