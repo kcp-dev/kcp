@@ -82,22 +82,22 @@ func (s *Server) installVirtualWorkspaces(
 		return err
 	}
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, nil, virtualWorkspaces)
+	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig, nil, virtualWorkspaces)
 	if err != nil {
 		return err
 	}
-	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
+	rootAPIServerConfig.Generic.ExternalAddress = externalAddress
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
-	completedRootAPIServerConfig.GenericConfig.AuditBackend = s.MiniAggregator.GenericAPIServer.AuditBackend
-	completedRootAPIServerConfig.GenericConfig.AuditPolicyRuleEvaluator = auditEvaluator
+	completedRootAPIServerConfig.Generic.AuditBackend = s.MiniAggregator.GenericAPIServer.AuditBackend
+	completedRootAPIServerConfig.Generic.AuditPolicyRuleEvaluator = auditEvaluator
 
-	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
+	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return err
 	}
 
-	if err := s.MiniAggregator.GenericAPIServer.AddReadyzChecks(completedRootAPIServerConfig.GenericConfig.ReadyzChecks...); err != nil {
+	if err := s.MiniAggregator.GenericAPIServer.AddReadyzChecks(completedRootAPIServerConfig.Generic.ReadyzChecks...); err != nil {
 		return err
 	}
 

@@ -169,7 +169,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err := o.Audit.ApplyTo(&recommendedConfig.Config); err != nil {
 		return err
 	}
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
+	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
 		cacheKcpInformers.Start,
@@ -179,7 +179,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
-	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
+	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return err
 	}
