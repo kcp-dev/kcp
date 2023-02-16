@@ -21,7 +21,11 @@ set -o xtrace
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-VERSION=${VERSION:-main}
+if [[ -n "${GITHUB_REF_NAME:-}" ]]; then
+  VERSION="${VERSION:-$GITHUB_REF_NAME}"
+else
+  VERSION=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
+fi
 
 MIKE_OPTIONS=()
 
