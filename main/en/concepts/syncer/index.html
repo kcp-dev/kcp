@@ -49,7 +49,7 @@
     
       <link rel="stylesheet" href="../../stylesheets/kcp.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -88,61 +88,116 @@
       </div>
     
     
-      
+      <!--
+  Copyright (c) 2016-2023 Martin Donath <martin.donath@squidfunk.com>
 
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+-->
+
+<!-- Determine base classes -->
+
+
+
+<!-- Header -->
 <header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
-      
+    <nav
+            class="md-header__inner md-grid"
+            aria-label="Header"
+    >
+
+        <!-- Link to home -->
+        <a
+                href="../.."
+                title="kcp Documentation"
+                class="md-header__button md-logo"
+                aria-label="kcp Documentation"
+                data-md-component="logo"
+        >
+            
   <img src="../../logo.png" alt="logo">
 
-    </a>
-    <label class="md-header__button md-icon" for="__drawer">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
-    </label>
-    <div class="md-header__title" data-md-component="header-title">
-      <div class="md-header__ellipsis">
-        <div class="md-header__topic">
+        </a>
+
+        <!-- Button to open drawer -->
+        <label class="md-header__button md-icon" for="__drawer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+        </label>
+
+        <!-- Header title -->
+        <div class="md-header__title" data-md-component="header-title">
+            <div class="md-header__ellipsis">
+                <div class="md-header__topic">
           <span class="md-ellipsis">
             kcp Documentation
           </span>
-        </div>
-        <div class="md-header__topic" data-md-component="header-topic">
+                </div>
+                <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
               Registering Kubernetes Clusters using syncer
             
           </span>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    
-    
-      <div class="md-header__option">
-        <div class="md-select">
-          
-          <button class="md-header__button md-icon" aria-label="Select language">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
-          </button>
-          <div class="md-select__inner">
-            <ul class="md-select__list">
-              
-                <li class="md-select__item">
-                  <a href="/kcp/main/en/" hreflang="en" class="md-select__link">
-                    English
-                  </a>
-                </li>
-              
-            </ul>
-          </div>
+
+        <!-- Color palette -->
+        
+
+        <!-- Site language selector -->
+        
+        <div class="md-header__option">
+            <div class="md-select">
+                
+                <button
+                        class="md-header__button md-icon"
+                        aria-label="Select language"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
+                </button>
+                <div class="md-select__inner">
+                    <ul class="md-select__list">
+                        
+                        <li class="md-select__item">
+                            <a
+                                    href="https://docs.kcp.io/kcp/release-0.10/en/concepts/syncer/"
+                                    hreflang="en"
+                                    class="md-select__link"
+                            >
+                                English
+                            </a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-    
-    
-      <label class="md-header__button md-icon" for="__search">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
+        
+
+        <!-- Button to open search modal -->
+        
+        <label class="md-header__button md-icon" for="__search">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
@@ -171,10 +226,12 @@
     </div>
   </div>
 </div>
-    
-    
-      <div class="md-header__source">
-        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+        
+
+        <!-- Repository information -->
+        
+        <div class="md-header__source">
+            <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
@@ -183,10 +240,12 @@
     GitHub
   </div>
 </a>
-      </div>
+        </div>
+        
+    </nav>
+
+    <!-- Navigation tabs (sticky) -->
     
-  </nav>
-  
 </header>
     
     <div class="md-container" data-md-component="container">
@@ -270,7 +329,7 @@
   
     <li class="md-nav__item">
       <a href="../../GOALS/" class="md-nav__link">
-        Project Goals
+        `kcp` as a minimal control plane for Kube-like Applications
       </a>
     </li>
   
@@ -390,7 +449,7 @@
   
     <li class="md-nav__item">
       <a href="../kubectl-kcp-plugin/" class="md-nav__link">
-        kubectl kcp plugin
+        Kubectl kcp plugin
       </a>
     </li>
   
@@ -626,8 +685,6 @@
         
           
         
-          
-        
       
       
         <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
@@ -641,20 +698,6 @@
           Developers
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
-        Adding a new resource to the cache server and replication controller
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -1201,272 +1244,10 @@
   
   
   
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
-      
-      
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
-          CRD
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_7_2">
-          <span class="md-nav__icon md-icon"></span>
-          CRD
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
-        APIBinding
+      <a href="../../crd" class="md-nav__link">
+        CRD
       </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
-        APIExportEndpointSlice
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
-        APIExport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
-        APIResourceImport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
-        APIResourceSchema
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
-        Location
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
-        LogicalCluster
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
-        NegotiatedAPIResource
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
-        Partition
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
-        PartitionSet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
-        Placement
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
-        Shard
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
-        SyncTarget
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
-        Workspace
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
-        WorkspaceType
-      </a>
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
     </li>
   
 
@@ -1606,8 +1387,8 @@
 
 
 <h1 id="registering-kubernetes-clusters-using-syncer">Registering Kubernetes Clusters using syncer</h1>
-<p>To register a Kubernetes cluster with kcp,
-you have to install a special component named <a href="https://github.com/kcp-dev/kcp/tree/main/docs/architecture#syncer">syncer</a>.</p>
+<p>To register a Kubernetes clusters with the kcp server,
+users have to install a special component named <a href="https://github.com/kcp-dev/kcp/tree/main/docs/architecture#syncer">syncer</a>.</p>
 <h2 id="requirements">Requirements</h2>
 <ul>
 <li>kcp server</li>
@@ -1631,8 +1412,9 @@ you have to install a special component named <a href="https://github.com/kcp-de
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This step sets current context to the new kind cluster. Make sure to use a KCP kubeconfig for the next steps unless told otherwise.</p>
+<p>This step sets current context to the new kind cluster. Make sure to use a KCP kubeconfig for the next steps </p>
 </div>
+<p>unless told otherwise.</p>
 <ol>
 <li>
 <p>Create an organisation and immediately enter it:</p>
@@ -1678,31 +1460,26 @@ select to sync other resources in physical clusters or from other APIExports on 
 <p>To sync resources that the KCP server does not have an APIExport to support yet, run</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--resources<span class="w"> </span>foo.bar<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
-<p>Make sure to have the resource name in the form of <code>resourcename.&lt;gvr_of_the_resource&gt;</code> to be able to
-sync succesfully to the physical cluster.</p>
-<p>For example to sync resource <code>routes</code> to physical cluster run the command below</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--resources<span class="w"> </span>routes.route.openshift.io<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
-</code></pre></div>
 <p>And apply the generated manifests to the physical cluster. The syncer will then import the API schema of foo.bar
 to the workspace of the synctarget, following up with an auto generated kubernetes APIExport/APIBinding in the same workspace.
 You can then create foo.bar in this workspace, or create an APIBinding in another workspace to bind this APIExport.</p>
 <p>To sync resource from another existing APIExport in the KCP server, run</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--apiexports<span class="w"> </span>another-workspace:another-apiexport<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--apiexports<span class="w"> </span>another-workspace:another-apiexport<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
 <p>Syncer will start syncing the resources in this <code>APIExport</code> as long as the <code>SyncTarget</code> has compatible API schemas.</p>
 <p>To see if a certain resource is supported to be synced by the syncer, you can check the state of the <code>syncedResources</code> in <code>SyncTarget</code>
 status.</p>
 <h3 id="bind-workspaces-to-the-location-workspace">Bind workspaces to the Location Workspace</h3>
 <p>After the <code>SyncTarget</code> is ready, switch to any workspace containing some workloads that you want to sync to this <code>SyncTarget</code>, and run</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span>&lt;workspace<span class="w"> </span>of<span class="w"> </span>synctarget&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span>&lt;workspace<span class="w"> </span>of<span class="w"> </span>synctarget&gt;
 </code></pre></div>
 <p>This command will create a <code>Placement</code> in the workspace. By default, it will also create <code>APIBinding</code>s for global kubernetes <code>APIExport</code> and
 kubernetes <code>APIExport</code> in workspace of <code>SyncTarget</code>, if any of these <code>APIExport</code>s are supported by the <code>SyncTarget</code>.</p>
 <p>Alternatively, if you would like to bind other <code>APIExport</code>s which are supported by the <code>SyncerTarget</code>, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl kcp bind compute &lt;workspace of synctarget&gt; --apiexports &lt;apiexport workspace&gt;:&lt;apiexport name&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl kcp bind compute &lt;workspace of synctarget&gt; --apiexport &lt;apiexport workspace&gt;:&lt;apiexport name&gt;
 </code></pre></div>
 <p>In addition, you can specify the certain location or namespace to create placement. e.g.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl kcp bind compute &lt;workspace of synctarget&gt; --location-selectors=env=test --namespace-selector=purpose=workload
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl kcp bind compute &lt;workspace of synctarget&gt; --location-selectors=env=test --namespace-selector=purpose=workload
 </code></pre></div>
 <p>this command will create a <code>Placement</code> selecting a <code>Location</code> with label <code>env=test</code> and bind the selected <code>Location</code> to namespaces with
 label <code>purpose=workload</code>. See more details of placement and location <a href="../locations-and-scheduling/">here</a></p>
@@ -1710,7 +1487,7 @@ label <code>purpose=workload</code>. See more details of placement and location 
 <ol>
 <li>
 <p>Create a deployment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>kuard<span class="w"> </span>--image<span class="w"> </span>gcr.io/kuar-demo/kuard-amd64:blue
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>kuard<span class="w"> </span>--image<span class="w"> </span>gcr.io/kuar-demo/kuard-amd64:blue
 </code></pre></div>
 </li>
 </ol>
@@ -1722,9 +1499,9 @@ an Apple M1 based virtual machine.</p>
 <ol>
 <li>
 <p>Verify the deployment on the local workspace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/kuard
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>deployment<span class="w"> </span><span class="s2">&quot;kuard&quot;</span><span class="w"> </span>rollout<span class="w"> </span>to<span class="w"> </span>finish:<span class="w"> </span><span class="m">0</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span><span class="w"> </span>updated<span class="w"> </span>replicas<span class="w"> </span>are<span class="w"> </span>available...
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>deployment<span class="w"> </span><span class="s2">&quot;kuard&quot;</span><span class="w"> </span>successfully<span class="w"> </span>rolled<span class="w"> </span>out
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/kuard
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>deployment<span class="w"> </span><span class="s2">&quot;kuard&quot;</span><span class="w"> </span>rollout<span class="w"> </span>to<span class="w"> </span>finish:<span class="w"> </span><span class="m">0</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span><span class="w"> </span>updated<span class="w"> </span>replicas<span class="w"> </span>are<span class="w"> </span>available...
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>deployment<span class="w"> </span><span class="s2">&quot;kuard&quot;</span><span class="w"> </span>successfully<span class="w"> </span>rolled<span class="w"> </span>out
 </code></pre></div>
 </li>
 </ol>
@@ -1732,18 +1509,18 @@ an Apple M1 based virtual machine.</p>
 <h3 id="building-components">Building components</h3>
 <p>The syncer, kcp and kubectl plugins should come from the same build, so they are compatible with each other.</p>
 <p>To build, make the root kcp folder your current working directory and run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span>build-all<span class="w"> </span>install<span class="w"> </span>build-kind-images
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make<span class="w"> </span>build-all<span class="w"> </span>install<span class="w"> </span>build-kind-images
 </code></pre></div>
 <p>If your go version is not 1.19, which is the expected version, you need to run</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nv">IGNORE_GO_VERSION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>make<span class="w"> </span>build-all<span class="w"> </span>install<span class="w"> </span>build-kind-images
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nv">IGNORE_GO_VERSION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>make<span class="w"> </span>build-all<span class="w"> </span>install<span class="w"> </span>build-kind-images
 </code></pre></div>
 <p>Make a note of the syncer image that is produced by this build, which is in the output near the end. It should be something like <code>kind.local/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:8287441974cf604dd93da5e6d010a78d38ae49733ea3a5031048a516101dd8a2</code>. This will be used by the <code>kubectl kcp workload sync ...</code> command, below.</p>
 <p>The kubectl kcp plugin binaries should be first in your path so kubectl picks them up.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>which<span class="w"> </span>kubectl-kcp
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>which<span class="w"> </span>kubectl-kcp
 </code></pre></div>
 should point to the kubectl-kcp you have just built in your <code>$GOPATH/bin</code>, and not any other installed version.</p>
 <h3 id="start-kcp-on-another-terminal">Start kcp on another terminal</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kcp<span class="w"> </span>start
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kcp<span class="w"> </span>start
 </code></pre></div>
 <h3 id="running-in-a-kind-cluster-with-a-local-registry">Running in a kind cluster with a local registry</h3>
 <p>You can run the syncer in a kind cluster for development.</p>
@@ -1751,67 +1528,67 @@ should point to the kubectl-kcp you have just built in your <code>$GOPATH/bin</c
 <li>Create a <code>kind</code> cluster with a local registry to simplify syncer development
    by executing the following script:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>/bin/bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh<span class="k">)</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>/bin/bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh<span class="k">)</span><span class="s2">&quot;</span>
 </code></pre></div>
 <ol>
 <li>
 <p>From the kcp root directory:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>.kcp/admin.kubeconfig
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>.kcp/admin.kubeconfig
 </code></pre></div></p>
 </li>
 <li>
 <p>Create a location workspace and immediately enter it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-locations<span class="w"> </span>--enter
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-locations<span class="w"> </span>--enter
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-locations&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
 </code></pre></div>
 </li>
 <li>
 <p>To create the synctarget and use the image pushed to the local registry, supply <code>&lt;image name&gt;</code> to the
    <code>kcp workload sync</code> plugin command, where <code>&lt;image name&gt;</code> was captured in the build steps, above.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
 </li>
 <li>
 <p>Create a second workspace for your workloads and immediately enter it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>..
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-workloads<span class="w"> </span>--enter
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>..
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-workloads<span class="w"> </span>--enter
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-workloads&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
 </code></pre></div>
 </li>
 <li>
 <p>Bind it to the <code>my-locations</code> workspace with the synctarget:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span><span class="s2">&quot;root:my-locations&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span><span class="s2">&quot;root:my-locations&quot;</span>
 </code></pre></div>
 </li>
 <li>
 <p>Apply the manifest to the p-cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>syncer.yaml
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>namespace/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>serviceaccount/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>secret/kcp-syncer-kind-1owee1ci-token<span class="w"> </span>created
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>clusterrole.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>clusterrolebinding.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>secret/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>deployment.apps/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>syncer.yaml
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>namespace/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>serviceaccount/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>secret/kcp-syncer-kind-1owee1ci-token<span class="w"> </span>created
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>clusterrole.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>clusterrolebinding.rbac.authorization.k8s.io/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>secret/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>deployment.apps/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
 </code></pre></div>
 <p>and it will create a <code>kcp-syncer</code> deployment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>kcp-syncer-kind-1owee1ci<span class="w"> </span>get<span class="w"> </span>deployments
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>NAME<span class="w">     </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>kcp-syncer<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>13m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>kcp-syncer-kind-1owee1ci<span class="w"> </span>get<span class="w"> </span>deployments
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>NAME<span class="w">     </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>kcp-syncer<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>13m
 </code></pre></div>
 </li>
 <li>
 <p>Wait for the kcp sync target to go ready:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>synctarget/&lt;mycluster&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>synctarget/&lt;mycluster&gt;
 </code></pre></div>
 </li>
 <li>
 <p>Add a deployment to the my-workloads workspace and check the p-cluster to see if the workload has been created there:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
 </code></pre></div>
 </li>
 </ol>
@@ -1822,61 +1599,61 @@ to what we have when running inside the kind with own kubeconfig.</p>
 <ol>
 <li>
 <p>Create a kind cluster to back the sync target:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>$<span class="w"> </span>kind<span class="w"> </span>create<span class="w"> </span>cluster
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>Creating<span class="w"> </span>cluster<span class="w"> </span><span class="s2">&quot;kind&quot;</span><span class="w"> </span>...
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>&lt;snip&gt;
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>Set<span class="w"> </span>kubectl<span class="w"> </span>context<span class="w"> </span>to<span class="w"> </span><span class="s2">&quot;kind-kind&quot;</span>
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>You<span class="w"> </span>can<span class="w"> </span>now<span class="w"> </span>use<span class="w"> </span>your<span class="w"> </span>cluster<span class="w"> </span>with:
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
-<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>kubectl<span class="w"> </span>cluster-info<span class="w"> </span>--context<span class="w"> </span>kind-kind
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>$<span class="w"> </span>kind<span class="w"> </span>create<span class="w"> </span>cluster
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>Creating<span class="w"> </span>cluster<span class="w"> </span><span class="s2">&quot;kind&quot;</span><span class="w"> </span>...
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>&lt;snip&gt;
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>Set<span class="w"> </span>kubectl<span class="w"> </span>context<span class="w"> </span>to<span class="w"> </span><span class="s2">&quot;kind-kind&quot;</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>You<span class="w"> </span>can<span class="w"> </span>now<span class="w"> </span>use<span class="w"> </span>your<span class="w"> </span>cluster<span class="w"> </span>with:
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>kubectl<span class="w"> </span>cluster-info<span class="w"> </span>--context<span class="w"> </span>kind-kind
 </code></pre></div>
 </li>
 <li>
 <p>Make sure to use kubeconfig for your local KCP:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>.kcp/admin.kubeconfig
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>.kcp/admin.kubeconfig
 </code></pre></div>
 </li>
 <li>
 <p>Create an organisation and immediately enter it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-org<span class="w"> </span>--enter
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-org<span class="w"> </span>--enter
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s2">&quot;root:my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span><span class="s2">&quot;root:organization&quot;</span><span class="o">)</span>.
 </code></pre></div>
 </li>
 <li>
 <p>Enable the syncer for a p-cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
 <p><code>&lt;image name&gt;</code> can be anything here as it will only be used to generate <code>syncer.yaml</code> which we are not going to apply.</p>
 </li>
 <li>
 <p>Gather data required for the syncer:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="nv">syncTargetName</span><span class="o">=</span>&lt;mycluster&gt;
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="nv">syncTargetUID</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>synctarget<span class="w"> </span><span class="nv">$syncTargetName</span><span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">&quot;{.metadata.uid}&quot;</span><span class="k">)</span>
-<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="nv">fromCluster</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>ws<span class="w"> </span>current<span class="w"> </span>--short<span class="k">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="nv">syncTargetName</span><span class="o">=</span>&lt;mycluster&gt;
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="nv">syncTargetUID</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>synctarget<span class="w"> </span><span class="nv">$syncTargetName</span><span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">&quot;{.metadata.uid}&quot;</span><span class="k">)</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="nv">fromCluster</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>ws<span class="w"> </span>current<span class="w"> </span>--short<span class="k">)</span>
 </code></pre></div>
 </li>
 <li>
 <p>Run the following snippet:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/syncer<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span>--from-kubeconfig<span class="o">=</span>.kcp/admin.kubeconfig<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">  </span>--from-context<span class="o">=</span>base<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span>--to-kubeconfig<span class="o">=</span><span class="nv">$HOME</span>/.kube/config<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">  </span>--sync-target-name<span class="o">=</span><span class="nv">$syncTargetName</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="w">  </span>--sync-target-uid<span class="o">=</span><span class="nv">$syncTargetUID</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="w">  </span>--from-cluster<span class="o">=</span><span class="nv">$fromCluster</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a><span class="w">  </span>--resources<span class="o">=</span>configmaps<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a><span class="w">  </span>--resources<span class="o">=</span>deployments.apps<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a><span class="w">  </span>--resources<span class="o">=</span>secrets<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a><span class="w">  </span>--resources<span class="o">=</span>serviceaccounts<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a><span class="w">  </span>--qps<span class="o">=</span><span class="m">30</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a><span class="w">  </span>--burst<span class="o">=</span><span class="m">20</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/syncer<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">  </span>--from-kubeconfig<span class="o">=</span>.kcp/admin.kubeconfig<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">  </span>--from-context<span class="o">=</span>base<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">  </span>--to-kubeconfig<span class="o">=</span><span class="nv">$HOME</span>/.kube/config<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="w">  </span>--sync-target-name<span class="o">=</span><span class="nv">$syncTargetName</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="w">  </span>--sync-target-uid<span class="o">=</span><span class="nv">$syncTargetUID</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="w">  </span>--from-cluster<span class="o">=</span><span class="nv">$fromCluster</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="w">  </span>--resources<span class="o">=</span>configmaps<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="w">  </span>--resources<span class="o">=</span>deployments.apps<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="w">  </span>--resources<span class="o">=</span>secrets<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a><span class="w">  </span>--resources<span class="o">=</span>serviceaccounts<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a><span class="w">  </span>--qps<span class="o">=</span><span class="m">30</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a><span class="w">  </span>--burst<span class="o">=</span><span class="m">20</span>
 </code></pre></div>
 </li>
 <li>
 <p>Wait for the kcp sync target to go ready:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>synctarget/&lt;mycluster&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>synctarget/&lt;mycluster&gt;
 </code></pre></div>
 </li>
 </ol>
@@ -1917,7 +1694,7 @@ to what we have when running inside the kind with own kubeconfig.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.6df46069.min.js"></script>

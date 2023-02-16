@@ -17,7 +17,7 @@
         <link rel="prev" href="../virtual-workspaces/">
       
       
-        <link rel="next" href="../../developers/replicate-new-resource/">
+        <link rel="next" href="../../developers/releasing/">
       
       <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.11">
@@ -49,7 +49,7 @@
     
       <link rel="stylesheet" href="../../stylesheets/kcp.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -88,61 +88,116 @@
       </div>
     
     
-      
+      <!--
+  Copyright (c) 2016-2023 Martin Donath <martin.donath@squidfunk.com>
 
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+-->
+
+<!-- Determine base classes -->
+
+
+
+<!-- Header -->
 <header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
-      
+    <nav
+            class="md-header__inner md-grid"
+            aria-label="Header"
+    >
+
+        <!-- Link to home -->
+        <a
+                href="../.."
+                title="kcp Documentation"
+                class="md-header__button md-logo"
+                aria-label="kcp Documentation"
+                data-md-component="logo"
+        >
+            
   <img src="../../logo.png" alt="logo">
 
-    </a>
-    <label class="md-header__button md-icon" for="__drawer">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
-    </label>
-    <div class="md-header__title" data-md-component="header-title">
-      <div class="md-header__ellipsis">
-        <div class="md-header__topic">
+        </a>
+
+        <!-- Button to open drawer -->
+        <label class="md-header__button md-icon" for="__drawer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+        </label>
+
+        <!-- Header title -->
+        <div class="md-header__title" data-md-component="header-title">
+            <div class="md-header__ellipsis">
+                <div class="md-header__topic">
           <span class="md-ellipsis">
             kcp Documentation
           </span>
-        </div>
-        <div class="md-header__topic" data-md-component="header-topic">
+                </div>
+                <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
               Workspaces
             
           </span>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    
-    
-      <div class="md-header__option">
-        <div class="md-select">
-          
-          <button class="md-header__button md-icon" aria-label="Select language">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
-          </button>
-          <div class="md-select__inner">
-            <ul class="md-select__list">
-              
-                <li class="md-select__item">
-                  <a href="/kcp/main/en/" hreflang="en" class="md-select__link">
-                    English
-                  </a>
-                </li>
-              
-            </ul>
-          </div>
+
+        <!-- Color palette -->
+        
+
+        <!-- Site language selector -->
+        
+        <div class="md-header__option">
+            <div class="md-select">
+                
+                <button
+                        class="md-header__button md-icon"
+                        aria-label="Select language"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
+                </button>
+                <div class="md-select__inner">
+                    <ul class="md-select__list">
+                        
+                        <li class="md-select__item">
+                            <a
+                                    href="https://docs.kcp.io/kcp/release-0.10/en/concepts/workspaces/"
+                                    hreflang="en"
+                                    class="md-select__link"
+                            >
+                                English
+                            </a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-    
-    
-      <label class="md-header__button md-icon" for="__search">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
+        
+
+        <!-- Button to open search modal -->
+        
+        <label class="md-header__button md-icon" for="__search">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
@@ -171,10 +226,12 @@
     </div>
   </div>
 </div>
-    
-    
-      <div class="md-header__source">
-        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+        
+
+        <!-- Repository information -->
+        
+        <div class="md-header__source">
+            <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
@@ -183,10 +240,12 @@
     GitHub
   </div>
 </a>
-      </div>
+        </div>
+        
+    </nav>
+
+    <!-- Navigation tabs (sticky) -->
     
-  </nav>
-  
 </header>
     
     <div class="md-container" data-md-component="container">
@@ -270,7 +329,7 @@
   
     <li class="md-nav__item">
       <a href="../../GOALS/" class="md-nav__link">
-        Project Goals
+        `kcp` as a minimal control plane for Kube-like Applications
       </a>
     </li>
   
@@ -390,7 +449,7 @@
   
     <li class="md-nav__item">
       <a href="../kubectl-kcp-plugin/" class="md-nav__link">
-        kubectl kcp plugin
+        Kubectl kcp plugin
       </a>
     </li>
   
@@ -606,8 +665,6 @@
         
           
         
-          
-        
       
       
         <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
@@ -621,20 +678,6 @@
           Developers
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
-        Adding a new resource to the cache server and replication controller
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -1181,272 +1224,10 @@
   
   
   
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
-      
-      
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
-          CRD
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_7_2">
-          <span class="md-nav__icon md-icon"></span>
-          CRD
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
-        APIBinding
+      <a href="../../crd" class="md-nav__link">
+        CRD
       </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
-        APIExportEndpointSlice
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
-        APIExport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
-        APIResourceImport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
-        APIResourceSchema
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
-        Location
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
-        LogicalCluster
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
-        NegotiatedAPIResource
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
-        Partition
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
-        PartitionSet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
-        Placement
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
-        Shard
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
-        SyncTarget
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
-        Workspace
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
-        WorkspaceType
-      </a>
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
     </li>
   
 
@@ -1578,60 +1359,39 @@ or by applying visibility filters (e.g. showing all workspaces or all namespaces
 the current user has access to).</p>
 <p>Workspaces are represented to the user via the Workspace kind, e.g.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.dev/v1beta1</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Universal</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">status</span><span class="p">:</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://kcp.example.com/clusters/myapp</span>
 </code></pre></div>
-<p>There are different types of workspaces, and workspaces are arranged
-in a tree.  Each type of workspace may restrict the types of its
-children and may restrict the types it may be a child of; a
-parent-child relationship is allowed if and only if the parent allows
-the child and the child allows the parent.  The kcp binary has a
-built-in set of workspace types, and the admin may create objects that
-define additional types.</p>
+<p>There is a 3-level hierarchy of workspaces:</p>
 <ul>
-<li><strong>Root Workspace</strong> is a singleton.  It holds some data that applies
-  to all workspaces, such as the set of defined workspace types
-  (objects of type <code>WorkspaceType</code>).</li>
-<li><strong>HomeRoot Workspace</strong> is normally a singleton, holding the branch
-  of workspaces that contains the user home workspaces as descendants.
-  Can only be a child of the root workspace, and can only have
-  HomeBucket children.</li>
-<li><strong>HomeBucket Workspace</strong> are intermediate vertices in the hierarhcy
-  between the HomeRoot and the user home workspaces.  Can be a child
-  of the root or another HomeBucket workspace.  Allowed children are
-  home and HomeBucket workspaces.</li>
-<li><strong>Home Workspace</strong> is a user's home workspace.  These hold user
-  resources such as applications with services, secrets, configmaps,
-  deployments, etc.  Can only be a child of a HomeBucket workspace.</li>
-<li><strong>Organization Workspace</strong> are workspaces holding organizational
-  data, e.g. definitions of user workspaces, roles, policies,
-  accounting data.  Can only be a child of root.</li>
-<li><strong>Team Workspace</strong> can only be a child of an Organization workspace.</li>
-<li><strong>Universal Workspace</strong> is a basic type of workspace with no
-  particular nature.  Has no restrictions on parent or child workspace
-  types.</li>
+<li><strong>Enduser Workspaces</strong> are workspaces holding enduser resources, e.g.
+  applications with services, secrets, configmaps, deployments, etc.</li>
+<li><strong>Organization Workspaces</strong> are workspaces holding organizational data,
+  e.g. definitions of enduser workspaces, roles, policies, accounting data.</li>
+<li><strong>Root Workspace</strong> is a singleton holding cross-organizational data and
+  the definition of the organizations.</li>
 </ul>
 <h2 id="clusterworkspaces">ClusterWorkspaces</h2>
 <p>ClusterWorkspaces define traditional etcd-based, CRD enabled workspaces, available
 under <code>/clusters/&lt;parent-workspace-name&gt;:&lt;cluster-workspace-name&gt;</code>. E.g. organization
-workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>. A user workspace is
-accessible at <code>/clusters/root:users:&lt;bucket-d1&gt;:..:&lt;bucket-dN&gt;:&lt;user-workspace-name&gt;</code>.</p>
-<p>ClusterWorkspaces have a type. A type is defined by a WorkspaceType. A type
+workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>. An enduser workspace is
+accessible at <code>/clusters/&lt;org-name&gt;:&lt;enduser-workspace-name&gt;</code>.</p>
+<p>ClusterWorkspaces have a type. A type is defined by a ClusterWorkspaceType. A type
 defines initializers. They are set on new ClusterWorkspace objects and block the
 cluster workspace from leaving the initializing phase. Both system components and
 3rd party components can use initializers to customize ClusterWorkspaces on creation,
 e.g. to bootstrap resources inside the workspace, or to set up permission in its parent.</p>
 <p>A cluster workspace of type <code>Universal</code> is a workspace without further initialization
 or special properties by default, and it can be used without a corresponding
-WorkspaceType object (though one can be added and its initializers will be
+ClusterWorkspaceType object (though one can be added and its initializers will be
 applied). ClusterWorkSpaces of type <code>Organization</code> are described in the next section.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In order to create cluster workspaces of a given type (including <code>Universal</code>)
-you must have <code>use</code> permissions against the <code>workspacetypes</code> resources with the
+you must have <code>use</code> permissions against the <code>clusterworkspacetypes</code> resources with the
 lower-case name of the cluster workspace type (e.g. <code>universal</code>). All <code>system:authenticated</code>
 users inherit this permission automatically for type <code>Universal</code>.</p>
 </div>
@@ -1643,13 +1403,19 @@ objects, e.g. like CRDs where each workspace can have its own set of CRDs instal
 <p>User home workspaces are an optional feature of kcp. If enabled (through <code>--enable-home-workspaces</code>), there is a special
 virtual <code>Workspace</code> called <code>~</code> in the root workspace. It is used by <code>kubectl ws</code> to derive the full path to the user
 home workspace, similar to how Unix <code>cd ~</code> move the users to their home.</p>
-<p>The full path for a user's home workspace has a number of parts: <code>&lt;prefix&gt;(:&lt;bucket&gt;)+:&lt;user-name&gt;</code>. Buckets are used to
-ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
+<p>The full path for a user's home workspace has a number of parts: <code>&lt;prefix&gt;:(&lt;bucket&gt;)+&lt;user-name&gt;</code>. Buckets are used to
+ensure that ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
 derived from the user name (via some hash). Example for user <code>adam</code> when using default configuration:
 <code>root:users:a8:f1:adam</code>.</p>
 <p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
 the system to only incur the cost of these workspaces when they are needed. Only users of the configured
 home-creator-groups (default <code>system:authenticated</code>) will have a home workspace.</p>
+<p>The following cluster workspace types are created internally to support User Home Workspaces:</p>
+<ul>
+<li><code>homeroot</code>: the workspace that will contain all the Home workspaces, spread across buckets. - Can contain only Homebucket workspaces</li>
+<li><code>homebucket</code>: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces</li>
+<li><code>home</code>: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)</li>
+</ul>
 <h3 id="bucket-configuration-options">Bucket configuration options</h3>
 <p>The <code>kcp</code> administrator can configure:</p>
 <ul>
@@ -1753,7 +1519,7 @@ will be sufficient.</p>
 root workspace. Organization workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The organization WorkspaceType can only be created in the root workspace
+<p>The organization ClusterWorkspaceType can only be created in the root workspace
 verified through admission.</p>
 </div>
 <p>Organization workspaces have standard resources (on-top of <code>Universal</code> workspaces)
@@ -1818,7 +1584,7 @@ of the shard, and at <code>/cluster/system:admin</code> at the same time.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.6df46069.min.js"></script>

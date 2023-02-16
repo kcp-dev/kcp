@@ -44,7 +44,7 @@
     
       <link rel="stylesheet" href="stylesheets/kcp.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../.",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -83,61 +83,116 @@
       </div>
     
     
-      
+      <!--
+  Copyright (c) 2016-2023 Martin Donath <martin.donath@squidfunk.com>
 
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+-->
+
+<!-- Determine base classes -->
+
+
+
+<!-- Header -->
 <header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
-      
+    <nav
+            class="md-header__inner md-grid"
+            aria-label="Header"
+    >
+
+        <!-- Link to home -->
+        <a
+                href="."
+                title="kcp Documentation"
+                class="md-header__button md-logo"
+                aria-label="kcp Documentation"
+                data-md-component="logo"
+        >
+            
   <img src="logo.png" alt="logo">
 
-    </a>
-    <label class="md-header__button md-icon" for="__drawer">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
-    </label>
-    <div class="md-header__title" data-md-component="header-title">
-      <div class="md-header__ellipsis">
-        <div class="md-header__topic">
+        </a>
+
+        <!-- Button to open drawer -->
+        <label class="md-header__button md-icon" for="__drawer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+        </label>
+
+        <!-- Header title -->
+        <div class="md-header__title" data-md-component="header-title">
+            <div class="md-header__ellipsis">
+                <div class="md-header__topic">
           <span class="md-ellipsis">
             kcp Documentation
           </span>
-        </div>
-        <div class="md-header__topic" data-md-component="header-topic">
+                </div>
+                <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
               Home
             
           </span>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    
-    
-      <div class="md-header__option">
-        <div class="md-select">
-          
-          <button class="md-header__button md-icon" aria-label="Select language">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
-          </button>
-          <div class="md-select__inner">
-            <ul class="md-select__list">
-              
-                <li class="md-select__item">
-                  <a href="/kcp/main/en/" hreflang="en" class="md-select__link">
-                    English
-                  </a>
-                </li>
-              
-            </ul>
-          </div>
+
+        <!-- Color palette -->
+        
+
+        <!-- Site language selector -->
+        
+        <div class="md-header__option">
+            <div class="md-select">
+                
+                <button
+                        class="md-header__button md-icon"
+                        aria-label="Select language"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
+                </button>
+                <div class="md-select__inner">
+                    <ul class="md-select__list">
+                        
+                        <li class="md-select__item">
+                            <a
+                                    href="https://docs.kcp.io/kcp/release-0.10/en/"
+                                    hreflang="en"
+                                    class="md-select__link"
+                            >
+                                English
+                            </a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-    
-    
-      <label class="md-header__button md-icon" for="__search">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
+        
+
+        <!-- Button to open search modal -->
+        
+        <label class="md-header__button md-icon" for="__search">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
@@ -166,10 +221,12 @@
     </div>
   </div>
 </div>
-    
-    
-      <div class="md-header__source">
-        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+        
+
+        <!-- Repository information -->
+        
+        <div class="md-header__source">
+            <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
@@ -178,10 +235,12 @@
     GitHub
   </div>
 </a>
-      </div>
+        </div>
+        
+    </nav>
+
+    <!-- Navigation tabs (sticky) -->
     
-  </nav>
-  
 </header>
     
     <div class="md-container" data-md-component="container">
@@ -318,13 +377,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bind-to-workload-apis-and-create-default-placement" class="md-nav__link">
-    Bind to workload APIs and create default placement
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#create-a-deployment-in-kcp" class="md-nav__link">
     Create a deployment in kcp
   </a>
@@ -396,7 +448,7 @@
   
     <li class="md-nav__item">
       <a href="GOALS/" class="md-nav__link">
-        Project Goals
+        `kcp` as a minimal control plane for Kube-like Applications
       </a>
     </li>
   
@@ -514,7 +566,7 @@
   
     <li class="md-nav__item">
       <a href="concepts/kubectl-kcp-plugin/" class="md-nav__link">
-        kubectl kcp plugin
+        Kubectl kcp plugin
       </a>
     </li>
   
@@ -634,8 +686,6 @@
         
           
         
-          
-        
       
       
         <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
@@ -649,20 +699,6 @@
           Developers
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="developers/replicate-new-resource/" class="md-nav__link">
-        Adding a new resource to the cache server and replication controller
-      </a>
-    </li>
-  
-
-            
           
             
               
@@ -1209,272 +1245,10 @@
   
   
   
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
-      
-      
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
-          CRD
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_7_2">
-          <span class="md-nav__icon md-icon"></span>
-          CRD
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
     <li class="md-nav__item">
-      <a href="reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
-        APIBinding
+      <a href="crd" class="md-nav__link">
+        CRD
       </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
-        APIExportEndpointSlice
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
-        APIExport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
-        APIResourceImport
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
-        APIResourceSchema
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
-        Location
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
-        LogicalCluster
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
-        NegotiatedAPIResource
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
-        Partition
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
-        PartitionSet
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
-        Placement
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/shards.core.kcp.io/" class="md-nav__link">
-        Shard
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
-        SyncTarget
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
-        Workspace
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
-        WorkspaceType
-      </a>
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
     </li>
   
 
@@ -1558,13 +1332,6 @@
           <li class="md-nav__item">
   <a href="#configure-kcp-to-sync-to-your-cluster" class="md-nav__link">
     Configure kcp to sync to your cluster
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#bind-to-workload-apis-and-create-default-placement" class="md-nav__link">
-    Bind to workload APIs and create default placement
   </a>
   
 </li>
@@ -1671,10 +1438,9 @@ version to confirm it's working:</p>
 </code></pre></div>
 <h3 id="configure-kcp-to-sync-to-your-cluster">Configure kcp to sync to your cluster</h3>
 <p>kcp can't run pods by itself - it needs at least one physical cluster for that. For this example, we'll be using a
-local <code>kind</code> cluster.  It does not have to exist yet.</p>
-<p>In this recipe we use the root workspace to hold the description of the workload and where it goes.  These usually would go elsewhere, but we use the root workspace here for simplicity.</p>
-<p>Run the following command to tell kcp about the <code>kind</code> cluster (replace the syncer image tag as needed; CI now puts built images in https://github.com/orgs/kcp-dev/packages):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>ghcr.io/kcp-dev/kcp/syncer:v0.10.0<span class="w"> </span>-o<span class="w"> </span>syncer-kind-main.yaml
+local <code>kind</code> cluster.</p>
+<p>Run the following command to tell kcp about the <code>kind</code> cluster (replace the syncer image tag as needed):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>ghcr.io/kcp-dev/kcp/syncer:v0.8.0<span class="w"> </span>-o<span class="w"> </span>syncer-kind-main.yaml
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Creating<span class="w"> </span>synctarget<span class="w"> </span><span class="s2">&quot;kind&quot;</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Creating<span class="w"> </span>service<span class="w"> </span>account<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Creating<span class="w"> </span>cluster<span class="w"> </span>role<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span><span class="w"> </span>to<span class="w"> </span>give<span class="w"> </span>service<span class="w"> </span>account<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span>
@@ -1695,7 +1461,7 @@ local <code>kind</code> cluster.  It does not have to exist yet.</p>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>to<span class="w"> </span>verify<span class="w"> </span>the<span class="w"> </span>syncer<span class="w"> </span>pod<span class="w"> </span>is<span class="w"> </span>running.
 </code></pre></div>
 <p>Next, we need to install the syncer pod on our <code>kind</code> cluster - this is what actually syncs content from kcp to the
-physical cluster. The kind cluster needs to be running by now. Run the following command:</p>
+physical cluster. Run the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;syncer-kind-main.yaml&quot;</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>namespace/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>serviceaccount/kcp-syncer-kind-25coemaz<span class="w"> </span>created
@@ -1705,45 +1471,37 @@ physical cluster. The kind cluster needs to be running by now. Run the following
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>secret/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>deployment.apps/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 </code></pre></div>
-<h3 id="bind-to-workload-apis-and-create-default-placement">Bind to workload APIs and create default placement</h3>
-<p>If you are running kcp version v0.10.0 or higher, you will need to run the following commmand (continuing in the <code>root</code> workspace)
-to create a binding to the workload APIs export and a default placement for your physical cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span>root
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Binding<span class="w"> </span>APIExport<span class="w"> </span><span class="s2">&quot;root:compute:kubernetes&quot;</span>.
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>placement<span class="w"> </span>placement-1pfxsevk<span class="w"> </span>created.
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Placement<span class="w"> </span><span class="s2">&quot;placement-1pfxsevk&quot;</span><span class="w"> </span>is<span class="w"> </span>ready.
-</code></pre></div>
 <h3 id="create-a-deployment-in-kcp">Create a deployment in kcp</h3>
 <p>Let's create a deployment in our kcp workspace and see it get synced to our cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>deployment.apps/kuard<span class="w"> </span>created
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>deployment.apps/kuard<span class="w"> </span>created
 </code></pre></div>
 <p>Once your cluster has pulled the image and started the pod, you should be able to verify the deployment is running in
 kcp:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>deployments
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>NAME<span class="w">    </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kuard<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>3s
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>deployments
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>NAME<span class="w">    </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>kuard<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>3s
 </code></pre></div>
 <p>We are still working on adding support for <code>kubectl logs</code>, <code>kubectl exec</code>, and <code>kubectl port-forward</code> to kcp. For the
 time being, you can check directly in your cluster.</p>
 <p>kcp translates the names of namespaces in workspaces to unique names in a physical cluster. We first must get this
 translated name; if you're following along, your translated name might be different.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>--all-namespaces<span class="w"> </span>--selector<span class="w"> </span><span class="nv">app</span><span class="o">=</span>kuard
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>NAMESPACE<span class="w">          </span>NAME<span class="w">                     </span>READY<span class="w">   </span>STATUS<span class="w">    </span>RESTARTS<span class="w">   </span>AGE
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>kcp-26zq2mc2yajx<span class="w">   </span>kuard-7d49c786c5-wfpcc<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">          </span>4m28s
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>--all-namespaces<span class="w"> </span>--selector<span class="w"> </span><span class="nv">app</span><span class="o">=</span>kuard
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>NAMESPACE<span class="w">          </span>NAME<span class="w">                     </span>READY<span class="w">   </span>STATUS<span class="w">    </span>RESTARTS<span class="w">   </span>AGE
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kcp-26zq2mc2yajx<span class="w">   </span>kuard-7d49c786c5-wfpcc<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">          </span>4m28s
 </code></pre></div>
 <p>Now we can e.g. check the pod logs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>--namespace<span class="w"> </span>kcp-26zq2mc2yajx<span class="w"> </span>logs<span class="w"> </span>deployment/kuard<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Starting<span class="w"> </span>kuard<span class="w"> </span>version:<span class="w"> </span>v0.10.0-blue
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>WARNING:<span class="w"> </span>This<span class="w"> </span>server<span class="w"> </span>may<span class="w"> </span>expose<span class="w"> </span>sensitive
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>and<span class="w"> </span>secret<span class="w"> </span>information.<span class="w"> </span>Be<span class="w"> </span>careful.
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Config:
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="o">{</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="s2">&quot;address&quot;</span>:<span class="w"> </span><span class="s2">&quot;:8080&quot;</span>,
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="s2">&quot;debug&quot;</span>:<span class="w"> </span>false,
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span><span class="s2">&quot;debug-sitedata-dir&quot;</span>:<span class="w"> </span><span class="s2">&quot;./sitedata&quot;</span>,
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>--namespace<span class="w"> </span>kcp-26zq2mc2yajx<span class="w"> </span>logs<span class="w"> </span>deployment/kuard<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Starting<span class="w"> </span>kuard<span class="w"> </span>version:<span class="w"> </span>v0.10.0-blue
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>WARNING:<span class="w"> </span>This<span class="w"> </span>server<span class="w"> </span>may<span class="w"> </span>expose<span class="w"> </span>sensitive
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>and<span class="w"> </span>secret<span class="w"> </span>information.<span class="w"> </span>Be<span class="w"> </span>careful.
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Config:
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">{</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="s2">&quot;address&quot;</span>:<span class="w"> </span><span class="s2">&quot;:8080&quot;</span>,
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="s2">&quot;debug&quot;</span>:<span class="w"> </span>false,
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="s2">&quot;debug-sitedata-dir&quot;</span>:<span class="w"> </span><span class="s2">&quot;./sitedata&quot;</span>,
 </code></pre></div>
 <h2 id="next-steps">Next steps</h2>
 <p>Thanks for checking out our quickstart!</p>
@@ -1760,7 +1518,7 @@ documentation:</p>
 </ul>
 <h2 id="contributing">Contributing</h2>
 <p>We ❤️ our contributors! If you're interested in helping us out, please head over to our <a href="CONTRIBUTING/">Contributing</a>
-and <a href="developers">Developer</a> guides.</p>
+and guide.</p>
 <h2 id="getting-in-touch">Getting in touch</h2>
 <p>There are several ways to communicate with us:</p>
 <ul>
@@ -1826,7 +1584,7 @@ and <a href="developers">Developer</a> guides.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../.", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="assets/javascripts/bundle.6df46069.min.js"></script>
