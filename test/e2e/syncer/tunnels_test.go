@@ -19,7 +19,6 @@ package syncer
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -142,7 +141,6 @@ func TestSyncerTunnel(t *testing.T) {
 
 	desiredNSLocator := shared.NewNamespaceLocator(userWsName, synctargetWsName,
 		syncTarget.GetUID(), syncTarget.Name, upstreamNamespaceName)
-	desiredNSLocatorBytes, err := json.Marshal(desiredNSLocator)
 	require.NoError(t, err)
 
 	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
@@ -200,15 +198,6 @@ func TestSyncerTunnel(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"foo": "bar",
-						// TODO(davidfestal): when the deployments will be automatically mutated in the Syncer to add this upsync
-						// directive to the template PodTemplateSpec, this will be removed here.
-						"state.workload.kcp.io/" + syncerFixture.ToSyncTargetKey(): "Upsync",
-						"internal.workload.kcp.io/cluster":                         syncerFixture.ToSyncTargetKey(),
-					},
-					Annotations: map[string]string{
-						// TODO(davidfestal): when the deployments will be automatically mutated in the Syncer to add this upsync
-						// directive to the template PodTemplateSpec, this will be removed here.
-						"kcp.io/namespace-locator": string(desiredNSLocatorBytes),
 					},
 				},
 				Spec: corev1.PodSpec{
