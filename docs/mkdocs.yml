@@ -1,3 +1,8 @@
+# Config file for mike
+
 site_name: kcp Documentation
 site_url: https://docs.kcp.io/kcp/
+
+# Always point at the output directory for the current checkout/branch.
+# 'mike deploy <version>' controls which version this is ultimately served as.
 docs_dir: generated/branch
