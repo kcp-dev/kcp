@@ -1,6 +1,6 @@
 # Contributing to kcp
 
-kcp is [Apache 2.0 licensed](LICENSE) and we accept contributions via
+kcp is [Apache 2.0 licensed](https://github.com/kcp-dev/kcp/tree/main/LICENSE) and we accept contributions via
 GitHub pull requests.
 
 Please read the following guide if you're interested in contributing to kcp.
@@ -10,7 +10,7 @@ Please read the following guide if you're interested in contributing to kcp.
 By contributing to this project you agree to the Developer Certificate of
 Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
-contribution. See the [DCO](DCO) file for details.
+contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file for details.
 
 ## Getting started
 
@@ -124,8 +124,9 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 - New features start under a feature-gate (`--feature-gate GateName=true`). (At some point in the future), new feature-gates are off by default *at least* until the APIs are promoted to beta (we are not there before we have reached MVP).
 - Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. **We do not compromise on unit tests**. Every feature-gated code needs full unit tests as every other code-path.
 - Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.
-- We use [https://github.com/stretchr/testify/tree/master/require](github.com/stretchr/testify/require) a lot in tests, and avoid
-  [https://github.com/stretchr/testify/tree/master/assert](https://github.com/stretchr/testify/assert).
+- We use Testify's [require](https://pkg.go.dev/github.com/stretchr/testify/require) a 
+  lot in tests, and avoid
+  [assert](https://pkg.go.dev/github.com/stretchr/testify/assert).
 
   Note this subtle distinction of nested `require` statements:
   ```Golang

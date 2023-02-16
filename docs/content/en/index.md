@@ -177,7 +177,7 @@ documentation:
 ## Contributing
 
 We ❤️ our contributors! If you're interested in helping us out, please head over to our [Contributing](CONTRIBUTING.md)
-and [Developer](developers) guides.
+guide.
 
 ## Getting in touch
 
