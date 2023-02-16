@@ -272,7 +272,7 @@ func TestSyncerTunnel(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		return pods != nil && len(pods.Items) > 0, "upsynced pods no found"
+		return pods != nil && len(pods.Items) > 0, "upsynced pods not found"
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "couldn't get upstream pods for deployment %s/%s", d.Namespace, d.Name)
 
 	t.Logf("Getting Pod logs from upstream cluster %q as a normal kubectl client would do.", userWs.Name)
