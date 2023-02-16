@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -116,6 +117,15 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				if gvr == namespaceGVR {
 					return
 				}
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
+					return
+				}
+				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
+					return
+				}
+
 				c.AddToQueue(gvr, obj, logger)
 			},
 			UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
@@ -124,7 +134,9 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				}
 				oldUnstrob := oldObj.(*unstructured.Unstructured)
 				newUnstrob := newObj.(*unstructured.Unstructured)
-
+				if newUnstrob.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
+					return
+				}
 				if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
 					c.AddToQueue(gvr, newUnstrob, logger)
 				}
@@ -133,6 +145,18 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				if gvr == namespaceGVR {
 					return
 				}
+				if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					obj = d.Obj
+				}
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					runtime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
+					return
+				}
+				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
+					return
+				}
+
 				c.AddToQueue(gvr, obj, logger)
 			},
 		})

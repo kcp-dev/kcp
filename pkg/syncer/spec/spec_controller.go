@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -175,6 +176,18 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				if gvr == namespaceGVR {
 					return
 				}
+				if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					obj = d.Obj
+				}
+				unstrObj, ok := obj.(*unstructured.Unstructured)
+				if !ok {
+					utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
+					return
+				}
+				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
+					return
+				}
+
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
@@ -188,7 +201,6 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				logger.V(3).Info("processing delete event")
 
 				var nsLocatorHolder *unstructured.Unstructured
-				var ok bool
 				// Handle namespaced resources
 				if namespace != "" {
 					// Use namespace lister
@@ -214,11 +226,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 					}
 				} else {
 					// The nsLocatorHolder is in the resource itself for cluster-scoped resources.
-					nsLocatorHolder, ok = obj.(*unstructured.Unstructured)
-					if !ok {
-						utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
-						return
-					}
+					nsLocatorHolder = unstrObj
 				}
 				logger = logging.WithObject(logger, nsLocatorHolder)
 
