@@ -56,7 +56,7 @@ const controllerName = "kcp-resource-upsyncer"
 
 var namespaceGVR schema.GroupVersionResource = corev1.SchemeGroupVersion.WithResource("namespaces")
 
-// NewUpSyncer returns a new controller which upsyncs, through the Usyncer virtual workspace, downstream resources
+// NewUpSyncer returns a new controller which upsyncs, through the Upsyncer virtual workspace, downstream resources
 // which are part of the upsyncable resource types (fixed limited list for now), and provide
 // the following labels:
 //   - internal.workload.kcp.io/cluster: <sync target key>
@@ -67,7 +67,7 @@ var namespaceGVR schema.GroupVersionResource = corev1.SchemeGroupVersion.WithRes
 func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface,
-	ddsifForUpstreamUpyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
+	ddsifForUpstreamUpsyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	syncTargetUID types.UID) (*controller, error) {
 	c := &controller{
@@ -93,7 +93,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
 		},
 		getUpstreamUpsyncerLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
-			informers, notSynced := ddsifForUpstreamUpyncer.Informers()
+			informers, notSynced := ddsifForUpstreamUpsyncer.Informers()
 			informer, ok := informers[gvr]
 			if !ok {
 				if shared.ContainsGVR(notSynced, gvr) {
@@ -104,7 +104,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			return informer.Lister(), nil
 		},
 		getUpsyncedGVRs: func() ([]schema.GroupVersionResource, error) {
-			informers, notSynced := ddsifForUpstreamUpyncer.Informers()
+			informers, notSynced := ddsifForUpstreamUpsyncer.Informers()
 			var result []schema.GroupVersionResource
 			for k := range informers {
 				result = append(result, k)
@@ -122,7 +122,6 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 	}
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
-	emptyMap := map[string]interface{}{}
 	ddsifForDownstream.AddEventHandler(ddsif.GVREventHandlerFuncs{
 		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
 			if gvr == namespaceGVR {
@@ -136,8 +135,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			if new.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != string(workloadv1alpha1.ResourceStateUpsync) {
 				return
 			}
-			status := new.UnstructuredContent()["status"]
-			c.enqueueDownstream(gvr, new, logger, status != nil && !equality.Semantic.DeepEqual(status, emptyMap))
+			c.enqueueDownstream(gvr, new, logger, new.UnstructuredContent()["status"] != nil)
 		},
 		UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
 			if gvr == namespaceGVR {
@@ -183,7 +181,7 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 		},
 	})
 
-	ddsifForUpstreamUpyncer.AddEventHandler(ddsif.GVREventHandlerFuncs{
+	ddsifForUpstreamUpsyncer.AddEventHandler(ddsif.GVREventHandlerFuncs{
 		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
 			if gvr == namespaceGVR {
 				return

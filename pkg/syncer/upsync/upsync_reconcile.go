@@ -154,7 +154,7 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 	// update upstream when annotation RV differs
 	resourceVersionUpstream := upstreamObject.GetAnnotations()[ResourceVersionAnnotation]
 	if downstreamRV != resourceVersionUpstream {
-		logger.Info("Updating upstream resource")
+		logger.V(1).Info("Updating upstream resource")
 		preparedResource := c.prepareResourceForUpstream(ctx, gvr, upstreamNamespace, upstreamClusterName, downstreamResource)
 		if err != nil {
 			return false, err
