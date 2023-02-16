@@ -171,7 +171,7 @@
                         
                         <li class="md-select__item">
                             <a
-                                    href="https://docs.kcp.io/kcp/release-0.10/en/"
+                                    href="https://docs.kcp.io/kcp/main/en/"
                                     hreflang="en"
                                     class="md-select__link"
                             >
@@ -377,6 +377,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bind-to-workload-apis-and-create-default-placement" class="md-nav__link">
+    Bind to workload APIs and create default placement
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#create-a-deployment-in-kcp" class="md-nav__link">
     Create a deployment in kcp
   </a>
@@ -566,7 +573,7 @@
   
     <li class="md-nav__item">
       <a href="concepts/kubectl-kcp-plugin/" class="md-nav__link">
-        Kubectl kcp plugin
+        kubectl kcp plugin
       </a>
     </li>
   
@@ -686,6 +693,8 @@
         
           
         
+          
+        
       
       
         <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
@@ -699,6 +708,20 @@
           Developers
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="developers/replicate-new-resource/" class="md-nav__link">
+        Adding a new resource to the cache server and replication controller
+      </a>
+    </li>
+  
+
+            
           
             
               
@@ -1245,10 +1268,272 @@
   
   
   
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+          CRD
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          CRD
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
     <li class="md-nav__item">
-      <a href="crd" class="md-nav__link">
-        CRD
+      <a href="reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
       </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+        APIExportEndpointSlice
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+        APIExport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
+        APIResourceImport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+        APIResourceSchema
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
+        Location
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+        LogicalCluster
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
+        NegotiatedAPIResource
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+        Partition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+        PartitionSet
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
+        Placement
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/shards.core.kcp.io/" class="md-nav__link">
+        Shard
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
+        SyncTarget
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+        Workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+        WorkspaceType
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
     </li>
   
 
@@ -1332,6 +1617,13 @@
           <li class="md-nav__item">
   <a href="#configure-kcp-to-sync-to-your-cluster" class="md-nav__link">
     Configure kcp to sync to your cluster
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bind-to-workload-apis-and-create-default-placement" class="md-nav__link">
+    Bind to workload APIs and create default placement
   </a>
   
 </li>
@@ -1438,9 +1730,10 @@ version to confirm it's working:</p>
 </code></pre></div>
 <h3 id="configure-kcp-to-sync-to-your-cluster">Configure kcp to sync to your cluster</h3>
 <p>kcp can't run pods by itself - it needs at least one physical cluster for that. For this example, we'll be using a
-local <code>kind</code> cluster.</p>
-<p>Run the following command to tell kcp about the <code>kind</code> cluster (replace the syncer image tag as needed):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>ghcr.io/kcp-dev/kcp/syncer:v0.8.0<span class="w"> </span>-o<span class="w"> </span>syncer-kind-main.yaml
+local <code>kind</code> cluster.  It does not have to exist yet.</p>
+<p>In this recipe we use the root workspace to hold the description of the workload and where it goes.  These usually would go elsewhere, but we use the root workspace here for simplicity.</p>
+<p>Run the following command to tell kcp about the <code>kind</code> cluster (replace the syncer image tag as needed; CI now puts built images in https://github.com/orgs/kcp-dev/packages):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>kind<span class="w"> </span>--syncer-image<span class="w"> </span>ghcr.io/kcp-dev/kcp/syncer:v0.10.0<span class="w"> </span>-o<span class="w"> </span>syncer-kind-main.yaml
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Creating<span class="w"> </span>synctarget<span class="w"> </span><span class="s2">&quot;kind&quot;</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Creating<span class="w"> </span>service<span class="w"> </span>account<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Creating<span class="w"> </span>cluster<span class="w"> </span>role<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span><span class="w"> </span>to<span class="w"> </span>give<span class="w"> </span>service<span class="w"> </span>account<span class="w"> </span><span class="s2">&quot;kcp-syncer-kind-25coemaz&quot;</span>
@@ -1461,7 +1754,7 @@ local <code>kind</code> cluster.</p>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>to<span class="w"> </span>verify<span class="w"> </span>the<span class="w"> </span>syncer<span class="w"> </span>pod<span class="w"> </span>is<span class="w"> </span>running.
 </code></pre></div>
 <p>Next, we need to install the syncer pod on our <code>kind</code> cluster - this is what actually syncs content from kcp to the
-physical cluster. Run the following command:</p>
+physical cluster. The kind cluster needs to be running by now. Run the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;syncer-kind-main.yaml&quot;</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>namespace/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>serviceaccount/kcp-syncer-kind-25coemaz<span class="w"> </span>created
@@ -1471,37 +1764,45 @@ physical cluster. Run the following command:</p>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>secret/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>deployment.apps/kcp-syncer-kind-25coemaz<span class="w"> </span>created
 </code></pre></div>
+<h3 id="bind-to-workload-apis-and-create-default-placement">Bind to workload APIs and create default placement</h3>
+<p>If you are running kcp version v0.10.0 or higher, you will need to run the following commmand (continuing in the <code>root</code> workspace)
+to create a binding to the workload APIs export and a default placement for your physical cluster:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span>root
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Binding<span class="w"> </span>APIExport<span class="w"> </span><span class="s2">&quot;root:compute:kubernetes&quot;</span>.
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>placement<span class="w"> </span>placement-1pfxsevk<span class="w"> </span>created.
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Placement<span class="w"> </span><span class="s2">&quot;placement-1pfxsevk&quot;</span><span class="w"> </span>is<span class="w"> </span>ready.
+</code></pre></div>
 <h3 id="create-a-deployment-in-kcp">Create a deployment in kcp</h3>
 <p>Let's create a deployment in our kcp workspace and see it get synced to our cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>deployment.apps/kuard<span class="w"> </span>created
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>deployment<span class="w"> </span>--image<span class="o">=</span>gcr.io/kuar-demo/kuard-amd64:blue<span class="w"> </span>--port<span class="o">=</span><span class="m">8080</span><span class="w"> </span>kuard
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>deployment.apps/kuard<span class="w"> </span>created
 </code></pre></div>
 <p>Once your cluster has pulled the image and started the pod, you should be able to verify the deployment is running in
 kcp:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>deployments
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>NAME<span class="w">    </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>kuard<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>3s
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>deployments
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>NAME<span class="w">    </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kuard<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>3s
 </code></pre></div>
 <p>We are still working on adding support for <code>kubectl logs</code>, <code>kubectl exec</code>, and <code>kubectl port-forward</code> to kcp. For the
 time being, you can check directly in your cluster.</p>
 <p>kcp translates the names of namespaces in workspaces to unique names in a physical cluster. We first must get this
 translated name; if you're following along, your translated name might be different.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>--all-namespaces<span class="w"> </span>--selector<span class="w"> </span><span class="nv">app</span><span class="o">=</span>kuard
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>NAMESPACE<span class="w">          </span>NAME<span class="w">                     </span>READY<span class="w">   </span>STATUS<span class="w">    </span>RESTARTS<span class="w">   </span>AGE
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kcp-26zq2mc2yajx<span class="w">   </span>kuard-7d49c786c5-wfpcc<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">          </span>4m28s
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>--all-namespaces<span class="w"> </span>--selector<span class="w"> </span><span class="nv">app</span><span class="o">=</span>kuard
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>NAMESPACE<span class="w">          </span>NAME<span class="w">                     </span>READY<span class="w">   </span>STATUS<span class="w">    </span>RESTARTS<span class="w">   </span>AGE
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>kcp-26zq2mc2yajx<span class="w">   </span>kuard-7d49c786c5-wfpcc<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">          </span>4m28s
 </code></pre></div>
 <p>Now we can e.g. check the pod logs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>--namespace<span class="w"> </span>kcp-26zq2mc2yajx<span class="w"> </span>logs<span class="w"> </span>deployment/kuard<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Starting<span class="w"> </span>kuard<span class="w"> </span>version:<span class="w"> </span>v0.10.0-blue
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>WARNING:<span class="w"> </span>This<span class="w"> </span>server<span class="w"> </span>may<span class="w"> </span>expose<span class="w"> </span>sensitive
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>and<span class="w"> </span>secret<span class="w"> </span>information.<span class="w"> </span>Be<span class="w"> </span>careful.
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Config:
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">{</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="s2">&quot;address&quot;</span>:<span class="w"> </span><span class="s2">&quot;:8080&quot;</span>,
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="s2">&quot;debug&quot;</span>:<span class="w"> </span>false,
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="s2">&quot;debug-sitedata-dir&quot;</span>:<span class="w"> </span><span class="s2">&quot;./sitedata&quot;</span>,
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;/path/to/kind/kubeconfig&gt;<span class="w"> </span>kubectl<span class="w"> </span>--namespace<span class="w"> </span>kcp-26zq2mc2yajx<span class="w"> </span>logs<span class="w"> </span>deployment/kuard<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Starting<span class="w"> </span>kuard<span class="w"> </span>version:<span class="w"> </span>v0.10.0-blue
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>WARNING:<span class="w"> </span>This<span class="w"> </span>server<span class="w"> </span>may<span class="w"> </span>expose<span class="w"> </span>sensitive
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>*<span class="w"> </span>and<span class="w"> </span>secret<span class="w"> </span>information.<span class="w"> </span>Be<span class="w"> </span>careful.
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>**********************************************************************
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="m">2022</span>/09/07<span class="w"> </span><span class="m">14</span>:04:35<span class="w"> </span>Config:
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="o">{</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="s2">&quot;address&quot;</span>:<span class="w"> </span><span class="s2">&quot;:8080&quot;</span>,
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="s2">&quot;debug&quot;</span>:<span class="w"> </span>false,
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span><span class="s2">&quot;debug-sitedata-dir&quot;</span>:<span class="w"> </span><span class="s2">&quot;./sitedata&quot;</span>,
 </code></pre></div>
 <h2 id="next-steps">Next steps</h2>
 <p>Thanks for checking out our quickstart!</p>
@@ -1518,7 +1819,7 @@ documentation:</p>
 </ul>
 <h2 id="contributing">Contributing</h2>
 <p>We ❤️ our contributors! If you're interested in helping us out, please head over to our <a href="CONTRIBUTING/">Contributing</a>
-and guide.</p>
+and <a href="developers">Developer</a> guides.</p>
 <h2 id="getting-in-touch">Getting in touch</h2>
 <p>There are several ways to communicate with us:</p>
 <ul>
