@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build the binary
+# Build the kcp binaries
 FROM --platform=${BUILDPLATFORM} golang:1.19 AS builder
 WORKDIR /workspace
 
@@ -32,9 +32,6 @@ COPY pkg/apis/go.mod pkg/apis/go.mod
 COPY pkg/apis/go.sum pkg/apis/go.sum
 USER 0
 
-# Install kubectl.
-RUN wget "https://dl.k8s.io/release/$(go list -m -json k8s.io/kubernetes | jq -r .Version)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" -O bin/kubectl && chmod +x bin/kubectl
-
 # Cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -50,6 +47,14 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     make OS=${TARGETOS} ARCH=${TARGETARCH}
 
+# Download kubectl as a separate stage, as this is a large image and
+# not required by all images using the common builder stage above
+FROM builder AS kubectl
+WORKDIR /workspace
+
+# Install kubectl.
+RUN wget "https://dl.k8s.io/release/$(go list -m -json k8s.io/kubernetes | jq -r .Version)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" -O bin/kubectl && chmod +x bin/kubectl
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:debug
@@ -57,7 +62,7 @@ WORKDIR /
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
 COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
-COPY --from=builder workspace/bin/kubectl /usr/local/bin/
+COPY --from=kubectl workspace/bin/kubectl /usr/local/bin/
 ENV KUBECONFIG=/etc/kcp/config/admin.kubeconfig
 # Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
 RUN ["/busybox/sh", "-c", "mkdir -p /data && chown 65532:65532 /data"]
