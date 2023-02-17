@@ -23,3 +23,7 @@ tmp
 
 kcp-docs-image
 docs/site
+
+.prometheus_data
+.prometheus-config.yaml
+.prometheus-pid

@@ -271,6 +271,31 @@ func (s *Shard) GatherMetrics(ctx context.Context) {
 	logger.Info("wrote metrics file", "path", metricsFile)
 }
 
+func ScrapeMetrics(ctx context.Context, s *Shard, workDir string) error {
+	logger := klog.FromContext(ctx).WithValues("shard", s.name)
+	promUrl, set := os.LookupEnv("PROMETHEUS_URL")
+	if !set || promUrl == "" {
+		logger.Info("PROMETHEUS_URL environment variable unset, skipping Prometheus scrape config generation")
+		return nil
+	}
+
+	logger.Info("scraping shard metrics using Prometheus", "prometheus_url", promUrl, "shard", s.name)
+	kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+	)
+	config, err := configLoader.ClientConfig()
+	if err != nil {
+		logger.Error(err, "unable to collect metrics: error getting client config")
+		return err
+	}
+
+	return framework.ScrapeMetrics(ctx, config, promUrl, workDir, s.name, filepath.Join(s.runtimeDir, "apiserver.crt"), map[string]string{
+		"server": s.name,
+	})
+}
+
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
 // the content in a string-formatted error, unfortunately.
 func unreadyComponentsFromError(err error) sets.String {
