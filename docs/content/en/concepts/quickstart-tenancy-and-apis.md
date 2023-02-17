@@ -355,7 +355,7 @@ Yay!
 
 Q: Why is there a new `APIResourceSchema` resource type that appears to be very similar to `CustomResourceDefinition`?
 
-A: FIXME
+A: An APIResourceSchema defines a single custom API type. It is almost identical to a CRD, but creating an APIResourceSchema instance does not add a usable API to the server. By intentionally decoupling the schema definition from serving, API owners can be more explicit about API evolution.
 
 Q: Why do I have to append `/clusters/*/` to the `APIExport` service endpoint URL?
 
