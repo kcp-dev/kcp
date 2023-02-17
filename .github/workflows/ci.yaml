@@ -68,13 +68,19 @@ jobs:
 
       - run: |-
           LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
-          make test-e2e-shared
+          ./hack/run-with-prometheus.sh make test-e2e-shared
 
       - uses: cytopia/upload-artifact-retry-action@v0.1.7
         if: ${{ always() }}
         with:
           name: e2e-shared-server
           path: /tmp/e2e/**/artifacts/
+
+      - uses: cytopia/upload-artifact-retry-action@v0.1.7
+        if: ${{ always() }}
+        with:
+          name: e2e-shared-server-metrics
+          path: /tmp/e2e/**/metrics/
 
   e2e-sharded:
     name: e2e-sharded
@@ -109,10 +115,16 @@ jobs:
 
     - run: |-
         LOG_DIR=/tmp/e2e/sharded/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
-        make test-e2e-sharded
+        ./hack/run-with-prometheus.sh make test-e2e-sharded
 
     - uses: cytopia/upload-artifact-retry-action@v0.1.7
       if: ${{ always() }}
       with:
         name: e2e-sharded
         path: /tmp/e2e/**/artifacts/
+
+    - uses: cytopia/upload-artifact-retry-action@v0.1.7
+      if: ${{ always() }}
+      with:
+        name: e2e-sharded-metrics
+        path: /tmp/e2e/**/metrics/

@@ -171,6 +171,10 @@ func ScratchDirs(t *testing.T) (string, string, error) {
 	return artifactDir, t.TempDir(), nil
 }
 
+func (c *kcpServer) CADirectory() string {
+	return c.dataDir
+}
+
 func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
 	t.Helper()
 	artifact(t, c, producer)

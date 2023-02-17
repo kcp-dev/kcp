@@ -99,7 +99,7 @@ func start(shardFlags []string, quiet bool) error {
 	}
 
 	logFilePath := flag.Lookup("log-file-path").Value.String()
-	shard := shard.NewShard(
+	s := shard.NewShard(
 		"kcp",
 		".kcp",
 		logFilePath,
@@ -108,11 +108,16 @@ func start(shardFlags []string, quiet bool) error {
 			"--client-ca-file", filepath.Join(".kcp", "client-ca.crt"),
 		),
 	)
-	if err := shard.Start(ctx, quiet); err != nil {
+	if err := s.Start(ctx, quiet); err != nil {
 		return err
 	}
 
-	errCh, err := shard.WaitForReady(ctx)
+	errCh, err := s.WaitForReady(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = shard.ScrapeMetrics(ctx, s, ".")
 	if err != nil {
 		return err
 	}
@@ -134,7 +139,7 @@ func start(shardFlags []string, quiet bool) error {
 	metricsCtx, metricsCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
 	defer metricsCancel()
 
-	shard.GatherMetrics(metricsCtx)
+	s.GatherMetrics(metricsCtx)
 
 	return nil
 }

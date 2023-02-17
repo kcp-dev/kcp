@@ -234,8 +234,12 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// Wait for shards to be ready
 	shardsErrCh := make(chan indexErrTuple)
-	for i, shard := range shards {
-		terminatedCh, err := shard.WaitForReady(ctx)
+	for i, s := range shards {
+		terminatedCh, err := s.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		err = shard.ScrapeMetrics(ctx, s, workDirPath)
 		if err != nil {
 			return err
 		}

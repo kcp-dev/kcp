@@ -32,6 +32,7 @@ import (
 	"github.com/fatih/color"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -102,7 +103,10 @@ func startFrontProxy(
 	}
 
 	// write root shard kubeconfig
-	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")}, nil)
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")},
+		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+	)
 	raw, err := configLoader.RawConfig()
 	if err != nil {
 		return err
@@ -232,8 +236,21 @@ func startFrontProxy(
 		writer.StopOut()
 	}
 	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n")
+	cfg, err := configLoader.ClientConfig()
+	if err != nil {
+		return err
+	}
+	return scrapeMetrics(ctx, cfg, workDirPath)
+}
 
-	return nil
+func scrapeMetrics(ctx context.Context, cfg *rest.Config, workDir string) error {
+	promUrl, set := os.LookupEnv("PROMETHEUS_URL")
+	if !set || promUrl == "" {
+		return nil
+	}
+	return framework.ScrapeMetrics(ctx, cfg, promUrl, workDir, "kcp-front-proxy", filepath.Join(workDir, ".kcp-front-proxy/apiserver.crt"), map[string]string{
+		"server": "kcp-front-proxy",
+	})
 }
 
 func writeAdminKubeConfig(hostIP string, workDirPath string) error {
