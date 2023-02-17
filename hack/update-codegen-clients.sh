@@ -29,6 +29,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 
 # TODO: use generate-groups.sh directly instead once https://github.com/kubernetes/kubernetes/pull/114987 is available
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
+go install "${CODEGEN_PKG}"/cmd/client-gen
 
 "$GOPATH"/bin/applyconfiguration-gen \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
