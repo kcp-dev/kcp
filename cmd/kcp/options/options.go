@@ -17,37 +17,31 @@ limitations under the License.
 package options
 
 import (
-	"errors"
-	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	cliflag "k8s.io/component-base/cli/flag"
-	"k8s.io/klog/v2"
 
+	kcpcoreoptions "github.com/kcp-dev/kcp/cmd/kcp-core/options"
 	serveroptions "github.com/kcp-dev/kcp/tmc/pkg/server/options"
 )
 
 type Options struct {
 	Output io.Writer
 
-	Server serveroptions.Options
-	Extra  ExtraOptions
+	Generic kcpcoreoptions.GenericOptions
+	Server  serveroptions.Options
+	Extra   ExtraOptions
 }
 
-type ExtraOptions struct {
-	RootDirectory string
-}
+type ExtraOptions struct{}
 
 func NewOptions(rootDir string) *Options {
 	opts := &Options{
 		Output: nil,
 
-		Server: *serveroptions.NewOptions(rootDir),
-		Extra: ExtraOptions{
-			RootDirectory: rootDir,
-		},
+		Server:  *serveroptions.NewOptions(rootDir),
+		Generic: *kcpcoreoptions.NewGeneric(rootDir),
+		Extra:   ExtraOptions{},
 	}
 
 	return opts
@@ -56,8 +50,9 @@ func NewOptions(rootDir string) *Options {
 type completedOptions struct {
 	Output io.Writer
 
-	Server serveroptions.CompletedOptions
-	Extra  ExtraOptions
+	Generic kcpcoreoptions.GenericOptions
+	Server  serveroptions.CompletedOptions
+	Extra   ExtraOptions
 }
 
 type CompletedOptions struct {
@@ -65,35 +60,26 @@ type CompletedOptions struct {
 }
 
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
+	o.Generic.AddFlags(fss)
 	o.Server.AddFlags(fss)
-
-	fs := fss.FlagSet("KCP")
-	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 }
 
 func (o *Options) Complete() (*CompletedOptions, error) {
-	if !filepath.IsAbs(o.Extra.RootDirectory) {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		o.Extra.RootDirectory = filepath.Join(pwd, o.Extra.RootDirectory)
-	}
-
-	// Create the configuration root correctly before other components get a chance.
-	if err := mkdirRoot(o.Extra.RootDirectory); err != nil {
+	generic, err := o.Generic.Complete()
+	if err != nil {
 		return nil, err
 	}
 
-	server, err := o.Server.Complete(o.Extra.RootDirectory)
+	server, err := o.Server.Complete(generic.RootDirectory)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
-			Output: o.Output,
-			Server: *server,
+			Output:  o.Output,
+			Generic: *generic,
+			Server:  *server,
 		},
 	}, nil
 }
@@ -101,43 +87,8 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 func (o *CompletedOptions) Validate() []error {
 	errs := []error{}
 
+	errs = append(errs, o.Generic.Validate()...)
 	errs = append(errs, o.Server.Validate()...)
 
 	return errs
-}
-
-// mkdirRoot creates the root configuration directory for the KCP
-// server. This has to be done early before we start bringing up server
-// components to ensure that we set the initial permissions correctly,
-// since otherwise components will create it as a side-effect.
-func mkdirRoot(dir string) error {
-	if dir == "" {
-		return errors.New("missing root directory configuration")
-	}
-	logger := klog.Background().WithValues("dir", dir)
-
-	fi, err := os.Stat(dir)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-
-		logger.Info("creating root directory")
-
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-
-		// Ensure the leaf directory is moderately private
-		// because this may contain private keys and other
-		// sensitive data
-		return os.Chmod(dir, 0700)
-	}
-
-	if !fi.IsDir() {
-		return fmt.Errorf("%q is a file, please delete or select another location", dir)
-	}
-
-	logger.Info("using root directory")
-	return nil
 }

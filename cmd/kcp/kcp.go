@@ -42,7 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/tmc/pkg/server"
+	tmcserver "github.com/kcp-dev/kcp/tmc/pkg/server"
 )
 
 func main() {
@@ -121,7 +121,7 @@ func main() {
 			logger := klog.FromContext(cmd.Context())
 			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Core.Extra.BatteriesIncluded, ","))
 
-			config, err := server.NewConfig(completed.Server)
+			config, err := tmcserver.NewConfig(completed.Server)
 			if err != nil {
 				return err
 			}
@@ -140,7 +140,7 @@ func main() {
 				}
 			}
 
-			s, err := server.NewServer(completedConfig)
+			s, err := tmcserver.NewServer(completedConfig)
 			if err != nil {
 				return err
 			}

@@ -28,9 +28,6 @@ import (
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
-
-	apiresource "github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource/options"
-	heartbeat "github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat/options"
 )
 
 type Controllers struct {
@@ -39,9 +36,6 @@ type Controllers struct {
 
 	SAController kcmoptions.SAControllerOptions
 }
-
-type ApiResourceController = apiresource.Options
-type SyncTargetHeartbeatController = heartbeat.Options
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
