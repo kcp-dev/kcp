@@ -96,6 +96,8 @@ type SyncOptions struct {
 	Burst int
 	// SyncTargetName is the name of the SyncTarget in the kcp workspace.
 	SyncTargetName string
+	// SyncTargetLabels are the labels to be applied to the SyncTarget in the kcp workspace.
+	SyncTargetLabels string
 	// APIImportPollInterval is the time interval to push apiimport.
 	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
@@ -140,6 +142,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
 	cmd.Flags().DurationVar(&o.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", o.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespaces.")
+	cmd.Flags().StringVar(&o.SyncTargetLabels, "labels", o.SyncTargetLabels, "A set of key=value pairs to be used as a labels for the sync target in kcp")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -208,7 +211,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		defer outputFile.Close()
 	}
 
-	token, syncerID, syncTarget, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace)
+	token, syncerID, syncTarget, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace, o.SyncTargetLabels)
 	if err != nil {
 		return err
 	}
@@ -290,7 +293,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 	return fmt.Sprintf("kcp-syncer-%s-%s", syncTarget.Name, base36hash[:8])
 }
 
-func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
+func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName, labelString string) (*workloadv1alpha1.SyncTarget, error) {
 	supportedAPIExports := make([]tenancyv1alpha1.APIExportReference, 0, len(o.APIExports))
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.NewPath(export).Split()
@@ -307,6 +310,18 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		})
 	}
 
+	var labels map[string]string
+	if labelString != "" {
+		labels = map[string]string{}
+		for _, l := range strings.Split(labelString, ",") {
+			parts := strings.Split(l, "=")
+			if len(parts) != 2 {
+				continue
+			}
+			labels[parts[0]] = parts[1]
+		}
+	}
+
 	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 
 	switch {
@@ -318,7 +333,8 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx,
 			&workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: syncTargetName,
+					Name:   syncTargetName,
+					Labels: labels,
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					SupportedAPIExports: supportedAPIExports,
@@ -336,12 +352,15 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		return nil, err
 	}
 
-	if equality.Semantic.DeepEqual(supportedAPIExports, syncTarget.Spec.SupportedAPIExports) {
+	if equality.Semantic.DeepEqual(labels, syncTarget.ObjectMeta.Labels) && equality.Semantic.DeepEqual(supportedAPIExports, syncTarget.Spec.SupportedAPIExports) {
 		return syncTarget, nil
 	}
 
 	// Patch synctarget with updated exports
 	oldData, err := json.Marshal(workloadv1alpha1.SyncTarget{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: syncTarget.ObjectMeta.Labels,
+		},
 		Spec: workloadv1alpha1.SyncTargetSpec{
 			SupportedAPIExports: syncTarget.Spec.SupportedAPIExports,
 		},
@@ -354,6 +373,7 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             syncTarget.UID,
 			ResourceVersion: syncTarget.ResourceVersion,
+			Labels:          labels,
 		}, // to ensure they appear in the patch as preconditions
 		Spec: workloadv1alpha1.SyncTargetSpec{
 			SupportedAPIExports: supportedAPIExports,
@@ -421,13 +441,13 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 // enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (saToken string, syncerID string, syncTarget *workloadv1alpha1.SyncTarget, err error) {
+func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace, labels string) (saToken string, syncerID string, syncTarget *workloadv1alpha1.SyncTarget, err error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	syncTarget, err = o.applySyncTarget(ctx, kcpClient, syncTargetName)
+	syncTarget, err = o.applySyncTarget(ctx, kcpClient, syncTargetName, labels)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to apply synctarget %q: %w", syncTargetName, err)
 	}
