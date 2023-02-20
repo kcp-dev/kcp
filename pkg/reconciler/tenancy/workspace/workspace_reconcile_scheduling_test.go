@@ -253,6 +253,32 @@ func TestReconcileScheduling(t *testing.T) {
 			},
 			expectedStatus: reconcileStatusStopAndRequeue,
 		},
+		{
+			name: "only an unschedulable shard is available, the ws is unscheduled",
+			initialShards: []*corev1alpha1.Shard{func() *corev1alpha1.Shard {
+				s := shard("amber")
+				s.Annotations[unschedulableAnnotationKey] = "true"
+				return s
+			}()},
+			targetWorkspace:      workspace("foo"),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
+				t.Helper()
+
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
+					Type:     tenancyv1alpha1.WorkspaceScheduled,
+					Severity: conditionsapi.ConditionSeverityError,
+					Status:   corev1.ConditionFalse,
+					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
+					Message:  "No available shards to schedule the workspace",
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
+			},
+			expectedStatus: reconcileStatusContinue,
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {

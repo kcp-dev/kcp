@@ -53,8 +53,13 @@ const (
 	// WorkspaceShardHashAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
 	// is a base36(sha224) hash of the Shard name.
 	WorkspaceShardHashAnnotationKey = "internal.tenancy.kcp.io/shard"
+
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
 	workspaceClusterAnnotationKey = "internal.tenancy.kcp.io/cluster"
+
+	// unschedulableAnnotationKey is the annotation key used to indicate that a shard is unschedulable.
+	// The annotation is meant to be used by e2e tests that otherwise started a private instance of kcp server.
+	unschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
 )
 
 type schedulingReconciler struct {
@@ -194,6 +199,10 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		reason, message string
 	}{}
 	for _, shard := range shards {
+		if _, ok := shard.Annotations[unschedulableAnnotationKey]; ok {
+			logger.V(4).Info("Skipping a shard because it is annotated as unschedulable", "shard", shard.Name, "annotation", unschedulableAnnotationKey)
+			continue
+		}
 		if valid, reason, message := isValidShard(shard); valid {
 			validShards = append(validShards, shard)
 		} else {
