@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,12 +16,25 @@ limitations under the License.
 
 package options
 
-import (
-	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
-
-	_ "github.com/kcp-dev/kcp/pkg/features"
+var (
+	namedFlagSetOrder = []string{
+		"auditing",
+		"authentication",
+		"etcd",
+		"Embedded etcd",
+		"features",
+		"generic",
+		"logs",
+		"metrics",
+		"misc",
+		"secure serving",
+		"traces",
+		"KCP Authentication",
+		"KCP Authorization",
+		"KCP Virtual Workspaces",
+		"KCP Controllers",
+		"KCP Home Workspaces",
+		"KCP Cache Server",
+		"KCP",
+	}
 )
-
-type ServerRunOptions struct {
-	options.ServerRunOptions
-}

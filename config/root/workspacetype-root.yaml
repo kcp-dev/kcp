@@ -5,7 +5,7 @@ metadata:
   annotations:
     bootstrap.kcp.io/create-only: "true"
 spec:
-{{- $bat := index .Batteries "cluster-workspace-types" -}}
+{{- $bat := index .Batteries "workspace-types" -}}
 {{ if eq $bat true }}
   defaultChildWorkspaceType:
     name: organization

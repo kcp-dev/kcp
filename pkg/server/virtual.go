@@ -42,7 +42,6 @@ type mux interface {
 func (s *Server) installVirtualWorkspaces(
 	ctx context.Context,
 	config *rest.Config,
-	server *genericapiserver.GenericAPIServer,
 	auth genericapiserver.AuthenticationInfo,
 	externalAddress string,
 	auditEvaluator kaudit.PolicyRuleEvaluator,
@@ -90,7 +89,7 @@ func (s *Server) installVirtualWorkspaces(
 	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
-	completedRootAPIServerConfig.GenericConfig.AuditBackend = server.AuditBackend
+	completedRootAPIServerConfig.GenericConfig.AuditBackend = s.MiniAggregator.GenericAPIServer.AuditBackend
 	completedRootAPIServerConfig.GenericConfig.AuditPolicyRuleEvaluator = auditEvaluator
 
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
@@ -98,7 +97,7 @@ func (s *Server) installVirtualWorkspaces(
 		return err
 	}
 
-	if err := server.AddReadyzChecks(completedRootAPIServerConfig.GenericConfig.ReadyzChecks...); err != nil {
+	if err := s.MiniAggregator.GenericAPIServer.AddReadyzChecks(completedRootAPIServerConfig.GenericConfig.ReadyzChecks...); err != nil {
 		return err
 	}
 

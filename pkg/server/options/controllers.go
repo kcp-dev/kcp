@@ -28,21 +28,14 @@ import (
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
-
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 )
 
 type Controllers struct {
 	EnableAll           bool
 	IndividuallyEnabled []string
-	ApiResource         ApiResourceController
-	SyncTargetHeartbeat SyncTargetHeartbeatController
-	SAController        kcmoptions.SAControllerOptions
-}
 
-type ApiResourceController = apiresource.Options
-type SyncTargetHeartbeatController = heartbeat.Options
+	SAController kcmoptions.SAControllerOptions
+}
 
 var kcmDefaults *kcmoptions.KubeControllerManagerOptions
 
@@ -59,9 +52,7 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
-		ApiResource:         *apiresource.DefaultOptions(),
-		SyncTargetHeartbeat: *heartbeat.DefaultOptions(),
-		SAController:        *kcmDefaults.SAController,
+		SAController: *kcmDefaults.SAController,
 	}
 }
 
@@ -70,9 +61,6 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
-
-	apiresource.BindOptions(&c.ApiResource, fs)
-	heartbeat.BindOptions(&c.SyncTargetHeartbeat, fs)
 
 	c.SAController.AddFlags(fs)
 }
@@ -106,12 +94,6 @@ func (c *Controllers) Complete(rootDir string) error {
 func (c *Controllers) Validate() []error {
 	var errs []error
 
-	if err := c.ApiResource.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.SyncTargetHeartbeat.Validate(); err != nil {
-		errs = append(errs, err)
-	}
 	if saErrs := c.SAController.Validate(); saErrs != nil {
 		errs = append(errs, saErrs...)
 	}

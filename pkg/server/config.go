@@ -70,7 +70,7 @@ import (
 )
 
 type Config struct {
-	Options *kcpserveroptions.CompletedOptions
+	Options kcpserveroptions.CompletedOptions
 
 	EmbeddedEtcd *embeddedetcd.Config
 
@@ -87,7 +87,7 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	resolveIdentities func(ctx context.Context) error
-	identityConfig    *rest.Config
+	IdentityConfig    *rest.Config
 
 	// authentication
 	kcpAdminToken, shardAdminToken, userToken string
@@ -127,7 +127,7 @@ type ExtraConfig struct {
 }
 
 type completedConfig struct {
-	Options *kcpserveroptions.CompletedOptions
+	Options kcpserveroptions.CompletedOptions
 
 	GenericConfig  genericapiserver.CompletedConfig
 	EmbeddedEtcd   embeddedetcd.CompletedConfig
@@ -160,7 +160,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 
 const KcpBootstrapperUserName = "system:kcp:bootstrapper"
 
-func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
+func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c := &Config{
 		Options: opts,
 	}
@@ -230,24 +230,24 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			return nil, err
 		}
 
-		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
+		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
-		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		c.IdentityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
+		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return nil, err
 		}
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
 
-	informerConfig := rest.CopyConfig(c.identityConfig)
+	informerConfig := rest.CopyConfig(c.IdentityConfig)
 	informerConfig.UserAgent = "kcp-informers"
 	informerKcpClient, err := kcpclientset.NewForConfig(informerConfig)
 	if err != nil {

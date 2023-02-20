@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,27 +38,23 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/cmd/kcp/options"
+	"github.com/kcp-dev/kcp/cmd/kcp-core/options"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	tmcserver "github.com/kcp-dev/kcp/tmc/pkg/server"
+	"github.com/kcp-dev/kcp/pkg/server"
 )
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	cmd := &cobra.Command{
-		Use:   "kcp",
-		Short: "Kube for Control Plane (KCP)",
+		Use:   "kcp-core",
+		Short: "kcp control plane core",
 		Long: help.Doc(`
-			KCP is the easiest way to manage Kubernetes applications against one or
-			more clusters, by giving you a personal control plane that schedules your
-			workloads onto one or many clusters, and making it simple to pick up and
-			move. It supports advanced use cases such as spreading your apps across
-			clusters for resiliency, scheduling batch workloads onto clusters with
-			free capacity, and enabling collaboration for individual teams without
-			having access to the underlying clusters.
+			kcp-core is the generic part of the kcp control plane, providing
+			a multi-tenant workspace hierarchy where every workspace acts like a independent
+            generic Kubernetes API server.
 
 			To get started, launch a new cluster with 'kcp start', which will
 			initialize your personal control plane and write an admin kubeconfig file
@@ -83,7 +79,7 @@ func main() {
 	}
 
 	serverOptions := options.NewOptions(rootDir)
-	serverOptions.Server.Core.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
+	serverOptions.Server.GenericControlPlane.Logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -105,7 +101,7 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
-			if err := serverOptions.Server.Core.GenericControlPlane.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := serverOptions.Server.GenericControlPlane.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 
@@ -119,9 +115,9 @@ func main() {
 			}
 
 			logger := klog.FromContext(cmd.Context())
-			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Core.Extra.BatteriesIncluded, ","))
+			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Extra.BatteriesIncluded, ","))
 
-			config, err := tmcserver.NewConfig(completed.Server)
+			config, err := server.NewConfig(completed.Server)
 			if err != nil {
 				return err
 			}
@@ -134,13 +130,13 @@ func main() {
 			ctx := genericapiserver.SetupSignalContext()
 
 			// the etcd server must be up before NewServer because storage decorators access it right away
-			if completedConfig.Core.EmbeddedEtcd.Config != nil {
-				if err := embeddedetcd.NewServer(completedConfig.Core.EmbeddedEtcd).Run(ctx); err != nil {
+			if completedConfig.EmbeddedEtcd.Config != nil {
+				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
 					return err
 				}
 			}
 
-			s, err := tmcserver.NewServer(completedConfig)
+			s, err := server.NewServer(completedConfig)
 			if err != nil {
 				return err
 			}

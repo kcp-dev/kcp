@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package heartbeat
+package options
 
 import (
 	"fmt"
@@ -23,15 +23,18 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func DefaultOptions() *Options {
+func NewOptions() *Options {
 	return &Options{
 		HeartbeatThreshold: time.Minute,
 	}
 }
 
-func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
+		return
+	}
+
 	fs.DurationVar(&o.HeartbeatThreshold, "sync-target-heartbeat-threshold", o.HeartbeatThreshold, "Amount of time to wait for a successful heartbeat before marking the cluster as not ready")
-	return o
 }
 
 type Options struct {
@@ -39,8 +42,13 @@ type Options struct {
 }
 
 func (o *Options) Validate() error {
+	if o == nil {
+		return nil
+	}
+
 	if o.HeartbeatThreshold <= 0 {
 		return fmt.Errorf("--sync-target-heartbeat-threshold must be >0 (%s)", o.HeartbeatThreshold)
 	}
+
 	return nil
 }

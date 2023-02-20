@@ -56,14 +56,15 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/component-base/cli/flag"
 
+	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
-	"github.com/kcp-dev/kcp/pkg/server"
-	"github.com/kcp-dev/kcp/pkg/server/options"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
+	"github.com/kcp-dev/kcp/tmc/pkg/server"
 )
 
 // TestServerArgs returns the set of kcp args used to start a test
@@ -627,9 +628,11 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		if c.dataDir != "" {
 			rootDir = c.dataDir
 		}
-		serverOptions := options.NewOptions(rootDir)
+		serverOptions := kcpoptions.NewOptions(rootDir)
+		fss := flag.NamedFlagSets{}
+		serverOptions.AddFlags(&fss)
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
-		for _, fs := range serverOptions.Flags().FlagSets {
+		for _, fs := range fss.FlagSets {
 			all.AddFlagSet(fs)
 		}
 		if err := all.Parse(c.args); err != nil {
@@ -647,7 +650,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 			return apierrors.NewAggregate(errs)
 		}
 
-		config, err := server.NewConfig(completed)
+		config, err := server.NewConfig(completed.Server)
 		if err != nil {
 			cleanup()
 			return err
@@ -660,8 +663,8 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		}
 
 		// the etcd server must be up before NewServer because storage decorators access it right away
-		if completedConfig.EmbeddedEtcd.Config != nil {
-			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+		if completedConfig.Core.EmbeddedEtcd.Config != nil {
+			if err := embeddedetcd.NewServer(completedConfig.Core.EmbeddedEtcd).Run(ctx); err != nil {
 				return err
 			}
 		}
