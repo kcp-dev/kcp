@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -184,13 +183,8 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 	for _, export := range sf.apiExports {
 		pluginArgs = append(pluginArgs, "--apiexports="+export)
 	}
-	if sf.syncTargetLabels != nil {
-		pairs := []string{}
-		for k, v := range sf.syncTargetLabels {
-			pairs = append(pairs, fmt.Sprintf("%s=%s", k, v))
-		}
-		sort.Strings(pairs)
-		pluginArgs = append(pluginArgs, "--labels="+strings.Join(pairs, ","))
+	for k, v := range sf.syncTargetLabels {
+		pluginArgs = append(pluginArgs, fmt.Sprintf("--labels=%s=%s", k, v))
 	}
 
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)

@@ -97,7 +97,7 @@ type SyncOptions struct {
 	// SyncTargetName is the name of the SyncTarget in the kcp workspace.
 	SyncTargetName string
 	// SyncTargetLabels are the labels to be applied to the SyncTarget in the kcp workspace.
-	SyncTargetLabels string
+	SyncTargetLabels []string
 	// APIImportPollInterval is the time interval to push apiimport.
 	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
@@ -142,7 +142,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
 	cmd.Flags().DurationVar(&o.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", o.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespaces.")
-	cmd.Flags().StringVar(&o.SyncTargetLabels, "labels", o.SyncTargetLabels, "A set of key=value pairs to be used as a labels for the sync target in kcp")
+	cmd.Flags().StringSliceVar(&o.SyncTargetLabels, "labels", o.SyncTargetLabels, "Labels to apply on the SyncTarget created in kcp, each label should be in the format of key=value.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -189,6 +189,12 @@ func (o *SyncOptions) Validate() error {
 		errs = append(errs, fmt.Errorf("the maximum length of the sync-target-name is %d", MaxSyncTargetNameLength))
 	}
 
+	for _, l := range o.SyncTargetLabels {
+		if len(strings.Split(l, "=")) != 2 {
+			errs = append(errs, fmt.Errorf("label '%s' is not in the format of key=value", l))
+		}
+	}
+
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -211,7 +217,16 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		defer outputFile.Close()
 	}
 
-	token, syncerID, syncTarget, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace, o.SyncTargetLabels)
+	labels := map[string]string{}
+	for _, l := range o.SyncTargetLabels {
+		parts := strings.Split(l, "=")
+		if len(parts) != 2 {
+			continue
+		}
+		labels[parts[0]] = parts[1]
+	}
+
+	token, syncerID, syncTarget, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace, labels)
 	if err != nil {
 		return err
 	}
@@ -293,7 +308,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 	return fmt.Sprintf("kcp-syncer-%s-%s", syncTarget.Name, base36hash[:8])
 }
 
-func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName, labelString string) (*workloadv1alpha1.SyncTarget, error) {
+func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string, labels map[string]string) (*workloadv1alpha1.SyncTarget, error) {
 	supportedAPIExports := make([]tenancyv1alpha1.APIExportReference, 0, len(o.APIExports))
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.NewPath(export).Split()
@@ -308,18 +323,6 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
 			Export: "kubernetes",
 		})
-	}
-
-	var labels map[string]string
-	if labelString != "" {
-		labels = map[string]string{}
-		for _, l := range strings.Split(labelString, ",") {
-			parts := strings.Split(l, "=")
-			if len(parts) != 2 {
-				continue
-			}
-			labels[parts[0]] = parts[1]
-		}
 	}
 
 	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
@@ -441,7 +444,7 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 // enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace, labels string) (saToken string, syncerID string, syncTarget *workloadv1alpha1.SyncTarget, err error) {
+func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string, labels map[string]string) (saToken string, syncerID string, syncTarget *workloadv1alpha1.SyncTarget, err error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create kcp client: %w", err)
