@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -119,6 +120,7 @@ func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 
 // Run executes the "use workspace" logic based on the supplied options.
 func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
+	home, _ := os.UserHomeDir()
 	rawConfig, err := o.ClientConfig.RawConfig()
 	if err != nil {
 		return err
@@ -208,7 +210,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}()
 		fallthrough
 
-	case "~":
+	case "~", home:
 		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
