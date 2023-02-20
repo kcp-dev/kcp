@@ -17,6 +17,8 @@ limitations under the License.
 package options
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -34,6 +36,7 @@ type Options struct {
 	Authorization    *genericoptions.DelegatingAuthorizationOptions
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.Options
+	SyntheticDelay   time.Duration
 }
 
 type completedOptions struct {
@@ -44,6 +47,7 @@ type completedOptions struct {
 	Authorization    *genericoptions.DelegatingAuthorizationOptions
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.CompletedOptions
+	SyntheticDelay   time.Duration
 }
 
 type CompletedOptions struct {
@@ -113,4 +117,5 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.EmbeddedEtcd.AddFlags(fs)
 	o.SecureServing.AddFlags(fs)
+	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
 }

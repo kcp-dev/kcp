@@ -141,6 +141,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		apiHandler = WithServiceScope(apiHandler)
+		apiHandler = WithSyntheticDelay(apiHandler, opts.SyntheticDelay)
 		return apiHandler
 	}
 
