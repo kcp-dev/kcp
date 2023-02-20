@@ -34,6 +34,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -256,4 +257,64 @@ func TestScheduling(t *testing.T) {
 		_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
 		return found, fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, ns.Annotations)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+}
+
+// TestSchedulingWhenLocationIsMissing create placement at first when location is missing and created later.
+func TestSchedulingWhenLocationIsMissing(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	source := framework.SharedKcpServer(t)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, source, framework.TODO_WithoutMultiShardSupport())
+	locationPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
+	userPath, userWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
+	require.NoError(t, err)
+
+	// create a placement at first
+	newPlacement := &schedulingv1alpha1.Placement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "new-placement",
+		},
+		Spec: schedulingv1alpha1.PlacementSpec{
+			LocationSelectors: []metav1.LabelSelector{{}},
+			NamespaceSelector: &metav1.LabelSelector{},
+			LocationResource: schedulingv1alpha1.GroupVersionResource{
+				Group:    "workload.kcp.io",
+				Version:  "v1alpha1",
+				Resource: "synctargets",
+			},
+			LocationWorkspace: locationPath.String(),
+		},
+	}
+	_, err = kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Create(ctx, newPlacement, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Placement should turn to pending phase")
+	framework.Eventually(t, func() (bool, string) {
+		placement, err := kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, newPlacement.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("Failed to get placement: %v", err)
+		}
+
+		return placement.Status.Phase == schedulingv1alpha1.PlacementPending, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	syncTargetName := "synctarget"
+	t.Logf("Creating a SyncTarget and syncer in %s", locationPath)
+	_ = framework.NewSyncerFixture(t, source, locationPath,
+		framework.WithExtraResources("services"),
+		framework.WithSyncTargetName(syncTargetName),
+		framework.WithSyncedUserWorkspaces(userWorkspace),
+	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
+
+	t.Logf("Wait for placement to be ready")
+	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(userPath).SchedulingV1alpha1().Placements().Get(ctx, newPlacement.Name, metav1.GetOptions{})
+	}, framework.Is(schedulingv1alpha1.PlacementReady))
 }

@@ -25,6 +25,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	schedulingv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
@@ -216,32 +218,40 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 
 func (c *controller) enqueueLocation(obj interface{}) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = tombstone.Obj
 	}
-	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(err)
+
+	location, ok := obj.(*schedulingv1alpha1.Location)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	// placements referencing by cluster name
+	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, logicalcluster.From(location).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
+	}
+	if path := location.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
+		// placements referencing by path
+		placementsByPath, err := c.placementIndexer.ByIndex(byLocationWorkspace, path)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		placements = append(placements, placementsByPath...)
 	}
 
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
-		locationKey := key
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(placement)
 		if err != nil {
 			runtime.HandleError(err)
 			continue
 		}
-		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed", "Location", locationKey)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed")
 		c.queue.Add(key)
 	}
 }
