@@ -161,4 +161,15 @@ const (
 	// synced from the APIExport to all the APIBindings bound to this APIExport. The workload scheduler will
 	// check all the APIBindings with this annotation for scheduling purpose.
 	ComputeAPIExportAnnotationKey = "extra.apis.kcp.io/compute.workload.kcp.io"
+
+	// UpsyncDerivedResourcesAnnotationKey is an annotation set on a SyncTarget resource that contains a
+	// command-separated list of stringified GroupResource (<resource>.<group>) for the derived resources
+	// that are expected to be upsynced.
+	// To allow upsyncing the endpoints resource related to a synced service, the service should be annotated with:
+	//
+	//   workload.kcp.io/upsync-derived-resources: endpoints
+	//
+	// For now, only endpoints can be upsynced on demand by the syncer with this mechanism,
+	// but the list of such resources will increase in the future.
+	UpsyncDerivedResourcesAnnotationKey = "workload.kcp.io/upsync-derived-resources"
 )

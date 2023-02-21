@@ -413,7 +413,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 					corev1.SchemeGroupVersion.WithResource("endpoints"),
 				},
 				Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
-					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream)
+					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream, logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID))
 					if err != nil {
 						return nil, err
 					}
