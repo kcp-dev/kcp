@@ -6,32 +6,32 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Create a kubeconfig context for the current workspace
+        <meta name="description" content="How to create shard partitions
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/reference/cli/kcp_workspace_create-context/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/concepts/partitions/">
       
       
-        <link rel="prev" href="../kcp_workspace/">
+        <link rel="prev" href="../locations-and-scheduling/">
       
       
-        <link rel="next" href="../kcp_workspace_create/">
+        <link rel="next" href="../quickstart-tenancy-and-apis/">
       
-      <link rel="icon" href="../../../favicons/favicon.ico">
+      <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.11">
     
     
       
-        <title>kcp workspace create-context - kcp Documentation</title>
+        <title>Partition API - kcp Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.0d440cfe.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.0d440cfe.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.2505c338.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
       
       
 
@@ -47,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../stylesheets/kcp.css">
+      <link rel="stylesheet" href="../../stylesheets/kcp.css">
     
-    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#examples" class="md-skip">
+        <a href="#partition-api" class="md-skip">
           Skip to content
         </a>
       
@@ -123,14 +123,14 @@
 
         <!-- Link to home -->
         <a
-                href="../../.."
+                href="../.."
                 title="kcp Documentation"
                 class="md-header__button md-logo"
                 aria-label="kcp Documentation"
                 data-md-component="logo"
         >
             
-  <img src="../../../logo.png" alt="logo">
+  <img src="../../logo.png" alt="logo">
 
         </a>
 
@@ -150,7 +150,7 @@
                 <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kcp workspace create-context
+              Partition API
             
           </span>
                 </div>
@@ -176,7 +176,7 @@
                         
                         <li class="md-select__item">
                             <a
-                                    href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workspace_create-context/"
+                                    href="https://docs.kcp.io/kcp/main/en/concepts/partitions/"
                                     hreflang="en"
                                     class="md-select__link"
                             >
@@ -268,9 +268,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+    <a href="../.." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
       
-  <img src="../../../logo.png" alt="logo">
+  <img src="../../logo.png" alt="logo">
 
     </a>
     kcp Documentation
@@ -298,7 +298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         Home
       </a>
     </li>
@@ -313,7 +313,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../CONTRIBUTING/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         Contributing to kcp
       </a>
     </li>
@@ -328,7 +328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOALS/" class="md-nav__link">
+      <a href="../../GOALS/" class="md-nav__link">
         Project Goals
       </a>
     </li>
@@ -341,14 +341,16 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
       
       
         
@@ -385,7 +387,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../../concepts/">Concepts</a>
+          <a href="../">Concepts</a>
           
             <label for="__nav_4">
               <span class="md-nav__icon md-icon"></span>
@@ -393,7 +395,7 @@
           
         </div>
       
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           Concepts
@@ -408,7 +410,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis-in-kcp/" class="md-nav__link">
+      <a href="../apis-in-kcp/" class="md-nav__link">
         APIs in kcp
       </a>
     </li>
@@ -422,7 +424,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/" class="md-nav__link">
+      <a href="../authorization/" class="md-nav__link">
         Authorization
       </a>
     </li>
@@ -436,7 +438,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/cache-server/" class="md-nav__link">
+      <a href="../cache-server/" class="md-nav__link">
         Cache Server
       </a>
     </li>
@@ -450,7 +452,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/cluster-mapper/" class="md-nav__link">
+      <a href="../cluster-mapper/" class="md-nav__link">
         Cluster Mapper
       </a>
     </li>
@@ -464,7 +466,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/kubectl-kcp-plugin/" class="md-nav__link">
+      <a href="../kubectl-kcp-plugin/" class="md-nav__link">
         kubectl kcp plugin
       </a>
     </li>
@@ -478,7 +480,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/locations-and-scheduling/" class="md-nav__link">
+      <a href="../locations-and-scheduling/" class="md-nav__link">
         Placement, Locations, and Scheduling
       </a>
     </li>
@@ -490,11 +492,52 @@
               
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="../../../concepts/partitions/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Partition API
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         Partition API
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#partitions" class="md-nav__link">
+    Partitions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -506,7 +549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
         Quickstart: Tenancy and APIs
       </a>
     </li>
@@ -520,7 +563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/storage/" class="md-nav__link">
+      <a href="../storage/" class="md-nav__link">
         Storage and stateful applications
       </a>
     </li>
@@ -534,7 +577,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/syncer/" class="md-nav__link">
+      <a href="../syncer/" class="md-nav__link">
         Registering Kubernetes Clusters using syncer
       </a>
     </li>
@@ -548,7 +591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/virtual-workspaces/" class="md-nav__link">
+      <a href="../virtual-workspaces/" class="md-nav__link">
         Virtual Workspaces
       </a>
     </li>
@@ -562,7 +605,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/" class="md-nav__link">
+      <a href="../workspaces/" class="md-nav__link">
         Workspaces
       </a>
     </li>
@@ -610,7 +653,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../../developers/">Developers</a>
+          <a href="../../developers/">Developers</a>
           
             <label for="__nav_5">
               <span class="md-nav__icon md-icon"></span>
@@ -633,7 +676,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../developers/publishing-a-new-kcp-release/" class="md-nav__link">
         Publishing a new kcp release
       </a>
     </li>
@@ -647,7 +690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/replicate-new-resource/" class="md-nav__link">
+      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
         Replicating new resources in the cache server
       </a>
     </li>
@@ -661,7 +704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../developers/using-kcp-as-a-library/" class="md-nav__link">
         Using kcp as a library
       </a>
     </li>
@@ -675,7 +718,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../developers/writing-kcp-aware-controllers/" class="md-nav__link">
         Writing kcp-aware controllers
       </a>
     </li>
@@ -723,7 +766,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../../investigations/">Investigations</a>
+          <a href="../../investigations/">Investigations</a>
           
             <label for="__nav_6">
               <span class="md-nav__icon md-icon"></span>
@@ -746,7 +789,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../investigations/logical-clusters/" class="md-nav__link">
         Logical clusters
       </a>
     </li>
@@ -760,7 +803,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../investigations/minimal-api-server/" class="md-nav__link">
         Minimal API Server
       </a>
     </li>
@@ -774,7 +817,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../investigations/self-service-policy/" class="md-nav__link">
         Self-service policy
       </a>
     </li>
@@ -788,7 +831,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
         Transparent multi-cluster
       </a>
     </li>
@@ -808,16 +851,14 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
       
       
         
@@ -832,7 +873,7 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_7">
           <span class="md-nav__icon md-icon"></span>
           Reference
@@ -843,16 +884,14 @@
               
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" checked>
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
       
       
         
@@ -903,7 +942,7 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="true">
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_7_1">
           <span class="md-nav__icon md-icon"></span>
           CLI
@@ -916,7 +955,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp/" class="md-nav__link">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
         kcp
       </a>
     </li>
@@ -930,7 +969,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
         kcp bind
       </a>
     </li>
@@ -944,7 +983,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         kcp bind apiexport
       </a>
     </li>
@@ -958,7 +997,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind_compute/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind_compute/" class="md-nav__link">
         kcp bind compute
       </a>
     </li>
@@ -972,7 +1011,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
         kcp claims
       </a>
     </li>
@@ -986,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
         kcp claims get
       </a>
     </li>
@@ -1000,7 +1039,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         kcp claims get apibinding
       </a>
     </li>
@@ -1014,7 +1053,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
         kcp crd
       </a>
     </li>
@@ -1028,7 +1067,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         kcp crd snapshot
       </a>
     </li>
@@ -1042,7 +1081,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workload/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workload/" class="md-nav__link">
         kcp workload
       </a>
     </li>
@@ -1056,7 +1095,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workload_cordon/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workload_cordon/" class="md-nav__link">
         kcp workload cordon
       </a>
     </li>
@@ -1070,7 +1109,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workload_drain/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workload_drain/" class="md-nav__link">
         kcp workload drain
       </a>
     </li>
@@ -1084,7 +1123,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workload_sync/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workload_sync/" class="md-nav__link">
         kcp workload sync
       </a>
     </li>
@@ -1098,7 +1137,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workload_uncordon/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workload_uncordon/" class="md-nav__link">
         kcp workload uncordon
       </a>
     </li>
@@ -1112,7 +1151,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
         kcp workspace
       </a>
     </li>
@@ -1124,69 +1163,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          kcp workspace create-context
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         kcp workspace create-context
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    Examples
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    Options
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
-    Options inherited from parent commands
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    SEE ALSO
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1198,7 +1179,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_create/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
         kcp workspace create
       </a>
     </li>
@@ -1212,7 +1193,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         kcp workspace current
       </a>
     </li>
@@ -1226,7 +1207,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         kcp workspace tree
       </a>
     </li>
@@ -1240,7 +1221,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         kcp workspace use
       </a>
     </li>
@@ -1320,7 +1301,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apibindings.apis.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
         APIBinding
       </a>
     </li>
@@ -1334,7 +1315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
         APIExportEndpointSlice
       </a>
     </li>
@@ -1348,7 +1329,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apiexports.apis.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
         APIExport
       </a>
     </li>
@@ -1362,7 +1343,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
         APIResourceImport
       </a>
     </li>
@@ -1376,7 +1357,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
         APIResourceSchema
       </a>
     </li>
@@ -1390,7 +1371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/locations.scheduling.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
         Location
       </a>
     </li>
@@ -1404,7 +1385,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
         LogicalCluster
       </a>
     </li>
@@ -1418,7 +1399,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
         NegotiatedAPIResource
       </a>
     </li>
@@ -1432,7 +1413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/partitions.topology.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
         Partition
       </a>
     </li>
@@ -1446,7 +1427,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
         PartitionSet
       </a>
     </li>
@@ -1460,7 +1441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/placements.scheduling.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
         Placement
       </a>
     </li>
@@ -1474,7 +1455,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/shards.core.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
         Shard
       </a>
     </li>
@@ -1488,7 +1469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/synctargets.workload.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
         SyncTarget
       </a>
     </li>
@@ -1502,7 +1483,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
         Workspace
       </a>
     </li>
@@ -1516,7 +1497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
         WorkspaceType
       </a>
     </li>
@@ -1554,6 +1535,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1562,29 +1545,8 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    Examples
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    Options
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
-    Options inherited from parent commands
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    SEE ALSO
+  <a href="#partitions" class="md-nav__link">
+    Partitions
   </a>
   
 </li>
@@ -1608,49 +1570,65 @@
 
 
 
-  <h1>kcp workspace create-context</h1>
-
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp workspace create-context [&lt;context-name&gt;] [--overwrite] [flags]
+<h1 id="partition-api">Partition API</h1>
+<p><code>Partitions</code> and <code>PartitionSets</code> build an API that allows service providers and cluster administrators to create shard Partitions. These partitions can then be leveraged:
+- for the deployment of the controllers of the service providers and other components. These APIs provide the information on shard topology required for the scheduling.
+- for grouping APIExport endpoints of multiple shards in common buckets, that is <code>Partitions</code>. These buckets can the be used to achieve geo proximity: controllers should communicate with API servers of shards in the same region. They can also be leveraged for scalability and load distribution, that is to adapt the number of deployment/ processes to the load pattern specific to the controllers of a service provider.</p>
+<h2 id="partitions">Partitions</h2>
+<p>The partitioning of <code>Shards</code> is done through labels and <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selectors</a>.</p>
+<p>Here is an example of a <code>Partition</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Partition</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud-region-gcp-europe-xdfgs</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">ownerReferences</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">selector</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">     </span><span class="nt">matchLabels</span><span class="p">:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">       </span><span class="nt">cloud</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gcp</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">       </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">europe</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">     </span><span class="nt">matchExpressions</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LI</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w w-Error">  </span><span class="err">```</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="err">`</span><span class="l l-Scalar l-Scalar-Plain">Partitions` can be referenced in [`APIExportEndpointSlices`](./quickstart-tenancy-and-apis.md)</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1">## PartitionSets</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="err">`</span><span class="l l-Scalar l-Scalar-Plain">PartitionSets` is  an API for convenience. `PartitionSet` can be used to get `Partitions` automatically created based on dimensions that match the shard label keys. The `Partitions` are created in the same workspace as the `PartitionSet`. They can then be copied to the desired workspace for consumption, for instance, by an `APIExportEndpointSlice`.</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="l l-Scalar l-Scalar-Plain">Here is an example of a `PartitionSet`</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="err">```</span><span class="l l-Scalar l-Scalar-Plain">yaml</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PartitionSet</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud-region</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">   </span><span class="nt">dimensions</span><span class="p">:</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">   </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">region</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">   </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">   </span><span class="nt">selectors</span><span class="p">:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">     </span><span class="nt">matchExpressions</span><span class="p">:</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">region</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Antarctica</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Greenland</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NK</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="w">   </span><span class="nt">count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nn">...</span>
 </code></pre></div>
-<h3 id="examples">Examples</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kcp workspace create-context
-</code></pre></div>
-<h3 id="options">Options</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -h, --help                help for create-context
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --kubeconfig string   path to the kubeconfig file
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --overwrite           Overwrite the context if it already exists
-</code></pre></div>
-<h3 id="options-inherited-from-parent-commands">Options inherited from parent commands</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>      --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>      --as-uid string                    UID to impersonate for the operation
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      --certificate-authority string     Path to a cert file for the certificate authority
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      --context string                   The name of the kubeconfig context to use
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --insecure-skip-tls-verify         If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>      --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>      --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>      --log_file_max_size uint           Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>      --logtostderr                      log to standard error instead of files (default true)
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>  -n, --namespace string                 If present, the namespace scope for this CLI request
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>      --one_output                       If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>      --password string                  Password for basic authentication to the API server
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>      --proxy-url string                 If provided, this URL will be used to connect via proxy
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>      --server string                    The address and port of the Kubernetes API server
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>      --skip_headers                     If true, avoid header prefixes in the log messages
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>      --skip_log_headers                 If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>      --stderrthreshold severity         logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=false) (default 2)
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>      --tls-server-name string           If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>      --token string                     Bearer token for authentication to the API server
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>      --user string                      The name of the kubeconfig user to use
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>      --username string                  Username for basic authentication to the API server
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>  -v, --v Level                          number for the log level verbosity
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>      --vmodule moduleSpec               comma-separated list of pattern=N settings for file-filtered logging
-</code></pre></div>
-<h3 id="see-also">SEE ALSO</h3>
-<ul>
-<li><a href="../kcp_workspace/">kcp workspace</a>    - Manages KCP workspaces</li>
-</ul>
+<p>It is to note that a <code>Partition</code> is created only if it matches at least one shard. With the provided example if there is no shard in the cloud provider <code>aliyun</code> in the region <code>europe</code> no <code>Partition</code> will be created for it.</p>
+<p>An example of a <code>Partition</code> generated by this <code>PartitionSet</code> can be found above. The <code>dimensions</code> are translated into <code>matchLabels</code> with values specific to each <code>Partition</code>. An owner reference of the <code>Partition</code> will be set to the <code>PartitionSet</code>.</p>
 
 
 
@@ -1688,10 +1666,10 @@
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.6df46069.min.js"></script>
+      <script src="../../assets/javascripts/bundle.6df46069.min.js"></script>
       
     
   </body>
