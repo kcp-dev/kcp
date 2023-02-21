@@ -11,6 +11,7 @@ spec:
     - v124.services.core
     - v124.deployments.apps
     - v124.pods.core
+    - v124.endpoints.core
   maximalPermissionPolicy:
     local: {}
 status: {}

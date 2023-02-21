@@ -52,6 +52,7 @@ const (
 var rootComputeResourceSchema = sets.NewString(
 	"deployments.apps",
 	"services.core",
+	"endpoints.core",
 	"ingresses.networking.k8s.io",
 	"pods.core",
 )
