@@ -93,7 +93,8 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	syncTargetUID types.UID,
 	dnsNamespace string,
 	syncerNamespaceInformerFactory informers.SharedInformerFactory,
-	dnsImage string) (*Controller, error) {
+	dnsImage string,
+	upsyncPods bool) (*Controller, error) {
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
@@ -263,7 +264,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 			return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
 		}
 		return secretLister.ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, dnsServiceLister, syncTargetClusterName, syncTargetUID, syncTargetName, dnsNamespace)
+	}, dnsServiceLister, syncTargetClusterName, syncTargetUID, syncTargetName, dnsNamespace, upsyncPods)
 
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,

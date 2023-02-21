@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	utilspointer "k8s.io/utils/pointer"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -92,6 +93,7 @@ func TestDeploymentMutate(t *testing.T) {
 		upstreamSecrets                        []*corev1.Secret
 		originalDeployment, expectedDeployment *appsv1.Deployment
 		config                                 *rest.Config
+		upsyncPods                             bool
 	}{{
 		desc: "Deployment without Envs or volumes is mutated.",
 		upstreamSecrets: []*corev1.Secret{
@@ -155,6 +157,117 @@ func TestDeploymentMutate(t *testing.T) {
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
 				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+						Containers: []corev1.Container{
+							{
+								Name:  "test-container",
+								Image: "test-image",
+								Env: []corev1.EnvVar{
+									{
+										Name:  "KUBERNETES_SERVICE_PORT",
+										Value: "12345",
+									},
+									{
+										Name:  "KUBERNETES_SERVICE_PORT_HTTPS",
+										Value: "12345",
+									},
+									{
+										Name:  "KUBERNETES_SERVICE_HOST",
+										Value: "4.5.6.7",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									kcpApiAccessVolumeMount,
+								},
+							},
+						},
+						DNSPolicy: corev1.DNSNone,
+						DNSConfig: &corev1.PodDNSConfig{
+							Nameservers: []string{"8.8.8.8"},
+							Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+							Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
+						},
+						Volumes: []corev1.Volume{
+							kcpApiAccessVolume,
+						},
+					},
+				},
+			},
+		},
+		config: &rest.Config{
+			Host: "https://4.5.6.7:12345",
+		},
+	}, {
+		desc:       "Deployment without Envs or volumes is mutated, with pod-related changes if pod upsyncing is on.",
+		upsyncPods: true,
+		upstreamSecrets: []*corev1.Secret{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-token-1234",
+					Namespace: "namespace",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey:         "root:default:testing",
+						"kubernetes.io/service-account.name": "default",
+					},
+				},
+				Data: map[string][]byte{
+					"token":     []byte("token"),
+					"namespace": []byte("namespace"),
+				},
+			},
+		},
+		originalDeployment: &appsv1.Deployment{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Deployment",
+				APIVersion: "apps/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-deployment",
+				Namespace: "namespace",
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "root:default:testing",
+				},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: new(int32),
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "test-container",
+								Image: "test-image",
+							},
+						},
+					},
+				},
+			},
+		},
+		expectedDeployment: &appsv1.Deployment{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Deployment",
+				APIVersion: "apps/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-deployment",
+				Namespace: "namespace",
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "root:default:testing",
+				},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: new(int32),
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"state.workload.kcp.io/" + workloadv1alpha1.ToSyncTargetKey(logicalcluster.Name("root:default:testing"), "syncTargetName"): "Upsync",
+							"internal.workload.kcp.io/cluster": workloadv1alpha1.ToSyncTargetKey(logicalcluster.Name("root:default:testing"), "syncTargetName"),
+						},
+					},
 					Spec: corev1.PodSpec{
 						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
 						Containers: []corev1.Container{
@@ -828,7 +941,7 @@ func TestDeploymentMutate(t *testing.T) {
 				require.NoError(t, err, "Service Add() = %v", err)
 				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
 
-				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace")
+				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace", c.upsyncPods)
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)

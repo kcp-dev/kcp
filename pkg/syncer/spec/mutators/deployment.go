@@ -32,6 +32,7 @@ import (
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	utilspointer "k8s.io/utils/pointer"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -45,6 +46,7 @@ type DeploymentMutator struct {
 	syncTargetUID         types.UID
 	syncTargetName        string
 	dnsNamespace          string
+	upsyncPods            bool
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -57,7 +59,7 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 
 func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
 	syncTargetClusterName logicalcluster.Name,
-	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
+	syncTargetUID types.UID, syncTargetName, dnsNamespace string, upsyncPods bool) *DeploymentMutator {
 	return &DeploymentMutator{
 		upstreamURL:           upstreamURL,
 		listSecrets:           secretLister,
@@ -66,6 +68,7 @@ func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, ser
 		syncTargetUID:         syncTargetUID,
 		syncTargetName:        syncTargetName,
 		dnsNamespace:          dnsNamespace,
+		upsyncPods:            upsyncPods,
 	}
 }
 
@@ -249,6 +252,21 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 				Value: utilspointer.String("5"),
 			},
 		},
+	}
+
+	if dm.upsyncPods {
+		syncTargetKey := workloadv1alpha1.ToSyncTargetKey(dm.syncTargetClusterName, dm.syncTargetName)
+		labels := deployment.Spec.Template.Labels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] = string(workloadv1alpha1.ResourceStateUpsync)
+		labels[workloadv1alpha1.InternalDownstreamClusterLabel] = syncTargetKey
+		deployment.Spec.Template.Labels = labels
+
+		// TODO(davidfestal): In the future we could add a diff annotation to transform the resource while upsyncing:
+		//   - remove unnecessary fields we don't want leaking to upstream
+		//   - add an owner reference to the upstream deployment
 	}
 
 	unstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&deployment)

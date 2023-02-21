@@ -1217,7 +1217,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			}
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
 				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
-				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage")
+				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage", false)
 			require.NoError(t, err)
 
 			toInformerFactory.Start(ctx.Done())
