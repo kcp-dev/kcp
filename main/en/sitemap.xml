@@ -21,6 +21,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://docs.kcp.io/kcp/concepts/apis-in-kcp/</loc>
+         <lastmod>2023-02-21</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://docs.kcp.io/kcp/concepts/authorization/</loc>
          <lastmod>2023-02-21</lastmod>
          <changefreq>daily</changefreq>
