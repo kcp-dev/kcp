@@ -85,8 +85,9 @@ type syncerFixture struct {
 
 	syncedUserClusterNames []logicalcluster.Name
 
-	syncTargetPath logicalcluster.Path
-	syncTargetName string
+	syncTargetPath   logicalcluster.Path
+	syncTargetName   string
+	syncTargetLabels map[string]string
 
 	extraResourcesToSync []string
 	apiExports           []string
@@ -97,6 +98,13 @@ func WithSyncTargetName(name string) SyncerOption {
 	return func(t *testing.T, sf *syncerFixture) {
 		t.Helper()
 		sf.syncTargetName = name
+	}
+}
+
+func WithSyncTargetLabels(labels map[string]string) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		t.Helper()
+		sf.syncTargetLabels = labels
 	}
 }
 
@@ -175,6 +183,10 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 	for _, export := range sf.apiExports {
 		pluginArgs = append(pluginArgs, "--apiexports="+export)
 	}
+	for k, v := range sf.syncTargetLabels {
+		pluginArgs = append(pluginArgs, fmt.Sprintf("--labels=%s=%s", k, v))
+	}
+
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
 	var downstreamConfig *rest.Config

@@ -30,7 +30,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -71,18 +70,14 @@ func TestDeploymentCoordinator(t *testing.T) {
 	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("east"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
+		framework.WithSyncTargetLabels(map[string]string{"region": "east"}),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
-
-	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
-	require.NoError(t, err)
 
 	westSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspacePath,
 		framework.WithSyncTargetName("west"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
+		framework.WithSyncTargetLabels(map[string]string{"region": "west"}),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
-
-	_, err = kcpClusterClient.Cluster(locationWorkspacePath).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
-	require.NoError(t, err)
 
 	eastSyncer.WaitForSyncTargetReady(ctx, t)
 	westSyncer.WaitForSyncTargetReady(ctx, t)
