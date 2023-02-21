@@ -585,6 +585,9 @@ func DirectOrGoRunCommand(executableName string) []string {
 		return []string{cmdPath}
 	}
 	cmdPath := filepath.Join(RepositoryDir(), "cmd", executableName)
+	if executableName == "deployment-coordinator" {
+		cmdPath = filepath.Join(RepositoryDir(), "tmc", "cmd", executableName)
+	}
 	return []string{"go", "run", cmdPath}
 }
 
