@@ -70,7 +70,7 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 			for _, namespace := range downstreamNamespaces {
 				namespacesCollisions = append(namespacesCollisions, namespace.GetName())
 			}
-			return false, fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), upstreamClusterName, upstreamObject.GetNamespace())
+			return false, fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), upstreamClusterName, upstreamNamespace)
 		} else {
 			logger.V(4).Info("No downstream namespaces found")
 			// Downstream resource namespace not present => delete resource upstream
@@ -99,7 +99,7 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 	}
 	if k8serror.IsNotFound(err) {
 		// Downstream resource not present => delete resource upstream
-		if err := c.deleteUpstreamResource(ctx, gvr, upstreamClusterName, upstreamObject.GetNamespace(), upstreamObject.GetName(), true); err != nil && !k8serror.IsNotFound(err) {
+		if err := c.deleteUpstreamResource(ctx, gvr, upstreamClusterName, upstreamNamespace, upstreamName, true); err != nil && !k8serror.IsNotFound(err) {
 			return false, err
 		}
 		return false, nil
