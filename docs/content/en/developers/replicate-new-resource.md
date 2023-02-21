@@ -1,10 +1,9 @@
 ---
-linkTitle: "Replicating a new resource"
 description: >
-  How to add a new resource for replication.
+  How to add a new resource for replication by the cache server
 ---
 
-# Adding a new resource to the cache server and replication controller
+# Replicating new resources in the cache server
 
 As of today adding a new resource for replication is a manual process that consists of the following steps:
 

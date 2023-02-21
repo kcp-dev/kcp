@@ -41,7 +41,11 @@ plugins:
   # Docs site search
   - search
   # Use Jinja macros in .md files
-  - macros
+  - macros:
+      # This is relative to the repo root
+      include_dir: 'docs/overrides'
+      # This is relative to docs_dir
+      module_name: '../../main'
   # https://github.com/ncdc/mkdocs-modify-base-url
   # ncdc's small plugin to fix the base_url so the version selector works
   - modify-base-url:

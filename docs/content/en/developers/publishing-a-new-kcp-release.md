@@ -1,7 +1,6 @@
 ---
-linkTitle: "Publishing"
 description: >
-  kcp release process.
+  Information on the kcp release process
 ---
 
 # Publishing a new kcp release
