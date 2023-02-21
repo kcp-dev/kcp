@@ -497,6 +497,27 @@ func TestUpsyncerprocess(t *testing.T) {
 			},
 			includeStatus: false,
 		},
+		"Upsyncer should delete orphan upstream namespaced resource, but it doesn't exist": {
+			upstreamLogicalCluster: "root:org:ws",
+			upstreamNamespaceName:  "test",
+			downstreamNamespace: namespace("kcp-33jbiactwhg0").
+				WithLabels(map[string]string{
+					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Upsync",
+				}).
+				WithAnnotations(map[string]string{
+					"kcp.io/namespace-locator": `{"syncTarget": {"cluster":"root:org:ws", "name":"us-west1", "uid":"syncTargetUID"}, "cluster":"root:org:ws","namespace":"test"}`,
+				}).
+				Object(),
+			gvr:                       corev1.SchemeGroupVersion.WithResource("pods"),
+			resourceToProcessName:     "test-pod",
+			syncTargetName:            "us-west1",
+			expectActionsOnDownstream: []clienttesting.Action{},
+			expectActionsOnUpstream: []kcptesting.Action{
+				kcptesting.NewGetAction(corev1.SchemeGroupVersion.WithResource("pods"), logicalcluster.NewPath("root:org:ws"), "test", "test-pod"),
+			},
+			includeStatus: false,
+		},
 		"Upsyncer deletes orphan upstream namespaced resources, even if the downstream namespace has also been deleted": {
 			upstreamLogicalCluster: "root:org:ws",
 			upstreamNamespaceName:  "test",
