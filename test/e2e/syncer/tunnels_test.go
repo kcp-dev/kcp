@@ -19,6 +19,7 @@ package syncer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -32,9 +33,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -127,7 +129,7 @@ func TestSyncerTunnel(t *testing.T) {
 
 	require.NoError(t, err)
 
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(syncerFixture.DownstreamConfig)
+	downstreamKubeClient, err := kubernetes.NewForConfig(syncerFixture.DownstreamConfig)
 	require.NoError(t, err)
 
 	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
@@ -278,4 +280,183 @@ func TestSyncerTunnel(t *testing.T) {
 
 		return podLogs.Len() > 1, podLogs.String()
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "couldn't get downstream pod logs for deployment %s/%s", d.Namespace, d.Name)
+}
+
+// TestSyncerTunnelFilter ensures that the syncer tunnel will reject trying to access a Pod that is crafted and not actually upsynced.
+func TestSyncerTunnelFilter(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
+
+	defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.SyncerTunnel, true)()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	kcpServer := framework.PrivateKcpServer(t)
+	orgPath, _ := framework.NewOrganizationFixture(t, kcpServer, framework.TODO_WithoutMultiShardSupport())
+	locationPath, locationWs := framework.NewWorkspaceFixture(t, kcpServer, orgPath, framework.TODO_WithoutMultiShardSupport())
+	locationWsName := logicalcluster.Name(locationWs.Spec.Cluster)
+	userPath, userWs := framework.NewWorkspaceFixture(t, kcpServer, orgPath, framework.TODO_WithoutMultiShardSupport())
+	userWsName := logicalcluster.Name(userWs.Spec.Cluster)
+
+	// Creating synctarget and deploying the syncer
+	syncerFixture := framework.NewSyncerFixture(t, kcpServer, locationPath, framework.WithSyncedUserWorkspaces(userWs)).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
+	syncerFixture.StartSyncerTunnel(t)
+
+	t.Log("Binding the consumer workspace to the location workspace")
+	framework.NewBindCompute(t, userWsName.Path(), kcpServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWsName.Path()),
+	).Bind(t)
+
+	kcpClient, err := kcpclientset.NewForConfig(kcpServer.BaseConfig(t))
+	require.NoError(t, err)
+
+	syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx,
+		syncerFixture.SyncerConfig.SyncTargetName,
+		metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+
+	kcpKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpServer.BaseConfig(t))
+	require.NoError(t, err)
+
+	downstreamKubeLikeClient, err := kubernetes.NewForConfig(syncerFixture.SyncerConfig.DownstreamConfig)
+	require.NoError(t, err)
+
+	upstreamNs, err := kcpKubeClusterClient.CoreV1().Namespaces().Cluster(userPath).Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-syncer",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	nsLocator := shared.NamespaceLocator{
+		SyncTarget: shared.SyncTargetLocator{
+			ClusterName: string(logicalcluster.From(syncTarget)),
+			Name:        syncTarget.Name,
+			UID:         syncTarget.UID,
+		},
+		ClusterName: logicalcluster.From(upstreamNs),
+		Namespace:   upstreamNs.Name,
+	}
+
+	downstreamNsName, err := shared.PhysicalClusterNamespaceName(nsLocator)
+	require.NoError(t, err)
+
+	// Convert the locator to json, as we need to set it on the namespace.
+	locatorJSON, err := json.Marshal(nsLocator)
+	require.NoError(t, err)
+
+	// Create a namespace on the downstream cluster that matches the kcp namespace, with a correct locator.
+	_, err = downstreamKubeLikeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: downstreamNsName,
+			Labels: map[string]string{
+				workloadv1alpha1.InternalDownstreamClusterLabel: workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name),
+			},
+			Annotations: map[string]string{
+				shared.NamespaceLocatorAnnotation: string(locatorJSON),
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// Create a pod downstream that is not upsynced, to ensure that the syncer tunnel will reject it.
+	_, err = downstreamKubeLikeClient.CoreV1().Pods(downstreamNsName).Create(ctx, &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pod",
+			Finalizers: []string{
+				shared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name),
+			},
+			Labels: map[string]string{
+				workloadv1alpha1.InternalDownstreamClusterLabel: workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name),
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name): "",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "test",
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// Create a pod on the upstream namespace that looks like the downstream pod being upsynced.
+	upsyncedClient, err := kcpkubernetesclientset.NewForConfig(syncerFixture.UpsyncerVirtualWorkspaceConfig)
+	require.NoError(t, err)
+
+	upsyncedPod, err := upsyncedClient.CoreV1().Pods().Cluster(userWsName.Path()).Namespace(upstreamNs.Name).Create(ctx, &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-pod",
+			Finalizers: []string{},
+			Labels: map[string]string{
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name): "Upsync",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "test",
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	framework.Eventually(t, func() (bool, string) {
+		expectedError := fmt.Sprintf("unknown (get pods %s)", upsyncedPod.Name)
+		request := kcpKubeClusterClient.Cluster(userWsName.Path()).CoreV1().Pods(upstreamNs.Name).GetLogs(upsyncedPod.Name, &corev1.PodLogOptions{})
+		_, err = request.Do(ctx).Raw()
+		if err != nil {
+			if err.Error() == expectedError {
+				return true, ""
+			}
+			return false, fmt.Sprintf("Returned error: %s is different from expected error: %s", err.Error(), expectedError)
+		}
+		return false, "no error returned from get logs"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "")
+
+	// Update the downstream namespace locator to point to another synctarget.
+	locatorJSON, err = json.Marshal(shared.NamespaceLocator{
+		SyncTarget: shared.SyncTargetLocator{
+			ClusterName: "another-cluster",
+			Name:        "another-sync-target",
+			UID:         "another-sync-target-uid",
+		},
+		ClusterName: logicalcluster.From(upstreamNs),
+		Namespace:   upstreamNs.Name,
+	})
+	require.NoError(t, err)
+
+	// Get a more privileged client to be able to update namespaces.
+	downstreamAdminKubeClient, err := kubernetes.NewForConfig(syncerFixture.DownstreamConfig)
+	require.NoError(t, err)
+
+	// Patch the namespace to update the locator.
+	namespacePatch, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]interface{}{
+				shared.NamespaceLocatorAnnotation: string(locatorJSON),
+			},
+		},
+	})
+	require.NoError(t, err)
+	_, err = downstreamAdminKubeClient.CoreV1().Namespaces().Patch(ctx, downstreamNsName, types.MergePatchType, namespacePatch, metav1.PatchOptions{})
+	require.NoError(t, err)
+
+	// Let's try to get the pod logs again, this should fail, as the downstream Pod is not actually upsynced.
+	framework.Eventually(t, func() (bool, string) {
+		expectedError := fmt.Sprintf("unknown (get pods %s)", upsyncedPod.Name)
+		request := kcpKubeClusterClient.Cluster(userWsName.Path()).CoreV1().Pods(upstreamNs.Name).GetLogs(upsyncedPod.Name, &corev1.PodLogOptions{})
+		_, err = request.Do(ctx).Raw()
+		if err != nil {
+			if err.Error() == expectedError {
+				return true, ""
+			}
+			return false, fmt.Sprintf("Returned error: %s is different from expected error: %s", err.Error(), expectedError)
+		}
+		return false, "no error returned from get logs"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "")
 }
