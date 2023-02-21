@@ -6,32 +6,29 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to write a kcp-aware controller
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/developers/controllers/">
-      
-      
-        <link rel="prev" href="../library-usage/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/investigations/">
       
       
-        <link rel="next" href="../../investigations/logical-clusters/">
+        <link rel="prev" href="../developers/writing-kcp-aware-controllers/">
       
-      <link rel="icon" href="../../favicons/favicon.ico">
+      
+        <link rel="next" href="logical-clusters/">
+      
+      <link rel="icon" href="../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.11">
     
     
       
-        <title>Writing kcp-aware controllers - kcp Documentation</title>
+        <title>Investigations - kcp Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.0d440cfe.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.0d440cfe.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
       
       
 
@@ -47,9 +44,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/kcp.css">
+      <link rel="stylesheet" href="../stylesheets/kcp.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +71,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#writing-kcp-aware-controllers" class="md-skip">
+        <a href="#investigations" class="md-skip">
           Skip to content
         </a>
       
@@ -123,14 +120,14 @@
 
         <!-- Link to home -->
         <a
-                href="../.."
+                href=".."
                 title="kcp Documentation"
                 class="md-header__button md-logo"
                 aria-label="kcp Documentation"
                 data-md-component="logo"
         >
             
-  <img src="../../logo.png" alt="logo">
+  <img src="../logo.png" alt="logo">
 
         </a>
 
@@ -150,7 +147,7 @@
                 <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Writing kcp-aware controllers
+              Investigations
             
           </span>
                 </div>
@@ -176,7 +173,7 @@
                         
                         <li class="md-select__item">
                             <a
-                                    href="https://docs.kcp.io/kcp/main/en/developers/controllers/"
+                                    href="https://docs.kcp.io/kcp/main/en/investigations/"
                                     hreflang="en"
                                     class="md-select__link"
                             >
@@ -268,9 +265,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+    <a href=".." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
       
-  <img src="../../logo.png" alt="logo">
+  <img src="../logo.png" alt="logo">
 
     </a>
     kcp Documentation
@@ -298,7 +295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         Home
       </a>
     </li>
@@ -313,7 +310,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../CONTRIBUTING/" class="md-nav__link">
+      <a href="../CONTRIBUTING/" class="md-nav__link">
         Contributing to kcp
       </a>
     </li>
@@ -328,7 +325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../GOALS/" class="md-nav__link">
+      <a href="../GOALS/" class="md-nav__link">
         Project Goals
       </a>
     </li>
@@ -381,7 +378,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../concepts/">Concepts</a>
+          <a href="../concepts/">Concepts</a>
           
             <label for="__nav_4">
               <span class="md-nav__icon md-icon"></span>
@@ -404,7 +401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authorization/" class="md-nav__link">
+      <a href="../concepts/authorization/" class="md-nav__link">
         Authorization
       </a>
     </li>
@@ -418,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/cache-server/" class="md-nav__link">
+      <a href="../concepts/cache-server/" class="md-nav__link">
         Cache Server
       </a>
     </li>
@@ -432,7 +429,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/cluster-mapper/" class="md-nav__link">
+      <a href="../concepts/cluster-mapper/" class="md-nav__link">
         Cluster Mapper
       </a>
     </li>
@@ -446,7 +443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/kubectl-kcp-plugin/" class="md-nav__link">
+      <a href="../concepts/kubectl-kcp-plugin/" class="md-nav__link">
         kubectl kcp plugin
       </a>
     </li>
@@ -460,7 +457,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/locations-and-scheduling/" class="md-nav__link">
+      <a href="../concepts/locations-and-scheduling/" class="md-nav__link">
         Placement, Locations, and Scheduling
       </a>
     </li>
@@ -474,7 +471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         Quickstart: Tenancy and APIs
       </a>
     </li>
@@ -488,7 +485,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/storage/" class="md-nav__link">
+      <a href="../concepts/storage/" class="md-nav__link">
         Storage and stateful applications
       </a>
     </li>
@@ -502,7 +499,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/syncer/" class="md-nav__link">
+      <a href="../concepts/syncer/" class="md-nav__link">
         Registering Kubernetes Clusters using syncer
       </a>
     </li>
@@ -516,7 +513,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/virtual-workspaces/" class="md-nav__link">
+      <a href="../concepts/virtual-workspaces/" class="md-nav__link">
         Virtual Workspaces
       </a>
     </li>
@@ -530,8 +527,121 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/" class="md-nav__link">
+      <a href="../concepts/workspaces/" class="md-nav__link">
         Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../developers/">Developers</a>
+          
+            <label for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Developers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+        Publishing a new kcp release
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/replicate-new-resource/" class="md-nav__link">
+        Replicating new resources in the cache server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/using-kcp-as-a-library/" class="md-nav__link">
+        Using kcp as a library
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+        Writing kcp-aware controllers
       </a>
     </li>
   
@@ -559,158 +669,13 @@
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
       
       
         
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-          Developers
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-        <label class="md-nav__title" for="__nav_5">
-          <span class="md-nav__icon md-icon"></span>
-          Developers
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
           
             
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../replicate-new-resource/" class="md-nav__link">
-        Adding a new resource to the cache server and replication controller
-      </a>
-    </li>
-  
-
-            
           
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../releasing/" class="md-nav__link">
-        Publishing a new kcp release
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../library-usage/" class="md-nav__link">
-        Using kcp as a library
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-    
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Writing kcp-aware controllers
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        Writing kcp-aware controllers
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
-    Keys for objects in listers/indexers
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
-    Encoding/decoding keys
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
-    </li>
-  
-
-    
-      
-      
-      
-
-  
-  
-  
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-      
-      
         
           
         
@@ -722,12 +687,18 @@
         
       
       
-        <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-          Investigations
-          <span class="md-nav__icon md-icon"></span>
-        </label>
+        
+        
+        <div class="md-nav__link md-nav__link--index md-nav__link--active">
+          <a href="./">Investigations</a>
+          
+            <label for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
       
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_6">
           <span class="md-nav__icon md-icon"></span>
           Investigations
@@ -735,12 +706,14 @@
         <ul class="md-nav__list" data-md-scrollfix>
           
             
+          
+            
               
   
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/logical-clusters/" class="md-nav__link">
+      <a href="logical-clusters/" class="md-nav__link">
         Logical clusters
       </a>
     </li>
@@ -754,7 +727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/minimal-api-server/" class="md-nav__link">
+      <a href="minimal-api-server/" class="md-nav__link">
         Minimal API Server
       </a>
     </li>
@@ -768,7 +741,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/self-service-policy/" class="md-nav__link">
+      <a href="self-service-policy/" class="md-nav__link">
         Self-service policy
       </a>
     </li>
@@ -782,7 +755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="transparent-multi-cluster/" class="md-nav__link">
         Transparent multi-cluster
       </a>
     </li>
@@ -906,7 +879,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../reference/cli/kcp/" class="md-nav__link">
         kcp
       </a>
     </li>
@@ -920,7 +893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../reference/cli/kcp_bind/" class="md-nav__link">
         kcp bind
       </a>
     </li>
@@ -934,7 +907,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         kcp bind apiexport
       </a>
     </li>
@@ -948,7 +921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind_compute/" class="md-nav__link">
+      <a href="../reference/cli/kcp_bind_compute/" class="md-nav__link">
         kcp bind compute
       </a>
     </li>
@@ -962,7 +935,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../reference/cli/kcp_claims/" class="md-nav__link">
         kcp claims
       </a>
     </li>
@@ -976,7 +949,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../reference/cli/kcp_claims_get/" class="md-nav__link">
         kcp claims get
       </a>
     </li>
@@ -990,7 +963,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         kcp claims get apibinding
       </a>
     </li>
@@ -1004,7 +977,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../reference/cli/kcp_crd/" class="md-nav__link">
         kcp crd
       </a>
     </li>
@@ -1018,7 +991,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         kcp crd snapshot
       </a>
     </li>
@@ -1032,7 +1005,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workload/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workload/" class="md-nav__link">
         kcp workload
       </a>
     </li>
@@ -1046,7 +1019,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workload_cordon/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workload_cordon/" class="md-nav__link">
         kcp workload cordon
       </a>
     </li>
@@ -1060,7 +1033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workload_drain/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workload_drain/" class="md-nav__link">
         kcp workload drain
       </a>
     </li>
@@ -1074,7 +1047,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workload_sync/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workload_sync/" class="md-nav__link">
         kcp workload sync
       </a>
     </li>
@@ -1088,7 +1061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workload_uncordon/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workload_uncordon/" class="md-nav__link">
         kcp workload uncordon
       </a>
     </li>
@@ -1102,7 +1075,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace/" class="md-nav__link">
         kcp workspace
       </a>
     </li>
@@ -1116,7 +1089,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         kcp workspace create-context
       </a>
     </li>
@@ -1130,7 +1103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace_create/" class="md-nav__link">
         kcp workspace create
       </a>
     </li>
@@ -1144,7 +1117,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace_current/" class="md-nav__link">
         kcp workspace current
       </a>
     </li>
@@ -1158,7 +1131,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         kcp workspace tree
       </a>
     </li>
@@ -1172,7 +1145,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../reference/cli/kcp_workspace_use/" class="md-nav__link">
         kcp workspace use
       </a>
     </li>
@@ -1252,7 +1225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
         APIBinding
       </a>
     </li>
@@ -1266,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
         APIExportEndpointSlice
       </a>
     </li>
@@ -1280,7 +1253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
         APIExport
       </a>
     </li>
@@ -1294,7 +1267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
         APIResourceImport
       </a>
     </li>
@@ -1308,7 +1281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
         APIResourceSchema
       </a>
     </li>
@@ -1322,7 +1295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
         Location
       </a>
     </li>
@@ -1336,7 +1309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
         LogicalCluster
       </a>
     </li>
@@ -1350,7 +1323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
         NegotiatedAPIResource
       </a>
     </li>
@@ -1364,7 +1337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
         Partition
       </a>
     </li>
@@ -1378,7 +1351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
         PartitionSet
       </a>
     </li>
@@ -1392,7 +1365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
         Placement
       </a>
     </li>
@@ -1406,7 +1379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/shards.core.kcp.io/" class="md-nav__link">
         Shard
       </a>
     </li>
@@ -1420,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
         SyncTarget
       </a>
     </li>
@@ -1434,7 +1407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
         Workspace
       </a>
     </li>
@@ -1448,7 +1421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+      <a href="../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
         WorkspaceType
       </a>
     </li>
@@ -1496,15 +1469,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
-    Keys for objects in listers/indexers
+  <a href="#logical-clusters" class="md-nav__link">
+    Logical clusters
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
-    Encoding/decoding keys
+  <a href="#minimal-api-server" class="md-nav__link">
+    Minimal API Server
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-service-policy" class="md-nav__link">
+    Self-service policy
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transparent-multi-cluster" class="md-nav__link">
+    Transparent multi-cluster
   </a>
   
 </li>
@@ -1528,69 +1515,15 @@
 
 
 
-<h1 id="writing-kcp-aware-controllers">Writing kcp-aware controllers</h1>
-<h2 id="keys-for-objects-in-listersindexers">Keys for objects in listers/indexers</h2>
-<p>When you need to get an object from a kcp-aware lister or an indexer, you can't just pass the object's name to the
-<code>Get()</code> function, like you do with a typical controller targeting Kubernetes. Projects using kcp's copy of client-go
-are using a modified key function.</p>
-<p>Here are what keys look like for an object <code>foo</code> for both cluster-scoped and namespace-scoped varieties:</p>
-<table>
-<thead>
-<tr>
-<th>Organization</th>
-<th>Workspace</th>
-<th>Logical Cluster</th>
-<th>Namespace</th>
-<th>Key</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>-</td>
-<td>root</td>
-</tr>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>default</td>
-<td>default/root</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>-</td>
-<td>root:my-org</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>default</td>
-<td>default/root:my-org</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>-</td>
-<td>my-org:my-workspace</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>default</td>
-<td>default/my-org:my-workspace</td>
-</tr>
-</tbody>
-</table>
-<h2 id="encodingdecoding-keys">Encoding/decoding keys</h2>
-<p>Use the <code>github.com/kcp-dev/apimachinery/pkg/cache</code> package to encode and decode keys.</p>
+<h1 id="investigations">Investigations</h1>
+<h2 id="logical-clusters"><a href="../investigations/logical-clusters/">Logical clusters</a></h2>
+<p>Investigation on logical clusters</p>
+<h2 id="minimal-api-server"><a href="../investigations/minimal-api-server/">Minimal API Server</a></h2>
+<p>Investigation on minimal API Server</p>
+<h2 id="self-service-policy"><a href="../investigations/self-service-policy/">Self-service policy</a></h2>
+<p>Improve consistency and reusability of self-service and policy enforcement across multiple Kubernetes clusters.</p>
+<h2 id="transparent-multi-cluster"><a href="../investigations/transparent-multi-cluster/">Transparent multi-cluster</a></h2>
+<p>Investigation of transparent multi-cluster</p>
 
 
 
@@ -1628,10 +1561,10 @@ are using a modified key function.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.6df46069.min.js"></script>
+      <script src="../assets/javascripts/bundle.6df46069.min.js"></script>
       
     
   </body>

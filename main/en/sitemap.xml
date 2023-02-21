@@ -71,22 +71,32 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://docs.kcp.io/kcp/developers/controllers/</loc>
+         <loc>https://docs.kcp.io/kcp/developers/</loc>
          <lastmod>2023-02-21</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://docs.kcp.io/kcp/developers/library-usage/</loc>
-         <lastmod>2023-02-21</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/developers/releasing/</loc>
+         <loc>https://docs.kcp.io/kcp/developers/publishing-a-new-kcp-release/</loc>
          <lastmod>2023-02-21</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://docs.kcp.io/kcp/developers/replicate-new-resource/</loc>
+         <lastmod>2023-02-21</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://docs.kcp.io/kcp/developers/using-kcp-as-a-library/</loc>
+         <lastmod>2023-02-21</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://docs.kcp.io/kcp/developers/writing-kcp-aware-controllers/</loc>
+         <lastmod>2023-02-21</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://docs.kcp.io/kcp/investigations/</loc>
          <lastmod>2023-02-21</lastmod>
          <changefreq>daily</changefreq>
     </url>
