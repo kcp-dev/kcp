@@ -30,7 +30,7 @@ import (
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	syncerbuilder "github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
+	syncerbuilder "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/builder"
 )
 
 func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget, workspaceShards []*corev1alpha1.Shard) (*workloadv1alpha1.SyncTarget, error) {

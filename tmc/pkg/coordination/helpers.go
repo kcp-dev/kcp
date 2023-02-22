@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
+	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
 )
 
 // FilteredSyncerViewsChanged returns true if the syncer view fields changed between old and new

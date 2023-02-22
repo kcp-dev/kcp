@@ -28,20 +28,17 @@ import (
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
-	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
-	Syncer                 *synceroptions.Syncer
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
 }
 
 func NewOptions() *Options {
 	return &Options{
-		Syncer:                 synceroptions.New(),
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
 	}
@@ -50,7 +47,6 @@ func NewOptions() *Options {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	errs = append(errs, o.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
@@ -67,11 +63,6 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
-	if err != nil {
-		return nil, err
-	}
-
 	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
 	if err != nil {
 		return nil, err
@@ -82,14 +73,14 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := merge(syncer, apiexports, initializingworkspaces)
+	all, err := Merge(apiexports, initializingworkspaces)
 	if err != nil {
 		return nil, err
 	}
 	return all, nil
 }
 
-func merge(sets ...[]rootapiserver.NamedVirtualWorkspace) ([]rootapiserver.NamedVirtualWorkspace, error) {
+func Merge(sets ...[]rootapiserver.NamedVirtualWorkspace) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	var workspaces []rootapiserver.NamedVirtualWorkspace
 	seen := map[string]bool{}
 	for _, set := range sets {

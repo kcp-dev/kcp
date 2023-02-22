@@ -17,9 +17,11 @@ limitations under the License.
 package rootapiserver
 
 import (
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"net/http"
+
 	"k8s.io/apiserver/pkg/server/healthz"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
 
 type asHealthCheck struct {

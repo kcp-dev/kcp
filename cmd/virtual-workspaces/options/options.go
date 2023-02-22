@@ -30,7 +30,8 @@ import (
 	"k8s.io/component-base/logs"
 
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
-	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+	tmcvwoptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/options"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
@@ -48,13 +49,15 @@ type Options struct {
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
-	Authorization  virtualworkspacesoptions.Authorization
+	Authorization  corevwoptions.Authorization
 	Audit          genericapiserveroptions.AuditOptions
 
 	Logs logs.Options
 
-	VirtualWorkspaces virtualworkspacesoptions.Options
-	ProfilerAddress   string
+	CoreVirtualWorkspaces corevwoptions.Options
+	TmcVirtualWorkspaces  tmcvwoptions.Options
+
+	ProfilerAddress string
 }
 
 func NewOptions() *Options {
@@ -66,12 +69,13 @@ func NewOptions() *Options {
 		Cache:          *cacheoptions.NewCache(),
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
-		Authorization:  *virtualworkspacesoptions.NewAuthorization(),
+		Authorization:  *corevwoptions.NewAuthorization(),
 		Audit:          *genericapiserveroptions.NewAuditOptions(),
 		Logs:           *logs.NewOptions(),
 
-		VirtualWorkspaces: *virtualworkspacesoptions.NewOptions(),
-		ProfilerAddress:   "",
+		CoreVirtualWorkspaces: *corevwoptions.NewOptions(),
+		TmcVirtualWorkspaces:  *tmcvwoptions.NewOptions(),
+		ProfilerAddress:       "",
 	}
 
 	opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
@@ -87,7 +91,8 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.Authentication.AddFlags(flags)
 	o.Audit.AddFlags(flags)
 	o.Logs.AddFlags(flags)
-	o.VirtualWorkspaces.AddFlags(flags)
+	o.CoreVirtualWorkspaces.AddFlags(flags)
+	o.TmcVirtualWorkspaces.AddFlags(flags)
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
@@ -102,7 +107,8 @@ func (o *Options) Validate() error {
 	errs = append(errs, o.Cache.Validate()...)
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
-	errs = append(errs, o.VirtualWorkspaces.Validate()...)
+	errs = append(errs, o.CoreVirtualWorkspaces.Validate()...)
+	errs = append(errs, o.TmcVirtualWorkspaces.Validate()...)
 
 	if len(o.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))

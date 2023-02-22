@@ -25,7 +25,7 @@ import (
 
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/builder"
 )
 
 type Syncer struct{}

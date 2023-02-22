@@ -31,7 +31,7 @@ type Controllers struct {
 type ApiResourceController = apiresource.Options
 type SyncTargetHeartbeatController = heartbeat.Options
 
-func NewControllers() *Controllers {
+func NewTmcControllers() *Controllers {
 	return &Controllers{
 		ApiResource:         *apiresource.NewOptions(),
 		SyncTargetHeartbeat: *heartbeat.NewOptions(),

@@ -19,7 +19,11 @@ package server
 import (
 	_ "net/http/pprof"
 
+	"k8s.io/client-go/rest"
+
+	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	coreserver "github.com/kcp-dev/kcp/pkg/server"
+	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	"github.com/kcp-dev/kcp/tmc/pkg/server/options"
 )
 
@@ -65,6 +69,21 @@ func NewConfig(opts options.CompletedOptions) (*Config, error) {
 	core, err := coreserver.NewConfig(opts.Core)
 	if err != nil {
 		return nil, err
+	}
+
+	// add tmc virtual workspaces
+	if opts.Core.Virtual.Enabled {
+		virtualWorkspacesConfig := rest.CopyConfig(core.GenericConfig.LoopbackClientConfig)
+		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
+
+		tmcVWs, err := opts.TmcVirtualWorkspaces.NewVirtualWorkspaces(virtualWorkspacesConfig, virtualcommandoptions.DefaultRootPathPrefix, core.CacheKcpSharedInformerFactory)
+		if err != nil {
+			return nil, err
+		}
+		core.OptionalVirtual.Extra.VirtualWorkspaces, err = corevwoptions.Merge(core.OptionalVirtual.Extra.VirtualWorkspaces, tmcVWs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c := &Config{

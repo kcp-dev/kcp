@@ -45,6 +45,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
@@ -174,7 +175,15 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	if err != nil {
+		return err
+	}
+	tmcVWs, err := o.TmcVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, cacheKcpInformers)
+	if err != nil {
+		return err
+	}
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = corevwoptions.Merge(coreVWs, tmcVWs)
 	if err != nil {
 		return err
 	}
