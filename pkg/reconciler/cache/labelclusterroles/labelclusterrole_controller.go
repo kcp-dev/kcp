@@ -145,7 +145,8 @@ type controller struct {
 func (c *controller) EnqueueClusterRoles(values ...interface{}) {
 	clusterRoles, err := c.clusterRoleLister.List(labels.Everything())
 	if err != nil {
-		klog.Errorf("Error listing ClusterRoles: %v", err)
+		logger := logging.WithReconciler(klog.Background(), c.controllerName)
+		logger.Error(err, "error listing ClusterRoles")
 		return
 	}
 	for _, cr := range clusterRoles {
