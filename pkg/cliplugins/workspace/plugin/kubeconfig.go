@@ -215,8 +215,21 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		newServerHost = homeWorkspace.Spec.URL
-
+		u, homeCluster, err := pluginhelpers.ParseClusterURL(homeWorkspace.Spec.URL)
+		if err != nil {
+			return fmt.Errorf("home URL %q does not point to a workspace: %w", homeWorkspace.Spec.URL, err)
+		}
+		homeLogicalCluster, err := o.kcpClusterClient.Cluster(homeCluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get logical cluster of home workspace: %w", err)
+		}
+		homePath, ok := homeLogicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
+		if !ok {
+			return fmt.Errorf("cannot find the path info from the home workspace")
+		}
+		cluster := logicalcluster.NewPath(homePath)
+		u.Path = path.Join(u.Path, cluster.RequestPath())
+		newServerHost = u.String()
 	case ".":
 		cfg, err := o.ClientConfig.ClientConfig()
 		if err != nil {

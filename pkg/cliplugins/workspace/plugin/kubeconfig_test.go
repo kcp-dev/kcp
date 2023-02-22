@@ -1232,6 +1232,25 @@ func TestUse(t *testing.T) {
 				return false, nil, nil
 			})
 
+			client.PrependReactor("get", "logicalclusters", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
+				getAction := action.(kcptesting.GetAction)
+				if getAction.GetCluster() != homeWorkspaceLogicalCluster {
+					return false, nil, nil
+				}
+				if getAction.GetName() == corev1alpha1.LogicalClusterName {
+					logicalCluster := &corev1alpha1.LogicalCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: corev1alpha1.LogicalClusterName,
+							Annotations: map[string]string{
+								core.LogicalClusterPathAnnotationKey: homeWorkspaceLogicalCluster.String(),
+							},
+						},
+					}
+					return true, logicalCluster, nil
+				}
+				return false, nil, nil
+			})
+
 			// return nothing in the default case.
 			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 				return nil, nil
