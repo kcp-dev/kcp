@@ -45,8 +45,9 @@ set +o xtrace
 set -o errexit
 echo "Command terminated with ${EXIT_CODE}"
 
+kill -TERM ${PROM_PID}
+
 if [ -n "${ARTIFACT_DIR:=}" ]; then
-  kill -TERM ${PROM_PID}
   echo 'Waiting for Prometheus to shut down...'
   while [ -f .prometheus_data/lock ]; do sleep 1; done
   echo 'Prometheus shut down successfully!'
