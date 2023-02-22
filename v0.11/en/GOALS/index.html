@@ -1,0 +1,1871 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/GOALS/">
+      
+      
+        <link rel="prev" href="../CONTRIBUTING/">
+      
+      
+        <link rel="next" href="../concepts/">
+      
+      <link rel="icon" href="../favicons/favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.11">
+    
+    
+      
+        <title>Project Goals - kcp Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.0d440cfe.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/kcp.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#project-goals" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      <!--
+  Copyright (c) 2016-2023 Martin Donath <martin.donath@squidfunk.com>
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+-->
+
+<!-- Determine base classes -->
+
+
+
+<!-- Header -->
+<header class="md-header" data-md-component="header">
+    <nav
+            class="md-header__inner md-grid"
+            aria-label="Header"
+    >
+
+        <!-- Link to home -->
+        <a
+                href=".."
+                title="kcp Documentation"
+                class="md-header__button md-logo"
+                aria-label="kcp Documentation"
+                data-md-component="logo"
+        >
+            
+  <img src="../logo.png" alt="logo">
+
+        </a>
+
+        <!-- Button to open drawer -->
+        <label class="md-header__button md-icon" for="__drawer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+        </label>
+
+        <!-- Header title -->
+        <div class="md-header__title" data-md-component="header-title">
+            <div class="md-header__ellipsis">
+                <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kcp Documentation
+          </span>
+                </div>
+                <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Project Goals
+            
+          </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color palette -->
+        
+
+        <!-- Site language selector -->
+        
+        <div class="md-header__option">
+            <div class="md-select">
+                
+                <button
+                        class="md-header__button md-icon"
+                        aria-label="Select language"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7 1.62-4.33L19.12 17h-3.24Z"/></svg>
+                </button>
+                <div class="md-select__inner">
+                    <ul class="md-select__list">
+                        
+                        <li class="md-select__item">
+                            <a
+                                    href="https://docs.kcp.io/kcp/v0.11.0/en/GOALS/"
+                                    hreflang="en"
+                                    class="md-select__link"
+                            >
+                                English
+                            </a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+
+        <!-- Button to open search modal -->
+        
+        <label class="md-header__button md-icon" for="__search">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        
+
+        <!-- Repository information -->
+        
+        <div class="md-header__source">
+            <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+        </div>
+        
+    </nav>
+
+    <!-- Navigation tabs (sticky) -->
+    
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../logo.png" alt="logo">
+
+    </a>
+    kcp Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTING/" class="md-nav__link">
+        Contributing to kcp
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Project Goals
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Project Goals
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-should-it-do-for-me" class="md-nav__link">
+    What should it do for me?
+  </a>
+  
+    <nav class="md-nav" aria-label="What should it do for me?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-3-years" class="md-nav__link">
+    1-3 years
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-12-months" class="md-nav__link">
+    3-12 months
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-manifesto" class="md-nav__link">
+    The Manifesto
+  </a>
+  
+    <nav class="md-nav" aria-label="The Manifesto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-concepts" class="md-nav__link">
+    Key Concepts
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    Process
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    Terminology
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    Principles
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../concepts/">Concepts</a>
+          
+            <label for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Concepts
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/apis-in-kcp/" class="md-nav__link">
+        APIs in kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/authorization/" class="md-nav__link">
+        Authorization
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/cache-server/" class="md-nav__link">
+        Cache Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/cluster-mapper/" class="md-nav__link">
+        Cluster Mapper
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/kubectl-kcp-plugin/" class="md-nav__link">
+        kubectl kcp plugin
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/locations-and-scheduling/" class="md-nav__link">
+        Placement, Locations, and Scheduling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/partitions/" class="md-nav__link">
+        Partition API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+        Quickstart: Tenancy and APIs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/storage/" class="md-nav__link">
+        Storage and stateful applications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/syncer/" class="md-nav__link">
+        Registering Kubernetes Clusters using syncer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/virtual-workspaces/" class="md-nav__link">
+        Virtual Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/workspaces/" class="md-nav__link">
+        Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../developers/">Developers</a>
+          
+            <label for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Developers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+        Publishing a new kcp release
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/replicate-new-resource/" class="md-nav__link">
+        Replicating new resources in the cache server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/using-kcp-as-a-library/" class="md-nav__link">
+        Using kcp as a library
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+        Writing kcp-aware controllers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../investigations/">Investigations</a>
+          
+            <label for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Investigations
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigations/logical-clusters/" class="md-nav__link">
+        Logical clusters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigations/minimal-api-server/" class="md-nav__link">
+        Minimal API Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigations/self-service-policy/" class="md-nav__link">
+        Self-service policy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../investigations/transparent-multi-cluster/" class="md-nav__link">
+        Transparent multi-cluster
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+      
+      
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+          CLI
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_1">
+          <span class="md-nav__icon md-icon"></span>
+          CLI
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp/" class="md-nav__link">
+        kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_bind/" class="md-nav__link">
+        kcp bind
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+        kcp bind apiexport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_bind_compute/" class="md-nav__link">
+        kcp bind compute
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims/" class="md-nav__link">
+        kcp claims
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims_get/" class="md-nav__link">
+        kcp claims get
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+        kcp claims get apibinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_crd/" class="md-nav__link">
+        kcp crd
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+        kcp crd snapshot
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workload/" class="md-nav__link">
+        kcp workload
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workload_cordon/" class="md-nav__link">
+        kcp workload cordon
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workload_drain/" class="md-nav__link">
+        kcp workload drain
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workload_sync/" class="md-nav__link">
+        kcp workload sync
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workload_uncordon/" class="md-nav__link">
+        kcp workload uncordon
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace/" class="md-nav__link">
+        kcp workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+        kcp workspace create-context
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_create/" class="md-nav__link">
+        kcp workspace create
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_current/" class="md-nav__link">
+        kcp workspace current
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+        kcp workspace tree
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_use/" class="md-nav__link">
+        kcp workspace use
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+          CRD
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          CRD
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+        APIExportEndpointSlice
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+        APIExport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
+        APIResourceImport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+        APIResourceSchema
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
+        Location
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+        LogicalCluster
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
+        NegotiatedAPIResource
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+        Partition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+        PartitionSet
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
+        Placement
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/shards.core.kcp.io/" class="md-nav__link">
+        Shard
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
+        SyncTarget
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+        Workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+        WorkspaceType
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-should-it-do-for-me" class="md-nav__link">
+    What should it do for me?
+  </a>
+  
+    <nav class="md-nav" aria-label="What should it do for me?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-3-years" class="md-nav__link">
+    1-3 years
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-12-months" class="md-nav__link">
+    3-12 months
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-manifesto" class="md-nav__link">
+    The Manifesto
+  </a>
+  
+    <nav class="md-nav" aria-label="The Manifesto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-concepts" class="md-nav__link">
+    Key Concepts
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    Process
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    Terminology
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    Principles
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+
+<h1 id="project-goals">Project Goals</h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This is a prototype!  It is not production software, or a fully realized project with a definite road map. In the short term, it is to serve as a test bed for some opinionated multi-cluster concepts. This document describes the aspirations and inspirations and is written in a "this is what we could do" style, not "what we do today".</p>
+</div>
+<p><code>kcp</code> can be used to manage Kubernetes-like applications across one or more clusters and integrate with cloud services. To an end user, <code>kcp</code> should appear to be a normal cluster (supports the same APIs, client tools, and extensibility) but allows you to move your workloads between clusters or span multiple clusters without effort. <code>kcp</code> lets you keep your existing workflow and abstract Kube clusters like a Kube cluster abstracts individual machines. <code>kcp</code> also helps broaden the definition of "Kubernetes applications" by being extensible, only loosely dependent on nodes, pods, or clusters, and thinking more broadly about what an application is than "just some containers".</p>
+<h2 id="what-should-it-do-for-me">What should it do for me?</h2>
+<h3 id="1-3-years">1-3 years</h3>
+<p>As an ecosystem participant, <code>kcp</code> is a reusable component that allows you to:</p>
+<ul>
+<li>Build your own secure control planes</li>
+</ul>
+<p>As an application team, <code>kcp</code> allows you to:</p>
+<ul>
+<li>Deploy services, serverless applications, and containers side by side using familiar declarative config tooling from the Kubernetes ecosystem</li>
+<li>Go from the very small (laptop) to the very large (deployed around the world) without changing your development workflow</li>
+</ul>
+<p>As an application infrastructure team, <code>kcp</code> allows you to:</p>
+<ul>
+<li>Define how your application teams work and integrate across machines, clusters, clouds, and environments without having to switch context</li>
+<li>Provide the tools for keeping your services resilient, observable, up-to-date, and profitable across any computing environment you choose to leverage</li>
+</ul>
+<p>These first two areas are deliberately broad - they reflect where we think we as an ecosystem should be going even if we may not get there in one step, and to frame what we think is important for the ecosystem.</p>
+<h3 id="3-12-months">3-12 months</h3>
+<p>More pragmatically, we think the Kubernetes ecosystem is a great place to start from and so these are the kinds of incremental improvements from where we are today towards that aspirational future:</p>
+<p>As a Kubernetes application author, <code>kcp</code> allows you to:</p>
+<ul>
+<li>Take existing Kubernetes applications and set them up to run across one or more clusters even if a cluster fails</li>
+<li>Set up a development workflow that uses existing Kubernetes tools but brings your diverse environments (local, dev, staging, production) together</li>
+<li>Run multiple applications side by side in <strong>logical clusters</strong></li>
+</ul>
+<p>As a Kubernetes administrator, <code>kcp</code> allows you to:</p>
+<ul>
+<li>Support a large number of application teams building applications without giving them access to clusters</li>
+<li>Have strong tenant separation between different application teams and control who can run where</li>
+<li>Allow tenant teams to run their own custom resources (CRDs) and controllers without impacting others</li>
+<li>Subdivide access to the underlying clusters, keep those clusters simpler and with fewer extensions, and reduce the impact of cluster failure</li>
+</ul>
+<p>As an author of Kubernetes extensions, <code>kcp</code> allows you to:</p>
+<ul>
+<li>Build multi-cluster integrations more easily by providing standard ways to abstract multi-cluster actions like placement/scheduling, admission, and recovery</li>
+<li>Test and run Kubernetes CRDs and controllers in isolation without needing a full cluster</li>
+</ul>
+<p>As a Kubernetes community member, <code>kcp</code> is intended to:</p>
+<ul>
+<li>Solve problems that benefit both regular Kubernetes clusters and standalone <code>kcp</code></li>
+<li>Improve low level tooling for client authors writing controllers across multiple namespaces and clusters</li>
+<li>Be a reusable building block for ambitious control-plane-for-my-apps platforms</li>
+</ul>
+<h2 id="the-manifesto">The Manifesto</h2>
+<p>Our mission is to improve building and running cloud-native applications. We see a convergence in tooling and technology between clusters, clouds, and services as being both possible and desirable and this prototype explores how the existing Kubernetes ecosystem might evolve to serve that need.</p>
+<p>Not every idea below may bear fruit, but it's never the wrong time to look for new ways to change.</p>
+<h3 id="key-concepts">Key Concepts</h3>
+<ul>
+<li>Use Kubernetes APIs to decouple desired intent and actual state for replicating applications to multiple clusters</li>
+</ul>
+<p>Kubernetes' strength is separating user intent from actual state so that machines can ensure recovery as infrastructure changes. Since clusters are intended to be a single failure domain, by separating the desired state from any one "real" cluster we can potentially unlock better resiliency, simpler workload isolation, and allow workloads to move through the dev/stage/prod pipeline more cleanly. If we can keep familiar tools and APIs working, but separate the app just a bit from the cluster, that can help us move and react to failure more effectively.</p>
+<ul>
+<li>Virtualize some key user focused Kube APIs so that the control plane can delegate complexity to a target cluster</li>
+</ul>
+<p>The Kubernetes APIs layer on top of each other and compose loosely. Some concepts like <code>Deployments</code> are well suited for delegation because they are self-contained - the spec describes the goal and status summarizes whether the goal is reached. The same goes for a <code>PersistentVolumeClaim</code> - you ask for storage and it follows your pod around a cluster - you don't really care about the details. On the other hand, you definitely need to get <code>Pod</code> logs to debug problems, and <code>Services</code> have a lot of cluster specific meaning (like DNS and the cluster IP). To scale, we need to let the real clusters focus on keeping the workload running, and keep the control plane at a higher level, and that may require us to pretend to have pods on the control plane while actually delegating to the underlying cluster.</p>
+<ul>
+<li>Identify and invest in workload APIs and integrations that enable applications to spread across clusters transparently</li>
+</ul>
+<p>Multi-cluster workload scheduling and placement has a rich history within Kubernetes from the very beginning of the project, starting with Kubernetes <a href="https://github.com/kubernetes-retired/federation">federation v1</a>.  Even today, projects like <a href="https://github.com/karmada-io/karmada">karmada</a> are exploring how to take Kube APIs and make them work across multiple clusters. We want to amplify their ideas by improving the control plane itself - make it easy to plug in a workload orchestration system above Kube that still feels like Kube, without having a pesky cluster sitting around.</p>
+<p>See the <a href="../investigations/transparent-multi-cluster/">investigations doc for transparent multi-cluster</a> for 
+  more.</p>
+<ul>
+<li>Use logical tenant clusters as the basis for application and security isolation</li>
+</ul>
+<p>Allow a single kube-apiserver to support multiple (up to 1000) logical clusters that can map/sync/schedule to zero or many physical clusters. Each logical cluster could be much more focused - only the resources needed to support a single application or team, but with the ability to scale to lots of applications. Because the logical clusters are served by the same server, we could amortize the cost of each individual cluster (things like RBAC, CRDs, and authentication can be shared / hierarchal).</p>
+<p>We took inspiration from the <a href="https://github.com/kubernetes-sigs/multi-tenancy/tree/master/incubator/virtualcluster">virtual cluster project</a> within sig-multicluster as well as <a href="https://github.com/loft-sh/vcluster">vcluster</a> and other similar approaches that leverage cluster tenancy which led us to ask if we could make those clusters an order of magnitude cheaper by building within the kube-apiserver rather than running full copies. Most applications are small, which means amortizing costs can become a huge win. Single process sharing would let us embed significantly more powerful tenancy concepts like hierarchy across clusters, virtualizing key interfaces, and a much more resilient admission chain than what can be done in webhooks.</p>
+<p>See the <a href="../investigations/logical-clusters/">investigations doc for logical clusters</a> for more.</p>
+<p>Most importantly, if clusters are cheap, we can:</p>
+<ul>
+<li>Support stronger tenancy and isolation of CRDs and applications</li>
+</ul>
+<p>Lots of little clusters gives us the opportunity to improve how CRDs can be isolated (for development or individual teams), shared (one source for many consumers), and evolved (identify and flag incompatibilities between APIs provided by different clusters). A control plane above Kubernetes lets us separate the "data plane" of controllers/integrations from the infrastructure that runs them and allows for centralization of integrations. If you have higher level workloads, talking to higher level abstractions like cloud services, and the individual clusters are just a component, suddenly integrating new patterns and controls becomes more valuable. Conversely, if we have a control plane and a data plane, the types of integrations at each level can begin to differ. More powerful integrations to physical clusters might be run only by infrastructure operations teams, while application integrations could be safely namespaced within the control plane.</p>
+<p>Likewise, as we split up applications into smaller chunks, we can more carefully define their dependencies.  The account service from the identity team doesn't need to know the details of the frontend website or even where or how it runs. Instead, teams could have the freedom of their own personal clusters, with the extensions they need, without being able to access the details of their peer's except by explicit contract.</p>
+<p>If we can make extending Kubernetes more interesting by providing this higher level control plane, we likewise need to deal with the scalability of that extensibility:</p>
+<ul>
+<li>Make Kubernetes controllers more scalable and flexible on both the client and the server</li>
+</ul>
+<p>Subdividing one cluster into hundreds makes integrations harder - a controller would need to be able to access resources across all of those clusters (whether logical, virtual, or physical). For this model to work, we need to explore improvements to the Kubernetes API that would make multi-cluster controllers secure and easy. That involves ideas like watching multiple resources at the same time, listing or watching in bulk across lots of logical clusters, filtering server side, and better client tooling. Many of these improvements could also benefit single-cluster use cases and scalability.</p>
+<p>To go further, standardizing some of the multi-cluster concepts (whether scheduling, location, or resiliency) into widely used APIs could benefit everyone in the Kubernetes ecosystem, as we often end up building and rebuilding custom platform tooling. The best outcome would be small incremental improvements across the entire Kube ecosystem leading to increased reuse and a reduced need to invest in specific solutions, regardless of the level of the project.</p>
+<p>Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.</p>
+<p>See the <a href="../investigations/minimal-api-server/">investigations doc for minimal API server</a> for more on 
+  improving the composability of the Kube API server.</p>
+<ul>
+<li>Drive new workload APIs and explore standardization in the ecosystem</li>
+</ul>
+<p>There are hundreds of ways to build and run applications, and that will never change. The key success of Kubernetes was offering "good enough" standardized deployment, which created a center of gravity for the concepts around deployment. There are plenty of deployments that will never run in containers yet consume them daily. Aligning the deployment of multiple types of workloads from common CI/CD tooling at a higher level, as well as abstracting their dependencies, is something in widespread practice today.</p>
+<p>Beyond deployment, we could look at connections between these applications (networking, security, identity, access) and find ways to bridge the operational divide between cloud and cluster. That might include expanding existing APIs like <code>PersistentVolumeClaims</code> so your data can follow you across clusters or services. Or documenting a selection of choices for multi-cluster networking that simplify assumptions apps need to make. Or even ways of connecting cluster and cloud resources more directly via unified identity, service meshes, and proxies (all of which are hot topics in our ecosystem).</p>
+<h3 id="process">Process</h3>
+<p>Right now we are interested in assessing how these goals fit within the larger ecosystem.</p>
+<h3 id="terminology">Terminology</h3>
+<p>We've attempted to pick novel terms for concepts introduced here so as not to conflict or confuse existing projects, but if you do spot problems let us know.</p>
+<ul>
+<li><strong>logical cluster</strong> - a cluster that looks and acts like a Kube cluster but is not served by kube-apiserver (as distinct from virtual clusters in the upstream which are instances of kube-apiserver).</li>
+<li><strong>physical cluster</strong> - a cluster with nodes, a kube-apiserver or equivalent tied to the standard APIs. Logical clusters might be indistingushable from physical clusters in some cases, but not always.</li>
+<li><strong>kcp the prototype</strong> - where we are today</li>
+<li><strong>kcp the generic control plane</strong> - a hypothetical future control plane leveraging kubernetes API tooling but not tied to kube the container orchestrator that can support diverse and interesting workloads</li>
+<li><strong>kcp the kube control plane</strong> - a hypothetical future control plane for existing Kube applications that makes multi-cluster easy, superset of the generic control plane</li>
+<li><strong>kcp the extensible library</strong> - a hypothetical golang library that can be embedded to make developing custom control planes easier</li>
+</ul>
+<h3 id="principles">Principles</h3>
+<p>Principles are the high level guiding rules we'd like to frame designs around. This is generally useful for resolving design debates by finding thematic connections that reinforce other choices. A few early principles have been discussed:</p>
+<ol>
+<li>
+<p>Convention over configuration / optimize for the user's benefit</p>
+<p>Do as much as possible for the user the "right way by default" (conventions over configuration). For example, <code>kcp</code> embeds the data store for local iteration, but still allows (should allow) remote etcd.</p>
+</li>
+<li>
+<p>Support both a push model and a pull model that fit the control plane mindset</p>
+<p>Both push (control plane tells others what to do) and pull (agents derive truth from control plane) models have their place. Pull works well when pulling small amounts of desired state and when local resiliency is desired as well as to create a security boundary. Push works well in simple getting started scenarios and when the process is "acting on behalf" of a user. For example, <code>kcp</code> and the <code>cluster-controller</code> example in the demo can work in both the push model (talk to each cluster to grab CRDs and sync resources) and the pull model (run as a separate controller so that customized security rules could be in place). Users should have the ability to pick the right tradeoff for their scale and how their control planes are structured.</p>
+</li>
+<li>
+<p>Balance between speed of local development AND running as a high scale service</p>
+<p>The prototype should not overly bias towards "just the demo" (in the long run) or take explicit steps that would prevent it from becoming a real project that could make control-plane-as-a-service possible in the future (in the short run). The best outcome would be a simple tool that works at multiple scales and layers well.</p>
+</li>
+<li>
+<p>Be simple, composable, and orthogonal</p>
+<p>The core Kubernetes model is made of simple composable resources (pods vs services, deployments vs replica sets, persistent volumes vs inline volumes) with a focus on solving a core use case well. <code>kcp</code> should look for the key composable, orthogonal, and "minimum-viable-simple" concepts that help people build control planes, support API driven infra across a wide footprint, and provides a center of gravity for "integrate all the things". It however should not be afraid to make specific sets of users happy in their daily workflow.</p>
+</li>
+<li>
+<p>Be open to change</p>
+<p>There is a massive ecosystem of users, vendors, service providers, hackers, operators, developers, and machine AIs (maybe not the last one) building and developing on Kubernetes. This is a starting point, a stake in the ground, a rallying cry. It should challenge, excite, and inspire others, but never limit. As we evolve, we should stay open to new ideas and also opening the door for dramatic rethinks of the possibilities by ourselves or others. Whether this becomes a project, inspires many projects, or fails gloriously, it's about making our lives a bit easier and our tools a bit more reliable, and a meaningful dialogue with the real world is fundamental to success.</p>
+</li>
+<li>
+<p>Consolidate efforts in the ecosystem into a more focused effort</p>
+<p>Kubernetes is mature and changes to the core happen slowly. By concentrating use cases among a number of participants we can better articulate common needs, focus the design time spent in the core project into a smaller set of efforts, and bring new investment into common shared problems strategically. We should make fast progress and be able to suggest high-impact changes without derailing other important Kubernetes initiatives.</p>
+</li>
+<li>
+<p>Make individual clusters transient / make multi-cluster as easy as multi-node</p>
+<p>Just like Kubernetes made multi-node use cases trivial for applications, multi-cluster use cases should be trivial with <code>kcp</code> (or at least, the transparent multi-cluster approach). That doesn't eliminate the need to have deep control, just clarifies it.</p>
+</li>
+</ol>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.6df46069.min.js"></script>
+      
+    
+  </body>
+</html>
