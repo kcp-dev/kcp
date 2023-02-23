@@ -51,8 +51,6 @@ const (
 	syncerApplyManager = "syncer"
 )
 
-type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
-
 func deepEqualApartFromStatus(logger logr.Logger, oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	// TODO(jmprusi): Remove this after switching to virtual workspaces.
 	// remove status annotation from oldObj and newObj before comparing
@@ -443,7 +441,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := c.mutators[gvr]; ok {
-		if err := mutator(downstreamObj); err != nil {
+		if err := mutator.Mutate(downstreamObj); err != nil {
 			return err
 		}
 	}

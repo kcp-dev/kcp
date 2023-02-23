@@ -19,7 +19,6 @@ package spec
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -33,8 +32,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -53,7 +50,6 @@ import (
 	syncerindexers "github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
-	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
@@ -63,10 +59,15 @@ const (
 
 var namespaceGVR schema.GroupVersionResource = corev1.SchemeGroupVersion.WithResource("namespaces")
 
+type Mutator interface {
+	GVRs() []schema.GroupVersionResource
+	Mutate(obj *unstructured.Unstructured) error
+}
+
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	mutators     mutatorGvrMap
+	mutators     map[schema.GroupVersionResource]Mutator
 	dnsProcessor *dns.DNSProcessor
 
 	upstreamClient   kcpdynamic.ClusterInterface
@@ -94,7 +95,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	dnsNamespace string,
 	syncerNamespaceInformerFactory informers.SharedInformerFactory,
 	dnsImage string,
-	upsyncPods bool) (*Controller, error) {
+	mutators ...Mutator) (*Controller, error) {
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
@@ -118,9 +119,9 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 			informer, ok := informers[gvr]
 			if !ok {
 				if shared.ContainsGVR(notSynced, gvr) {
-					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+					return nil, fmt.Errorf("informer for gvr %v not synced in the upstream informer factory", gvr)
 				}
-				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+				return nil, fmt.Errorf("gvr %v should be known in the upstream informer factory", gvr)
 			}
 			return informer.Lister(), nil
 		},
@@ -137,6 +138,8 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		syncTargetUID:             syncTargetUID,
 		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
+
+		mutators: make(map[schema.GroupVersionResource]Mutator, 2),
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
@@ -254,21 +257,10 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 			},
 		})
 
-	secretMutator := specmutators.NewSecretMutator()
-
-	dnsServiceLister := syncerNamespaceInformerFactory.Core().V1().Services().Lister()
-
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
-		secretLister, err := c.getUpstreamLister(corev1.SchemeGroupVersion.WithResource("secrets"))
-		if err != nil {
-			return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
+	for _, mutator := range mutators {
+		for _, gvr := range mutator.GVRs() {
+			c.mutators[gvr] = mutator
 		}
-		return secretLister.ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, dnsServiceLister, syncTargetClusterName, syncTargetUID, syncTargetName, dnsNamespace, upsyncPods)
-
-	c.mutators = mutatorGvrMap{
-		deploymentMutator.GVR(): deploymentMutator.Mutate,
-		secretMutator.GVR():     secretMutator.Mutate,
 	}
 
 	c.dnsProcessor = dns.NewDNSProcessor(downstreamKubeClient,
@@ -276,7 +268,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		syncerNamespaceInformerFactory.Rbac().V1().Roles().Lister(),
 		syncerNamespaceInformerFactory.Rbac().V1().RoleBindings().Lister(),
 		syncerNamespaceInformerFactory.Apps().V1().Deployments().Lister(),
-		dnsServiceLister,
+		syncerNamespaceInformerFactory.Core().V1().Services().Lister(),
 		syncerNamespaceInformerFactory.Core().V1().Endpoints().Lister(),
 		syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister(),
 		syncTargetUID, syncTargetName, dnsNamespace, dnsImage)

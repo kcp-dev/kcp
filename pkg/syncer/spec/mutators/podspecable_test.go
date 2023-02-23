@@ -941,7 +941,7 @@ func TestDeploymentMutate(t *testing.T) {
 				require.NoError(t, err, "Service Add() = %v", err)
 				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
 
-				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace", c.upsyncPods)
+				dm := NewPodspecableMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace", c.upsyncPods)
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)

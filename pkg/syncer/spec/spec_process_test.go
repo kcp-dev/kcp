@@ -19,6 +19,8 @@ package spec
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -38,6 +40,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +57,9 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
 var scheme *runtime.Scheme
@@ -1215,9 +1220,27 @@ func TestSpecSyncerProcess(t *testing.T) {
 			mockedCleaner := &mockedCleaner{
 				toClean: sets.String{},
 			}
+
+			secretMutator := mutators.NewSecretMutator()
+			secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
+			podspecableMutator := mutators.NewPodspecableMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+				informers, notSynced := ddsifForUpstreamSyncer.Informers()
+				informer, ok := informers[secretsGVR]
+				if !ok {
+					if shared.ContainsGVR(notSynced, secretsGVR) {
+						return nil, fmt.Errorf("informer for gvr %v not synced in the upstream informer factory", secretsGVR)
+					}
+					return nil, fmt.Errorf("gvr %v should be known in the downstream upstream factory", secretsGVR)
+				}
+				if err != nil {
+					return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
+				}
+				return informer.Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
+			}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, syncTargetUID, tc.syncTargetName, "kcp-01c0zzvlqsi7n", false)
+
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
 				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
-				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage", false)
+				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage", secretMutator, podspecableMutator)
 			require.NoError(t, err)
 
 			toInformerFactory.Start(ctx.Done())
