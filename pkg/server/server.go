@@ -393,6 +393,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installAPIExportController(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installAPIBindingLifecyleController(ctx, controllerConfig); err != nil {
+			return err
+		}
+
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {

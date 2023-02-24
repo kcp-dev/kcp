@@ -32,6 +32,8 @@ type ClusterInterface interface {
 	APIExports() APIExportClusterInformer
 	// APIExportEndpointSlices returns a APIExportEndpointSliceClusterInformer
 	APIExportEndpointSlices() APIExportEndpointSliceClusterInformer
+	// APILifecycles returns a APILifecycleClusterInformer
+	APILifecycles() APILifecycleClusterInformer
 	// APIResourceSchemas returns a APIResourceSchemaClusterInformer
 	APIResourceSchemas() APIResourceSchemaClusterInformer
 	// APIConversions returns a APIConversionClusterInformer
@@ -63,6 +65,11 @@ func (v *version) APIExportEndpointSlices() APIExportEndpointSliceClusterInforme
 	return &aPIExportEndpointSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// APILifecycles returns a APILifecycleClusterInformer
+func (v *version) APILifecycles() APILifecycleClusterInformer {
+	return &aPILifecycleClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // APIResourceSchemas returns a APIResourceSchemaClusterInformer
 func (v *version) APIResourceSchemas() APIResourceSchemaClusterInformer {
 	return &aPIResourceSchemaClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -80,6 +87,8 @@ type Interface interface {
 	APIExports() APIExportInformer
 	// APIExportEndpointSlices returns a APIExportEndpointSliceInformer
 	APIExportEndpointSlices() APIExportEndpointSliceInformer
+	// APILifecycles returns a APILifecycleInformer
+	APILifecycles() APILifecycleInformer
 	// APIResourceSchemas returns a APIResourceSchemaInformer
 	APIResourceSchemas() APIResourceSchemaInformer
 	// APIConversions returns a APIConversionInformer
@@ -110,6 +119,11 @@ func (v *scopedVersion) APIExports() APIExportInformer {
 // APIExportEndpointSlices returns a APIExportEndpointSliceInformer
 func (v *scopedVersion) APIExportEndpointSlices() APIExportEndpointSliceInformer {
 	return &aPIExportEndpointSliceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APILifecycles returns a APILifecycleInformer
+func (v *scopedVersion) APILifecycles() APILifecycleInformer {
+	return &aPILifecycleScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // APIResourceSchemas returns a APIResourceSchemaInformer

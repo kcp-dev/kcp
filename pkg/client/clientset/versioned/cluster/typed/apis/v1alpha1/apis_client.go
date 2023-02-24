@@ -37,6 +37,7 @@ type ApisV1alpha1ClusterInterface interface {
 	APIBindingsClusterGetter
 	APIExportsClusterGetter
 	APIExportEndpointSlicesClusterGetter
+	APILifecyclesClusterGetter
 	APIResourceSchemasClusterGetter
 	APIConversionsClusterGetter
 }
@@ -66,6 +67,10 @@ func (c *ApisV1alpha1ClusterClient) APIExports() APIExportClusterInterface {
 
 func (c *ApisV1alpha1ClusterClient) APIExportEndpointSlices() APIExportEndpointSliceClusterInterface {
 	return &aPIExportEndpointSlicesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *ApisV1alpha1ClusterClient) APILifecycles() APILifecycleClusterInterface {
+	return &aPILifecyclesClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *ApisV1alpha1ClusterClient) APIResourceSchemas() APIResourceSchemaClusterInterface {

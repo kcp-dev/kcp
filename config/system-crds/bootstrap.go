@@ -52,6 +52,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 	crds := []metav1.GroupResource{
 		{Group: apis.GroupName, Resource: "apiexports"},
 		{Group: apis.GroupName, Resource: "apibindings"},
+		{Group: apis.GroupName, Resource: "apilifecycles"},
 		{Group: apis.GroupName, Resource: "apiresourceschemas"},
 		{Group: apis.GroupName, Resource: "apiexportendpointslices"},
 		{Group: core.GroupName, Resource: "logicalclusters"},

@@ -57,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointslice"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apilifecycle"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
@@ -557,6 +558,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	c, err := apibinding.NewController(
 		crdClusterClient,
 		kcpClusterClient,
+		config,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
@@ -764,6 +766,39 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 		initializingWorkspacesKcpInformers.Start(hookContext.StopCh)
 		initializingWorkspacesKcpInformers.WaitForCacheSync(hookContext.StopCh)
+
+		go c.Start(goContext(hookContext), 2)
+		return nil
+	})
+}
+
+func (s *Server) installAPIBindingLifecyleController(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apilifecycle.NewController(
+		kcpClusterClient,
+		config,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APILifecycles(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.AddPostStartHook(postStartHookName(apilifecycle.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apilifecycle.ControllerName))
+
+		if err := s.WaitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		go c.Start(goContext(hookContext), 2)
 		return nil

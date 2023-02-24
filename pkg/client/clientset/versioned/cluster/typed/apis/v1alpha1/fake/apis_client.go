@@ -56,6 +56,10 @@ func (c *ApisV1alpha1ClusterClient) APIExportEndpointSlices() kcpapisv1alpha1.AP
 	return &aPIExportEndpointSlicesClusterClient{Fake: c.Fake}
 }
 
+func (c *ApisV1alpha1ClusterClient) APILifecycles() kcpapisv1alpha1.APILifecycleClusterInterface {
+	return &aPILifecyclesClusterClient{Fake: c.Fake}
+}
+
 func (c *ApisV1alpha1ClusterClient) APIResourceSchemas() kcpapisv1alpha1.APIResourceSchemaClusterInterface {
 	return &aPIResourceSchemasClusterClient{Fake: c.Fake}
 }
@@ -86,6 +90,10 @@ func (c *ApisV1alpha1Client) APIExports() apisv1alpha1.APIExportInterface {
 
 func (c *ApisV1alpha1Client) APIExportEndpointSlices() apisv1alpha1.APIExportEndpointSliceInterface {
 	return &aPIExportEndpointSlicesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+}
+
+func (c *ApisV1alpha1Client) APILifecycles() apisv1alpha1.APILifecycleInterface {
+	return &aPILifecyclesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }
 
 func (c *ApisV1alpha1Client) APIResourceSchemas() apisv1alpha1.APIResourceSchemaInterface {
