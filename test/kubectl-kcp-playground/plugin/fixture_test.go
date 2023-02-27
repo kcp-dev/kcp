@@ -31,7 +31,7 @@ func TestFixture(t *testing.T) {
 	t.Skip()
 
 	spec := &PlaygroundSpec{
-		Shards: []ShardSpec{
+		Shards: []Shard{
 			{
 				Name:       MainShardName,
 				Workspaces: nil,
