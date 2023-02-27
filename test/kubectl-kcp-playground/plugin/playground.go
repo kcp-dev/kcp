@@ -119,10 +119,10 @@ type SyncTarget struct {
 	PCluster string `json:"pCluster,omitempty"`
 
 	// APIExports to be supported by this SyncTarget
-	APIExports []tenancyv1alpha1.APIExportReference `json:"apiExport,omitempty"`
+	APIExports []apisv1alpha1.ExportBindingReference `json:"apiExports,omitempty"`
 
 	// Resources to synchronize with kcp, each resource should be in the format of resourcename.<gvr_of_the_resource>.
-	Resources []string `json:"string,omitempty"`
+	Resources []string `json:"resources,omitempty"`
 }
 
 // Location to be added to the workspace.

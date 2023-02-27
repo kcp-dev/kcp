@@ -1,0 +1,110 @@
+# This playground configuration show case publishing APIs as a service provider,
+# use them in another workspace and get them synchronized to a compute cluster.
+#
+# 1. Start the playground:
+#
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/apis/cowboy-api-to-pcluster.yaml
+#
+#  (from another window)
+#
+# 2. Use the API the service provider offers:
+#
+#  kubectl kcp playground use shard main
+#  kubectl ws root:my-org:applications
+#  kubectl apply -f - <<EOF
+#    apiVersion: wildwest.dev/v1alpha1
+#    kind: Cowboy
+#    metadata:
+#      name: woody
+#    spec: {}
+#  EOF
+#
+# 3. Check that the resource has been synced to the compute cluster.
+#
+#  kubectl kcp playground use pcluster us-east1
+#  kubectl get cowboys -A
+#
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  shards:
+    - name: main
+      workspaces:
+        - name: root
+          workspaces:
+            # Setup a new org for this playground scenario.
+            - name: my-org
+              workspaces:
+                # Defining an service-provider, where the cowboys API is defined using an
+                # APIResourceSchemas and the exported for other workspaces to consume using
+                # and APIExport.
+                - name: service-provider
+                  apiResourceSchemas:
+                    - name: cowboys
+                      source:
+                        file:
+                          path: test/e2e/fixtures/wildwest/wildwest.dev_cowboys.yaml
+                  apiExports:
+                    - name: cowboys
+                      apiResourceSchemas:
+                        - cowboys
+                # Defining an infrastructure workspace, where pClusters are made available for usage in KCP using SyncTargets
+                # and by creating a Location to be used for workload placements.
+                # Please note that we are also setting the apiExport we want to sync with the compute cluster,
+                # and on top of the kubernetes apiExport we are also referencing the cowboys apiExport.
+                - name: infrastructure
+                  syncTargets:
+                    - name: us-east1
+                      labels:
+                        region: east
+                      pCluster: us-east1
+                      apiExports:
+                        - path: "root:compute"
+                          name: kubernetes
+                        - path: "root:my-org:service-provider"
+                          name: cowboys
+                  Locations:
+                    - name: east-location
+                      labels:
+                        region: east
+                      instanceSelector:
+                        matchLabels:
+                          region: east
+                # Setup an application workspace, where we are going to use the API offered by the
+                # service provider using an APIBinding as well as defining a Placement rule so
+                # workloads (including cowboys resources in this case) are going to be synced to
+                # the selected target location.
+                - name: applications
+                  apiBindings:
+                    - name: cowboys
+                      apiExport:
+                        name: cowboys
+                        path: "root:my-org:service-provider"
+                  placements:
+                    - name: east-placement
+                      locationWorkspace: "root:my-org:infrastructure"
+                      locationSelectors:
+                        - matchLabels:
+                            region: east
+# Uncomment if you want the playground to create the test object automatically.
+#                  others:
+#                    - name: Cowboy/woody
+#                      source:
+#                        raw: |
+#                          apiVersion: wildwest.dev/v1alpha1
+#                          kind: Cowboy
+#                          metadata:
+#                            name: woody
+#                          spec: {}
+  # Setup pCluster to be used as a compute capacity for this playground scenario.
+  # Please note that in this case we are also installing the cowboys CRD to make
+  # the Kubernetes cluster aware of this type.
+  pClusters:
+    - name: us-east1
+      type: kind
+      others:
+        - name: cowboys-crd
+          source:
+            file:
+              path: test/e2e/fixtures/wildwest/wildwest.dev_cowboys.yaml

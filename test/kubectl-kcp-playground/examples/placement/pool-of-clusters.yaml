@@ -41,10 +41,10 @@ spec:
                     labels:
                       region: east
                     pCluster: us-east1-cluster1
-                  - name: us-east1-cluster1
+                  - name: us-east1-cluster2
                     labels:
                       region: east
-                    pCluster: us-east1-cluster1
+                    pCluster: us-east1-cluster2
                 Locations:
                   - name: east-location
                     labels:

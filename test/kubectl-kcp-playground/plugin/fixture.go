@@ -350,13 +350,10 @@ func (sp *StartedPlaygroundFixture) createSyncTargets(t *testing.T, server frame
 		if syncTarget.Labels != nil {
 			opts = append(opts, framework.WithSyncTargetLabels(syncTarget.Labels))
 		}
-		if syncTarget.Labels != nil {
-			opts = append(opts, framework.WithSyncTargetLabels(syncTarget.Labels))
-		}
 		if len(syncTarget.APIExports) > 0 {
 			exports := []string{}
 			for _, apiExport := range syncTarget.APIExports {
-				exports = append(exports, fmt.Sprintf("%s:%s", apiExport.Path, apiExport.Export))
+				exports = append(exports, fmt.Sprintf("%s:%s", apiExport.Path, apiExport.Name))
 			}
 			sort.Strings(exports)
 			opts = append(opts, framework.WithAPIExports(exports...))
