@@ -1,0 +1,92 @@
+# This playground configuration show case deploying workloads on KCP,
+# showing what happens if a workload is scheduled to multiple locations.
+#
+# 1. Start the playground:
+#
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/placement/east-west-placement.yaml
+#
+#  (from another window)
+#
+# 2. Deploy a workload in KCP:
+#
+#  kubectl kcp playground use shard main
+#  kubectl ws root:my-org:applications
+#  kubectl apply -f test/e2e/reconciler/deployment/workloads/deployment.yaml
+#  kubectl get deploy -A
+#
+# 3. Check workload have been deployed on one (and only one) compute cluster:
+#
+#  kubectl kcp playground use pcluster [us-east1|us-west1]
+#  kubectl get deploy -A
+#
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  shards:
+    - name: main
+      # NOTE: uncomment if you want to run the deployment coordinator.
+      # deploymentCoordinator: true
+      workspaces:
+        - name: root
+          workspaces:
+          # Setup a new org for this playground scenario.
+          - name: my-org
+            workspaces:
+              # Defining an infrastructure workspace, where pClusters are made available for usage in KCP using SyncTargets;
+              # the first syncTarget is labeled with region=east, the second with region=west.
+              # Then create the two corresponding Locations to be used for workload placements.
+              - name: infrastructure
+                syncTargets:
+                  - name: east-syncer
+                    labels:
+                      region: east
+                    pCluster: us-east1
+                  - name: west-syncer
+                    labels:
+                      region: west
+                    pCluster: us-west1
+                Locations:
+                  - name: east-location
+                    labels:
+                      region: east
+                    instanceSelector:
+                      matchLabels:
+                        region: east
+                  - name: west-location
+                    labels:
+                      region: west
+                    instanceSelector:
+                      matchLabels:
+                        region: west
+              # Setup an application workspace, where we are going to deploy workloads;
+              # Workload are going to be place according to Placement rules, which are targeting locations
+              # (and thus SyncTargets/clusters indirectly).
+              # Given that there are two Placement targeting one cluster each, the system will deploy the
+              # workload on both on them.
+              # NOTE: Given that the deployment will be running on two clusters, no status will be reported in KCP;
+              # if instead you enable the workload coordinator, the deployment will spread pods on the two
+              # locations and the aggregated status will be computed back.
+              - name: applications
+                placements:
+                  - name: east-placement
+                    locationWorkspace: "root:my-org:infrastructure"
+                    locationSelectors:
+                      - matchLabels:
+                          region: east
+                  - name: west-placement
+                    locationWorkspace: "root:my-org:infrastructure"
+                    locationSelectors:
+                      - matchLabels:
+                          region: west
+# Uncomment if you want the playground to create the test deployment automatically.
+#                others:
+#                  - name: test-deployment
+#                    source:
+#                      file:
+#                        path: test/e2e/reconciler/deployment/workloads/deployment.yaml
+  pClusters:
+    - name: us-east1
+      type: kind
+    - name: us-west1
+      type: kind

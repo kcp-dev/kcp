@@ -1,0 +1,64 @@
+# This playground configuration show case publishing APIs as a service provider,
+# as described in https://docs.kcp.io/kcp/main/en/concepts/quickstart-tenancy-and-apis/.
+#
+# 1. Start the playground:
+#
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/apis/cowboy-api.yaml
+#
+#  (from another window)
+#
+# 2. Use the API the service provider offers:
+#
+#  kubectl kcp playground use shard main
+#  kubectl ws root:my-org:applications
+#  kubectl apply -f - <<EOF
+#    apiVersion: wildwest.dev/v1alpha1
+#    kind: Cowboy
+#    metadata:
+#      name: woody
+#    spec: {}
+#  EOF
+#
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  shards:
+    - name: main
+      workspaces:
+        - name: root
+          workspaces:
+          # Setup a new org for this playground scenario.
+          - name: my-org
+            workspaces:
+              # Defining an service-provider, where the cowboys API is defined using an
+              # APIResourceSchemas and the exported for other workspaces to consume using
+              # and APIExport.
+              - name: service-provider
+                apiResourceSchemas:
+                  - name: cowboys
+                    source:
+                      file:
+                        path: test/e2e/fixtures/wildwest/wildwest.dev_cowboys.yaml
+                apiExports:
+                  - name: cowboys
+                    apiResourceSchemas:
+                      - cowboys
+              # Setup an application workspace, where we are going to use the API offered by the
+              # service provider using an APIBinding.
+              - name: applications
+                apiBindings:
+                  - name: cowboys
+                    apiExport:
+                      name: cowboys
+                      path: "root:my-org:service-provider"
+# Uncomment if you want the playground to create the test object automatically.
+#                others:
+#                  - name: Cowboy/woody
+#                    source:
+#                      raw: |
+#                        apiVersion: wildwest.dev/v1alpha1
+#                        kind: Cowboy
+#                        metadata:
+#                          name: woody
+#                        spec: {}

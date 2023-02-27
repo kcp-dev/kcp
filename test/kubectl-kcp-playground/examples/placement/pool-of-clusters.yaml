@@ -1,0 +1,78 @@
+# This playground configuration show case deploying workloads on KCP,
+# showing what happens if a workload is assigned to a Location which is backed by more than
+# one compute cluster.
+#
+# 1. Start the playground:
+#
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/placement/pool-of-clusters.yaml
+#
+#  (from another window)
+#
+# 2. Deploy a workload in KCP:
+#
+#  kubectl kcp playground use shard main
+#  kubectl ws root:my-org:applications
+#  kubectl apply -f test/e2e/reconciler/deployment/workloads/deployment.yaml
+#  kubectl get deploy -A
+#
+# 3. Check workload have been deployed on one (and only one) compute cluster:
+#
+#  kubectl kcp playground use pcluster [us-east1-cluster1|us-east1-cluster2]
+#  kubectl get deploy -A
+#
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  shards:
+    - name: main
+      workspaces:
+        - name: root
+          workspaces:
+          # Setup a new org for this playground scenario.
+          - name: my-org
+            workspaces:
+              # Defining an infrastructure workspace, where pClusters are made available for usage in KCP using SyncTargets;
+              # both cluster are labeled with region=east.
+              # Then create the corresponding Location to be used for workload placements.
+              - name: infrastructure
+                syncTargets:
+                  - name: us-east1-cluster1
+                    labels:
+                      region: east
+                    pCluster: us-east1-cluster1
+                  - name: us-east1-cluster1
+                    labels:
+                      region: east
+                    pCluster: us-east1-cluster1
+                Locations:
+                  - name: east-location
+                    labels:
+                      region: east
+                    instanceSelector:
+                      matchLabels:
+                        region: east
+              # Setup an application workspace, where we are going to deploy workloads;
+              # Workload are going to be place according to Placement rules, which are targeting locations
+              # (and thus SyncTargets/clusters indirectly).
+              # Given that the Placement targets one Location backed by a pool of two clusters, the system
+              # will pick one server randomly and deploy workloads there.
+              - name: applications
+                placements:
+                  - name: east-placement
+                    locationWorkspace: "root:my-org:infrastructure"
+                    locationSelectors:
+                      - matchLabels:
+                          region: east
+  # Uncomment if you want the playground to create the test deployment automatically.
+  #                others:
+  #                  - name: test-deployment
+  #                    source:
+  #                      file:
+  #                        path: test/e2e/reconciler/deployment/workloads/deployment.yaml
+  # Setup pCluster to be used as a compute capacity for this playground scenario.
+  pClusters:
+    - name: us-east1-cluster1
+      type: kind
+    - name: us-east1-cluster2
+      type: kind
