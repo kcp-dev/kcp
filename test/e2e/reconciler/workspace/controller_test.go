@@ -18,6 +18,7 @@ package workspace
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -131,7 +132,10 @@ func TestWorkspaceController(t *testing.T) {
 
 				workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err)
-				require.Emptyf(t, cmp.Diff(previouslyValidShard.Spec.BaseURL+"/clusters/"+workspace.Spec.Cluster, workspace.Spec.URL), "incorrect URL")
+				orgLogicalCluster, err := server.orgWorkspaceKcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+				require.NoError(t, err)
+				path := fmt.Sprintf("%s:%s", orgLogicalCluster.Annotations[core.LogicalClusterPathAnnotationKey], workspace.Name)
+				require.Emptyf(t, cmp.Diff(previouslyValidShard.Spec.BaseURL+"/clusters/"+path, workspace.Spec.URL), "incorrect URL")
 			},
 		},
 	}

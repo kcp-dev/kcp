@@ -149,7 +149,14 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createLogicalCluster(ctx, shard, clusterName.Path(), parentThis, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
+		if parentThis != nil {
+			if parentPath := parentThis.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
+				canonicalPath = logicalcluster.NewPath(parentThis.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
+			}
+		}
+
+		if err := r.createLogicalCluster(ctx, shard, clusterName.Path(), canonicalPath, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsAlreadyExists(err) {
 			// we have checked in createLogicalCluster that this is a logicalcluster from another owner. Let's choose another cluster name.
@@ -167,7 +174,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target Shard: %v.", err)
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
-		u.Path = path.Join(u.Path, clusterName.Path().RequestPath())
+		u.Path = path.Join(u.Path, canonicalPath.RequestPath())
 		workspace.Spec.Cluster = clusterName.String()
 		workspace.Spec.URL = u.String()
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
@@ -227,13 +234,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard, "", nil
 }
 
-func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1alpha1.Workspace) error {
-	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
-	if parent != nil {
-		if parentPath := parent.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
-			canonicalPath = logicalcluster.NewPath(parent.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
-		}
-	}
+func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, canonicalPath logicalcluster.Path, workspace *tenancyv1alpha1.Workspace) error {
 	logicalCluster := &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: corev1alpha1.LogicalClusterName,

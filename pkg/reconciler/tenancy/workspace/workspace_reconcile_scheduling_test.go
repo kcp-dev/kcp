@@ -92,7 +92,7 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.URL = `https://root/clusters/root:foo`
 				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
@@ -126,7 +126,7 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.URL = `https://root/clusters/root:foo`
 				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
@@ -189,7 +189,7 @@ func TestReconcileScheduling(t *testing.T) {
 
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
-				initialWS.Spec.URL = `https://root/clusters/root-foo`
+				initialWS.Spec.URL = `https://root/clusters/root:foo`
 				initialWS.Spec.Cluster = "root-foo"
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
