@@ -548,6 +548,10 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 			APIGroups: []string{apiresourcev1alpha1.SchemeGroupVersion.Group},
 			Resources: []string{"apiresourceimports"},
 		},
+		{
+			Verbs:           []string{"access"},
+			NonResourceURLs: []string{"/"},
+		},
 	}
 
 	cr, err := kubeClient.RbacV1().ClusterRoles().Get(ctx,
