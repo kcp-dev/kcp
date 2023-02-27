@@ -25,7 +25,7 @@ CONTAINER_ENGINE=${CONTAINER_ENGINE:-podman}
 CRD_DOCS_GENERATOR_VERSION=0.10.0
 
 #TODO(ncdc): i18n
-DESTINATION="${REPO_ROOT}/docs/content/en/reference/crd"
+DESTINATION="${REPO_ROOT}/docs/content/reference/crd"
 mkdir -p "${DESTINATION}"
 
 BIND_MOUNT_OPTS=":z"

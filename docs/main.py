@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mkdocs_macros import fix_url
 import copy
+
+from mkdocs_macros import fix_url
 
 
 def define_env(env):
