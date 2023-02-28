@@ -144,33 +144,37 @@ func TestPermissionClaimsByName(t *testing.T) {
 			Name: "confmap1",
 		},
 	}
+	newCM := &v1.ConfigMap{}
 	framework.Eventually(t, func() (done bool, str string) {
-		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, cm, metav1.CreateOptions{})
+		newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, cm, metav1.CreateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
-	require.Equal(t, "consumer-ns-1", cm.Namespace)
+	require.Equal(t, consumerNS1.Name, newCM.Namespace)
 	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
 
 	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
+	cm.Namespace = consumerNS1.Name
 	cm.Data = map[string]string{
 		"something": "new",
 	}
+	times := 0
+	updatedCM := &v1.ConfigMap{}
 	framework.Eventually(t, func() (done bool, str string) {
-		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Update(ctx, cm, metav1.UpdateOptions{})
+		times = times + 1
+		updatedCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Update(ctx, cm, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
-
 		return true, ""
-	}, wait.ForeverTestTimeout, 110*time.Millisecond, "timed out trying to update configmap in consumer namespace %s", consumerNS1)
-	require.Equal(t, cm.Data["something"], "new")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to update configmap in consumer namespace %s, %v", consumerNS1.Name, cm)
+	require.NotNil(t, updatedCM.Data)
+	require.Equal(t, "new", updatedCM.Data["something"])
 
 	t.Logf("ensure that configmaps in an unspecified namespace cannot be created via view URL")
-
 	t.Logf("creating unclaimed consumer namespace")
 	consumerNS2, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Create(ctx, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -225,20 +229,20 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
-	require.Equal(t, "consumer-ns-2", cm.Namespace)
+	require.Equal(t, consumerNS2.Name, cm.Namespace)
 	require.NoError(t, err)
 	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
 
 	framework.Eventually(t, func() (done bool, str string) {
-		cm, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Get(ctx, cm.Name, metav1.GetOptions{})
+		updatedCM, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Get(ctx, cm.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 		require.NoError(t, err)
-		require.Equal(t, consumerNS2.Name, cm.Namespace)
+		require.Equal(t, consumerNS2.Name, updatedCM.Namespace)
 
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to get configmap in consumer namespace")
 
 	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
 	cm.Data = map[string]string{
@@ -272,7 +276,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
-	t.Logf("updating consumer API Bindings")
+	t.Logf("updating consumer APIBindings with single namespace PermissionClaim")
 	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
 	require.NotNil(t, binding)
 	cm = &v1.ConfigMap{
@@ -281,7 +285,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		},
 	}
 	framework.Eventually(t, func() (done bool, str string) {
-		// Currently being addressed in PR #2845
 		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
 		if apierrors.IsForbidden(err) {
 			return true, ""
@@ -293,6 +296,55 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return false, "unexpected create"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
 
+	t.Logf("update PermissionClaims to only allow a specific object name in a specific namespace")
+	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("unique", consumerNS1.Name)
+	framework.Eventually(t, func() (done bool, str string) {
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
+
+	t.Logf("updating consumer APIBindings with single name/namespace PermissionClaim")
+	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "unique", consumerNS1.Name)
+	require.NotNil(t, binding)
+	cm = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "unique",
+		},
+	}
+	t.Logf("confirm named configmap can be created")
+	framework.Eventually(t, func() (done bool, str string) {
+		cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, cm, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
+	require.Equal(t, "consumer-ns-1", cm.Namespace)
+	require.NoError(t, err)
+
+	t.Logf("confirm configmaps with unpermitted names cannot be created")
+	badCM := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "not-unique",
+		},
+	}
+	framework.Eventually(t, func() (done bool, str string) {
+		_, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, badCM, metav1.CreateOptions{})
+		if apierrors.IsForbidden(err) {
+			return true, ""
+		}
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return false, "unexpected create"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
 	t.Logf("end of test")
 }
 
