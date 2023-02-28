@@ -18,6 +18,7 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -28,6 +29,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -52,7 +55,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
 	"github.com/kcp-dev/kcp/pkg/syncer/upsync"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
@@ -278,9 +283,26 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
+	secretMutator := mutators.NewSecretMutator()
+	secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
+	podspecableMutator := mutators.NewPodspecableMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+		informers, notSynced := ddsifForUpstreamSyncer.Informers()
+		informer, ok := informers[secretsGVR]
+		if !ok {
+			if shared.ContainsGVR(notSynced, secretsGVR) {
+				return nil, fmt.Errorf("informer for gvr %v not synced in the upstream informer factory", secretsGVR)
+			}
+			return nil, fmt.Errorf("gvr %v should be known in the downstream upstream factory", secretsGVR)
+		}
+		if err != nil {
+			return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
+		}
+		return informer.Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
+	}, syncerNamespaceInformerFactory.Core().V1().Services().Lister(), logicalcluster.From(syncTarget), types.UID(cfg.SyncTargetUID), cfg.SyncTargetName, syncerNamespace, kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel))
+
 	specSyncer, err := spec.NewSpecSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamSyncerClusterClient, downstreamDynamicClient, downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, downstreamNamespaceController, syncTarget.GetUID(),
-		syncerNamespace, syncerNamespaceInformerFactory, cfg.DNSImage, kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel))
+		syncerNamespace, syncerNamespaceInformerFactory, cfg.DNSImage, secretMutator, podspecableMutator)
 	if err != nil {
 		return err
 	}

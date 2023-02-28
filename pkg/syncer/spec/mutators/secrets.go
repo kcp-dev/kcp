@@ -25,11 +25,13 @@ import (
 type SecretMutator struct {
 }
 
-func (sm *SecretMutator) GVR() schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    "",
-		Version:  "v1",
-		Resource: "secrets",
+func (sm *SecretMutator) GVRs() []schema.GroupVersionResource {
+	return []schema.GroupVersionResource{
+		{
+			Group:    "",
+			Version:  "v1",
+			Resource: "secrets",
+		},
 	}
 }
 
