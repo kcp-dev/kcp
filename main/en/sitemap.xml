@@ -86,6 +86,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://docs.kcp.io/kcp/developers/inspecting-e2e-metrics/</loc>
+         <lastmod>2023-02-28</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://docs.kcp.io/kcp/developers/publishing-a-new-kcp-release/</loc>
          <lastmod>2023-02-28</lastmod>
          <changefreq>daily</changefreq>
