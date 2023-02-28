@@ -16,7 +16,7 @@ rules:
     verbs: ["*"]
   - apiGroups: [""]
     resources: ["endpoints"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["*"]
   - apiGroups: [""]
     resources: ["services/status"]
     verbs: ["get", "list", "watch"]

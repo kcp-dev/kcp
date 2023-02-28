@@ -226,8 +226,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		&filteredGVRSource{
 			GVRSource: syncTargetGVRSource,
 			keepGVR: func(gvr schema.GroupVersionResource) bool {
-				// Don't expose pods or endpoints via the syncer vw
-				if gvr.Group == corev1.GroupName && (gvr.Resource == "pods" || gvr.Resource == "endpoints") {
+				// Don't expose pods via the syncer vw
+				if gvr.Group == corev1.GroupName && (gvr.Resource == "pods") {
 					return false
 				}
 				return true
