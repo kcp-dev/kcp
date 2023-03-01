@@ -1,0 +1,2244 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/apis-in-kcp/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../authorization/">
+      
+      <link rel="icon" href="../../favicons/favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.11">
+    
+    
+      
+        <title>APIs in kcp - kcp Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.0d440cfe.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/kcp.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#apis-in-kcp" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kcp Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              APIs in kcp
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../logo.png" alt="logo">
+
+    </a>
+    kcp Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
+        Contributing to kcp
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../GOALS/" class="md-nav__link">
+        Project Goals
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../">Concepts</a>
+          
+            <label for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Concepts
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          APIs in kcp
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        APIs in kcp
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-apis" class="md-nav__link">
+    Built-in APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Built-in APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-v1" class="md-nav__link">
+    (core) v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#admissionregistrationk8siov1" class="md-nav__link">
+    admissionregistration.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apiextensionsk8siov1" class="md-nav__link">
+    apiextensions.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticationk8siov1" class="md-nav__link">
+    authentication.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorizationk8siov1" class="md-nav__link">
+    authorization.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificatesk8siov1" class="md-nav__link">
+    certificates.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coordinationk8siov1" class="md-nav__link">
+    coordination.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eventsk8siov1" class="md-nav__link">
+    events.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flowcontrolapiserverk8siov1beta1-temporarily-removed" class="md-nav__link">
+    flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rbacauthorizationk8siov1" class="md-nav__link">
+    rbac.authorization.k8s.io/v1
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customresourcedefinitions" class="md-nav__link">
+    CustomResourceDefinitions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-apis" class="md-nav__link">
+    Exporting APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#define-apiresourceschemas" class="md-nav__link">
+    Define APIResourceSchemas
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#define-your-apiexport" class="md-nav__link">
+    Define your APIExport
+  </a>
+  
+    <nav class="md-nav" aria-label="Define your APIExport">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apiexport-identity" class="md-nav__link">
+    APIExport Identity
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#permission-claims" class="md-nav__link">
+    Permission Claims
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maximal-permission-policy" class="md-nav__link">
+    Maximal Permission Policy
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-your-controller" class="md-nav__link">
+    Run Your Controller
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apiresourceschema-evolution-maintenance" class="md-nav__link">
+    APIResourceSchema Evolution &amp; Maintenance
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binding-to-exported-apis" class="md-nav__link">
+    Binding to Exported APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Binding to Exported APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apibinding" class="md-nav__link">
+    APIBinding
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization/" class="md-nav__link">
+        Authorization
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cache-server/" class="md-nav__link">
+        Cache Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cluster-mapper/" class="md-nav__link">
+        Cluster Mapper
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kubectl-kcp-plugin/" class="md-nav__link">
+        kubectl kcp plugin
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../locations-and-scheduling/" class="md-nav__link">
+        Placement, Locations, and Scheduling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../partitions/" class="md-nav__link">
+        Partition API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+        Quickstart: Tenancy and APIs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../storage/" class="md-nav__link">
+        Storage and stateful applications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syncer/" class="md-nav__link">
+        Registering Kubernetes Clusters using syncer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../virtual-workspaces/" class="md-nav__link">
+        Virtual Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workspaces/" class="md-nav__link">
+        Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../developers/">Developers</a>
+          
+            <label for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Developers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/inspecting-e2e-metrics/" class="md-nav__link">
+        Inspecting Prometheus metrics for e2e runs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+        Publishing a new kcp release
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
+        Replicating new resources in the cache server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/using-kcp-as-a-library/" class="md-nav__link">
+        Using kcp as a library
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+        Writing kcp-aware controllers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../investigations/">Investigations</a>
+          
+            <label for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Investigations
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/logical-clusters/" class="md-nav__link">
+        Logical clusters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/minimal-api-server/" class="md-nav__link">
+        Minimal API Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/self-service-policy/" class="md-nav__link">
+        Self-service policy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
+        Transparent multi-cluster
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+      
+      
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+          CLI
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_1">
+          <span class="md-nav__icon md-icon"></span>
+          CLI
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
+        kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+        kcp bind
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+        kcp bind apiexport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind_compute/" class="md-nav__link">
+        kcp bind compute
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+        kcp claims
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+        kcp claims get
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+        kcp claims get apibinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+        kcp crd
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+        kcp crd snapshot
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workload/" class="md-nav__link">
+        kcp workload
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workload_cordon/" class="md-nav__link">
+        kcp workload cordon
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workload_drain/" class="md-nav__link">
+        kcp workload drain
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workload_sync/" class="md-nav__link">
+        kcp workload sync
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workload_uncordon/" class="md-nav__link">
+        kcp workload uncordon
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+        kcp workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+        kcp workspace create-context
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
+        kcp workspace create
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+        kcp workspace current
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+        kcp workspace tree
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+        kcp workspace use
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+          CRD
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          CRD
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+        APIExportEndpointSlice
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+        APIExport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiresourceimports.apiresource.kcp.io/" class="md-nav__link">
+        APIResourceImport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+        APIResourceSchema
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/locations.scheduling.kcp.io/" class="md-nav__link">
+        Location
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+        LogicalCluster
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/negotiatedapiresources.apiresource.kcp.io/" class="md-nav__link">
+        NegotiatedAPIResource
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+        Partition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+        PartitionSet
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/placements.scheduling.kcp.io/" class="md-nav__link">
+        Placement
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
+        Shard
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/synctargets.workload.kcp.io/" class="md-nav__link">
+        SyncTarget
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+        Workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+        WorkspaceType
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-apis" class="md-nav__link">
+    Built-in APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Built-in APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-v1" class="md-nav__link">
+    (core) v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#admissionregistrationk8siov1" class="md-nav__link">
+    admissionregistration.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apiextensionsk8siov1" class="md-nav__link">
+    apiextensions.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticationk8siov1" class="md-nav__link">
+    authentication.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorizationk8siov1" class="md-nav__link">
+    authorization.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificatesk8siov1" class="md-nav__link">
+    certificates.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coordinationk8siov1" class="md-nav__link">
+    coordination.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eventsk8siov1" class="md-nav__link">
+    events.k8s.io/v1
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flowcontrolapiserverk8siov1beta1-temporarily-removed" class="md-nav__link">
+    flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rbacauthorizationk8siov1" class="md-nav__link">
+    rbac.authorization.k8s.io/v1
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customresourcedefinitions" class="md-nav__link">
+    CustomResourceDefinitions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-apis" class="md-nav__link">
+    Exporting APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#define-apiresourceschemas" class="md-nav__link">
+    Define APIResourceSchemas
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#define-your-apiexport" class="md-nav__link">
+    Define your APIExport
+  </a>
+  
+    <nav class="md-nav" aria-label="Define your APIExport">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apiexport-identity" class="md-nav__link">
+    APIExport Identity
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#permission-claims" class="md-nav__link">
+    Permission Claims
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maximal-permission-policy" class="md-nav__link">
+    Maximal Permission Policy
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-your-controller" class="md-nav__link">
+    Run Your Controller
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apiresourceschema-evolution-maintenance" class="md-nav__link">
+    APIResourceSchema Evolution &amp; Maintenance
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binding-to-exported-apis" class="md-nav__link">
+    Binding to Exported APIs
+  </a>
+  
+    <nav class="md-nav" aria-label="Binding to Exported APIs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#apibinding" class="md-nav__link">
+    APIBinding
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+
+<h1 id="apis-in-kcp">APIs in kcp</h1>
+<h2 id="overview">Overview</h2>
+<p>kcp supports several built-in Kubernetes APIs, provides extensibility using CustomResourceDefinitions, and adds a new
+way to export custom APIs for sharing with other workspaces.</p>
+<h2 id="built-in-apis">Built-in APIs</h2>
+<p>kcp includes some, but not all, of the APIs you are likely familiar with from Kubernetes:</p>
+<h3 id="core-v1">(core) v1</h3>
+<ul>
+<li>Namespaces</li>
+<li>ConfigMaps</li>
+<li>Secrets</li>
+<li>Events</li>
+<li>LimitRanges</li>
+<li>ResourceQuotas</li>
+<li>ServiceAccounts</li>
+</ul>
+<h3 id="admissionregistrationk8siov1">admissionregistration.k8s.io/v1</h3>
+<ul>
+<li>MutatingWebhookConfigurations</li>
+<li>ValidatingWebhookConfigurations</li>
+</ul>
+<h3 id="apiextensionsk8siov1">apiextensions.k8s.io/v1</h3>
+<ul>
+<li>CustomResourceDefinitions</li>
+</ul>
+<h3 id="authenticationk8siov1">authentication.k8s.io/v1</h3>
+<ul>
+<li>TokenReviews</li>
+</ul>
+<h3 id="authorizationk8siov1">authorization.k8s.io/v1</h3>
+<ul>
+<li>LocalSubjectAccessReviews</li>
+<li>SelfSubjectAccessReviews</li>
+<li>SelfSubjectRulesReviews</li>
+<li>SubjectAccessReviews</li>
+</ul>
+<h3 id="certificatesk8siov1">certificates.k8s.io/v1</h3>
+<ul>
+<li>CertificateSigningRequests</li>
+</ul>
+<h3 id="coordinationk8siov1">coordination.k8s.io/v1</h3>
+<ul>
+<li>Leases</li>
+</ul>
+<h3 id="eventsk8siov1">events.k8s.io/v1</h3>
+<ul>
+<li>Events</li>
+</ul>
+<h3 id="flowcontrolapiserverk8siov1beta1-temporarily-removed">flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)</h3>
+<ul>
+<li>FlowSchemas</li>
+<li>PriorityLevelConfigurations</li>
+</ul>
+<h3 id="rbacauthorizationk8siov1">rbac.authorization.k8s.io/v1</h3>
+<ul>
+<li>ClusterRoleBindings</li>
+<li>ClusterRoles</li>
+<li>RoleBindings</li>
+<li>Roles</li>
+</ul>
+<p>Notably, workload-related APIs (Pods, ReplicaSets, Deployments, Jobs, CronJobs, StatefulSets), cluster-related APIs (
+Nodes), storage-related APIs (PersistentVolumes, PersistentVolumeClaims) are all missing - kcp does not include these,
+and it instead relies on workload clusters to provide this functionality.</p>
+<h2 id="customresourcedefinitions">CustomResourceDefinitions</h2>
+<p>kcp, like Kubernetes, allows developers to add new APIs using
+<a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/">CustomResourceDefinitions</a>
+(CRDs). Unlike Kubernetes, kcp allows multiple copies of a CRD (e.g. <code>widgets.example.com</code>) to be installed in multiple
+workspaces at the same time. Each copy is entirely independent and isolated from all other copies. This means the API
+versions and schemas can be entirely different. kcp makes this possible because each workspace is its own isolated
+"cluster."</p>
+<p>There are currently some limitations to be aware of with CRDs in kcp:</p>
+<ul>
+<li>Conversion webhooks are not supported</li>
+<li><code>service</code>-based validating/mutating webhooks are not supported; you must use <code>url</code>-based  <code>clientConfigs</code> instead.</li>
+</ul>
+<p>CRDs are a fantastic way to add new APIs to a workspace, but if you want to share a CRD with other workspaces, you have
+to install it in each workspace separately. You also need a controller that can reconcile CRs in all the workspaces
+where your CRD is installed, which typically means 1 distinct controller per workspace. CRDs are not "cheap" in the API
+server (each one consumes memory), and kcp offers an improved workflow that significantly reduces overhead.</p>
+<h2 id="exporting-apis">Exporting APIs</h2>
+<p>If you're looking to provide APIs that can be consumed by multiple workspaces, this section is for you!</p>
+<p>kcp adds new APIs that enable this new model of publishing and consuming APIs. The following diagram shows a workspace
+that an API provider would use to export their <code>widgets</code> API. The provider uses kcp's new <code>APIResourceSchema</code> type to
+define the schema for <code>widgets</code>, and the new <code>APIExport</code> type to export <code>widgets</code> to other workspaces.</p>
+<p>2 separate consumer workspaces use kcp's new <code>APIBinding</code> type to add the <code>widgets</code> API to their workspaces. They can
+then proceed to CRUD <code>widgets</code> in their workspaces, just like any other API type (e.g. <code>namespaces</code>, <code>configmaps</code>,
+etc.).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>                                     ┌───────────────────────┐
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                                     │  Consumer Workspace   │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                                     ├───────────────────────┤
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                     │                       │
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                ┌────┼─ Widgets APIBinding   |
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                │    │                       │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                                │    │  Widget A             │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>┌───────────────────────────┐   │    │  Widget B             │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  API Provider Workspace   │   │    │  Widget C             │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├───────────────────────────┤   │    └───────────────────────┘
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│                           │   │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│     Widgets APIExport ◄───┼───┤
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│             │             │   │
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│             ▼             │   │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│ Widgets APIResourceSchema │   │    ┌───────────────────────┐
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>└───────────────────────────┘   │    │  Consumer Workspace   │
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                                │    ├───────────────────────┤
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>                                │    │                       │
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>                                └────┼─ Widgets APIBinding   │
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>                                     │                       │
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>                                     │  Widget A             │
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                                     │  Widget B             │
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                                     │  Widget C             │
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                                     └───────────────────────┘
+</code></pre></div>
+<p><strong>Diagram: 1 APIExport consumed by 2 different workspaces</strong> (<a href="https://asciiflow.com/#/share/eJyrVspLzE1VssorzcnRUcpJrEwtUrJSqo5RqohRsrI0NdGJUaoEsozMzYCsktSKEiAnRkmBGPBoyh5qoZiYPGKtVFBwzs8rLs1NLVIIzy%2FKLi5ITE6FyJBgyIC4G5cMEYZgtVwhPDMlPbWkWMExwNMpMy8lMy%2BdFAOp5C44BXGNgiMWY6gY4igBgNUBTtgdAGQDw0khoCi%2FLDMFNfHgNMp5gPxCxeSJO4YR8YeqEilVuVYU5BeVKDya3kKCDdj5ONROw68WyS1BqcX5pUXJqcHJGam5iehx1vNoSgM10AT6xHATzlKsiZRcN4dKvl5C1xIDS9DgKMmICQyoqU24ZUgyBEcpRpYh6CURWYagl0EkGDKFSsljRoxSrVItAH%2FrdL4%3D">source</a>)</p>
+<p>Above we talked about needing 1 controller instance per workspace, as workspace is roughly synonymous with cluster, and
+most/all controllers out there currently only support a single cluster. But because multiple workspaces coexist in kcp,
+we can be much more efficient and have 1 controller handle <code>widgets</code> in multiple workspaces!</p>
+<p>We achieve this using a specific URL just for your controller for your <code>APIExport</code>.</p>
+<p>You'll need to do a few things:</p>
+<ol>
+<li>Define 1 or more <code>APIResourceSchema</code> objects, 1 per API resource (just like you'd do with CRDs).</li>
+<li>Define an <code>APIExport</code> object that references all the <code>APIResourceSchema</code> instances you want to export.</li>
+<li>Write controllers that are multi-workspace aware.</li>
+</ol>
+<p>Let's look at each of these in more detail.</p>
+<h3 id="define-apiresourceschemas">Define APIResourceSchemas</h3>
+<p>An <code>APIResourceSchema</code> defines a single custom API type. It is almost identical to a CRD, but creating
+an <code>APIResourceSchema</code> instance does not add a usable API to the server. By intentionally decoupling the schema
+definition from serving, API owners can be more explicit about API evolution. In the future, we could envision the
+possibility of a new <code>APIDeployment</code> resource that coordinates rolling out API updates.</p>
+<p>Here is an example for a <code>widgets</code> resource:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.dev/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIResourceSchema</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v220801.widgets.example.kcp.dev</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.dev</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">names</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">categories</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kcp</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Widget</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">listKind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WidgetList</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">plural</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">widgets</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">singular</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">widget</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="nt">scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Cluster</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">versions</span><span class="p">:</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">additionalPrinterColumns</span><span class="p">:</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The current phase</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">jsonPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.status.phase</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Phase</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">jsonPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.metadata.creationTimestamp</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Age</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">date</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">    </span><span class="nt">schema</span><span class="p">:</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">      </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;NOTE:</span><span class="nv"> </span><span class="s">full</span><span class="nv"> </span><span class="s">schema</span><span class="nv"> </span><span class="s">omitted</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">brevity&#39;</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="nt">served</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="nt">storage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="nt">subresources</span><span class="p">:</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">      </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</code></pre></div>
+<ol>
+<li><code>name</code> must be of the format <code>&lt;some prefix&gt;.&lt;plural resource name&gt;.&lt;group name&gt;</code>. For this example:<ul>
+<li><code>&lt;some prefix&gt;</code> is <code>v220801</code></li>
+<li><code>&lt;plural resource name&gt;</code> is <code>widgets</code></li>
+<li><code>&lt;group name&gt;</code> is <code>example.kcp.dev</code></li>
+</ul>
+</li>
+</ol>
+<p>An <code>APIResourceSchema</code>'s <code>spec</code> is immutable; if you need to make changes to your API schema, you create a new instance.</p>
+<p>Once you've created at least one <code>APIResourceSchema</code>, you can proceed with creating your <code>APIExport</code>.</p>
+<h3 id="define-your-apiexport">Define your APIExport</h3>
+<p>An <code>APIExport</code> is the way an API provider makes one or more APIs (coming from <code>APIResourceSchemas</code>) available to
+workspaces.</p>
+<p>Here is an example <code>APIExport</code> called <code>example.kcp.dev</code> that exports 1 resource: <code>widgets</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.dev/v1alpha1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.dev</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">latestResourceSchemas</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v220801.widgets.example.kcp.dev</span>
+</code></pre></div>
+<p>At a minimum, you specify the names of the <code>APIResourceSchema</code>s you want to export in the <code>spec.latestResourceSchemas</code>
+field. The <code>APIResourceSchemas</code> must be in the same workspace as the <code>APIExport</code> (and therefore no workspace name or
+path is required here).</p>
+<p>You can optionally configure the following additional aspects of an <code>APIExport</code>:</p>
+<ul>
+<li>its identity</li>
+<li>what permissions consumers of your exported APIs are granted</li>
+<li>API resources from other sources (built-in types and/or from other <code>APIExport</code>s) that your controllers need to access
+  for your service to function correctly</li>
+</ul>
+<p>We'll talk about each of these next.</p>
+<h4 id="apiexport-identity">APIExport Identity</h4>
+<p>Each API resource type is defined by an API group name and a resource name. Each API resource type can further be
+distinguished by an API version. For example, the <code>roles.rbac.authorization.k8s.io</code> resource that we frequently interact
+with is in the <code>rbac.authorization.k8s.io</code> API group and its resource name is <code>roles</code>.</p>
+<p>In a Kubernetes cluster, it is impossible to define the same API <code>&lt;group&gt;,&lt;resource&gt;,&lt;version&gt;</code> multiple times; i.e., it
+does not support competing definitions for <code>rbac.authorization.k8s.io,roles,v1</code> or any other API resource type.</p>
+<p>In kcp, however, it is possible for multiple API providers to each define the same API <code>&lt;group&gt;,&lt;resource&gt;,&lt;version&gt;</code>,
+<em>without interference</em>! This is where <code>APIExport</code> "identity" becomes critical.</p>
+<p>When you create an <code>APIExport</code> and you don't specify its identity (as is the case in the <code>example.kcp.dev</code> example
+above), kcp automatically generates one for you. The identity is always stored in a secret in the same workspace as
+the <code>APIExport.</code> By default, it is created in the <code>kcp-system</code> namespace in a secret whose name is the name of
+the <code>APIExport</code>.</p>
+<p>An <code>APIExport</code>'s identity is similar to a private key; you should never share it with anyone.</p>
+<p>The identity's <strong>hash</strong> is similar to a public key; it is not private and there are times when other consumers of your
+exported APIs need to know and reference it.</p>
+<p>Given 2 Workspaces, each with its own <code>APIExport</code> that exports <code>widgets.example.kcp.dev</code>, kcp uses the identity hash (in
+a mostly transparent manner) to ensure the correct instances associated with the appropriate <code>APIResourceSchema</code> are
+served to clients. See <a href="#Run-Your-Controller">Run Your Controller</a> for more information.</p>
+<h4 id="permission-claims">Permission Claims</h4>
+<p>When a consumer creates an <code>APIBinding</code> that binds to an <code>APIExport</code>, the API provider who owns the <code>APIExport</code>
+implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
+provider needs to access additional resource data in a consuming workspace. These resources might come from other
+APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp. The API provider 
+requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's group, resource, and 
+identity hash to their <code>APIExport</code>. Let's take the example <code>APIExport</code> from above and add permission claims for 
+<code>ConfigMaps</code> and <code>Things</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.dev/v1alpha1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.dev</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">latestResourceSchemas</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v220801.widgets.example.kcp.dev</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">permissionClaims</span><span class="p">:</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">configmaps</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">resourceSelector</span><span class="p">:</span><span class="w"> </span><span class="c1"># (2)</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-system</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-setup</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span><span class="w"> </span><span class="c1"># (3)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># (4)</span>
+</code></pre></div>
+<ol>
+<li>This is how you specify the core API group</li>
+<li>You can claim access to one or more resource instances by namespace and/or name</li>
+<li>To claim another exported API, you must include its <code>identityHash</code></li>
+<li>If you aren't claiming access to individual instances, you must specify <code>all</code> instead</li>
+</ol>
+<p>This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed 
+resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
+resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. For more details, see the 
+section on <a href="#apibinding">APIBindings</a>.</p>
+<h4 id="maximal-permission-policy">Maximal Permission Policy</h4>
+<p>If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
+permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
+and a consuming user is authorized based on the RBAC configuration in the consuming workspace.</p>
+<p>The maximal permission policy consists of RBAC <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code>. Incoming requests to a 
+workspace that binds to an APIExport are additionally checked against
+these rules, with the username and groups prefixed with <code>apis.kcp.io:binding:</code>.</p>
+<p>For example: we have an <code>APIExport</code> in the <code>root</code> workspace called <code>tenancy.kcp.io</code> that provides APIs
+for <code>workspaces</code> and <code>workspacetypes</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">latestResourceSchemas</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v230110-89146c99.workspacetypes.tenancy.kcp.io</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v230116-832a4a55d.workspaces.tenancy.kcp.io</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">maximalPermissionPolicy</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">local</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="c1"># (1)</span>
+</code></pre></div>
+<ol>
+<li><code>local</code> is the only supported option at the moment. "Local" means the RBAC policy is defined in the same 
+   workspace as the <code>APIExport</code>.</li>
+</ol>
+<p>We don't want users to be able to mutate the <code>status</code> subresource, so we set up
+a maximal permission policy to limit what users can do:</p>
+<div class="highlight"><span class="filename">Tenancy APIExport Maximal Permission Policy ClusterRole</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">system:kcp:apiexport:tenancy:maximal-permission-policy</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;tenancy.kcp.io&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workspaces</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workspacetypes</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;tenancy.kcp.io&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="s">&quot;watch&quot;</span><span class="p p-Indicator">,</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="c1"># (2)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workspaces/status</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workspacetypes/status</span>
+</code></pre></div>
+<ol>
+<li>Users can perform any/all actions on the main resources</li>
+<li>Users can only get/list/watch the status subresources</li>
+</ol>
+<div class="highlight"><span class="filename">Tenancy APIExport Maximal Permission Policy ClusterRoleBinding</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">system:kcp:authenticated:apiexport:tenancy:maximal-permission-policy</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">system:kcp:apiexport:tenancy:maximal-permission-policy</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io:binding:system:authenticated</span><span class="w"> </span><span class="c1"># (1)</span>
+</code></pre></div>
+<ol>
+<li>Note the <code>apis.kcp.io:binding:</code> prefix; this identifies this <code>ClusterRoleBinding</code> as part of the maximal 
+   permission policy. It applies to <code>system:authenticated</code>.</li>
+</ol>
+<p>Now imagine a user named <code>unicorn</code> with group <code>system:authenticated</code>. They create a workspace named 
+<code>magic</code> and bind to the <code>tenancy.kcp.io</code> APIExport from the workspace <code>root</code>. What actions <code>unicorn</code> is allowed to 
+perform in the <code>magic</code> workspace must be granted by <strong>both</strong>:</p>
+<ol>
+<li>the standard RBAC authorization flow in the <code>magic</code> workspace; i.e., <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code> 
+   in the <code>magic</code> workspace itself, <strong>and</strong></li>
+<li>the maximal permission policy RBAC settings configured in the <code>root</code> workspace for the <code>tenancy</code> APIExport</li>
+</ol>
+<h3 id="run-your-controller">Run Your Controller</h3>
+<p>TODO
+- virtual workspace URLs
+- As a controller, I need to be granted permissions on the APIExport content sub-resource</p>
+<h3 id="apiresourceschema-evolution-maintenance">APIResourceSchema Evolution &amp; Maintenance</h3>
+<p>TODO
+- conversions
+- doc when it's ok to delete "old"/no longer used APIResourceSchemas</p>
+<h2 id="binding-to-exported-apis">Binding to Exported APIs</h2>
+<h3 id="apibinding">APIBinding</h3>
+<p>TODO
+- "imports" all the <code>APIResourceSchemas</code> defined in an <code>APIExport</code> into its workspace
+- Also provides access to the group/resources defined in an <code>APIExport</code>'s <code>PermissionClaims</code> slice
+- APIs are "imported" by accepting <code>PermissionClaims</code> within the <code>APIBinding</code> for each of the <code>APIExport</code>'s group/resources
+- The consumer of the <code>APIExport</code> must be granted permission to the <code>bind</code> verb on that <code>APIExport</code> in order to create an <code>APIBinding</code>
+- An <code>APIBinding</code> is bound to a specific <code>APIExport</code> and associated <code>APIResourceSchema</code>s via the <code>APIBinding.Status.BoundResources</code> field, which will hold the identity information to precisely identify relevant objects.
+- how do I correctly reference an APIExport?</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.db81ec45.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.6df46069.min.js"></script>
+      
+    
+  </body>
+</html>
