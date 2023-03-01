@@ -51,4 +51,4 @@ if [[ -n "${CI:-}" ]]; then
   git config user.email no-reply@kcp.io
 fi
 
-"$VENV"/mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"
+mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"
