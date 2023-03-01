@@ -298,6 +298,13 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 				return nil, err
 			}
 
+			upsyncerCleaner, err := upsync.NewUpSyncerCleanupController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID), syncTargetKey,
+				upstreamUpsyncerClusterClient, ddsifForUpstreamUpsyncer,
+				ddsifForDownstream)
+			if err != nil {
+				return nil, err
+			}
+
 			// Start and sync informer factories
 			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
 			for _, alwaysRequiredGVR := range alwaysRequiredGVRs {
@@ -307,6 +314,9 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
 				}
 			}
+
+			// Start and sync informer factories
+
 			ddsifForUpstreamSyncer.Start(ctx.Done())
 			ddsifForUpstreamUpsyncer.Start(ctx.Done())
 
@@ -316,6 +326,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			go ddsifForUpstreamUpsyncer.StartWorker(ctx)
 
 			go specSyncer.Start(ctx, numSyncerThreads)
+			go upsyncerCleaner.Start(ctx, numSyncerThreads)
 
 			// Create and start GVR-specific controllers through controller managers
 			upstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
