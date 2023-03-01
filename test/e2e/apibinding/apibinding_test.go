@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -167,13 +168,22 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
 	shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
+	// Filtering out shards that are not schedulable
+	var shardItems []corev1alpha1.Shard
+	for _, s := range shards.Items {
+		if _, ok := s.Annotations["experimental.core.kcp.io/unschedulable"]; !ok {
+			shardItems = append(shardItems, s)
+		}
+	}
 	require.Eventually(t, func() bool {
-		for _, s := range shards.Items {
-			if len(s.Spec.VirtualWorkspaceURL) == 0 {
-				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
-				return false
+		for _, s := range shardItems {
+			if _, ok := s.Annotations["experimental.core.kcp.io/unschedulable"]; !ok {
+				if len(s.Spec.VirtualWorkspaceURL) == 0 {
+					t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
+					return false
+				}
+				shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
 			}
-			shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
 		}
 		return true
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all Shards to have a VirtualWorkspaceURL assigned")
@@ -356,7 +366,7 @@ func TestAPIBinding(t *testing.T) {
 		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
 
 		var names []string
-		for _, shard := range shards.Items {
+		for _, shard := range shardItems {
 			t.Logf("Doing a wildcard identity list for %v against %s workspace on shard %s", gvrWithIdentity, consumerWorkspace, shard.Name)
 			shardDynamicClusterClients, err := kcpdynamic.NewForConfig(server.ShardSystemMasterBaseConfig(t, shard.Name))
 			require.NoError(t, err)

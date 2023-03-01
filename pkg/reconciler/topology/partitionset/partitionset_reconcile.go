@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/util/sets"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -89,10 +90,12 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 	}
 
 	var matchLabelsMap map[string]map[string]string
+	// remove duplicates
+	dimensions := sets.NewString(partitionSet.Spec.Dimensions...).List()
 	if partitionSet.Spec.ShardSelector != nil {
-		matchLabelsMap = partition(shards, partitionSet.Spec.Dimensions, partitionSet.Spec.ShardSelector.MatchLabels)
+		matchLabelsMap = partition(shards, dimensions, partitionSet.Spec.ShardSelector.MatchLabels)
 	} else {
-		matchLabelsMap = partition(shards, partitionSet.Spec.Dimensions, nil)
+		matchLabelsMap = partition(shards, dimensions, nil)
 	}
 	partitionSet.Status.Count = uint16(len(matchLabelsMap))
 	existingMatches := map[string]struct{}{}
@@ -162,7 +165,7 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 	// Create partitions when no existing partition for the set has the same selector.
 	for key, matchLabels := range matchLabelsMap {
 		if _, ok := existingMatches[key]; !ok {
-			partition := generatePartition(partitionSet.Name, newMatchExpressions, matchLabels, partitionSet.Spec.Dimensions)
+			partition := generatePartition(partitionSet.Name, newMatchExpressions, matchLabels, dimensions)
 			partition.OwnerReferences = []metav1.OwnerReference{
 				*metav1.NewControllerRef(partitionSet, topologyv1alpha1.SchemeGroupVersion.WithKind("PartitionSet")),
 			}

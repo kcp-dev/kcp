@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1"
 )
@@ -28,17 +29,10 @@ import (
 // generatePartition generates the Partition specifications based on
 // the provided matchExpressions and matchLabels.
 func generatePartition(name string, matchExpressions []metav1.LabelSelectorRequirement, matchLabels map[string]string, dimensions []string) *topologyv1alpha1.Partition {
-	pname := name
-	labels := make([]string, len(dimensions))
-	copy(labels, dimensions)
-	sort.Strings(labels)
-	for _, label := range labels {
-		pname = pname + "-" + strings.ToLower(matchLabels[label])
-	}
-
+	name = generatePartitionName(name, matchLabels, dimensions)
 	return &topologyv1alpha1.Partition{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: pname + "-",
+			GenerateName: name + "-",
 		},
 		Spec: topologyv1alpha1.PartitionSpec{
 			Selector: &metav1.LabelSelector{
@@ -47,4 +41,23 @@ func generatePartition(name string, matchExpressions []metav1.LabelSelectorRequi
 			},
 		},
 	}
+}
+
+// generatePartitionName creates a name based on the dimension values.
+func generatePartitionName(name string, matchLabels map[string]string, dimensions []string) string {
+	labels := make([]string, len(dimensions))
+	copy(labels, dimensions)
+	sort.Strings(labels)
+	for _, label := range labels {
+		name = name + "-" + strings.ToLower(matchLabels[label])
+	}
+	name = name[:min(validation.DNS1123SubdomainMaxLength-1, len(name))]
+	return name
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
