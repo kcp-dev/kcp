@@ -1,8 +1,69 @@
-# Config file for mike
-
 site_name: kcp Documentation
+repo_url: https://github.com/kcp-dev/kcp
 site_url: https://docs.kcp.io/kcp/
 
-# Always point at the output directory for the current checkout/branch.
-# 'mike deploy <version>' controls which version this is ultimately served as.
-docs_dir: generated/branch
+# Site content
+docs_dir: 'content'
+# Where to generate
+site_dir: 'generated'
+
+theme:
+  name: material
+  language: en
+  # Common files such as images, stylesheets, theme overrides
+  custom_dir: 'overrides'
+  features:
+    # Enable navigation section index pages, so we don't see Concepts > Concepts
+    - navigation.indexes
+    # Enable a copy button in code blocks
+    - content.code.copy
+    # Enable annotations on specific lines in code blocks
+    - content.code.annotate
+  logo: logo.png
+  favicon: favicons/favicon.ico
+
+extra:
+  version:
+    # Enable mike for multi-version selection
+    provider: mike
+
+plugins:
+  # https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin
+  # Greater control over how navigation links are shown
+  - awesome-pages
+  # Docs site search
+  - search
+  # Use Jinja macros in .md files
+  - macros:
+      include_dir: 'overrides'
+      module_name: 'main'
+  # Configure multiple language support
+  - i18n:
+      default_language: en
+      languages:
+        en:
+          name: English
+
+markdown_extensions:
+  # Code block highlighting
+  - pymdownx.highlight:
+      # Allows linking directly to specific lines in code blocks
+      anchor_linenums: true
+  # Inline code block highlighting
+  - pymdownx.inlinehilite
+  # Lets you embed content from another file
+  - pymdownx.snippets
+  # Arbitrary nesting of code/content blocks inside each other
+  - pymdownx.superfences
+  # Enable note/warning/etc. callouts
+  - admonition
+
+# Our CSS
+extra_css:
+  - stylesheets/kcp.css
+
+# Live reload if any of these change when running 'mkdocs serve'
+watch:
+  - mkdocs.yml
+  - content
+  - overrides

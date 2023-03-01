@@ -19,15 +19,16 @@ set -o nounset
 set -o pipefail
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$REPO_ROOT/docs"
 
-if [[ -n "${LOCAL:-}" ]]; then
-  mkdocs serve -f "${REPO_ROOT}/docs/config/${LANGUAGE:-en}/mkdocs.yml"
-else
-  docker run --rm -it \
-    -v "$REPO_ROOT/docs":/docs \
-    -p 8000:8000 \
-    kcp-docs \
-    mkdocs serve \
-      -a 0.0.0.0:8000 \
-      -f "/docs/config/${LANGUAGE:-en}/mkdocs.yml"
+MIKE_OPTIONS=()
+
+if [[ -n "${REMOTE:-}" ]]; then
+  MIKE_OPTIONS+=(--remote "$REMOTE")
 fi
+
+if [[ -n "${BRANCH:-}" ]]; then
+  MIKE_OPTIONS+=(--branch "$BRANCH")
+fi
+
+"$VENV"/mike serve "${MIKE_OPTIONS[@]}"
