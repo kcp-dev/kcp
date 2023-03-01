@@ -1,3 +1,49 @@
 site_name: kcp Documentation
+repo_url: https://github.com/kcp-dev/kcp
 site_url: https://docs.kcp.io/kcp/
-docs_dir: generated/branch
+
+docs_dir: 'content'
+site_dir: 'generated'
+
+theme:
+  name: material
+  language: en
+  custom_dir: 'overrides/'
+  features:
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+  logo: logo.png
+  favicon: favicons/favicon.ico
+
+extra:
+  version:
+    provider: mike
+
+plugins:
+  - awesome-pages
+  - search
+  - macros:
+      include_dir: 'overrides'
+      module_name: 'main'
+  - i18n:
+      default_language: en
+      languages:
+        en:
+          name: English
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+
+extra_css:
+  - stylesheets/kcp.css
+
+watch:
+  - mkdocs.yml
+  - content
+  - overrides
