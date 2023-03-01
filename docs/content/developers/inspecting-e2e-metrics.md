@@ -24,7 +24,7 @@ For e2e tests, the above environment variable is respected by the following test
 
 To inspect metrics from GitHub e2e test runs, download the metrics from the GitHub summary page:
 
-![GitHub summary page](GitHub_summary.png)
+![GitHub summary page](github_summary.png)
 
 And execute Prometheus locally to inspect metrics:
 ```shell
