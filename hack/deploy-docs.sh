@@ -20,6 +20,7 @@ set -o pipefail
 set -o xtrace
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$REPO_ROOT/docs"
 
 if [[ -n "${GITHUB_REF_NAME:-}" ]]; then
   VERSION="${VERSION:-$GITHUB_REF_NAME}"
@@ -35,19 +36,19 @@ fi
 
 MIKE_OPTIONS=()
 
+if [[ -n "${REMOTE:-}" ]]; then
+  MIKE_OPTIONS+=(--remote "$REMOTE")
+fi
+
+if [[ -n "${BRANCH:-}" ]]; then
+  MIKE_OPTIONS+=(--branch "$BRANCH")
+fi
+
+
 if [[ -n "${CI:-}" ]]; then
   MIKE_OPTIONS+=(--push)
   git config user.name kcp-docs-bot
   git config user.email no-reply@kcp.io
 fi
 
-if [[ -n "${LOCAL:-}" ]]; then
-  mike deploy --config-file docs/mkdocs.yml "${MIKE_OPTIONS[@]}" "$VERSION"
-else
-  docker run --rm -it \
-    -v "$REPO_ROOT/.git":/.git \
-    -v "$REPO_ROOT/docs":/docs \
-    -w /.git \
-    kcp-docs \
-    mike deploy --config-file /docs/mkdocs.yml "${MIKE_OPTIONS[@]}" "$VERSION"
-fi
+mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"

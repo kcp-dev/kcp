@@ -158,27 +158,28 @@ update-contextual-logging: $(LOGCHECK)
 	UPDATE=true ./hack/verify-contextual-logging.sh
 .PHONY: update-contextual-logging
 
-kcp-docs-image: docs/Dockerfile
-	# Skip if LOCAL is set
-	[[ -n "$$LOCAL" ]] || docker buildx build -f docs/Dockerfile -t kcp-docs --load docs
-	touch $@
+.PHONY: generate-cli-docs
+generate-cli-docs:
+	git clean -fdX docs/content/reference/cli
+	go run ./hack/generate/cli-doc/gen-cli-doc.go -output docs/content/reference/cli
 
-.PHONY: generate-docs
-generate-docs: clean-generated-docs kcp-docs-image
-	hack/build-docs.sh
+.PHONY: generate-api-docs
+generate-api-docs:
+	git clean -fdX docs/content/reference/api
+	hack/generate/crd-ref/run-crd-ref-gen.sh
 
-LANGUAGE ?= en
-.PHONY: serve-docs kcp-docs-image
-serve-docs:
-	hack/serve-docs.sh LANGUAGE=$(LANGUAGE)
+VENVDIR=$(abspath docs/venv)
+REQUIREMENTS_TXT=docs/requirements.txt
+
+.PHONY: serve-docs
+serve-docs: venv
+	. $(VENV)/activate; \
+	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/serve-docs.sh
 
 .PHONY: deploy-docs
-deploy-docs: kcp-docs-image
-	hack/deploy-docs.sh
-
-.PHONY: clean-generated-docs
-clean-generated-docs:
-	git clean -fdX docs
+deploy-docs: venv
+	. $(VENV)/activate; \
+	REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/deploy-docs.sh
 
 vendor: ## Vendor the dependencies
 	go mod tidy
@@ -429,3 +430,5 @@ download-e2e-logs:
 .PHONY: help
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+include Makefile.venv

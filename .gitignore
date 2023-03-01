@@ -5,7 +5,6 @@ contrib/demo/clusters/kind/*.kubeconfig
 coverage.*
 tools
 build
-kcp-docs-image
 
 # JetBrains IDE files
 .idea/
@@ -20,9 +19,6 @@ kcp-docs-image
 
 # Folder where each developer can store temporary files
 tmp
-
-kcp-docs-image
-docs/site
 
 .prometheus_data
 .prometheus-config.yaml
