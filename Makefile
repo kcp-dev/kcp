@@ -170,13 +170,16 @@ generate-api-docs:
 
 VENVDIR=$(abspath docs/venv)
 REQUIREMENTS_TXT=docs/requirements.txt
+
 .PHONY: serve-docs
 serve-docs: venv
+	. $(VENV)/activate; \
 	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/serve-docs.sh
 
 .PHONY: deploy-docs
 deploy-docs: venv
-	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/deploy-docs.sh
+	. $(VENV)/activate; \
+	REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/deploy-docs.sh
 
 vendor: ## Vendor the dependencies
 	go mod tidy

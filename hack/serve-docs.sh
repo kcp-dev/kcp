@@ -31,4 +31,4 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
-"$VENV"/mike serve "${MIKE_OPTIONS[@]}"
+mike serve "${MIKE_OPTIONS[@]}"
