@@ -2530,11 +2530,24 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
+					"names": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "names of specific resources to select. It matches the metadata.name field of the underlying object. A value of \"*\" or empty means all object names are permitted. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"namespaces": {

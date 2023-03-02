@@ -221,23 +221,22 @@ type PermissionClaim struct {
 }
 
 const (
-	ResourceSelectorAllNamespaces = "*"
+	ResourceSelectorAll = "*"
 )
 
 // ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.
 //
-// +kubebuilder:validation:XValidation:rule="has(self.namespaces) || has(self.name)",message="at least one field must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.namespaces) || has(self.names)",message="at least one field must be set"
 type ResourceSelector struct {
-	// name of an object within a claimed group/resource.
+	// names of specific resources to select.
 	// It matches the metadata.name field of the underlying object.
+	// A value of "*" or empty means all object names are permitted.
 	// If namespace is "*", all objects matching that name will be claimed within those namespaces.
 	// If namespace is "" or an empty list, name will match against cluster-scoped resources.
 	//
 	// +optional
-	// +kubebuilder:validation:Pattern="^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$"
-	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name,omitempty"`
+	// +listType=set
+	Names []string `json:"names,omitempty"`
 
 	// namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field.
 	// A value of "*" indicates objects across all namespaces. A value of "" or an empty list indicates a cluster-scoped resource.

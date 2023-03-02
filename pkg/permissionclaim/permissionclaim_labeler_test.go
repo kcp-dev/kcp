@@ -47,7 +47,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name: "John Wayne",
+								Names: []string{"John Wayne"},
 							},
 						},
 					},
@@ -69,7 +69,6 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:       "kcp.io",
 								Namespaces: []string{"foo"},
 							},
 						},
@@ -92,7 +91,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:       "John Wayne",
+								Names:      []string{"John Wayne"},
 								Namespaces: []string{"foo"},
 							},
 						},
@@ -101,7 +100,7 @@ func TestIsSelected(t *testing.T) {
 				name:      "John Newman",
 				namespace: "foo",
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "Namespace selection doesn't match",
@@ -115,7 +114,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:       "John Wayne",
+								Names:      []string{"John Wayne"},
 								Namespaces: []string{"foo"},
 							},
 						},
@@ -156,7 +155,7 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:       "John",
+								Names:      []string{"John"},
 								Namespaces: []string{"foo"},
 							},
 						},
@@ -168,31 +167,7 @@ func TestIsSelected(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "GroupResource are not selected",
-			args: args{
-				claim: v1alpha1.AcceptablePermissionClaim{
-					State: v1alpha1.ClaimAccepted,
-					PermissionClaim: v1alpha1.PermissionClaim{
-						GroupResource: v1alpha1.GroupResource{
-							Group:    "",
-							Resource: "configmap",
-						},
-						All: true,
-						ResourceSelector: []v1alpha1.ResourceSelector{
-							{
-								Name:       "John",
-								Namespaces: []string{"foo"},
-							},
-						},
-					},
-				},
-				name:      "John",
-				namespace: "foo",
-			},
-			want: false,
-		},
-		{
-			name: "Resource selected not group",
+			name: "All namespaces selected",
 			args: args{
 				claim: v1alpha1.AcceptablePermissionClaim{
 					State: v1alpha1.ClaimAccepted,
@@ -201,19 +176,41 @@ func TestIsSelected(t *testing.T) {
 							Group:    "",
 							Resource: "cowboys",
 						},
-						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Name:       "John",
-								Namespaces: []string{"foo"},
+								Names:      []string{"John"},
+								Namespaces: []string{"*"},
 							},
 						},
 					},
 				},
 				name:      "John",
-				namespace: "foo",
+				namespace: "bar",
 			},
-			want: false,
+			want: true,
+		},
+		{
+			name: "All names selected",
+			args: args{
+				claim: v1alpha1.AcceptablePermissionClaim{
+					State: v1alpha1.ClaimAccepted,
+					PermissionClaim: v1alpha1.PermissionClaim{
+						GroupResource: v1alpha1.GroupResource{
+							Group:    "",
+							Resource: "cowboys",
+						},
+						ResourceSelector: []v1alpha1.ResourceSelector{
+							{
+								Names:      []string{"*"},
+								Namespaces: []string{"bar"},
+							},
+						},
+					},
+				},
+				name:      "Jim",
+				namespace: "bar",
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {

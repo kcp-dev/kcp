@@ -116,18 +116,19 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Logf("namespace %s ready", consumerNS1.Name)
 
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
-	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", "consumer-ns-1")
+	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("*", "consumer-ns-1")
 	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
+		updatedSheriffExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 
+		sheriffExport = updatedSheriffExport
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
 	t.Logf("binding consumer cluster and namespace to provider export")
-	binding := bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
+	binding := bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "*", consumerNS1.Name)
 	require.NotNil(t, binding)
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
@@ -154,7 +155,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 	require.Equal(t, consumerNS1.Name, newCM.Namespace)
-	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
+	t.Logf("cluster for CM: %s", logicalcluster.From(newCM).String())
 
 	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
 	cm.Namespace = consumerNS1.Name
@@ -197,6 +198,16 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return false, "not done waiting for ns2 to be created"
 	}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
 	t.Logf("namespace %s ready", consumerNS2.Name)
+
+	cm.Namespace = ""
+	framework.Eventually(t, func() (done bool, str string) {
+		newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 
 	t.Logf("updating permission claims to allow configmap by explicit name in any namespace")
 
@@ -277,7 +288,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
 	t.Logf("updating consumer APIBindings with single namespace PermissionClaim")
-	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "", consumerNS1.Name)
+	binding = bindConsumerToProviderCMExport(ctx, t, consumerPath, serviceProviderPath, kcpClusterClient, "*", consumerNS1.Name)
 	require.NotNil(t, binding)
 	cm = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -349,6 +360,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 }
 
 // makeNarrowCMPermissionClaim creates a PermissionClaim for ConfigMaps scoped to just a name, just a namespace, or both.
+// TODO(nrb): allow for multiple namespaces/names?
 func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.PermissionClaim {
 	return []apisv1alpha1.PermissionClaim{
 		{
@@ -356,14 +368,26 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 			All:           false,
 			ResourceSelector: []apisv1alpha1.ResourceSelector{
 				{
-					Name:       name,
+					Names:      []string{name},
 					Namespaces: []string{namespace},
+				},
+			},
+		},
+		// Allow the root CA configmap through always
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+			All:           false,
+			ResourceSelector: []apisv1alpha1.ResourceSelector{
+				{
+					Names:      []string{"kube-root-ca.crt "},
+					Namespaces: []string{""},
 				},
 			},
 		},
 	}
 }
 
+// TODO(nrb): allow for multiple namespaces/names?
 func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.AcceptablePermissionClaim {
 	return []apisv1alpha1.AcceptablePermissionClaim{
 		{
@@ -371,11 +395,25 @@ func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.Accep
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				ResourceSelector: []apisv1alpha1.ResourceSelector{
 					{
-						Name:       name,
+						Names:      []string{name},
 						Namespaces: []string{namespace},
 					},
 				},
 				All: false,
+			},
+			State: apisv1alpha1.ClaimAccepted,
+		},
+		// Allow the root CA configmap through always
+		{
+			PermissionClaim: apisv1alpha1.PermissionClaim{
+				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+				All:           false,
+				ResourceSelector: []apisv1alpha1.ResourceSelector{
+					{
+						Names:      []string{"kube-root-ca.crt "},
+						Namespaces: []string{""},
+					},
+				},
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},

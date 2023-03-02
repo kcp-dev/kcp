@@ -163,14 +163,27 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, names
 	for _, selector := range claim.ResourceSelector {
 		namespaceSelected, clusterScoped := selectsNamespaces(selector.Namespaces, namespace)
 
-		if selector.Name == name && (namespaceSelected || clusterScoped) {
+		if selectsName(selector.Names, name) && (namespaceSelected || clusterScoped) {
 			return true
 		}
 
-		// Selecting all objects in the namespace
-		if (namespaceSelected || clusterScoped) && selector.Name != name {
-			return true
-		}
+	}
+
+	return false
+}
+
+func selectsName(names []string, objectName string) bool {
+	if len(names) == 0 {
+		return true
+	}
+
+	if len(names) == 1 && names[0] == apisv1alpha1.ResourceSelectorAll {
+		return true
+	}
+
+	validNames := sets.NewString(names...)
+	if validNames.Has(objectName) {
+		return true
 	}
 
 	return false
@@ -187,7 +200,7 @@ func selectsNamespaces(namespaces []string, objectNamespace string) (bool, bool)
 	}
 
 	// Match all workspaces
-	if len(namespaces) == 1 && namespaces[0] == apisv1alpha1.ResourceSelectorAllNamespaces {
+	if len(namespaces) == 1 && namespaces[0] == apisv1alpha1.ResourceSelectorAll {
 		return true, false
 	}
 
