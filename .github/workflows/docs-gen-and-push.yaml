@@ -1,7 +1,11 @@
 name: Generate and push docs
 
 on:
+  # So we can trigger manually if needed
   workflow_dispatch:
+  # To confirm any changes to docs build successfully, without deploying them
+  pull_request:
+  # Pushes to branches do the full build + deployment
   push:
     branches:
       - main
