@@ -26,17 +26,9 @@ import (
 )
 
 func setCurrentContext(path string, newContext string) error {
-	// lock config file the same as client-go
-	if err := createLockFor(path); err != nil {
-		return fmt.Errorf("failed to lock kubeconfig '%s': %v", path, err)
-	}
-	defer func() {
-		_ = deleteLockFor(path)
-	}()
-
-	config, err := clientcmd.LoadFromFile(path)
+	config, err := loadConfig(path)
 	if err != nil {
-		return fmt.Errorf("failed to get kubeconfig '%s': %v", path, err)
+		return err
 	}
 
 	found := false
@@ -62,6 +54,22 @@ func setCurrentContext(path string, newContext string) error {
 	delete(config.AuthInfos, "workspace.kcp.io/previous")
 
 	return clientcmd.WriteToFile(*config, path)
+}
+
+func loadConfig(path string) (*clientcmdapi.Config, error) {
+	// lock config file the same as client-go
+	if err := createLockFor(path); err != nil {
+		return nil, fmt.Errorf("failed to lock kubeconfig '%s': %v", path, err)
+	}
+	defer func() {
+		_ = deleteLockFor(path)
+	}()
+
+	config, err := clientcmd.LoadFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubeconfig '%s': %v", path, err)
+	}
+	return config, nil
 }
 
 func mergeFromShard(runningShard framework.RunningServer, dst *clientcmdapi.Config) error {

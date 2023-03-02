@@ -70,6 +70,14 @@ type Shard struct {
 
 	// DeploymentCoordinator defines if a deployment coordinator has to be run for this Shard.
 	DeploymentCoordinator bool `json:"deploymentCoordinator,omitempty"`
+
+	// use an existing shard
+	Use *ExistingShard `json:"use,omitempty"`
+}
+
+// ExistingShard Defines an existing Shard to connect to.
+type ExistingShard struct {
+	KubeConfigPath string `json:"kubeConfigPath,omitempty"`
 }
 
 // Workspace initial configuration.

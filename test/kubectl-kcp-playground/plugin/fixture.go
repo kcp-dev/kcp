@@ -55,7 +55,7 @@ import (
 )
 
 const (
-	defaultRootDirectory = ".kcp"
+	defaultRootDirectory = ".kcp-playground"
 	kindSubFolderName    = "kind"
 
 	playgroundKubeconfigFileName = "playground.kubeconfig"
@@ -232,9 +232,19 @@ func (sp *StartedPlaygroundFixture) createShards(t *testing.T) {
 	t.Helper()
 
 	for _, shard := range sp.Spec.Shards {
-		sp.prettyPrint(" 🔹 Adding KCP shard '%s' 🏈...\n", shard.Name)
+		var runningShard framework.RunningServer
+		if shard.Use != nil {
+			sp.prettyPrint(" 🔹 Using KCP shard '%s' 🏈...\n", shard.Name)
+			runningShard = &existingKcpServer{
+				name:           shard.Name,
+				kubeconfigPath: shard.Use.KubeConfigPath,
+				artifacts:      sp.ArtifactsDirectory(),
+			}
+		} else {
+			sp.prettyPrint(" 🔹 Adding KCP shard '%s' 🏈...\n", shard.Name)
+			runningShard = framework.PrivateKcpServer(t, framework.WithScratchDirectories(sp.ArtifactsDirectory(), sp.RootDirectory()))
+		}
 
-		runningShard := framework.PrivateKcpServer(t, framework.WithScratchDirectories(sp.ArtifactsDirectory(), sp.RootDirectory()))
 		sp.Shards[shard.Name] = runningShard
 
 		err := mergeFromShard(runningShard, sp.kubeConfig)

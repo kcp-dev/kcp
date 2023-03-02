@@ -185,6 +185,10 @@ spec:
   # NOTE: As of today playground supports one shard only, and it must be named "main".
   shards:
     - name: main
+      
+      # Use an existing kcp instance (alternative to provision one on the flight)
+      use:
+        kubeConfigPath: <path to a kubeconfig>
 
       # Defines if a deployment coordinator has to be run for this Shard.
       deploymentCoordinator: true
