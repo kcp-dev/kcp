@@ -22,17 +22,24 @@ set -o xtrace
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$REPO_ROOT/docs"
 
-if [[ -n "${GITHUB_REF_NAME:-}" ]]; then
-  VERSION="${VERSION:-$GITHUB_REF_NAME}"
+if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+  # For PRs, we don't want to use GITHUB_REF_NAME, which will be something like merge/1234; instead, we want to use
+  # the branch the PR is targeting, such as main or release-0.11
+  VERSION=$GITHUB_BASE_REF
 else
-  VERSION=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
+  if [[ -n "${GITHUB_REF_NAME:-}" ]]; then
+    VERSION="${VERSION:-$GITHUB_REF_NAME}"
+  else
+    VERSION=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
+  fi
+
+  if echo "$VERSION" | grep '^release-[0-9]'; then
+    VERSION=v$(echo "$VERSION" | cut -d - -f 2)
+  elif echo "$VERSION" | grep '^v[0-9]\+\.[0-9]\+'; then
+    VERSION=$(echo "$VERSION" | grep -o '^v[0-9]\+\.[0-9]\+')
+  fi
 fi
 
-if echo "$VERSION" | grep '^release-[0-9]'; then
-  VERSION=v$(echo "$VERSION" | cut -d - -f 2)
-elif echo "$VERSION" | grep '^v[0-9]\+\.[0-9]\+'; then
-  VERSION=$(echo "$VERSION" | grep -o '^v[0-9]\+\.[0-9]\+')
-fi
 
 MIKE_OPTIONS=()
 
@@ -44,11 +51,13 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
+git config user.name kcp-docs-bot
+git config user.email no-reply@kcp.io
 
-if [[ -n "${CI:-}" ]]; then
+# Only push to gh-pages if we're in GitHub Actions (CI is set) and we have a non-PR event.
+if [[ -n "${CI:-}" && "${GITHUB_EVENT_NAME:-}" == "push" ]]; then
   MIKE_OPTIONS+=(--push)
-  git config user.name kcp-docs-bot
-  git config user.email no-reply@kcp.io
+
 fi
 
 mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"
