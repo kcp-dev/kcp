@@ -33,6 +33,10 @@ import (
 )
 
 func main() {
+	var (
+		kubeconfigPath  = ".kubeconfig"
+		resourcesToSync []string
+	)
 	cmd := &cobra.Command{
 		Use:        "pull-crds",
 		Aliases:    []string{},
@@ -45,8 +49,16 @@ func main() {
 				`),
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeconfigPath := cmd.Flag("kubeconfig").Value.String()
-			config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			loadingRules.ExplicitPath = kubeconfigPath
+
+			startingConfig, err := loadingRules.GetStartingConfig()
+			if err != nil {
+				return err
+			}
+
+			config, err := clientcmd.NewDefaultClientConfig(*startingConfig, nil).ClientConfig()
+
 			if err != nil {
 				return err
 			}
@@ -64,7 +76,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			crds, err := puller.PullCRDs(context.TODO(), args...)
+			crds, err := puller.PullCRDs(context.TODO(), resourcesToSync...)
 			if err != nil {
 				return err
 			}
@@ -81,8 +93,8 @@ func main() {
 		},
 	}
 
-	cmd.Flags().String("kubeconfig", ".kubeconfig", "kubeconfig file used to contact the cluster.")
-
+	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig", kubeconfigPath, "kubeconfig file used to contact the cluster.")
+	cmd.Flags().StringSliceVarP(&resourcesToSync, "resources", "r", resourcesToSync, "Resources to pull")
 	help.FitTerminal(cmd.OutOrStdout())
 
 	if err := cmd.Execute(); err != nil {
