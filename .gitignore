@@ -10,6 +10,3 @@ build
 # JetBrains IDE files
 .idea/
 *.iml
-
-kcp-docs-image
-docs/site
