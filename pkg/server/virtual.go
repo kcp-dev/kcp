@@ -17,6 +17,11 @@ limitations under the License.
 package server
 
 import (
+	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/clientsethack"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"net/http"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
@@ -83,6 +88,18 @@ func newVirtualConfig(
 	}); err != nil {
 		return nil, err
 	}
+	// apply admission to check permission claims for resources through the view's URL
+	admissionPluginInitializers := []admission.PluginInitializer{
+		kcpadmissioninitializers.NewKcpInformersInitializer(s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory),
+	}
+
+	s.Options.Virtual.Admission.ApplyTo(
+		&recommendedConfig.Config,
+		informerfactoryhack.Wrap(s.KubeSharedInformerFactory),
+		clientsethack.Wrap(s.KubeClusterClient),
+		utilfeature.DefaultFeatureGate,
+		admissionPluginInitializers...,
+	)
 
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,

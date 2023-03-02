@@ -199,15 +199,17 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
 	t.Logf("namespace %s ready", consumerNS2.Name)
 
+	// clear namespace so we can submit to a different one
 	cm.Namespace = ""
 	framework.Eventually(t, func() (done bool, str string) {
 		newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Create(ctx, cm, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
+		if apierrors.IsForbidden(err) {
+			return true, ""
 		}
-
-		return true, ""
+		return false, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
+
+	t.Logf("creation of configmap in namespace %s successfully forbidden", consumerNS2.Name)
 
 	t.Logf("updating permission claims to allow configmap by explicit name in any namespace")
 
@@ -374,16 +376,16 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 			},
 		},
 		// Allow the root CA configmap through always
-		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
-			All:           false,
-			ResourceSelector: []apisv1alpha1.ResourceSelector{
-				{
-					Names:      []string{"kube-root-ca.crt "},
-					Namespaces: []string{""},
-				},
-			},
-		},
+		//{
+		//	GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+		//	All:           false,
+		//	ResourceSelector: []apisv1alpha1.ResourceSelector{
+		//		{
+		//			Names:      []string{"kube-root-ca.crt "},
+		//			Namespaces: []string{""},
+		//		},
+		//	},
+		//},
 	}
 }
 
@@ -404,19 +406,19 @@ func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.Accep
 			State: apisv1alpha1.ClaimAccepted,
 		},
 		// Allow the root CA configmap through always
-		{
-			PermissionClaim: apisv1alpha1.PermissionClaim{
-				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
-				All:           false,
-				ResourceSelector: []apisv1alpha1.ResourceSelector{
-					{
-						Names:      []string{"kube-root-ca.crt "},
-						Namespaces: []string{""},
-					},
-				},
-			},
-			State: apisv1alpha1.ClaimAccepted,
-		},
+		//{
+		//	PermissionClaim: apisv1alpha1.PermissionClaim{
+		//		GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+		//		All:           false,
+		//		ResourceSelector: []apisv1alpha1.ResourceSelector{
+		//			{
+		//				Names:      []string{"kube-root-ca.crt "},
+		//				Namespaces: []string{""},
+		//			},
+		//		},
+		//	},
+		//	State: apisv1alpha1.ClaimAccepted,
+		//},
 	}
 }
 func bindConsumerToProviderCMExport(

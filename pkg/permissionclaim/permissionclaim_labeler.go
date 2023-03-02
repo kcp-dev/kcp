@@ -19,7 +19,6 @@ package permissionclaim
 import (
 	"context"
 	"fmt"
-
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,13 +73,12 @@ func NewLabeler(
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, bool, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, error) {
 	labels := map[string]string{}
-	admit := true
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
-		return nil, admit, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
+		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
 	}
 
 	logger := klog.FromContext(ctx)
@@ -98,17 +96,14 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			// There is no PermissionClaim for this object, no need to compute selection or admission criteria
+			// There is no PermissionClaim for this object, no need to compute selection
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
 				continue
 			}
 			if !Selects(claim, resourceName, resourceNamespace) {
-				// The permission claim is relevant for this object, but the object does not match the criteria for admission.
-				admit = false
+				// The permission claim is relevant for this object, but the object does not match the criteria
 				continue
 			}
-			// if the object is selected, allow it to be admitted.
-			admit = true
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
@@ -127,7 +122,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		binding, err := l.getAPIBinding(cluster, resourceName)
 		if err != nil {
 			logger.Error(err, "error getting APIBinding", "bindingName", resourceName)
-			return labels, admit, nil // can only be a NotFound
+			return labels, nil // can only be a NotFound
 		}
 
 		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
@@ -143,7 +138,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 	}
 
-	return labels, admit, nil
+	return labels, nil
 }
 
 // Selects indicates whether an object's name and namespace are selected by an accepted PermissionClaim.
@@ -161,9 +156,7 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, names
 	}
 
 	for _, selector := range claim.ResourceSelector {
-		namespaceSelected, clusterScoped := selectsNamespaces(selector.Namespaces, namespace)
-
-		if selectsName(selector.Names, name) && (namespaceSelected || clusterScoped) {
+		if selectsName(selector.Names, name) && selectsNamespaces(selector.Namespaces, namespace) {
 			return true
 		}
 
@@ -190,25 +183,25 @@ func selectsName(names []string, objectName string) bool {
 }
 
 // selectsNamespaces determines if an object's namespace matches a set of namespace values, and if it is cluster-scoped.
-func selectsNamespaces(namespaces []string, objectNamespace string) (bool, bool) {
+func selectsNamespaces(namespaces []string, objectNamespace string) bool {
 	// match cluster-scoped resources
 	if len(namespaces) == 0 && objectNamespace == "" {
-		return true, true
+		return true
 	}
 	if (len(namespaces) == 1 && namespaces[0] == "") && objectNamespace == "" {
-		return true, true
+		return true
 	}
 
-	// Match all workspaces
+	// Match all namespaces
 	if len(namespaces) == 1 && namespaces[0] == apisv1alpha1.ResourceSelectorAll {
-		return true, false
+		return true
 	}
 
 	// Match listed namespaces
 	validNamespaces := sets.NewString(namespaces...)
 	if validNamespaces.Has(objectNamespace) {
-		return true, false
+		return true
 	}
 
-	return false, false
+	return false
 }
