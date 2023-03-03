@@ -1,6 +1,6 @@
 ---
 description: >
-  How to add a new resource for replication by the cache server
+  How to add a new resource for replication by the cache server.
 ---
 
 # Replicating new resources in the cache server

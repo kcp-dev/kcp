@@ -1,6 +1,6 @@
 ---
 description: >
-    Inspecting Prometheus metrics of e2e runs
+    Inspecting Prometheus metrics of e2e runs.
 ---
 
 # Inspecting Prometheus metrics for e2e runs

@@ -1,6 +1,6 @@
 ---
 description: >
-  How to register Kubernetes clusters using syncer
+  How to register Kubernetes clusters using syncer.
 ---
 
 # Registering Kubernetes Clusters using syncer

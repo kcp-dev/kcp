@@ -1,6 +1,6 @@
 ---
 description: >
-  Information on the kcp release process
+  Information on the kcp release process.
 ---
 
 # Publishing a new kcp release

@@ -1,6 +1,6 @@
 ---
 description: >
-  How to use the cluster mapper
+  How to use the cluster mapper.
 ---
 
 # Cluster Mapper

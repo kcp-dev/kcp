@@ -1,6 +1,6 @@
 ---
 description: >
-  How to use the kubectl kcp plugin
+  How to use the kubectl kcp plugin.
 ---
 
 # kubectl kcp plugin
