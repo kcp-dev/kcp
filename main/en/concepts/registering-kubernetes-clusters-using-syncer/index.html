@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to register Kubernetes clusters using syncer
+        <meta name="description" content="How to register Kubernetes clusters using syncer.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/en/concepts/syncer/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/en/concepts/registering-kubernetes-clusters-using-syncer/">
       
       
-        <link rel="prev" href="../storage/">
+        <link rel="prev" href="../quickstart-tenancy-and-apis/">
       
       
-        <link rel="next" href="../virtual-workspaces/">
+        <link rel="next" href="../storage/">
       
       <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.0">
@@ -305,6 +305,8 @@
         
           
         
+          
+        
       
       
         
@@ -403,20 +405,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../locations-and-scheduling/" class="md-nav__link">
-        Placement, Locations, and Scheduling
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../partitions/" class="md-nav__link">
         Partition API
       </a>
@@ -431,8 +419,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
-        Quickstart: Tenancy and APIs
+      <a href="../placement-locations-and-scheduling/" class="md-nav__link">
+        Placement, Locations, and Scheduling
       </a>
     </li>
   
@@ -445,8 +433,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../storage/" class="md-nav__link">
-        Storage and stateful applications
+      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+        Quickstart: Tenancy and APIs
       </a>
     </li>
   
@@ -578,6 +566,34 @@
   
 </nav>
       
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../storage/" class="md-nav__link">
+        Storage and stateful applications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terminology/" class="md-nav__link">
+        Terminology for kcp
+      </a>
     </li>
   
 
@@ -1773,7 +1789,7 @@ kubernetes <code>APIExport</code> in workspace of <code>SyncTarget</code>, if an
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl kcp bind compute &lt;workspace of synctarget&gt; --location-selectors=env=test --namespace-selector=purpose=workload
 </code></pre></div>
 <p>this command will create a <code>Placement</code> selecting a <code>Location</code> with label <code>env=test</code> and bind the selected <code>Location</code> to namespaces with
-label <code>purpose=workload</code>. See more details of placement and location <a href="../locations-and-scheduling/">here</a></p>
+label <code>purpose=workload</code>. See more details of placement and location <a href="../placement-locations-and-scheduling/">here</a></p>
 <h3 id="running-a-workload">Running a workload</h3>
 <ol>
 <li>

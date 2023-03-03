@@ -6,15 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="How kcp handles storage and statefulness.
+">
+      
       
       
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/storage/">
       
       
-        <link rel="prev" href="../quickstart-tenancy-and-apis/">
+        <link rel="prev" href="../registering-kubernetes-clusters-using-syncer/">
       
       
-        <link rel="next" href="../syncer/">
+        <link rel="next" href="../terminology/">
       
       <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.0">
@@ -302,6 +305,8 @@
         
           
         
+          
+        
       
       
         
@@ -400,20 +405,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../locations-and-scheduling/" class="md-nav__link">
-        Placement, Locations, and Scheduling
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../partitions/" class="md-nav__link">
         Partition API
       </a>
@@ -428,8 +419,36 @@
   
   
     <li class="md-nav__item">
+      <a href="../placement-locations-and-scheduling/" class="md-nav__link">
+        Placement, Locations, and Scheduling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
         Quickstart: Tenancy and APIs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registering-kubernetes-clusters-using-syncer/" class="md-nav__link">
+        Registering Kubernetes Clusters using syncer
       </a>
     </li>
   
@@ -688,8 +707,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../syncer/" class="md-nav__link">
-        Registering Kubernetes Clusters using syncer
+      <a href="../terminology/" class="md-nav__link">
+        Terminology for kcp
       </a>
     </li>
   
@@ -1905,73 +1924,159 @@
 
 <h1 id="storage-and-stateful-applications">Storage and stateful applications</h1>
 <h2 id="overview">Overview</h2>
-<p>KCP provides a control plane that implements the concept of Transparent Multi Cluster (TMC) for compute, network, and storage. In order to give the illusion of transparent storage in KCP, it exposes the same Kubernetes APIs for storage (PVC/PV), so users and workloads do not need to be aware of the coordinations taken by the control plane behind the scenes.</p>
-<p>Placement for storage in KCP uses the same <a href="../locations-and-scheduling/#main-concepts">concepts used for compute</a>: "<code>SyncTargets</code> in a <code>Location</code> are transparent to the user, and workloads should be able to seamlessly move from one <code>SyncTarget</code> to another within a <code>Location</code>, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing capacity, or due to an outage of a cluster. It is the compute service's responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster."</p>
-<p>KCP will provide the basic controllers and coordination logic for moving volumes, as efficiently as possible, using the underlying storage topology and capabilities. It will use the <code>SyncTargets</code> storage APIs to manage volumes, and not require direct access from the control plane to the storage itself. For more advanced or custom solutions, KCP will allow external coordinators to take over.</p>
+<p>KCP provides a control plane that implements the concept of Transparent Multi Cluster (TMC) for compute, network, and
+storage. In order to give the illusion of transparent storage in KCP, it exposes the same Kubernetes APIs for storage (
+PVC/PV), so users and workloads do not need to be aware of the coordinations taken by the control plane behind the
+scenes.</p>
+<p>Placement for storage in KCP uses the
+same <a href="../placement-locations-and-scheduling/#main-concepts">concepts used for compute</a>: "<code>SyncTargets</code> in a <code>Location</code>
+are transparent to the user, and workloads should be able to seamlessly move from one <code>SyncTarget</code> to another within
+a <code>Location</code>, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing
+capacity, or due to an outage of a cluster. It is the compute service's responsibility to ensure that for workloads in a
+location, to the user it looks like ONE cluster."</p>
+<p>KCP will provide the basic controllers and coordination logic for moving volumes, as efficiently as possible, using the
+underlying storage topology and capabilities. It will use the <code>SyncTargets</code> storage APIs to manage volumes, and not
+require direct access from the control plane to the storage itself. For more advanced or custom solutions, KCP will
+allow external coordinators to take over.</p>
 <h2 id="main-concepts">Main concepts</h2>
 <ul>
 <li>
 <p><a href="../../investigations/transparent-multi-cluster/">Transparent multi-cluster</a> - describes the TMC concepts.</p>
 </li>
 <li>
-<p><a href="../locations-and-scheduling/">Placement, Locations and Scheduling</a> - describes the KCP APIs and mechanisms used to control compute placement, which will be used for storage as well. Refer to the concepts of <code>SyncTarget</code>, <code>Location</code>, and <code>Placement</code>.</p>
+<p><a href="../placement-locations-and-scheduling/">Placement, Locations and Scheduling</a> - describes the KCP APIs and mechanisms
+  used to control compute placement, which will be used for storage as well. Refer to the concepts
+  of <code>SyncTarget</code>, <code>Location</code>, and <code>Placement</code>.</p>
 </li>
 <li>
-<p><a href="https://kubernetes.io/docs/concepts/storage/">Kubernetes storage concepts</a> - documentation of storage APIs in Kubernetes.</p>
+<p><a href="https://kubernetes.io/docs/concepts/storage/">Kubernetes storage concepts</a> - documentation of storage APIs in
+  Kubernetes.</p>
 </li>
 <li>
-<p><a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/">Persistent Volumes</a> - PVCs are the main storage APIs used to request storage resources for applications. PVs are invisible to users, and used by administrators or privileged controllers to provision storage to user claims, and will be coordinated by KCP to support transparent multi-cluster storage.</p>
+<p><a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/">Persistent Volumes</a> - PVCs are the main storage APIs
+  used to request storage resources for applications. PVs are invisible to users, and used by administrators or
+  privileged controllers to provision storage to user claims, and will be coordinated by KCP to support transparent
+  multi-cluster storage.</p>
 </li>
 <li>
-<p><a href="https://kubernetes-csi.github.io/docs/">Kubernetes CSI</a> - The Container Storage Interface (CSI) is a standard for exposing arbitrary block and file storage systems to containerized workloads. The list of <a href="https://kubernetes-csi.github.io/docs/drivers.html">drivers</a> provides a "menu" of storage systems integrated with kubernetes and their properties.</p>
+<p><a href="https://kubernetes-csi.github.io/docs/">Kubernetes CSI</a> - The Container Storage Interface (CSI) is a standard for
+  exposing arbitrary block and file storage systems to containerized workloads. The list
+  of <a href="https://kubernetes-csi.github.io/docs/drivers.html">drivers</a> provides a "menu" of storage systems integrated with
+  kubernetes and their properties.</p>
 </li>
 <li>
-<p><a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#volume-claim-templates">StatefulSets volumeClaimTemplates</a> - workload definition used to manage “sharded” stateful applications. Specifying <code>volumeClaimTemplates</code> in the statefulset spec will provide stable storage by creating a PVC per instance.</p>
+<p><a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#volume-claim-templates">StatefulSets volumeClaimTemplates</a> -
+  workload definition used to manage “sharded” stateful applications. Specifying <code>volumeClaimTemplates</code> in the
+  statefulset spec will provide stable storage by creating a PVC per instance.</p>
 </li>
 </ul>
 <h2 id="volume-types">Volume types</h2>
-<p>Each physical-cluster (aka "pcluster") brings its own storage to multi-cluster environments, and in order to make efficient coordination decisions, KCP will identify the following types:</p>
+<p>Each physical-cluster (aka "pcluster") brings its own storage to multi-cluster environments, and in order to make
+efficient coordination decisions, KCP will identify the following types:</p>
 <h4 id="shared-network-volumes">Shared network-volumes</h4>
-<p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an infrastructure network. These volumes are typically provided by a shared-filesystem (aka <a href="https://en.wikipedia.org/wiki/Network-attached_storage">NAS</a>), with access-mode of ReadWriteMany (RWX) or ReadOnlyMany (ROX). A shared volume can be used by any pod from any pcluster (that can reach it) at the same time. The application is responsible for the consistency of its data (for example with eventual consistency semantics, or stronger synchronization services like zookeeper). Examples of such storage are generic-NFS/SMB, AWS-EFS, Azure-File, GCP-Filestore, CephFS, GlusterFS, NetApp, GPFS, etc.</p>
+<p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an
+infrastructure network. These volumes are typically provided by a shared-filesystem (
+aka <a href="https://en.wikipedia.org/wiki/Network-attached_storage">NAS</a>), with access-mode of ReadWriteMany (RWX) or
+ReadOnlyMany (ROX). A shared volume can be used by any pod from any pcluster (that can reach it) at the same time. The
+application is responsible for the consistency of its data (for example with eventual consistency semantics, or stronger
+synchronization services like zookeeper). Examples of such storage are generic-NFS/SMB, AWS-EFS, Azure-File,
+GCP-Filestore, CephFS, GlusterFS, NetApp, GPFS, etc.</p>
 <h4 id="owned-network-volumes">Owned network-volumes</h4>
-<p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an infrastructure network. However unlike shared volumes, owned volumes require that only a single node/pod will mount the volume at a time. These volumes are typically provided by a block-level storage system, with access-mode of ReadWriteOnce (RWO) or ReadWriteOncePod (RWOP). It is possible to <em>move</em> the ownership between pclusters (that have access to that storage), by detaching from the current owner, and then attaching to the new owner. But it would have to guarantee a single owner to prevent data inconsistencies or corruptions, and even work if the owner pcluster is offline (see forcing detach with “fencing” below). Examples of such storage are AWS-EBS, Azure-Disk, Ceph-RBD, etc.</p>
+<p>These volumes are provisioned from an external storage system that is available to all/some of the pclusters over an
+infrastructure network. However unlike shared volumes, owned volumes require that only a single node/pod will mount the
+volume at a time. These volumes are typically provided by a block-level storage system, with access-mode of
+ReadWriteOnce (RWO) or ReadWriteOncePod (RWOP). It is possible to <em>move</em> the ownership between pclusters (that have
+access to that storage), by detaching from the current owner, and then attaching to the new owner. But it would have to
+guarantee a single owner to prevent data inconsistencies or corruptions, and even work if the owner pcluster is
+offline (see forcing detach with “fencing” below). Examples of such storage are AWS-EBS, Azure-Disk, Ceph-RBD, etc.</p>
 <h4 id="internal-volumes">Internal volumes</h4>
-<p>These volumes are provisioned inside the pcluster itself, and rely on its internal resources (aka hyper-converged or software-defined storage). This means that the availability of the pcluster also determines the availability of the volume. In some systems these volumes are bound to a single node in the pcluster, because the storage is physically attached to a host. However, advanced clustered/distributed systems make efforts to overcome temporary and permanent node failures by adding data redundancy over multiple nodes. These volumes can have any type of access-mode (RWO/RWOP/RWX/ROX), but their strong dependency on the pcluster itself is the key difference from network volumes. Examples of such storage are host-path/local-drives, TopoLVM, Ceph-rook, Portworx, OpenEBS, etc.</p>
+<p>These volumes are provisioned inside the pcluster itself, and rely on its internal resources (aka hyper-converged or
+software-defined storage). This means that the availability of the pcluster also determines the availability of the
+volume. In some systems these volumes are bound to a single node in the pcluster, because the storage is physically
+attached to a host. However, advanced clustered/distributed systems make efforts to overcome temporary and permanent
+node failures by adding data redundancy over multiple nodes. These volumes can have any type of access-mode (
+RWO/RWOP/RWX/ROX), but their strong dependency on the pcluster itself is the key difference from network volumes.
+Examples of such storage are host-path/local-drives, TopoLVM, Ceph-rook, Portworx, OpenEBS, etc.</p>
 <h2 id="topology-and-locations">Topology and locations</h2>
 <h4 id="regular-topology">Regular topology</h4>
-<p>A regular storage topology is one where every <code>Location</code> is defined so that all of its <code>SyncTargets</code> are connected to the same storage system. This makes it trivial to move network volumes transparently between <code>SyncTargets</code> inside the same location.</p>
+<p>A regular storage topology is one where every <code>Location</code> is defined so that all of its <code>SyncTargets</code> are connected to
+the same storage system. This makes it trivial to move network volumes transparently between <code>SyncTargets</code> inside the
+same location.</p>
 <h4 id="multi-zone-cluster">Multi-zone cluster</h4>
-<p>A more complex topology is where pclusters contain nodes from several availability-zones, for the sake of being resilient to a zone failure. Since volumes are bound to a single zone (where they were provisioned), then a volume will not be able to move between <code>SyncTargets</code> without nodes on that zone. This is ok if all the <code>SyncTargets</code> of the <code>Location</code> span over the same set of zones, but if the zones are different, or the capacity per zone is too limited, copying to another zone might be necessary.</p>
+<p>A more complex topology is where pclusters contain nodes from several availability-zones, for the sake of being
+resilient to a zone failure. Since volumes are bound to a single zone (where they were provisioned), then a volume will
+not be able to move between <code>SyncTargets</code> without nodes on that zone. This is ok if all the <code>SyncTargets</code> of
+the <code>Location</code> span over the same set of zones, but if the zones are different, or the capacity per zone is too limited,
+copying to another zone might be necessary.</p>
 <h4 id="internal-volumes_1">Internal volumes</h4>
-<p>Internal volumes are always confined to one pcluster, which means it has to be copied outside of the pcluster continuously to keep the application available even in the case where the pcluster fails entirely (network split, region issue, etc). This is similar to how DR solutions work between locations.</p>
+<p>Internal volumes are always confined to one pcluster, which means it has to be copied outside of the pcluster
+continuously to keep the application available even in the case where the pcluster fails entirely (network split, region
+issue, etc). This is similar to how DR solutions work between locations.</p>
 <h4 id="disaster-recover-between-locations">Disaster recover between locations</h4>
-<p>A regular Disaster Recovery (DR) topology will create pairs of <code>Locations</code> so that one is “primary” and the other is “secondary” (sometimes this relation is mutual). For volumes to be able to move between these locations, their storage systems would need to be configured to mirror/replicate/backup/snapshot (whichever approach is more appropriate depends on the case) every volume to its secondary. With such a setup, KCP would need to be able to map between the volumes on the primary and the secondary, so that it could failover and move workloads to the secondary and reconnect to the last copied volume state. See more on the DR section below.</p>
+<p>A regular Disaster Recovery (DR) topology will create pairs of <code>Locations</code> so that one is “primary” and the other is
+“secondary” (sometimes this relation is mutual). For volumes to be able to move between these locations, their storage
+systems would need to be configured to mirror/replicate/backup/snapshot (whichever approach is more appropriate depends
+on the case) every volume to its secondary. With such a setup, KCP would need to be able to map between the volumes on
+the primary and the secondary, so that it could failover and move workloads to the secondary and reconnect to the last
+copied volume state. See more on the DR section below.</p>
 <h2 id="provisioning-volumes">Provisioning volumes</h2>
-<p>Volume provisioning in Kubernetes involves the CSI controllers and sidecar, as well as a custom storage driver. It reconciles PVCs by dynamically creating a PV for a PVC, and binding them together. This process depends on the CSI driver to be running on the <code>SyncTarget</code> compute resources, and would not be able to run on KCP workspaces. Instead, KCP will pick a designated <code>SyncTarget</code> for the workload placement, which will include the storage claims (PVCs), and the CSI driver on the <code>SyncTarget</code> will perform the storage provisioning.</p>
-<p>In order to support changing workload placement overtime, even if the provisioning <code>SyncTarget</code> is offline, KCP will have to retrieve the volume information from that <code>SyncTarget</code>, and keep it in the KCP workspace for future coordination. The volume information inside the PV is expected to be transferable between <code>SyncTargets</code> that connect to the same storage system and drivers, although some transformations would be required.</p>
-<p>To retrieve the volume information and maintain it in KCP, a special sync state is required that will sync <strong>UP</strong> the PV from a <code>SyncTarget</code> to KCP. This state is referred to as <code>Upsync</code> - see <a href="../locations-and-scheduling/#resource-upsyncing">Resource Upsyncing</a>.</p>
-<p>The provisioning flow includes: (A) PVC synced to <code>SyncTarget</code>, (B) CSI provisioning on the pcluster, (C) Syncer detects PVC binding and initiates PV <code>Upsync</code>. Transformations would be applied in KCP virtual workspace to make sure that the PVC and PV would appear bound in KCP, similar to how it is in a single cluster. Once provisioning itself is complete, coordination logic will switch to a normal <code>Sync</code> state, to allow multiple <code>SyncTargets</code> to share the same volume, and for owned volumes to move ownership to another <code>SyncTarget</code>.</p>
+<p>Volume provisioning in Kubernetes involves the CSI controllers and sidecar, as well as a custom storage driver. It
+reconciles PVCs by dynamically creating a PV for a PVC, and binding them together. This process depends on the CSI
+driver to be running on the <code>SyncTarget</code> compute resources, and would not be able to run on KCP workspaces. Instead, KCP
+will pick a designated <code>SyncTarget</code> for the workload placement, which will include the storage claims (PVCs), and the
+CSI driver on the <code>SyncTarget</code> will perform the storage provisioning.</p>
+<p>In order to support changing workload placement overtime, even if the provisioning <code>SyncTarget</code> is offline, KCP will
+have to retrieve the volume information from that <code>SyncTarget</code>, and keep it in the KCP workspace for future
+coordination. The volume information inside the PV is expected to be transferable between <code>SyncTargets</code> that connect to
+the same storage system and drivers, although some transformations would be required.</p>
+<p>To retrieve the volume information and maintain it in KCP, a special sync state is required that will sync <strong>UP</strong> the PV
+from a <code>SyncTarget</code> to KCP. This state is referred to as <code>Upsync</code> -
+see <a href="../placement-locations-and-scheduling/#resource-upsyncing">Resource Upsyncing</a>.</p>
+<p>The provisioning flow includes: (A) PVC synced to <code>SyncTarget</code>, (B) CSI provisioning on the pcluster, (C) Syncer detects
+PVC binding and initiates PV <code>Upsync</code>. Transformations would be applied in KCP virtual workspace to make sure that the
+PVC and PV would appear bound in KCP, similar to how it is in a single cluster. Once provisioning itself is complete,
+coordination logic will switch to a normal <code>Sync</code> state, to allow multiple <code>SyncTargets</code> to share the same volume, and
+for owned volumes to move ownership to another <code>SyncTarget</code>.</p>
 <h2 id="moving-shared-volumes">Moving shared volumes</h2>
-<p>Shared volume can easily move to any <code>SyncTarget</code> in the same <code>Location</code> by syncing the PVC and PV together, so they bind only to each other on the pcluster. Syncing will transform their mutual references so that the <code>PVC.volumeName = PV.name</code> and <code>PV.claimRef = { PVC.name, PVC.namespace }</code> are set appropriately for the <code>SyncTarget</code>, since the downstream <code>PVC.namespace</code> and <code>PV.name</code> will not be the same as upstream.</p>
-<p>Moving volumes will set the volume's <code>reclaimPolicy</code> to always <code>Retain</code>, to avoid unintended deletion by any one of the <code>SyncTargets</code> while others use it. Once deletion of the upstream PVC is initiated, the coordination controller will transform the <code>reclaimPolicy</code> to <code>Delete</code> for one of the <code>SyncTargets</code>. See more in the section on deleting volumes.</p>
+<p>Shared volume can easily move to any <code>SyncTarget</code> in the same <code>Location</code> by syncing the PVC and PV together, so they
+bind only to each other on the pcluster. Syncing will transform their mutual references so that
+the <code>PVC.volumeName = PV.name</code> and <code>PV.claimRef = { PVC.name, PVC.namespace }</code> are set appropriately for
+the <code>SyncTarget</code>, since the downstream <code>PVC.namespace</code> and <code>PV.name</code> will not be the same as upstream.</p>
+<p>Moving volumes will set the volume's <code>reclaimPolicy</code> to always <code>Retain</code>, to avoid unintended deletion by any one of
+the <code>SyncTargets</code> while others use it. Once deletion of the upstream PVC is initiated, the coordination controller will
+transform the <code>reclaimPolicy</code> to <code>Delete</code> for one of the <code>SyncTargets</code>. See more in the section on deleting volumes.</p>
 <h2 id="moving-owned-volumes">Moving owned volumes</h2>
 <blockquote>
 <p><strong>TBD</strong> - this section is a work in progress...</p>
 </blockquote>
 <h4 id="detach-from-owner">Detach from owner</h4>
-<p>Owned volumes require that <em>at most one</em> pcluster can use them at any given time. As placement changes, the coordination controller is responsible to serialize the state changes of the volume to move the ownership of the volume safely. First, it will detach the volume from the current owner, and wait for it to acknowledge that it successfully removed it, and only then will sync the volume to a new target. </p>
+<p>Owned volumes require that <em>at most one</em> pcluster can use them at any given time. As placement changes, the coordination
+controller is responsible to serialize the state changes of the volume to move the ownership of the volume safely.
+First, it will detach the volume from the current owner, and wait for it to acknowledge that it successfully removed it,
+and only then will sync the volume to a new target.</p>
 <h4 id="forcing-detach-with-fencing">Forcing detach with fencing</h4>
-<p>However, in case the owner is not able to acknowledge that it detached the volume, a forced-detach flow might be possible. The storage system has to support a CSI extension for network fencing, effectively blocking an entire pcluster from accessing the storage until fencing is removed. Once the failed pcluster recovers, and can acknowledge that it detached from the moved volumes, fencing will be removed from the storage and that pcluster can recover the rest of its workloads. </p>
+<p>However, in case the owner is not able to acknowledge that it detached the volume, a forced-detach flow might be
+possible. The storage system has to support a CSI extension for network fencing, effectively blocking an entire pcluster
+from accessing the storage until fencing is removed. Once the failed pcluster recovers, and can acknowledge that it
+detached from the moved volumes, fencing will be removed from the storage and that pcluster can recover the rest of its
+workloads.</p>
 <ul>
 <li><a href="https://github.com/csi-addons/kubernetes-csi-addons">kubernetes-csi-addons</a></li>
-<li><a href="https://github.com/csi-addons/kubernetes-csi-addons/blob/main/docs/networkfence.md">NetworkFence</a> (currently implemented only by ceph-csi).</li>
+<li><a href="https://github.com/csi-addons/kubernetes-csi-addons/blob/main/docs/networkfence.md">NetworkFence</a> (currently
+  implemented only by ceph-csi).</li>
 </ul>
 <h2 id="storage-classes">Storage classes</h2>
 <blockquote>
 <p><strong>TBD</strong> - this section is a work in progress...</p>
 </blockquote>
-<p>Storage classes can be thought of as templates to PVs, which allow pclusters to support multiple storage providers, or configure different policies for the same provider. Just like PVs are invisible to users, so do storage classes. However, users may choose a storage class by name when specifying their PVCs. When the storage class field is left unspecified (which is common), the pcluster will use its default storage class. However, the default storage class is a bit limited for multi-tenancy because it is one class per the entire pcluster.</p>
-<p>Matching storage classes between <code>SyncTargets</code> in the same <code>Location</code> would be a simple way to ensure that storage can be moved transparently. However KCP should be able to verify the storage classes match across the <code>Location</code> and warn when this is not the case, to prevent future issues.</p>
+<p>Storage classes can be thought of as templates to PVs, which allow pclusters to support multiple storage providers, or
+configure different policies for the same provider. Just like PVs are invisible to users, so do storage classes.
+However, users may choose a storage class by name when specifying their PVCs. When the storage class field is left
+unspecified (which is common), the pcluster will use its default storage class. However, the default storage class is a
+bit limited for multi-tenancy because it is one class per the entire pcluster.</p>
+<p>Matching storage classes between <code>SyncTargets</code> in the same <code>Location</code> would be a simple way to ensure that storage can
+be moved transparently. However KCP should be able to verify the storage classes match across the <code>Location</code> and warn
+when this is not the case, to prevent future issues.</p>
 <h4 id="open-questions">Open questions</h4>
 <ul>
 <li>How to match classes and make sure the same storage system is used in the location?</li>
@@ -1983,10 +2088,18 @@
 <blockquote>
 <p><strong>TBD</strong> - this section is a work in progress...</p>
 </blockquote>
-<p><a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming">Persistent-volumes reclaiming</a> allows volumes to be configured how to behave when they are reclaimed. By default, storage classes will apply a <code>reclaimPolicy: Delete</code> to dynamically provisioned PVs unless explicitly specified to <code>Retain</code>. This means that volumes there were provisioned, will also get de-provisioned and their storage will be deleted. However, admins can modify the class to <code>Retain</code> volumes, and invoke cleanup on their own schedule.</p>
-<p>While moving volumes, either shared or owned, the volume's <code>reclaimPolicy</code> will be set to <code>Retain</code> to prevent any <code>SyncTarget</code> from releasing the volume storage on scheduling changes.</p>
-<p>Once the PVC is marked for deletion on KCP, the coordination controller will first pick one <code>SyncTarget</code> as owner (or use the current owner for owned volumes) and make sure to remove all sharers, and wait for their sync state to be cleared. Then it will set the owner's volume <code>reclaimPolicy</code> to <code>Delete</code> so that it will release the volume storage.</p>
-<p>Setting a PV to <code>Retain</code> on KCP itself should also be respected by the controllers and allow manual cleanup of the volume in KCP, instead of automatically with the PVC.</p>
+<p><a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming">Persistent-volumes reclaiming</a> allows
+volumes to be configured how to behave when they are reclaimed. By default, storage classes will apply
+a <code>reclaimPolicy: Delete</code> to dynamically provisioned PVs unless explicitly specified to <code>Retain</code>. This means that
+volumes there were provisioned, will also get de-provisioned and their storage will be deleted. However, admins can
+modify the class to <code>Retain</code> volumes, and invoke cleanup on their own schedule.</p>
+<p>While moving volumes, either shared or owned, the volume's <code>reclaimPolicy</code> will be set to <code>Retain</code> to prevent
+any <code>SyncTarget</code> from releasing the volume storage on scheduling changes.</p>
+<p>Once the PVC is marked for deletion on KCP, the coordination controller will first pick one <code>SyncTarget</code> as owner (or
+use the current owner for owned volumes) and make sure to remove all sharers, and wait for their sync state to be
+cleared. Then it will set the owner's volume <code>reclaimPolicy</code> to <code>Delete</code> so that it will release the volume storage.</p>
+<p>Setting a PV to <code>Retain</code> on KCP itself should also be respected by the controllers and allow manual cleanup of the
+volume in KCP, instead of automatically with the PVC.</p>
 <h2 id="copying-volumes">Copying volumes</h2>
 <blockquote>
 <p><strong>TBD</strong> - this section is a work in progress...</p>
@@ -2011,10 +2124,12 @@
 <h4 id="shared-nfs-storage">Shared NFS storage</h4>
 <ul>
 <li>NFS server running in every location, external to the <code>SyncTarget</code>, but available over the network.</li>
-<li>Note that high-availability and data-protection of the storage itself is out of scope and would be handled by storage admin or provided by enterprise products.</li>
+<li>Note that high-availability and data-protection of the storage itself is out of scope and would be handled by storage
+  admin or provided by enterprise products.</li>
 <li>Workloads allow volumes with RWX access-mode.</li>
 <li>KCP picks one <code>SyncTarget</code> to be the provisioner and syncs up the volume information.</li>
-<li>After provisioning completes, sync down to any <code>SyncTarget</code> in the <code>Location</code> that the workload decides to be placed to allow moving transparently as needed when clusters become offline or drained.</li>
+<li>After provisioning completes, sync down to any <code>SyncTarget</code> in the <code>Location</code> that the workload decides to be placed
+  to allow moving transparently as needed when clusters become offline or drained.</li>
 <li>Once the PVC is deleted, the deletion of the volume itself is performed by one of the <code>SyncTargets</code>.</li>
 </ul>
 <h2 id="roadmap">Roadmap</h2>

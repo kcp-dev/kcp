@@ -64,17 +64,17 @@
          
     </url>
     <url>
-         <loc>https://docs.kcp.io/kcp/main/concepts/locations-and-scheduling/</loc>
-         <lastmod>2023-03-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/locations-and-scheduling/"/>
-         
-    </url>
-    <url>
          <loc>https://docs.kcp.io/kcp/main/concepts/partitions/</loc>
          <lastmod>2023-03-03</lastmod>
          <changefreq>daily</changefreq>
          <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/partitions/"/>
+         
+    </url>
+    <url>
+         <loc>https://docs.kcp.io/kcp/main/concepts/placement-locations-and-scheduling/</loc>
+         <lastmod>2023-03-03</lastmod>
+         <changefreq>daily</changefreq>
+         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/placement-locations-and-scheduling/"/>
          
     </url>
     <url>
@@ -85,6 +85,13 @@
          
     </url>
     <url>
+         <loc>https://docs.kcp.io/kcp/main/concepts/registering-kubernetes-clusters-using-syncer/</loc>
+         <lastmod>2023-03-03</lastmod>
+         <changefreq>daily</changefreq>
+         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/registering-kubernetes-clusters-using-syncer/"/>
+         
+    </url>
+    <url>
          <loc>https://docs.kcp.io/kcp/main/concepts/storage/</loc>
          <lastmod>2023-03-03</lastmod>
          <changefreq>daily</changefreq>
@@ -92,10 +99,10 @@
          
     </url>
     <url>
-         <loc>https://docs.kcp.io/kcp/main/concepts/syncer/</loc>
+         <loc>https://docs.kcp.io/kcp/main/concepts/terminology/</loc>
          <lastmod>2023-03-03</lastmod>
          <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/syncer/"/>
+         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/concepts/terminology/"/>
          
     </url>
     <url>
