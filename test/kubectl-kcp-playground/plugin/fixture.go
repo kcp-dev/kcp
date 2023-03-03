@@ -504,7 +504,9 @@ func (sp *StartedPlaygroundFixture) createAPIExports(t *testing.T, server framew
 
 		obj := &apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiExport.Name,
+				Name:        apiExport.Name,
+				Labels:      apiExport.Labels,
+				Annotations: apiExport.Annotations,
 			},
 			Spec: apisv1alpha1.APIExportSpec{
 				PermissionClaims: apiExport.PermissionClaims,
@@ -546,7 +548,9 @@ func (sp *StartedPlaygroundFixture) createAPIBindings(t *testing.T, server frame
 
 		obj := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiBinding.Name,
+				Name:        apiBinding.Name,
+				Labels:      apiBinding.Labels,
+				Annotations: apiBinding.Annotations,
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{

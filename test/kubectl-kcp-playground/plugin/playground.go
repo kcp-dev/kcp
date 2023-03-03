@@ -139,7 +139,7 @@ type Location struct {
 	Name string `json:"name,omitempty"`
 
 	// Labels to be applied to the Location.
-	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,11,rep,name=labels"`
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// InstanceSelector to be used to select instances/synctargets
 	// to be included in this location.
@@ -186,6 +186,12 @@ type APIExport struct {
 	// Name of the APIExport.
 	Name string `json:"name,omitempty"`
 
+	// Labels to be applied to the APIExport.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations to be applied to the APIExport.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// APIResourceSchemas to be exported.
 	APIResourceSchemas []string `json:"apiResourceSchemas,omitempty"`
 
@@ -198,6 +204,12 @@ type APIExport struct {
 type APIBinding struct {
 	// Name of the APIBinding.
 	Name string `json:"name,omitempty"`
+
+	// Labels to be applied to the APIBinding.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations to be applied to the APIBinding.
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// APIExport to bind to.
 	APIExport apisv1alpha1.ExportBindingReference `json:"apiExport,omitempty"`

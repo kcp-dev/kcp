@@ -270,6 +270,10 @@ spec:
           # APIExport to be added to the workspace.
           apiExports:
             - name: "<apiExport name>" # required
+              labels:
+                "<key>": "<value>"
+              annotations:
+                "<key>": "<value>"
               apiResourceSchemas: # required
                 - "<apiResourceSchema name>"
               permissionClaims: 
@@ -279,6 +283,10 @@ spec:
           # APIBinding to be added to the workspace.
           apiBindings:
             - name: "<apiBinding name>" # required
+              labels:
+                "<key>": "<value>"
+              annotations:
+                "<key>": "<value>"
               apiExport:
                 - path: "<absolute reference to the workspace that owns this APIExport>"
                   name: "<name of the APIExport>"
