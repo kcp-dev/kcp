@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 set -o xtrace
 
-REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$REPO_ROOT/docs"
 
 if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
@@ -40,7 +40,6 @@ else
   fi
 fi
 
-
 MIKE_OPTIONS=()
 
 if [[ -n "${REMOTE:-}" ]]; then
@@ -51,13 +50,15 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
-git config user.name kcp-docs-bot
-git config user.email no-reply@kcp.io
+if [[ -n "${CI:-}" ]]; then
+  if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]]; then
+    # Only push to gh-pages if we're in GitHub Actions (CI is set) and we have a non-PR event.
+    MIKE_OPTIONS+=(--push)
+  fi
 
-# Only push to gh-pages if we're in GitHub Actions (CI is set) and we have a non-PR event.
-if [[ -n "${CI:-}" && "${GITHUB_EVENT_NAME:-}" == "push" ]]; then
-  MIKE_OPTIONS+=(--push)
-
+  # Always set git user info in CI because even if we're not pushing, we need it
+  git config user.name kcp-docs-bot
+  git config user.email no-reply@kcp.io
 fi
 
 mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"

@@ -174,12 +174,12 @@ REQUIREMENTS_TXT=docs/requirements.txt
 .PHONY: serve-docs
 serve-docs: venv
 	. $(VENV)/activate; \
-	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/serve-docs.sh
+	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/serve-docs.sh
 
 .PHONY: deploy-docs
 deploy-docs: venv
 	. $(VENV)/activate; \
-	REMOTE=$(REMOTE) BRANCH=$(BRANCH) hack/deploy-docs.sh
+	REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/deploy-docs.sh
 
 vendor: ## Vendor the dependencies
 	go mod tidy
