@@ -337,6 +337,13 @@
          
     </url>
     <url>
+         <loc>https://docs.kcp.io/kcp/main/reference/crd/apiconversions.apis.kcp.io/</loc>
+         <lastmod>2023-03-03</lastmod>
+         <changefreq>daily</changefreq>
+         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/crd/apiconversions.apis.kcp.io/"/>
+         
+    </url>
+    <url>
          <loc>https://docs.kcp.io/kcp/main/reference/crd/apiexportendpointslices.apis.kcp.io/</loc>
          <lastmod>2023-03-03</lastmod>
          <changefreq>daily</changefreq>

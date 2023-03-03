@@ -6,26 +6,25 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="APIBinding enables a set of resources and their behaviour through an external service provider in this workspace. 
- The service provider uses an APIExport to expose the API.
+        <meta name="description" content="APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match the name of the APIResourceSchema for the conversions to take effect.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/crd/apibindings.apis.kcp.io/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/crd/apiconversions.apis.kcp.io/">
       
       
-        <link rel="prev" href="../../cli/kcp_workspace_use/">
+        <link rel="prev" href="../apibindings.apis.kcp.io/">
       
       
-        <link rel="next" href="../apiconversions.apis.kcp.io/">
+        <link rel="next" href="../apiexportendpointslices.apis.kcp.io/">
       
       <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.0">
     
     
       
-        <title>APIBinding - kcp Documentation</title>
+        <title>APIConversion - kcp Documentation</title>
       
     
     
@@ -75,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#apibinding-crd-schema-reference-group-apiskcpio" class="md-skip">
+        <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              APIBinding
+              APIConversion
             
           </span>
         </div>
@@ -1202,6 +1201,20 @@
               
   
   
+  
+    <li class="md-nav__item">
+      <a href="../apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
     
   
   
@@ -1212,12 +1225,12 @@
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          APIBinding
+          APIConversion
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        APIBinding
+        APIConversion
       </a>
       
         
@@ -1234,8 +1247,8 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#apibinding-crd-schema-reference-group-apiskcpio" class="md-nav__link">
-    APIBinding CRD schema reference (group apis.kcp.io)
+  <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-nav__link">
+    APIConversion CRD schema reference (group apis.kcp.io)
   </a>
   
 </li>
@@ -1244,20 +1257,6 @@
   
 </nav>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../apiconversions.apis.kcp.io/" class="md-nav__link">
-        APIConversion
-      </a>
     </li>
   
 
@@ -1497,8 +1496,8 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#apibinding-crd-schema-reference-group-apiskcpio" class="md-nav__link">
-    APIBinding CRD schema reference (group apis.kcp.io)
+  <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-nav__link">
+    APIConversion CRD schema reference (group apis.kcp.io)
   </a>
   
 </li>
@@ -1521,22 +1520,21 @@
   
 
 
-  <h1>APIBinding</h1>
+  <h1>APIConversion</h1>
 
-<h2 id="apibinding-crd-schema-reference-group-apiskcpio">APIBinding CRD schema reference (group apis.kcp.io)</h2>
-<div class="lead">APIBinding enables a set of resources and their behaviour through an external service provider in this workspace. 
- The service provider uses an APIExport to expose the API.
+<h2 id="apiconversion-crd-schema-reference-group-apiskcpio">APIConversion CRD schema reference (group apis.kcp.io)</h2>
+<div class="lead">APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match the name of the APIResourceSchema for the conversions to take effect.
 </div>
 
 <dl class="crd-meta">
 <dt class="fullname">Full name:</dt>
-<dd class="fullname">apibindings.apis.kcp.io</dd>
+<dd class="fullname">apiconversions.apis.kcp.io</dd>
 <dt class="groupname">Group:</dt>
 <dd class="groupname">apis.kcp.io</dd>
 <dt class="singularname">Singular name:</dt>
-<dd class="singularname">apibinding</dd>
+<dd class="singularname">apiconversion</dd>
 <dt class="pluralname">Plural name:</dt>
-<dd class="pluralname">apibindings</dd>
+<dd class="pluralname">apiconversions</dd>
 <dt class="scope">Scope:</dt>
 <dd class="scope">Cluster</dd>
 <dt class="versions">Versions:</dt>
@@ -1594,7 +1592,7 @@
 <div class="property-body">
 <div class="property-meta">
 <span class="property-type">object</span>
-
+<span class="property-required">Required</span>
 </div>
 
 </div>
@@ -1607,7 +1605,7 @@
 <div class="property-body">
 <div class="property-meta">
 <span class="property-type">object</span>
-
+<span class="property-required">Required</span>
 </div>
 
 <div class="property-description">
@@ -1620,16 +1618,16 @@
 
 <div class="property depth-1">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims">.spec.permissionClaims</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions">.spec.conversions</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
 <span class="property-type">array</span>
-
+<span class="property-required">Required</span>
 </div>
 
 <div class="property-description">
-<p>permissionClaims records decisions about permission claims requested by the API service provider. Individual claims can be accepted or rejected. If accepted, the API service provider gets the requested access to the specified resources in this workspace. Access is granted per GroupResource, identity, and other properties.</p>
+<p>conversions specify rules to convert between different API versions in an APIResourceSchema.</p>
 
 </div>
 
@@ -1638,7 +1636,7 @@
 
 <div class="property depth-2">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*]">.spec.permissionClaims[*]</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*]">.spec.conversions[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -1647,7 +1645,7 @@
 </div>
 
 <div class="property-description">
-<p>AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.</p>
+<p>APIVersionConversion contains rules to convert between two specific API versions in an APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that contains a new field to one that doesn&rsquo;t and back again, you can specify a list of fields to preserve (these are stored in annotations).</p>
 
 </div>
 
@@ -1656,61 +1654,7 @@
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].all">.spec.permissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].group">.spec.permissionClaims[*].group</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].identityHash">.spec.permissionClaims[*].identityHash</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].resource">.spec.permissionClaims[*].resource</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].from">.spec.conversions[*].from</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -1719,7 +1663,7 @@
 </div>
 
 <div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
+<p>from is the source version.</p>
 
 </div>
 
@@ -1728,7 +1672,7 @@
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].resourceSelector">.spec.permissionClaims[*].resourceSelector</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].preserve">.spec.conversions[*].preserve</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -1737,7 +1681,7 @@
 </div>
 
 <div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
+<p>preserve contains a list of JSONPath expressions to fields to preserve in the originating version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -1746,11 +1690,47 @@
 
 <div class="property depth-4">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].resourceSelector[*]">.spec.permissionClaims[*].resourceSelector[*]</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].preserve[*]">.spec.conversions[*].preserve[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules">.spec.conversions[*].rules</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>rules contains field-specific conversion expressions.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*]">.spec.conversions[*].rules[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
 <span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>APIConversionRule specifies how to convert a single field.</p>
 
 </div>
 
@@ -1759,16 +1739,16 @@
 
 <div class="property depth-5">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].resourceSelector[*].name">.spec.permissionClaims[*].resourceSelector[*].name</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].destination">.spec.conversions[*].rules[*].destination</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
 <span class="property-type">string</span>
-
+<span class="property-required">Required</span>
 </div>
 
 <div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
+<p>destination is a JSONPath expression to the field in the target version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -1777,74 +1757,7 @@
 
 <div class="property depth-5">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].resourceSelector[*].namespace">.spec.permissionClaims[*].resourceSelector[*].namespace</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.permissionClaims[*].state">.spec.permissionClaims[*].state</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.reference">.spec.reference</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>reference uniquely identifies an API to bind to.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.reference.export">.spec.reference.export</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb <code>bind</code> in order to bind to it.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.reference.export.name">.spec.reference.export.name</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].field">.spec.conversions[*].rules[*].field</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -1853,200 +1766,7 @@
 </div>
 
 <div class="property-description">
-<p>name is the name of the APIExport that describes the API.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.reference.export.path">.spec.reference.export.path</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>path is a logical cluster path where the APIExport is defined. If the path is unset, the logical cluster of the APIBinding is used.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-0">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status">.status</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>Status communicates the observed state.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.apiExportClusterName">.status.apiExportClusterName</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims">.status.appliedPermissionClaims</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>appliedPermissionClaims is a list of the permission claims the system has seen and applied, according to the requests of the API service provider in the APIExport and the acceptance state in spec.permissionClaims.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*]">.status.appliedPermissionClaims[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].all">.status.appliedPermissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].group">.status.appliedPermissionClaims[*].group</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].identityHash">.status.appliedPermissionClaims[*].identityHash</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].resource">.status.appliedPermissionClaims[*].resource</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].resourceSelector">.status.appliedPermissionClaims[*].resourceSelector</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].resourceSelector[*]">.status.appliedPermissionClaims[*].resourceSelector[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
+<p>field is a JSONPath expression to the field in the originating version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -2055,7 +1775,7 @@
 
 <div class="property depth-5">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].resourceSelector[*].name">.status.appliedPermissionClaims[*].resourceSelector[*].name</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].transformation">.spec.conversions[*].rules[*].transformation</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -2064,61 +1784,7 @@
 </div>
 
 <div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.appliedPermissionClaims[*].resourceSelector[*].namespace">.status.appliedPermissionClaims[*].resourceSelector[*].namespace</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources">.status.boundResources</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>boundResources records the state of bound APIs.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*]">.status.boundResources[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..</p>
+<p>transformation is an optional CEL expression used to execute user-specified rules to transform the originating field &ndash; identified by &lsquo;self&rsquo; &ndash; to the destination field.</p>
 
 </div>
 
@@ -2127,7 +1793,7 @@
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].group">.status.boundResources[*].group</h3>
+<h3 class="property-path" id="v1alpha1-.spec.conversions[*].to">.spec.conversions[*].to</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -2136,467 +1802,7 @@
 </div>
 
 <div class="property-description">
-<p>group is the group of the bound API. Empty string for the core API group.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].resource">.status.boundResources[*].resource</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>resource is the resource of the bound API.
- kubebuilder:validation:MinLength=1</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].schema">.status.boundResources[*].schema</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>Schema references the APIResourceSchema that is bound to this API.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].schema.UID">.status.boundResources[*].schema.UID</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>UID is the UID of the APIResourceSchema that is bound to this API.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].schema.identityHash">.status.boundResources[*].schema.identityHash</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>identityHash is the hash of the API identity that this schema is bound to. The API identity determines the etcd prefix used to persist the object. Different identity means that the objects are effectively served and stored under a distinct resource. A CRD of the same GroupVersionResource uses a different identity and hence a separate etcd prefix.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].schema.name">.status.boundResources[*].schema.name</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>name is the bound APIResourceSchema name.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].storageVersions">.status.boundResources[*].storageVersions</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>storageVersions lists all versions of a resource that were ever persisted. Tracking these versions allows a migration path for stored versions in etcd. The field is mutable so a migration controller can finish a migration to another version (ensuring no old objects are left in storage), and then remove the rest of the versions from this list.
- Versions may not be removed while they exist in this list.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.boundResources[*].storageVersions[*]">.status.boundResources[*].storageVersions[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions">.status.conditions</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>conditions is a list of conditions that apply to the APIBinding.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*]">.status.conditions[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>Condition defines an observation of a object operational state.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].lastTransitionTime">.status.conditions[*].lastTransitionTime</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].message">.status.conditions[*].message</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>A human readable message indicating details about the transition. This field may be empty.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].reason">.status.conditions[*].reason</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>The reason for the condition&rsquo;s last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].severity">.status.conditions[*].severity</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].status">.status.conditions[*].status</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>Status of the condition, one of True, False, Unknown.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.conditions[*].type">.status.conditions[*].type</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims">.status.exportPermissionClaims</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>exportPermissionClaims records the permissions that the export provider is asking for the binding to grant.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*]">.status.exportPermissionClaims[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].all">.status.exportPermissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].group">.status.exportPermissionClaims[*].group</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].identityHash">.status.exportPermissionClaims[*].identityHash</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].resource">.status.exportPermissionClaims[*].resource</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].resourceSelector">.status.exportPermissionClaims[*].resourceSelector</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].resourceSelector[*]">.status.exportPermissionClaims[*].resourceSelector[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].resourceSelector[*].name">.status.exportPermissionClaims[*].resourceSelector[*].name</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.exportPermissionClaims[*].resourceSelector[*].namespace">.status.exportPermissionClaims[*].resourceSelector[*].namespace</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.status.phase">.status.phase</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>phase is the current phase of the APIBinding: - &ldquo;&rdquo;: the APIBinding has just been created, waiting to be bound. - Binding: the APIBinding is being bound. - Bound: the APIBinding is bound and the referenced APIs are available in the workspace.</p>
+<p>to is the target version.</p>
 
 </div>
 
