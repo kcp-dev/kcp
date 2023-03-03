@@ -36,6 +36,6 @@ fi
 # Generate new content
 $CONTAINER_ENGINE run --rm \
     -v "${DESTINATION}":/opt/crd-docs-generator/output"${BIND_MOUNT_OPTS}" \
-    -v "${REPO_ROOT}"/hack/generate/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
+    -v "${REPO_ROOT}"/docs/generators/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
     quay.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
     --config /opt/crd-docs-generator/config/config.yaml
