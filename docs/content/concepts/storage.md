@@ -1,3 +1,8 @@
+---
+description: >
+  How kcp handles storage and statefulness.
+---
+
 # Storage and stateful applications
 
 ## Overview
