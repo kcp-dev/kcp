@@ -161,12 +161,12 @@ update-contextual-logging: $(LOGCHECK)
 .PHONY: generate-cli-docs
 generate-cli-docs:
 	git clean -fdX docs/content/reference/cli
-	go run ./hack/generate/cli-doc/gen-cli-doc.go -output docs/content/reference/cli
+	go run ./docs/generators/cli-doc/gen-cli-doc.go -output docs/content/reference/cli
 
 .PHONY: generate-api-docs
 generate-api-docs:
 	git clean -fdX docs/content/reference/api
-	hack/generate/crd-ref/run-crd-ref-gen.sh
+	docs/generators/crd-ref/run-crd-ref-gen.sh
 
 VENVDIR=$(abspath docs/venv)
 REQUIREMENTS_TXT=docs/requirements.txt

@@ -39,6 +39,11 @@ source_repositories:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
+      apiconversions.apis.kcp.io:
+        owner:
+        - https://github.com/kcp-dev/kcp
+        topics:
+        - apis
       apiexports.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp
