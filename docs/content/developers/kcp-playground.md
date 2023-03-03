@@ -272,6 +272,8 @@ spec:
             - name: "<apiExport name>" # required
               apiResourceSchemas: # required
                 - "<apiResourceSchema name>"
+              permissionClaims: 
+                - "<permission claim struct, same as the kcp APIExport API>"
             # Add more apiExports...
 
           # APIBinding to be added to the workspace.
@@ -280,6 +282,8 @@ spec:
               apiExport:
                 - path: "<absolute reference to the workspace that owns this APIExport>"
                   name: "<name of the APIExport>"
+              permissionClaims:
+                - "<permission claim struct, same as the kcp APIBinding API>"
             # Add more apiBindings...
 
           # Additional resources to be added to the PCluster.

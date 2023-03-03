@@ -188,6 +188,10 @@ type APIExport struct {
 
 	// APIResourceSchemas to be exported.
 	APIResourceSchemas []string `json:"apiResourceSchemas,omitempty"`
+
+	// PermissionClaims allows to determine the added permissions that a service provider may
+	// request and that a consumer may accept and allow the service provider access to.
+	PermissionClaims []apisv1alpha1.PermissionClaim `json:"permissionClaims,omitempty"`
 }
 
 // APIBinding to be added to the workspace.
@@ -197,6 +201,9 @@ type APIBinding struct {
 
 	// APIExport to bind to.
 	APIExport apisv1alpha1.ExportBindingReference `json:"apiExport,omitempty"`
+
+	// PermissionClaims is the record of permission granted to the service provider.
+	PermissionClaims []apisv1alpha1.AcceptablePermissionClaim `json:"permissionClaims,omitempty"`
 }
 
 // PCluster defines a compute cluster to be created as part of the playground.
