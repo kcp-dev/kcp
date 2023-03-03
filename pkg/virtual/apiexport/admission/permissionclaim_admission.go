@@ -20,17 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"io"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"strings"
 )
 
 const (
@@ -38,13 +34,12 @@ const (
 )
 
 func Register(plugins *admission.Plugins) {
-	fmt.Println(">>>> Registered new plugin")
 	plugins.Register(PluginName, func(configFile io.Reader) (admission.Interface, error) {
-		return NewAdmitPermissionClaims(), nil
+		return NewPermissionClaimAdmitter(), nil
 	})
 }
 
-type admitPermissionClaims struct {
+type permissionClaimAdmitter struct {
 	*admission.Handler
 
 	apiBindingsHasSynced cache.InformerSynced
@@ -52,15 +47,14 @@ type admitPermissionClaims struct {
 	permissionClaimLabeler *permissionclaim.Labeler
 }
 
-var _ admission.ValidationInterface = &admitPermissionClaims{}
-var _ admission.InitializationValidator = &admitPermissionClaims{}
+var _ admission.ValidationInterface = &permissionClaimAdmitter{}
+var _ admission.InitializationValidator = &permissionClaimAdmitter{}
 
-// NewAdmitPermissionClaims creates a mutating admission plugin that is responsible for labeling objects
-// according to permission claims. or every creation and update request, we will determine the bindings
-// in the workspace and if the object is claimed by an accepted permission claim we will add the label,
-// and remove those that are not backed by a permission claim anymore.
-func NewAdmitPermissionClaims() *admitPermissionClaims {
-	p := &admitPermissionClaims{
+// NewPermissionClaimAdmitter creates a mutating admission plugin that is responsible for admitting objects
+// according to permission claims. On every creation and update request, we will determine the bindings
+// in the workspace and if the object is claimed by an accepted permission claim we will allow it.
+func NewPermissionClaimAdmitter() *permissionClaimAdmitter {
+	p := &permissionClaimAdmitter{
 		Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete, admission.Connect),
 	}
 
@@ -73,65 +67,30 @@ func NewAdmitPermissionClaims() *admitPermissionClaims {
 	return p
 }
 
-func (m *admitPermissionClaims) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	// The request is not for a virtual workspace, so we can safely exit
+func (m *permissionClaimAdmitter) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	// The request is not for a virtual workspace, so we can safely admit.
 	if _, hasVirtualWorkspaceName := virtualcontext.VirtualWorkspaceNameFrom(ctx); !hasVirtualWorkspaceName {
 		return nil
-	}
-	fmt.Println(">>>>>>> In custom Validate")
-	u, ok := a.GetObject().(metav1.Object)
-	if !ok {
-		return fmt.Errorf("expected type %T, expected metav1.Object", a.GetObject())
 	}
 
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return err
 	}
-	if a.GetName() == "not-unique" {
-		fmt.Println("Hi")
-	}
-	// TODO(nrb): use a new method wrapping Selects
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+
+	permitted, err := m.permissionClaimLabeler.ObjectPermitted(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
 	if err != nil {
-		return err
+		return admission.NewForbidden(a, err)
 	}
-
-	// Reject the object because it was not selected, and there is no error.
-	//if !admit {
-	//	return admission.NewForbidden(a, fmt.Errorf("does not match resourceselector"))
-	//}
-
-	var errs field.ErrorList
-
-	// check existing values
-	labels := u.GetLabels()
-	for k, v := range expectedLabels {
-		if labels[k] != v {
-			errs = append(errs, field.Invalid(field.NewPath("metadata", "labels").Key(k), labels[k], fmt.Sprintf("must be %q", v)))
-		}
-	}
-
-	// check for labels that shouldn't exist
-	for k := range labels {
-		if !strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
-			continue
-		}
-		if _, ok := expectedLabels[k]; !ok {
-			errs = append(errs, field.Forbidden(field.NewPath("metadata", "labels").Key(k), "must not be set"))
-		}
-	}
-
-	if len(errs) > 0 {
-		return admission.NewForbidden(a, errs.ToAggregate())
+	if !permitted {
+		return admission.NewForbidden(a, fmt.Errorf("operation not permitted"))
 	}
 
 	return nil
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
-func (m *admitPermissionClaims) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	fmt.Println(">>>> In SetKcpInformers")
+func (m *permissionClaimAdmitter) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	m.apiBindingsHasSynced = local.Apis().V1alpha1().APIBindings().Informer().HasSynced
 
 	m.permissionClaimLabeler = permissionclaim.NewLabeler(
@@ -141,8 +100,7 @@ func (m *admitPermissionClaims) SetKcpInformers(local, global kcpinformers.Share
 	)
 }
 
-func (m *admitPermissionClaims) ValidateInitialization() error {
-	fmt.Println(">>>> In ValidateInitialization")
+func (m *permissionClaimAdmitter) ValidateInitialization() error {
 	if m.apiBindingsHasSynced == nil {
 		return errors.New("missing apiBindingsHasSynced")
 	}
