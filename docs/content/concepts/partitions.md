@@ -1,6 +1,6 @@
 ---
 description: >
-  How to create shard partitions
+  How to create shard partitions.
 ---
 
 # Partition API

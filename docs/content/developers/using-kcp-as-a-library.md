@@ -1,7 +1,7 @@
 ---
 linkTitle: "Library Usage"
 description: >
-  How to use kcp as a library
+  How to use kcp as a library.
 ---
 
 # Using kcp as a library

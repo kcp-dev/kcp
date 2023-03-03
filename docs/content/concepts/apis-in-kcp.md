@@ -1,3 +1,8 @@
+---
+description: >
+    What APIs come standard, how to share APIs with others, how to consume shared APIs.
+---
+
 # APIs in kcp
 
 ## Overview

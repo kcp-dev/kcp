@@ -2,7 +2,7 @@
 linkTitle: "kcp-aware controllers"
 weight: 1
 description: >
-  How to write a kcp-aware controller
+  How to write a kcp-aware controller.
 ---
 
 # Writing kcp-aware controllers

@@ -1,6 +1,6 @@
 ---
 description: >
-  What are workspaces and how to use them
+  What are workspaces and how to use them.
 ---
 
 # Workspaces

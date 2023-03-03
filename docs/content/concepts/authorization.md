@@ -1,6 +1,6 @@
 ---
 description: >
-  How to authorize requests to kcp
+  How to authorize requests to kcp.
 ---
 
 # Authorization

@@ -1,6 +1,6 @@
 ---
 description: >
-  How to create a new API and use it with tenancy
+  How to create a new API and use it with tenancy.
 ---
 
 # Quickstart: Tenancy and APIs

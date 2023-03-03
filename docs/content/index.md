@@ -168,8 +168,8 @@ documentation:
 
 - [Concepts](concepts) - a high level overview of kcp concepts
 - [Workspaces](concepts/workspaces.md) - a more thorough introduction on kcp's workspaces
-- [Locations & scheduling](concepts/locations-and-scheduling.md) - details on kcp's primitives that abstract over clusters
-- [Syncer](concepts/syncer.md) - information on running the kcp agent that syncs content between kcp and a physical cluster
+- [Locations & scheduling](concepts/placement-locations-and-scheduling.md) - details on kcp's primitives that abstract over clusters
+- [Syncer](concepts/registering-kubernetes-clusters-using-syncer.md) - information on running the kcp agent that syncs content between kcp and a physical cluster
 - [kubectl plugin](concepts/kubectl-kcp-plugin.md)
 - [Authorization](concepts/authorization.md) - how kcp manages access control to workspaces and content
 - [Virtual workspaces](concepts/virtual-workspaces.md) - details on kcp's mechanism for virtual views of workspace content
