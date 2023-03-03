@@ -93,6 +93,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.Logs.AddFlags(flags)
 	o.CoreVirtualWorkspaces.AddFlags(flags)
 	o.TmcVirtualWorkspaces.AddFlags(flags)
+	o.CoreVirtualWorkspaces.Admission.AddFlags(flags)
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the KCP instance that hosts workspaces.")

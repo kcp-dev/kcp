@@ -18,12 +18,15 @@ package options
 
 import (
 	"fmt"
+	synceroptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/options"
+	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
 
+	virtualadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
@@ -33,28 +36,54 @@ import (
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
+	Syncer                 *synceroptions.Syncer
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
+	Admission              *genericapiserveroptions.AdmissionOptions
 }
 
 func NewOptions() *Options {
-	return &Options{
+	o := &Options{
+		Syncer:                 synceroptions.New(),
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
+		Admission:              genericapiserveroptions.NewAdmissionOptions(),
 	}
+
+	// plugins that kube will always add (NamespaceLifecycle, MutatingWebHook, ValidatingWebhook)
+	defaultPlugins := o.Admission.Plugins.Registered()
+
+	// Enable admission here so that it is available to both kcp and the virtual-workspaces server
+	virtualadmission.Register(o.Admission.Plugins)
+	o.Admission.RecommendedPluginOrder = []string{
+		virtualadmission.PluginName,
+	}
+
+	// Turn off the default admission plugins, since they register automatically.
+	// We must list the default plugins in the recommended order because they are registered
+	o.Admission.RecommendedPluginOrder = append(o.Admission.RecommendedPluginOrder, defaultPlugins...)
+
+	// Disabled plugins that are not in RecommendedPluginOrder will fail validation.
+	//  kcp's DefaultOffAdmissionPlugins list includes _all_ kubernetes plugins.
+	o.Admission.DisablePlugins = defaultPlugins
+
+	return o
 }
 
 func (o *Options) Validate() []error {
 	var errs []error
 
+	errs = append(errs, o.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.Admission.Validate()...)
 
 	return errs
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.Admission.AddFlags(fs)
 }
 
 func (o *Options) NewVirtualWorkspaces(

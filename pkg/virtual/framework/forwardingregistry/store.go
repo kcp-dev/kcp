@@ -95,12 +95,17 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
-	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, validator rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 		unstructuredObj, ok := obj.(*unstructured.Unstructured)
 		if !ok {
 			return nil, fmt.Errorf("not an Unstructured: %T", obj)
 		}
-
+		if validator != nil {
+			err := validator(ctx, obj)
+			if err != nil {
+				return nil, err
+			}
+		}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
@@ -108,7 +113,14 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}
-	s.GracefulDeleterFunc = func(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	s.GracefulDeleterFunc = func(ctx context.Context, name string, validator rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+		// TODO(nrb): This needs the object before deletion.
+		//if validator != nil {
+		//	err := validator(ctx, obj)
+		//	if err != nil {
+		//		return nil, false, err
+		//	}
+		//}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -142,7 +154,14 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return obj, deletedImmediately, nil
 	}
-	s.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
+	s.CollectionDeleterFunc = func(ctx context.Context, validator rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
+		// TODO(nrb): how do we handle the collections?
+		//if validator != nil {
+		//	err := validator(ctx, obj)
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, err
@@ -174,7 +193,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.List(ctx, v1ListOptions)
 	}
-	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, validator rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -195,6 +214,12 @@ func DefaultDynamicDelegatedStoreFuncs(
 				}
 				oldObj = nil
 			}
+			if validator != nil {
+				err := validator(ctx, oldObj)
+				if err != nil {
+					return nil, err
+				}
+			}
 
 			// The following call returns a 404 error for non server-side apply
 			// requests, i.e., for json, merge and strategic-merge PATCH requests,
@@ -213,6 +238,12 @@ func DefaultDynamicDelegatedStoreFuncs(
 			}
 
 			if oldObj == nil {
+				if validator != nil {
+					err := validator(ctx, obj)
+					if err != nil {
+						return nil, err
+					}
+				}
 				// The object does not currently exist.
 				// We switch to calling a create operation on the forwarding registry.
 				// This enables support for server-side apply requests, to create non-existent objects.

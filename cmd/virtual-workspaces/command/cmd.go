@@ -19,7 +19,12 @@ package command
 import (
 	"context"
 	"fmt"
+	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"io"
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/clientsethack"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"net/http"
 	"net/url"
 	"time"
@@ -187,6 +192,18 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
+
+	// apply admission to check permission claims for resources through a view's URL
+	admissionPluginInitializers := []admission.PluginInitializer{
+		kcpadmissioninitializers.NewKcpInformersInitializer(wildcardKcpInformers, cacheKcpInformers),
+	}
+	o.VirtualWorkspaces.Admission.ApplyTo(
+		&recommendedConfig.Config,
+		informerfactoryhack.Wrap(wildcardKubeInformers),
+		clientsethack.Wrap(localShardKubeClusterClient),
+		utilfeature.DefaultFeatureGate,
+		admissionPluginInitializers...,
+	)
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())

@@ -17,32 +17,21 @@ limitations under the License.
 package options
 
 import (
-	virtualadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
-	"github.com/spf13/pflag"
-	genericoptions "k8s.io/apiserver/pkg/server/options"
-
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+	"github.com/spf13/pflag"
 )
 
 type Virtual struct {
 	VirtualWorkspaces virtualworkspacesoptions.Options
 	Enabled           bool
-	Admission         *genericoptions.AdmissionOptions
 }
 
 func NewVirtual() *Virtual {
-	virt := &Virtual{
+	return &Virtual{
 		VirtualWorkspaces: *virtualworkspacesoptions.NewOptions(),
 
-		Enabled:   true,
-		Admission: genericoptions.NewAdmissionOptions(),
+		Enabled: true,
 	}
-
-	virtualadmission.Register(virt.Admission.Plugins)
-	virt.Admission.RecommendedPluginOrder = []string{
-		virtualadmission.PluginName,
-	}
-	return virt
 }
 
 func (v *Virtual) Validate() []error {

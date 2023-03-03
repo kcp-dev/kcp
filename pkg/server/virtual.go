@@ -88,12 +88,12 @@ func newVirtualConfig(
 	}); err != nil {
 		return nil, err
 	}
-	// apply admission to check permission claims for resources through the view's URL
+
+	// apply admission to check permission claims for resources through a view's URL
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory),
 	}
-
-	s.Options.Virtual.Admission.ApplyTo(
+	s.Options.Virtual.VirtualWorkspaces.Admission.ApplyTo(
 		&recommendedConfig.Config,
 		informerfactoryhack.Wrap(s.KubeSharedInformerFactory),
 		clientsethack.Wrap(s.KubeClusterClient),

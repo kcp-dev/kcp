@@ -23,6 +23,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
+	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -73,6 +74,10 @@ func NewAdmitPermissionClaims() *admitPermissionClaims {
 }
 
 func (m *admitPermissionClaims) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	// The request is not for a virtual workspace, so we can safely exit
+	if _, hasVirtualWorkspaceName := virtualcontext.VirtualWorkspaceNameFrom(ctx); !hasVirtualWorkspaceName {
+		return nil
+	}
 	fmt.Println(">>>>>>> In custom Validate")
 	u, ok := a.GetObject().(metav1.Object)
 	if !ok {
@@ -86,7 +91,7 @@ func (m *admitPermissionClaims) Validate(ctx context.Context, a admission.Attrib
 	if a.GetName() == "not-unique" {
 		fmt.Println("Hi")
 	}
-	// TODO(nrb): use Selects instead
+	// TODO(nrb): use a new method wrapping Selects
 	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
 	if err != nil {
 		return err
