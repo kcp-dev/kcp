@@ -134,7 +134,7 @@ kubectl kcp bind compute <workspace of synctarget> --location-selectors=env=test
 ```
 
 this command will create a `Placement` selecting a `Location` with label `env=test` and bind the selected `Location` to namespaces with
-label `purpose=workload`. See more details of placement and location [here](locations-and-scheduling.md)
+label `purpose=workload`. See more details of placement and location [here](placement-locations-and-scheduling.md)
 
 ### Running a workload
 

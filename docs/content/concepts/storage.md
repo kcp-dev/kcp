@@ -4,7 +4,7 @@
 
 KCP provides a control plane that implements the concept of Transparent Multi Cluster (TMC) for compute, network, and storage. In order to give the illusion of transparent storage in KCP, it exposes the same Kubernetes APIs for storage (PVC/PV), so users and workloads do not need to be aware of the coordinations taken by the control plane behind the scenes.
 
-Placement for storage in KCP uses the same [concepts used for compute](locations-and-scheduling.md#main-concepts): "`SyncTargets` in a `Location` are transparent to the user, and workloads should be able to seamlessly move from one `SyncTarget` to another within a `Location`, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing capacity, or due to an outage of a cluster. It is the compute service's responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster."
+Placement for storage in KCP uses the same [concepts used for compute](placement-locations-and-scheduling.md#main-concepts): "`SyncTargets` in a `Location` are transparent to the user, and workloads should be able to seamlessly move from one `SyncTarget` to another within a `Location`, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing capacity, or due to an outage of a cluster. It is the compute service's responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster."
 
 KCP will provide the basic controllers and coordination logic for moving volumes, as efficiently as possible, using the underlying storage topology and capabilities. It will use the `SyncTargets` storage APIs to manage volumes, and not require direct access from the control plane to the storage itself. For more advanced or custom solutions, KCP will allow external coordinators to take over.
 
@@ -12,7 +12,7 @@ KCP will provide the basic controllers and coordination logic for moving volumes
 
 - [Transparent multi-cluster](../investigations/transparent-multi-cluster.md) - describes the TMC concepts.
 
-- [Placement, Locations and Scheduling](locations-and-scheduling.md) - describes the KCP APIs and mechanisms used to control compute placement, which will be used for storage as well. Refer to the concepts of `SyncTarget`, `Location`, and `Placement`.
+- [Placement, Locations and Scheduling](placement-locations-and-scheduling.md) - describes the KCP APIs and mechanisms used to control compute placement, which will be used for storage as well. Refer to the concepts of `SyncTarget`, `Location`, and `Placement`.
 
 - [Kubernetes storage concepts](https://kubernetes.io/docs/concepts/storage/) - documentation of storage APIs in Kubernetes.
 
@@ -55,7 +55,7 @@ Volume provisioning in Kubernetes involves the CSI controllers and sidecar, as w
 
 In order to support changing workload placement overtime, even if the provisioning `SyncTarget` is offline, KCP will have to retrieve the volume information from that `SyncTarget`, and keep it in the KCP workspace for future coordination. The volume information inside the PV is expected to be transferable between `SyncTargets` that connect to the same storage system and drivers, although some transformations would be required.
 
-To retrieve the volume information and maintain it in KCP, a special sync state is required that will sync **UP** the PV from a `SyncTarget` to KCP. This state is referred to as `Upsync` - see [Resource Upsyncing](locations-and-scheduling.md#resource-upsyncing).
+To retrieve the volume information and maintain it in KCP, a special sync state is required that will sync **UP** the PV from a `SyncTarget` to KCP. This state is referred to as `Upsync` - see [Resource Upsyncing](placement-locations-and-scheduling.md#resource-upsyncing).
 
 The provisioning flow includes: (A) PVC synced to `SyncTarget`, (B) CSI provisioning on the pcluster, (C) Syncer detects PVC binding and initiates PV `Upsync`. Transformations would be applied in KCP virtual workspace to make sure that the PVC and PV would appear bound in KCP, similar to how it is in a single cluster. Once provisioning itself is complete, coordination logic will switch to a normal `Sync` state, to allow multiple `SyncTargets` to share the same volume, and for owned volumes to move ownership to another `SyncTarget`.
 
