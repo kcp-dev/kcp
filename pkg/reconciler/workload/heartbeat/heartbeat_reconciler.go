@@ -25,17 +25,9 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
-var _ basecontroller.ClusterReconcileImpl = (*clusterManager)(nil)
-
-type clusterManager struct {
-	heartbeatThreshold  time.Duration
-	enqueueClusterAfter func(*workloadv1alpha1.SyncTarget, time.Duration)
-}
-
-func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.SyncTarget) error {
+func (c *Controller) reconcile(ctx context.Context, key string, cluster *workloadv1alpha1.SyncTarget) error {
 	logger := klog.FromContext(ctx)
 	defer conditions.SetSummary(
 		cluster,
@@ -70,11 +62,8 @@ func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha
 
 		// Enqueue another check after which the heartbeat should have been updated again.
 		dur := time.Until(latestHeartbeat.Add(c.heartbeatThreshold))
-		c.enqueueClusterAfter(cluster, dur)
+		c.queue.AddAfter(key, dur)
 	}
 
 	return nil
-}
-
-func (c *clusterManager) Cleanup(ctx context.Context, deletedCluster *workloadv1alpha1.SyncTarget) {
 }

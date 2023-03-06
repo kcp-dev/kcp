@@ -23,13 +23,25 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-func TestManager(t *testing.T) {
-	for _, c := range []struct {
+type fakeDelayingQueue struct {
+	workqueue.RateLimitingInterface
+	duration time.Duration
+}
+
+var _ workqueue.DelayingInterface = (*fakeDelayingQueue)(nil)
+
+func (f *fakeDelayingQueue) AddAfter(obj interface{}, duration time.Duration) {
+	f.duration = duration
+}
+
+func TestReconcile(t *testing.T) {
+	for _, tc := range []struct {
 		desc              string
 		lastHeartbeatTime time.Time
 		wantDur           time.Duration
@@ -47,18 +59,17 @@ func TestManager(t *testing.T) {
 		lastHeartbeatTime: time.Now().Add(-90 * time.Second),
 		wantReady:         false,
 	}} {
-		t.Run(c.desc, func(t *testing.T) {
-			var enqueued time.Duration
-			enqueueFunc := func(_ *workloadv1alpha1.SyncTarget, dur time.Duration) {
-				enqueued = dur
+		t.Run(tc.desc, func(t *testing.T) {
+			queue := &fakeDelayingQueue{
+				RateLimitingInterface: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "testing"),
 			}
-			mgr := clusterManager{
-				heartbeatThreshold:  time.Minute,
-				enqueueClusterAfter: enqueueFunc,
+			c := &Controller{
+				queue:              queue,
+				heartbeatThreshold: time.Minute,
 			}
 			ctx := context.Background()
-			heartbeat := metav1.NewTime(c.lastHeartbeatTime)
-			cl := &workloadv1alpha1.SyncTarget{
+			heartbeat := metav1.NewTime(tc.lastHeartbeatTime)
+			syncTarget := &workloadv1alpha1.SyncTarget{
 				Status: workloadv1alpha1.SyncTargetStatus{
 					Conditions: []conditionsv1alpha1.Condition{{
 						Type:   workloadv1alpha1.HeartbeatHealthy,
@@ -67,18 +78,18 @@ func TestManager(t *testing.T) {
 					LastSyncerHeartbeatTime: &heartbeat,
 				},
 			}
-			if err := mgr.Reconcile(ctx, cl); err != nil {
-				t.Fatalf("Reconcile: %v", err)
+			if err := c.reconcile(ctx, "somekey", syncTarget); err != nil {
+				t.Fatalf("reconcile: %v", err)
 			}
 
-			// actual enqueued time must not be more than 30s off from desired enqueue time.
+			// actual enqueued time must not be more than 30ms off from desired enqueue time.
 			delta := 30 * time.Millisecond
-			if c.wantDur-delta > enqueued {
-				t.Errorf("next enqueue time; got %s, want %s", enqueued, c.wantDur)
+			if tc.wantDur-delta > queue.duration {
+				t.Errorf("next enqueue time; got %s, want %s", queue.duration, tc.wantDur)
 			}
-			isReady := cl.GetConditions()[0].Status == corev1.ConditionTrue
-			if isReady != c.wantReady {
-				t.Errorf("cluster Ready; got %t, want %t", isReady, c.wantReady)
+			isReady := syncTarget.GetConditions()[0].Status == corev1.ConditionTrue
+			if isReady != tc.wantReady {
+				t.Errorf("SyncTarget Ready; got %t, want %t", isReady, tc.wantReady)
 			}
 			// TODO: check wantReady.
 		})
