@@ -47,14 +47,8 @@ import (
 
 const cleanupControllerName = "kcp-resource-upsyncer-cleanup"
 
-// NewUpSyncer returns a new controller which upsyncs, through the Upsyncer virtual workspace, downstream resources
-// which are part of the upsyncable resource types (fixed limited list for now), and provide
-// the following labels:
-//   - internal.workload.kcp.io/cluster: <sync target key>
-//   - state.workload.kcp.io/<sync target key>: Upsync
-//
-// and optionally, for cluster-wide resources, the `kcp.io/namespace-locator` annotation
-// filled with the information necessary identify the upstream workspace to upsync to.
+// NewUpSyncerCleanupController returns a new controller which will cleanup any upsynced upstream resource
+// if the corresponding downstream resources doesn't exist.
 func NewUpSyncerCleanupController(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name,
 	syncTargetName string, syncTargetUID types.UID, syncTargetKey string,
 	upstreamClusterClient kcpdynamic.ClusterInterface,

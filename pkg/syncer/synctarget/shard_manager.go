@@ -93,19 +93,19 @@ func NewLogicalClusterIndex(syncerDDSIF, upsyncerDDSIF *informer.DiscoveringDyna
 
 	syncerDDSIF.AddEventHandler(informer.GVREventHandlerFuncs{
 		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			add("S", gvr, obj.(*unstructured.Unstructured))
+			_ = add("S", gvr, obj.(*unstructured.Unstructured))
 		},
 		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			add("S", gvr, obj.(*unstructured.Unstructured))
+			_ = add("S", gvr, obj.(*unstructured.Unstructured))
 		},
 	})
 
 	upsyncerDDSIF.AddEventHandler(informer.GVREventHandlerFuncs{
 		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			delete("U", gvr, obj.(*unstructured.Unstructured))
+			_ = delete("U", gvr, obj.(*unstructured.Unstructured))
 		},
 		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			delete("U", gvr, obj.(*unstructured.Unstructured))
+			_ = delete("U", gvr, obj.(*unstructured.Unstructured))
 		},
 	})
 
@@ -143,7 +143,7 @@ type ShardAccess struct {
 
 // GetShardAccessFunc is the type of a function that provide a [ShardAccess] from a
 // logical cluster name.
-type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, error)
+type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, bool, error)
 
 // NewShardManager returns a [ShardManager] that can manage the addition or removal of shard-specific
 // upstream virtual workspace URLs, based on a SyncTarget resource passed to the updateShards() method.
@@ -157,26 +157,23 @@ type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, erro
 // The ShardAccessForCluster() method will be used by some downstream controllers in order to
 // be able to get / list upstream resources in the right shard.
 func NewShardManager(
-	gvrSource informer.GVRSource,
-	startShardControllers func(ctx context.Context, gvrSource informer.GVRSource, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error),
-	cleanupShard func(shardURLs workloadv1alpha1.VirtualWorkspace)) *shardManager {
+	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error),
+	cleanupShard func(urls workloadv1alpha1.VirtualWorkspace)) *shardManager {
 	return &shardManager{
-		controllers:           map[workloadv1alpha1.VirtualWorkspace]shardWithStartedControllers{},
+		controllers:           map[workloadv1alpha1.VirtualWorkspace]shardControllers{},
 		startShardControllers: startShardControllers,
 		cleanupShard:          cleanupShard,
-		gvrSource:             gvrSource,
 	}
 }
 
 type shardManager struct {
 	controllersLock       sync.RWMutex
-	controllers           map[workloadv1alpha1.VirtualWorkspace]shardWithStartedControllers
-	startShardControllers func(ctx context.Context, gvrSource informer.GVRSource, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)
-	cleanupShard          func(shardURLs workloadv1alpha1.VirtualWorkspace)
-	gvrSource             informer.GVRSource
+	controllers           map[workloadv1alpha1.VirtualWorkspace]shardControllers
+	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)
+	cleanupShard          func(urls workloadv1alpha1.VirtualWorkspace)
 }
 
-func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (ShardAccess, error) {
+func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (ShardAccess, bool, error) {
 	c.controllersLock.RLock()
 	defer c.controllersLock.RUnlock()
 
@@ -185,7 +182,7 @@ func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (S
 			return shardControllers.ShardAccess, true, nil
 		}
 	}
-	return ShardAccess{}, apierrors.NewNotFound(logicalClusterGVR.GroupResource(), kcpcorev1alpha1.LogicalClusterName)
+	return ShardAccess{}, false, nil
 }
 
 func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) {
@@ -202,14 +199,14 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 	defer c.controllersLock.Unlock()
 
 	// Remove obsolete controllers that don't have a shard anymore
-	for shardURLs, shard := range c.controllers {
+	for shardURLs, shardControllers := range c.controllers {
 		if _, ok := requiredShards[shardURLs]; ok {
 			// The controllers are still expected => don't remove them
 			continue
 		}
 		// The controllers should not be running
 		// Stop them and remove it from the list of started shard controllers
-		shard.stop()
+		shardControllers.stop()
 		delete(c.controllers, shardURLs)
 	}
 
@@ -222,12 +219,12 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 
 		// Start the controllers
 		shardControllersContext, cancelFunc := context.WithCancel(ctx)
-		var stop context.CancelFunc = func() {
+		stop := func() {
 			c.cleanupShard(shardURLs)
 			cancelFunc()
 		}
 		// Create the controllers
-		shardAccess, err := c.startShardControllers(shardControllersContext, c.gvrSource, shardURLs)
+		shardAccess, err := c.startShardControllers(shardControllersContext, shardURLs)
 		if err != nil {
 			logger.Error(err, "failed creating controllers for shard", "shard", shardURLs)
 			stop()
@@ -239,7 +236,7 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 	}
 }
 
-type shardWithStartedControllers struct {
+type shardControllers struct {
 	ShardAccess
 	stop func()
 }

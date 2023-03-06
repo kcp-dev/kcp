@@ -184,12 +184,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 		c.gvrSource.updateGVRs(ctx, nil)
 		return nil
 	}
-
 	if err != nil {
 		return err
 	}
-
 	if syncTarget.GetUID() != c.syncTargetUID {
+		c.shardManager.updateShards(ctx, nil)
+		c.gvrSource.updateGVRs(ctx, nil)
 		return nil
 	}
 

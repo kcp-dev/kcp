@@ -234,8 +234,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	namespaceCleaner := &delegatingCleaner{}
 	shardManager := synctarget.NewShardManager(
-		syncTargetGVRSource,
-		func(ctx context.Context, syncTargetGVRSource ddsif.GVRSource, shardURLs workloadv1alpha1.VirtualWorkspace) (*synctarget.ShardAccess, error) {
+		func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*synctarget.ShardAccess, error) {
 			upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 			upstreamConfig.Host = shardURLs.SyncerURL
 			rest.AddUserAgent(upstreamConfig, "kcp#syncing/"+kcpVersion)

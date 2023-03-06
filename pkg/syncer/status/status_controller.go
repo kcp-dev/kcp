@@ -74,9 +74,12 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
 		getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
-			shardAccess, err := getShardAccess(clusterName)
+			shardAccess, ok, err := getShardAccess(clusterName)
 			if err != nil {
 				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
 			}
 			return shardAccess.SyncerClient.Cluster(clusterName.Path()), nil
 		},
@@ -94,10 +97,14 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 			return informer.Lister(), nil
 		},
 		getUpstreamLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			shardAccess, err := getShardAccess(clusterName)
+			shardAccess, ok, err := getShardAccess(clusterName)
 			if err != nil {
 				return nil, err
 			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+
 			informers, notSynced := shardAccess.SyncerDDSIF.Informers()
 			informer, ok := informers[gvr]
 			if !ok {

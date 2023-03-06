@@ -74,9 +74,12 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 		reconciler: reconciler{
 			cleanupReconciler: cleanupReconciler{
 				getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
-					shardAccess, err := getShardAccess(clusterName)
+					shardAccess, ok, err := getShardAccess(clusterName)
 					if err != nil {
 						return nil, err
+					}
+					if !ok {
+						return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
 					}
 					return shardAccess.UpsyncerClient.Cluster(clusterName.Path()), nil
 				},
@@ -104,10 +107,14 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 				syncTargetUID:         syncTargetUID,
 			},
 			getUpstreamUpsyncerLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-				shardAccess, err := getShardAccess(clusterName)
+				shardAccess, ok, err := getShardAccess(clusterName)
 				if err != nil {
 					return nil, err
 				}
+				if !ok {
+					return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+				}
+
 				informers, notSynced := shardAccess.UpsyncerDDSIF.Informers()
 				informer, ok := informers[gvr]
 				if !ok {
@@ -119,10 +126,14 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 				return informer.Lister().ByCluster(clusterName), nil
 			},
 			getUpsyncedGVRs: func(clusterName logicalcluster.Name) ([]schema.GroupVersionResource, error) {
-				shardAccess, err := getShardAccess(clusterName)
+				shardAccess, ok, err := getShardAccess(clusterName)
 				if err != nil {
 					return nil, err
 				}
+				if !ok {
+					return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+				}
+
 				informers, notSynced := shardAccess.UpsyncerDDSIF.Informers()
 				var result []schema.GroupVersionResource
 				for k := range informers {

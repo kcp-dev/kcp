@@ -613,11 +613,11 @@ func TestStatusSyncerProcess(t *testing.T) {
 			fromClientResourceWatcherStarted := setupWatchReactor(t, tc.gvr.Resource, fromClient)
 			toClientResourceWatcherStarted := setupClusterWatchReactor(t, tc.gvr.Resource, toClusterClient)
 
-			getShardAccess := func(clusterName logicalcluster.Name) (synctarget.ShardAccess, error) {
+			getShardAccess := func(clusterName logicalcluster.Name) (synctarget.ShardAccess, bool, error) {
 				return synctarget.ShardAccess{
 					SyncerClient: toClusterClient,
 					SyncerDDSIF:  ddsifForUpstreamSyncer,
-				}, nil
+				}, true, nil
 			}
 			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, getShardAccess, fromClient, ddsifForDownstream, tc.syncTargetUID)
 			require.NoError(t, err)

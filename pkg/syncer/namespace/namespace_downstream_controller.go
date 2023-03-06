@@ -99,10 +99,14 @@ func NewDownstreamController(
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
-			shardAccess, err := getShardAccess(clusterName)
+			shardAccess, ok, err := getShardAccess(clusterName)
 			if err != nil {
 				return false, err
 			}
+			if !ok {
+				return false, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+
 			informer, err := shardAccess.SyncerDDSIF.ForResource(namespaceGVR)
 			if err != nil {
 				return false, err
