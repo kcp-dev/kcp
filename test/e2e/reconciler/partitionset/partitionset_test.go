@@ -166,7 +166,7 @@ func TestPartitionSet(t *testing.T) {
 		if len(partitions.Items) == 2 {
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected 2 partitions, but got %d", len(partitions.Items))
+		return false, fmt.Sprintf("expected 2 partitions, but got %d, details: %s", len(partitions.Items), spew.Sdump(partitions.Items))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 2 partitions")
 	require.True(t, (reflect.DeepEqual(partitions.Items[0].Spec.Selector.MatchLabels, map[string]string{"partition-test-region": "partition-test-region-1"}) &&
 		reflect.DeepEqual(partitions.Items[1].Spec.Selector.MatchLabels, map[string]string{"partition-test-region": "partition-test-region-2"})) ||
