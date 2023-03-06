@@ -53,6 +53,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="VirtualWorkspaceURLsReady")].status`
 type APIExport struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
