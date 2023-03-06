@@ -74,7 +74,6 @@ func (dm *PodSpecableMutator) GVRs() []schema.GroupVersionResource {
 func NewPodspecableMutator(ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory, serviceLister listerscorev1.ServiceLister,
 	syncTargetClusterName logicalcluster.Name, syncTargetName string, syncTargetUID types.UID,
 	dnsNamespace string, upsyncPods bool) *PodSpecableMutator {
-
 	secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
 	return &PodSpecableMutator{
 		getWorkspaceURL: func(obj *unstructured.Unstructured) (*url.URL, error) {

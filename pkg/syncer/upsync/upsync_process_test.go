@@ -746,11 +746,11 @@ func TestUpsyncerprocess(t *testing.T) {
 			// downstream => from (physical cluster)
 			// to === kcp
 			// from === physical
-			controller, err := NewUpSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, func(clusterName logicalcluster.Name) (synctarget.ShardAccess, error) {
+			controller, err := NewUpSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, func(clusterName logicalcluster.Name) (synctarget.ShardAccess, bool, error) {
 				return synctarget.ShardAccess{
 					UpsyncerClient: toClusterClient,
 					UpsyncerDDSIF:  ddsifForUpstreamUpsyncer,
-				}, nil
+				}, true, nil
 			}, fromClient, ddsifForDownstream, syncTargetUID)
 			require.NoError(t, err)
 
