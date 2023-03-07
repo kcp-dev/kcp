@@ -17,6 +17,7 @@ limitations under the License.
 package namespace
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,13 +65,18 @@ func TestSetScheduledCondition(t *testing.T) {
 					Annotations: testCase.annotations,
 				},
 			}
-			updatedNs := setScheduledCondition(ns)
+
+			c := &controller{}
+			result, err := c.reconcileStatus(context.Background(), "key", ns)
+			require.NoError(t, err)
+			require.False(t, result.stop)
+			require.Zero(t, result.requeueAfter)
 
 			if !testCase.scheduled && testCase.reason == "" {
-				c := conditions.Get(&NamespaceConditionsAdapter{updatedNs}, NamespaceScheduled)
+				c := conditions.Get(&NamespaceConditionsAdapter{ns}, NamespaceScheduled)
 				require.Nil(t, c)
 			} else {
-				c := conditions.Get(&NamespaceConditionsAdapter{updatedNs}, NamespaceScheduled)
+				c := conditions.Get(&NamespaceConditionsAdapter{ns}, NamespaceScheduled)
 				require.NotNil(t, c)
 				scheduled := c.Status == corev1.ConditionTrue
 				require.Equal(t, testCase.scheduled, scheduled, "unexpected value for scheduled")

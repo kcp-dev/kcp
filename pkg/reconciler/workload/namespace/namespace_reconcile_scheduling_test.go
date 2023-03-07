@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -45,9 +46,10 @@ func TestScheduling(t *testing.T) {
 		labels      map[string]string
 		annotations map[string]string
 
-		wantPatch           bool
+		expectStop          bool
 		expectedLabels      map[string]string
 		expectedAnnotations map[string]string
+		expectRequeue       bool
 	}{
 		{
 			name: "placement not found",
@@ -58,7 +60,7 @@ func TestScheduling(t *testing.T) {
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
 			noPlacements: true,
-			wantPatch:    true,
+			expectStop:   true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey:                                      "",
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "cluster1": now3339,
@@ -72,8 +74,8 @@ func TestScheduling(t *testing.T) {
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
-			placement: newPlacement("test-placement", "test-location", "test-cluster"),
-			wantPatch: true,
+			placement:  newPlacement("test-placement", "test-location", "test-cluster"),
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -90,7 +92,6 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: newPlacement("test-placement", "test-location", "test-cluster"),
-			wantPatch: false,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -106,8 +107,8 @@ func TestScheduling(t *testing.T) {
 			labels: map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
-			placement: newPlacement("test-placement", "test-location", ""),
-			wantPatch: true,
+			placement:  newPlacement("test-placement", "test-location", ""),
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": now3339,
@@ -124,8 +125,8 @@ func TestScheduling(t *testing.T) {
 			labels: map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
-			placement: newPlacement("test-placement", "test-location", "test-cluster-2"),
-			wantPatch: true,
+			placement:  newPlacement("test-placement", "test-location", "test-cluster-2"),
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": now3339,
@@ -145,7 +146,6 @@ func TestScheduling(t *testing.T) {
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
 			placement: newPlacement("test-placement", "test-location", "test-cluster"),
-			wantPatch: false,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": now3339,
@@ -153,6 +153,7 @@ func TestScheduling(t *testing.T) {
 			expectedLabels: map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
+			expectRequeue: true,
 		},
 		{
 			name: "remove clusters which is removing after grace period",
@@ -163,8 +164,8 @@ func TestScheduling(t *testing.T) {
 			labels: map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "34sZi3721YwBLDHUuNVIOLxuYp5nEZBpsTQyDq": string(workloadv1alpha1.ResourceStateSync),
 			},
-			placement: newPlacement("test-placement", "test-location", ""),
-			wantPatch: true,
+			placement:  newPlacement("test-placement", "test-location", ""),
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -189,19 +190,22 @@ func TestScheduling(t *testing.T) {
 				return []*schedulingv1alpha1.Placement{testCase.placement}, nil
 			}
 
-			var patched bool
-			reconciler := &placementSchedulingReconciler{
-				listPlacement:  listPlacement,
-				patchNamespace: patchNamespaceFunc(&patched, ns),
-				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
+			c := &controller{
+				queue:          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+				listPlacements: listPlacement,
 				now:            func() time.Time { return now },
 			}
 
-			_, updated, err := reconciler.reconcile(context.TODO(), ns)
+			result, err := c.reconcileScheduling(context.Background(), "key", ns)
 			require.NoError(t, err)
-			require.Equal(t, testCase.wantPatch, patched)
-			require.Equal(t, testCase.expectedAnnotations, updated.Annotations)
-			require.Equal(t, testCase.expectedLabels, updated.Labels)
+			require.Equal(t, testCase.expectedAnnotations, ns.Annotations)
+			require.Equal(t, testCase.expectedLabels, ns.Labels)
+			require.Equal(t, testCase.expectStop, result.stop)
+			if testCase.expectRequeue {
+				require.NotZero(t, result.requeueAfter)
+			} else {
+				require.Zero(t, result.requeueAfter)
+			}
 		})
 	}
 }
@@ -217,7 +221,7 @@ func TestMultiplePlacements(t *testing.T) {
 		labels      map[string]string
 		annotations map[string]string
 
-		wantPatch           bool
+		expectStop          bool
 		expectedLabels      map[string]string
 		expectedAnnotations map[string]string
 	}{
@@ -230,7 +234,7 @@ func TestMultiplePlacements(t *testing.T) {
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
-			wantPatch: true,
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -248,7 +252,7 @@ func TestMultiplePlacements(t *testing.T) {
 			annotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
-			wantPatch: true,
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -269,7 +273,6 @@ func TestMultiplePlacements(t *testing.T) {
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa": string(workloadv1alpha1.ResourceStateSync),
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4": string(workloadv1alpha1.ResourceStateSync),
 			},
-			wantPatch: false,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -293,7 +296,7 @@ func TestMultiplePlacements(t *testing.T) {
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa": string(workloadv1alpha1.ResourceStateSync),
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4": string(workloadv1alpha1.ResourceStateSync),
 			},
-			wantPatch: true,
+			expectStop: true,
 			expectedAnnotations: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 				workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix + "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa": now3339,
@@ -322,19 +325,17 @@ func TestMultiplePlacements(t *testing.T) {
 				return testCase.placements, nil
 			}
 
-			var patched bool
-			reconciler := &placementSchedulingReconciler{
-				listPlacement:  listPlacement,
-				patchNamespace: patchNamespaceFunc(&patched, ns),
-				enqueueAfter:   func(*corev1.Namespace, time.Duration) {},
+			c := &controller{
+				queue:          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+				listPlacements: listPlacement,
 				now:            func() time.Time { return now },
 			}
 
-			_, updated, err := reconciler.reconcile(context.TODO(), ns)
+			result, err := c.reconcileScheduling(context.Background(), "key", ns)
 			require.NoError(t, err)
-			require.Equal(t, testCase.wantPatch, patched)
-			require.Equal(t, testCase.expectedAnnotations, updated.Annotations)
-			require.Equal(t, testCase.expectedLabels, updated.Labels)
+			require.Equal(t, testCase.expectStop, result.stop)
+			require.Equal(t, testCase.expectedAnnotations, ns.Annotations)
+			require.Equal(t, testCase.expectedLabels, ns.Labels)
 		})
 	}
 }
