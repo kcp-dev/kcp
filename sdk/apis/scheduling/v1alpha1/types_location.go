@@ -25,7 +25,8 @@ const (
 	// representation of the location labels in order to use them in a table column in the CLI.
 	LocationLabelsStringAnnotationKey = "scheduling.kcp.io/labels"
 
-	// PlacementAnnotationKey is the label key for the label holding a PlacementAnnotation struct.
+	// PlacementAnnotationKey is the label key for a namespace that indicates the namespace's labels match the selector
+	// in at least one ready Placement.
 	PlacementAnnotationKey = "scheduling.kcp.io/placement"
 )
 
