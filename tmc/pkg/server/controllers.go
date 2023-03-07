@@ -43,6 +43,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
 )
 
+const workerCount = 10
+
 func postStartHookName(controllerName string) string {
 	return fmt.Sprintf("kcp-tmc-start-%s", controllerName)
 }
@@ -73,7 +75,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go resourceScheduler.Start(ctx, 2)
+		go resourceScheduler.Start(ctx, workerCount)
 		return nil
 	})
 }
@@ -172,7 +174,7 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -202,7 +204,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	}); err != nil {
@@ -239,7 +241,7 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -270,7 +272,7 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -302,7 +304,7 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -334,7 +336,7 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -366,7 +368,7 @@ func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context,
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -398,7 +400,7 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})

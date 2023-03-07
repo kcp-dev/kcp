@@ -85,6 +85,9 @@ import (
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 )
 
+// Default worker count for all controllers.
+const workerCount = 10
+
 func postStartHookName(controllerName string) string {
 	return fmt.Sprintf("kcp-start-%s", controllerName)
 }
@@ -101,7 +104,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		kubeClient.RbacV1())
 
 	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(ctx, 5)
+		go c.Run(ctx, workerCount)
 		return nil
 	})
 }
@@ -148,7 +151,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(10, ctx.Done())
+		go c.Run(workerCount, ctx.Done())
 		return nil
 	})
 }
@@ -178,7 +181,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(ctx, 1)
+		go c.Run(ctx, workerCount)
 		return nil
 	})
 }
@@ -277,7 +280,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(ctx, 2)
+		go c.Run(ctx, workerCount)
 		return nil
 	})
 }
@@ -315,7 +318,7 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go controller.Start(ctx, 10)
+		go controller.Start(ctx, workerCount)
 		return nil
 	})
 }
@@ -362,7 +365,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go logicalClusterDeletionController.Start(ctx, 10)
+		go logicalClusterDeletionController.Start(ctx, workerCount)
 		return nil
 	})
 }
@@ -404,7 +407,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		go workspaceController.Start(ctx, 2)
+		go workspaceController.Start(ctx, workerCount)
 		return nil
 	}); err != nil {
 		return err
@@ -434,7 +437,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 				logger.Error(err, "failed to finish post-start-hook")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
-			go workspaceShardController.Start(ctx, 2)
+			go workspaceShardController.Start(ctx, workerCount)
 			return nil
 		}); err != nil {
 			return err
@@ -463,7 +466,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		go workspaceTypeController.Start(ctx, 2)
+		go workspaceTypeController.Start(ctx, workerCount)
 		return nil
 	}); err != nil {
 		return err
@@ -502,7 +505,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		go universalController.Start(ctx, 2)
+		go universalController.Start(ctx, workerCount)
 		return nil
 	})
 }
@@ -530,7 +533,7 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		go logicalClusterController.Start(ctx, 2)
+		go logicalClusterController.Start(ctx, workerCount)
 		return nil
 	}); err != nil {
 		return err
@@ -588,7 +591,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	}); err != nil {
@@ -626,7 +629,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go permissionClaimLabelController.Start(goContext(hookContext), 5)
+		go permissionClaimLabelController.Start(goContext(hookContext), workerCount)
 
 		return nil
 	}); err != nil {
@@ -662,7 +665,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		go permissionClaimLabelResourceController.Start(goContext(hookContext), 2)
+		go permissionClaimLabelResourceController.Start(goContext(hookContext), workerCount)
 
 		return nil
 	}); err != nil {
@@ -693,7 +696,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go apibindingDeletionController.Start(goContext(hookContext), 10)
+		go apibindingDeletionController.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -765,7 +768,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		initializingWorkspacesKcpInformers.Start(hookContext.StopCh)
 		initializingWorkspacesKcpInformers.WaitForCacheSync(hookContext.StopCh)
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 		return nil
 	})
 }
@@ -795,7 +798,7 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -839,7 +842,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -866,7 +869,7 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -894,7 +897,7 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -921,7 +924,7 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -948,7 +951,7 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -975,7 +978,7 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1003,7 +1006,7 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1030,7 +1033,7 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1057,7 +1060,7 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1091,7 +1094,7 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1123,7 +1126,7 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1152,7 +1155,7 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})
@@ -1198,7 +1201,7 @@ func (s *Server) installKubeQuotaController(
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	}); err != nil {
@@ -1232,7 +1235,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 1)
+		go c.Start(goContext(hookContext), workerCount)
 		return nil
 	})
 }
@@ -1250,7 +1253,7 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go controller.Start(goContext(hookContext), 2)
+		go controller.Start(goContext(hookContext), workerCount)
 		return nil
 	})
 }
@@ -1294,7 +1297,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(goContext(hookContext), 2)
+		go c.Start(goContext(hookContext), workerCount)
 
 		return nil
 	})

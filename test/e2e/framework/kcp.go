@@ -94,7 +94,7 @@ func TestServerWithClientCAFile(clientCAFile string) []string {
 // start a test server with the given token auth file.
 func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
 	return []string{
-		"-v=4",
+		"-v=5",
 		"--token-auth-file", tokenAuthFile,
 	}
 }
