@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	networkinglisterv1 "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -70,12 +71,14 @@ type Controller struct {
 	mutators     map[schema.GroupVersionResource]Mutator
 	dnsProcessor *dns.DNSProcessor
 
-	upstreamClient   kcpdynamic.ClusterInterface
-	downstreamClient dynamic.Interface
+	upstreamClient       kcpdynamic.ClusterInterface
+	downstreamClient     dynamic.Interface
+	downstreamKubeClient kubernetes.Interface
 
 	getUpstreamLister                 func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
 	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
+	getNetworkPolicyLister            func() networkinglisterv1.NetworkPolicyLister
 
 	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
@@ -99,9 +102,10 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:      upstreamClient,
-		downstreamClient:    downstreamClient,
-		downstreamNSCleaner: downstreamNSCleaner,
+		upstreamClient:       upstreamClient,
+		downstreamClient:     downstreamClient,
+		downstreamKubeClient: downstreamKubeClient,
+		downstreamNSCleaner:  downstreamNSCleaner,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
 			informers, notSynced := ddsifForDownstream.Informers()
@@ -132,6 +136,9 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				return nil, err
 			}
 			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
+		},
+		getNetworkPolicyLister: func() networkinglisterv1.NetworkPolicyLister {
+			return syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister()
 		},
 		syncTargetName:            syncTargetName,
 		syncTargetClusterName:     syncTargetClusterName,

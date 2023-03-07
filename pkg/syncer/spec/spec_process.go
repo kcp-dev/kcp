@@ -199,7 +199,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	if downstreamNamespace != "" {
-		if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
+		if err := c.ensureDownstreamObjectsExists(ctx, downstreamNamespace, upstreamObj); err != nil {
 			return nil, err
 		}
 	} else {
@@ -239,7 +239,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //
 //	In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
-func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
 	logger := klog.FromContext(ctx)
 
 	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
@@ -285,44 +285,74 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	}
 
 	// Check if the namespace already exists, if not create it.
+	namespaceExists := false
 	namespace, err := namespaceLister.Get(newNamespace.GetName())
 	if apierrors.IsNotFound(err) {
 		_, err = namespaces.Create(ctx, newNamespace, metav1.CreateOptions{})
+
 		if err == nil {
 			logger.Info("Created downstream namespace for upstream namespace")
-			return nil
 		}
 	}
 	if apierrors.IsAlreadyExists(err) {
 		namespace, err = namespaces.Get(ctx, newNamespace.GetName(), metav1.GetOptions{})
+		namespaceExists = true
 	}
 	if err != nil {
 		return err
 	}
 
-	// The namespace exists, so check if it has the correct namespace locator.
-	unstrNamespace := namespace.(*unstructured.Unstructured)
-	nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())
-	if err != nil {
-		return fmt.Errorf("(possible namespace collision) namespace %s already exists, but found an error when trying to decode the annotation: %w", newNamespace.GetName(), err)
-	}
-	if !exists {
-		return fmt.Errorf("(namespace collision) namespace %s has no namespace locator", unstrNamespace.GetName())
-	}
-	if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
-		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
+	if namespaceExists {
+		// The namespace exists, so check if it has the correct namespace locator.
+		unstrNamespace := namespace.(*unstructured.Unstructured)
+		nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())
+		if err != nil {
+			return fmt.Errorf("(possible namespace collision) namespace %s already exists, but found an error when trying to decode the annotation: %w", newNamespace.GetName(), err)
+		}
+		if !exists {
+			return fmt.Errorf("(namespace collision) namespace %s has no namespace locator", unstrNamespace.GetName())
+		}
+		if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
+			return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
+		}
+
+		// Handle kcp upgrades by checking the tenant ID is set and correct
+		if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
+			labels := unstrNamespace.GetLabels()
+			labels[shared.TenantIDLabel] = desiredTenantID
+			unstrNamespace.SetLabels(labels)
+			_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
+			return err
+		}
 	}
 
-	// Handle kcp upgrades by checking the tenant ID is set and correct
-	if tenantID, ok := unstrNamespace.GetLabels()[shared.TenantIDLabel]; !ok || tenantID != desiredTenantID {
-		labels := unstrNamespace.GetLabels()
-		labels[shared.TenantIDLabel] = desiredTenantID
-		unstrNamespace.SetLabels(labels)
-		_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
+	// Check the kcp tenant network policy exists
+
+	apiServerRule, err := shared.MakeAPIServerNetworkPolicyEgressRule(ctx, c.downstreamKubeClient)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	desiredNetworkPolicy := MakeTenantNetworkPolicy(downstreamNamespace, desiredTenantID, c.syncTargetKey, apiServerRule)
+
+	networkPolicy, err := c.getNetworkPolicyLister().NetworkPolicies(downstreamNamespace).Get("kcp-tenant")
+	if apierrors.IsNotFound(err) {
+		_, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Create(ctx, desiredNetworkPolicy, metav1.CreateOptions{})
+
+		if err == nil {
+			logger.Info("Created downstream tenant network policy")
+			return nil
+		}
+	}
+
+	if apierrors.IsAlreadyExists(err) {
+		updatedNetworkPolicy := networkPolicy.DeepCopy()
+		updatedNetworkPolicy.Spec = desiredNetworkPolicy.Spec
+
+		_, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Update(ctx, updatedNetworkPolicy, metav1.UpdateOptions{})
+	}
+
+	return err
 }
 
 // TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic.

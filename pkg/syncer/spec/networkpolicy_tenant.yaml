@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kcp-tenant
+spec:
+  podSelector: {}
+  ingress:
+    - from: # allow ingress traffic from pods in namespaces belonging to TenantID
+      - namespaceSelector:
+          matchLabels:
+            kcp.io/tenant-id: TenantID
+  egress:
+    - to: # allow egress traffic to pods in namespaces belonging to TenantID
+      - namespaceSelector:
+          matchLabels:
+            kcp.io/tenant-id: TenantID
+    - to: # Allow all traffic to the internet
+      - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    - to: # Allow traffic to the TenantID DNS pods
+      - namespaceSelector:
+          matchLabels:
+            internal.workload.kcp.io/cluster: SyncTargetKey
+        podSelector:
+          matchLabels:
+            kcp.io/tenant-id: TenantID
+      ports:
+        - protocol: TCP
+          port: 5353
+        - protocol: UDP
+          port: 5353
+    - to: # Allow traffic to the Kubernetes API server
+      # one ipBlock per IP (dynamically filled)
+      - ipBlock:
+          cidr: APIServerIP
+      ports:
+        - protocol: TCP
+          port: 6443
+  policyTypes:
+    - Egress
+    - Ingress
