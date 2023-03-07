@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -124,10 +125,21 @@ func NewEndpointController(
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueue(obj)
+			c.enqueueEndpoints(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			c.enqueue(new)
+			c.enqueueEndpoints(new)
+		},
+	})
+
+	servicesInformer, ok := informers[servicesGVR]
+	if !ok {
+		return nil, errors.New("endpoints informer should be available")
+	}
+
+	servicesInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(old, new interface{}) {
+			c.enqueueService(new)
 		},
 	})
 
@@ -147,7 +159,7 @@ type controller struct {
 	patchEndpoint          func(ctx context.Context, namespace, name string, pt types.PatchType, data []byte) error
 }
 
-func (c *controller) enqueue(obj interface{}) {
+func (c *controller) enqueueEndpoints(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -156,6 +168,33 @@ func (c *controller) enqueue(obj interface{}) {
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing")
+	c.queue.Add(key)
+}
+
+func (c *controller) enqueueService(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "error when queueing from the related service")
+	}
+
+	_, err = c.getDownstreamResource(endpointsGVR, namespace, name)
+	if kerrors.IsNotFound(err) {
+		// no related Endpoints resource => nothing to do
+		return
+	}
+	if err != nil {
+		logger.Error(err, "error when queueing from the related service")
+	}
+
+	logger.V(2).Info("queueing from service")
 	c.queue.Add(key)
 }
 
