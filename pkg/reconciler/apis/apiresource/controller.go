@@ -53,7 +53,6 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
@@ -61,16 +60,15 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
 
 	c := &Controller{
-		queue:                            queue,
-		crdClusterClient:                 crdClusterClient,
-		kcpClusterClient:                 kcpClusterClient,
-		AutoPublishNegotiatedAPIResource: autoPublishNegotiatedAPIResource,
-		negotiatedApiResourceIndexer:     negotiatedAPIResourceInformer.Informer().GetIndexer(),
-		negotiatedApiResourceLister:      negotiatedAPIResourceInformer.Lister(),
-		apiResourceImportIndexer:         apiResourceImportInformer.Informer().GetIndexer(),
-		apiResourceImportLister:          apiResourceImportInformer.Lister(),
-		crdIndexer:                       crdInformer.Informer().GetIndexer(),
-		crdLister:                        crdInformer.Lister(),
+		queue:                        queue,
+		crdClusterClient:             crdClusterClient,
+		kcpClusterClient:             kcpClusterClient,
+		negotiatedApiResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
+		negotiatedApiResourceLister:  negotiatedAPIResourceInformer.Lister(),
+		apiResourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
+		apiResourceImportLister:      apiResourceImportInformer.Lister(),
+		crdIndexer:                   crdInformer.Informer().GetIndexer(),
+		crdLister:                    crdInformer.Lister(),
 	}
 
 	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -140,8 +138,6 @@ type Controller struct {
 
 	crdIndexer cache.Indexer
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
-
-	AutoPublishNegotiatedAPIResource bool
 }
 
 type queueElementType string

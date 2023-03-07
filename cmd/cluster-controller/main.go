@@ -108,7 +108,6 @@ func main() {
 	apiResource, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		o.ApiResourceOptions.AutoPublishAPIs,
 		kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		crdSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
