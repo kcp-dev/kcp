@@ -100,7 +100,6 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	c, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		s.Options.Controllers.ApiResource.AutoPublishAPIs,
 		s.Core.KcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		s.Core.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		s.Core.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),

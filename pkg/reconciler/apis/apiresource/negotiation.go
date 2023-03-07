@@ -482,7 +482,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 				},
 				Spec: apiresourcev1alpha1.NegotiatedAPIResourceSpec{
 					CommonAPIResourceSpec: apiResourceImport.Spec.CommonAPIResourceSpec,
-					Publish:               c.AutoPublishNegotiatedAPIResource,
+					Publish:               false,
 				},
 			}
 			if negotiatedAPIResource != nil {
