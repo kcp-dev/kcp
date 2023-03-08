@@ -4,7 +4,7 @@ metadata:
   name: with-endpoints-upsync
   namespace: default
   annotations:
-    workload.kcp.io/upsync-derived-resources: endpoints
+    experimental.workload.kcp.io/upsync-derived-resources: endpoints
 spec:
   selector:
     app.kubernetes.io/name: with-endpoints-upsync

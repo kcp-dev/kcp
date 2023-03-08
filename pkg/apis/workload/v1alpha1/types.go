@@ -162,7 +162,7 @@ const (
 	// check all the APIBindings with this annotation for scheduling purpose.
 	ComputeAPIExportAnnotationKey = "extra.apis.kcp.io/compute.workload.kcp.io"
 
-	// UpsyncDerivedResourcesAnnotationKey is an annotation that can be set on a syncable resource.
+	// ExperimentalUpsyncDerivedResourcesAnnotationKey is an annotation that can be set on a syncable resource.
 	// It defines the resource types of derived resources (i.e. resources created from the syncable resource
 	// by some controller and that will not exist without it) intended to be upsynced to KCP.
 	//
@@ -170,11 +170,22 @@ const (
 	//
 	// To allow upsyncing an Endpoints resource related to a synced service, the Service instance should be annotated with:
 	//
-	//   workload.kcp.io/upsync-derived-resources: endpoints
+	//   experimental.workload.kcp.io/upsync-derived-resources: endpoints
 	//
-	// Of course this also requires having, on the physical cluster, the appropriate logic that will effectively
-	// label the derived resources for Upsync.
 	// For now, only endpoints can be upsynced on demand by the syncer with this mechanism,
-	// but the list of such resources will increase in the future.
-	UpsyncDerivedResourcesAnnotationKey = "workload.kcp.io/upsync-derived-resources"
+	// but the list of such resources would increase in the future.
+	//
+	// Of course using this annotation also requires having, on the physical cluster, the appropriate logic
+	// that will effectively label the derived resources for Upsync.
+	// This logic should guard against upsyncing unexpected resources.
+	// In addition, Upsyncing is limited to a limited, well-defined list of resource types on the KCP side,
+	// so that simply adding this annotation on a synced resource will not be a security risk.
+	//
+	// This annotation is user-facing and would typically be set by the client creating the synced resource
+	// in the KCP workspace, be it the end-user or a third-party controller.
+	//
+	// It is experimental since the provided user-experience is unsatisfactory,
+	// and further work should be done to define such (up)syncing strategies at a more appropriate level
+	// (SyncTarget, KCP namespace, KCP workspace ?).
+	ExperimentalUpsyncDerivedResourcesAnnotationKey = "experimental.workload.kcp.io/upsync-derived-resources"
 )

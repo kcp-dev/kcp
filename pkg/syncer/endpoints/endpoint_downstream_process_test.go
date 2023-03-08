@@ -79,7 +79,7 @@ func TestEndpointsControllerProcess(t *testing.T) {
 			}).Object(),
 			downstreamEndpoints: endpoints("httpecho").WithNamespace("downstream-ns").Object(),
 			downstreamService: service("httpecho").WithNamespace("downstream-ns").WithAnnotations(map[string]string{
-				"workload.kcp.io/upsync-derived-resources": "pods,endpoints",
+				"experimental.workload.kcp.io/upsync-derived-resources": "pods,endpoints",
 			}).Object(),
 			expectedPatch:     `{"metadata": {"labels": {"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":"Upsync"}}}`,
 			expectedPatchType: types.StrategicMergePatchType,
