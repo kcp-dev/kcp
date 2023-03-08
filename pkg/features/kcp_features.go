@@ -97,7 +97,7 @@ func (f *kcpFeatureGate) Type() string {
 // here. The features will be available throughout Kubernetes binaries.
 var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
 	LocationAPI:  {Default: true, PreRelease: featuregate.Alpha},
-	SyncerTunnel: {Default: false, PreRelease: featuregate.Alpha},
+	SyncerTunnel: {Default: true, PreRelease: featuregate.Alpha},
 
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:

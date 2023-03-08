@@ -35,13 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/kubernetes"
-	featuregatetesting "k8s.io/component-base/featuregate/testing"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -53,8 +50,6 @@ func TestSyncerTunnel(t *testing.T) {
 	if len(framework.TestConfig.PClusterKubeconfig()) == 0 {
 		t.Skip("Test requires a pcluster")
 	}
-
-	defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.SyncerTunnel, true)()
 
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	upstreamServer := framework.PrivateKcpServer(t, framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
@@ -287,12 +282,10 @@ func TestSyncerTunnelFilter(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster")
 
-	defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.SyncerTunnel, true)()
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	kcpServer := framework.PrivateKcpServer(t)
+	kcpServer := framework.SharedKcpServer(t)
 	orgPath, _ := framework.NewOrganizationFixture(t, kcpServer, framework.TODO_WithoutMultiShardSupport())
 	locationPath, locationWs := framework.NewWorkspaceFixture(t, kcpServer, orgPath, framework.TODO_WithoutMultiShardSupport())
 	locationWsName := logicalcluster.Name(locationWs.Spec.Cluster)
