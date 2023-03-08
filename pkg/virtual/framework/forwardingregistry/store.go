@@ -114,16 +114,20 @@ func DefaultDynamicDelegatedStoreFuncs(
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}
 	s.GracefulDeleterFunc = func(ctx context.Context, name string, validator rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-		// TODO(nrb): This needs the object before deletion.
-		//if validator != nil {
-		//	err := validator(ctx, obj)
-		//	if err != nil {
-		//		return nil, false, err
-		//	}
-		//}
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
+		}
+
+		obj, err := delegate.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+		if validator != nil {
+			err := validator(ctx, obj)
+			if err != nil {
+				return nil, false, err
+			}
 		}
 
 		deleter, err := dynamicextension.NewDeleterWithResults(delegate)

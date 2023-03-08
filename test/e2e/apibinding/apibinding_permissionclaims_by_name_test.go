@@ -358,6 +358,60 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		return false, "unexpected create"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "never received forbidden error")
+
+	t.Logf("create a configmap that does not match permision claims in consumer namespace, outside the view")
+	framework.Eventually(t, func() (done bool, str string) {
+		updatedBadCM, err := kubeClusterClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, badCM, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		t.Logf("%v", updatedBadCM)
+
+		return true, "created configmap outside view url"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not create configmap outside view url")
+
+	t.Logf("listing configmaps through view URL only returns applicable objects")
+	framework.Eventually(t, func() (done bool, str string) {
+		list, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).List(ctx, metav1.ListOptions{})
+		require.Equal(t, 1, len(list.Items))
+		require.Equal(t, "unique", list.Items[0].Name)
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return true, "got expected items in list"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not list configmaps")
+
+	t.Logf("deleting claimed configmaps through the view url")
+	framework.Eventually(t, func() (done bool, str string) {
+		err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return true, "successfully deleted configmaps through view url"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out waiting to delete configmaps")
+
+	t.Logf("getting configmaps that were not covered by permission claims")
+	framework.Eventually(t, func() (done bool, str string) {
+		list, err := kubeClusterClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		require.Equal(t, 3, len(list.Items))
+		names := make([]string, 0, 3)
+		for _, i := range list.Items {
+			names = append(names, i.Name)
+		}
+		require.ElementsMatch(t, names, []string{"not-unique", "kube-root-ca.crt", "confmap1"})
+
+		return true, "got expected items in list"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not list configmaps")
 	t.Logf("end of test")
 }
 

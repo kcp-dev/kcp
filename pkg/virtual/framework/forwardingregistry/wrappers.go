@@ -19,6 +19,7 @@ package forwardingregistry
 import (
 	"context"
 	"fmt"
+	"k8s.io/apiserver/pkg/registry/rest"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -74,5 +75,16 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 			options.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
 			return delegateWatcher.Watch(ctx, options)
 		}
+
+		delegateDeleteCollection := storage.CollectionDeleterFunc
+		storage.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *internalversion.ListOptions) (runtime.Object, error) {
+			selector := listOptions.LabelSelector
+			if selector == nil {
+				selector = labels.Everything()
+			}
+			listOptions.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
+			return delegateDeleteCollection.DeleteCollection(ctx, deleteValidation, options, listOptions)
+		}
+
 	})
 }
