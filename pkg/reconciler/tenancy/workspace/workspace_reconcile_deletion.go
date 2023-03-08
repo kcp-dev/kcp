@@ -62,7 +62,8 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		clusterName = logicalcluster.Name(a)
 	}
 
-	if _, err := r.getLogicalCluster(ctx, clusterName.Path()); err != nil && !apierrors.IsNotFound(err) {
+	logicalCluster, err := r.getLogicalCluster(ctx, clusterName.Path())
+	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, err
 	} else if apierrors.IsNotFound(err) {
 		finalizers := sets.New[string](workspace.Finalizers...)
@@ -74,9 +75,11 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
-	logger.Info("Deleting LogicalCluster")
-	if err := r.deleteLogicalCluster(ctx, clusterName.Path()); err != nil {
-		return reconcileStatusStopAndRequeue, err
+	if logicalCluster.DeletionTimestamp.IsZero() {
+		logger.Info("Deleting LogicalCluster")
+		if err := r.deleteLogicalCluster(ctx, clusterName.Path()); err != nil {
+			return reconcileStatusStopAndRequeue, err
+		}
 	}
 
 	// here we are waiting for the other shard to remove the finalizer of the Workspace
