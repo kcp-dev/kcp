@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -70,7 +69,6 @@ func TestScheduling(t *testing.T) {
 	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", negotiationPath)
 	syncerFixture := framework.NewSyncerFixture(t, source, negotiationPath,
-		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(syncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace, secondUserWorkspace),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
@@ -95,25 +93,6 @@ func TestScheduling(t *testing.T) {
 		}
 
 		return len(resources.Items) > 0
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Log("Wait for \"kubernetes\" apiexport")
-	require.Eventually(t, func() bool {
-		_, err := kcpClusterClient.Cluster(negotiationPath).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
-		return err == nil
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Log("Wait for \"kubernetes\" apibinding that is bound")
-	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.Cluster(negotiationPath).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
-		if err != nil {
-			t.Log(err)
-			return false, ""
-		}
-		if actual, expected := binding.Status.Phase, apisv1alpha1.APIBindingPhaseBound; actual != expected {
-			return false, fmt.Sprintf("APIBinding is in phase %s, not %s", actual, expected)
-		}
-		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Create a location in the negotiation workspace")
@@ -308,7 +287,6 @@ func TestSchedulingWhenLocationIsMissing(t *testing.T) {
 	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationPath)
 	_ = framework.NewSyncerFixture(t, source, locationPath,
-		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(syncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
 	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -29,12 +28,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/config/rootcompute"
-	"github.com/kcp-dev/kcp/pkg/logging"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -45,16 +43,6 @@ type reconcileStatus int
 const (
 	reconcileStatusStop reconcileStatus = iota
 	reconcileStatusContinue
-)
-
-// rootComputeResourceSchema are the APIResourceSchemas which should not be added into the APIExport. These are
-// APIResourceSchemas of kubernetes in root:compute workspace.
-var rootComputeResourceSchema = sets.NewString(
-	"deployments.apps",
-	"services.core",
-	"endpoints.core",
-	"ingresses.networking.k8s.io",
-	"pods.core",
 )
 
 type reconciler interface {
@@ -77,7 +65,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.From(export)
 
-	if export.Name != TemporaryComputeServiceExportName {
+	if export.Name != workloadv1alpha1.ImportedAPISExportName {
 		return reconcileStatusStop, nil
 	}
 
@@ -90,41 +78,35 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		return reconcileStatusStop, nil
 	}
 
-	shouldSkip, err := r.shouldSkipComputeAPIs(clusterName)
-	if err != nil {
-		return reconcileStatusStop, err
-	}
-
-	// we expect schemas for all negotiated resources
-	expectedResourceGroups := sets.NewString()
-	resourcesByResourceGroup := map[string]*apiresourcev1alpha1.NegotiatedAPIResource{}
+	resourcesByResourceGroup := map[schema.GroupResource]*apiresourcev1alpha1.NegotiatedAPIResource{}
 	for _, r := range resources {
 		// TODO(sttts): what about multiple versions of the same resource? Something is missing in the apiresource APIs and controllers to support that.
-		resource, _, group, ok := split3(r.Name, ".")
-		if !ok {
-			continue
+		gr := schema.GroupResource{
+			Group:    r.Spec.GroupVersion.Group,
+			Resource: r.Spec.Plural,
 		}
-		schemaName := fmt.Sprintf("%s.%s", resource, group)
-
-		// APIResourceSchemas already in root:compute should be skipped.
-		if shouldSkip && rootComputeResourceSchema.Has(schemaName) {
-			logger.V(4).Info("Skipping resource that's already in root:compute", "resource", schemaName)
-			continue
+		if gr.Group == "" {
+			gr.Group = "core"
 		}
-
-		expectedResourceGroups.Insert(schemaName)
-		resourcesByResourceGroup[schemaName] = r
+		resourcesByResourceGroup[gr] = r
 	}
 
 	// reconcile schemas in export
-	upToDate := sets.NewString()
-	schemasByResourceGroup := map[string]*apisv1alpha1.APIResourceSchema{}
+	// we check all schemas reference in the apiexport. if it is missing, we should create the schema
+	// if it is outdated, we should create the schema and delete the outdated schema.
+	upToDateResourceGroups := sets.NewString()
+	expectedResourceGroups := sets.NewString()
+
+	// schemaNamesByResourceGroup records the up-to-date APIResourceSchemaName for the resourceGroup, and the
+	// APIExport will be updated accordingly
+	schemaNamesByResourceGroup := map[schema.GroupResource]string{}
 	for _, schemaName := range export.Spec.LatestResourceSchemas {
-		_, resource, group, ok := split3(schemaName, ".")
+		gr, ok := ParseAPIResourceSchemaName(schemaName)
 		if !ok {
 			continue
 		}
-		resourceGroup := fmt.Sprintf("%s.%s", resource, group)
+		expectedResourceGroups.Insert(gr.String())
+		schemaNamesByResourceGroup[gr] = schemaName
 
 		existingSchema, err := r.getAPIResourceSchema(ctx, clusterName, schemaName)
 		if apierrors.IsNotFound(err) {
@@ -135,9 +117,8 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		}
 
 		// negotiated schema gone?
-		negotiated, ok := resourcesByResourceGroup[resourceGroup]
+		negotiated, ok := resourcesByResourceGroup[gr]
 		if !ok {
-			// will be deleted at the end
 			continue
 		}
 
@@ -145,16 +126,21 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		newSchema := toAPIResourceSchema(negotiated, "")
 		if equality.Semantic.DeepEqual(&existingSchema.Spec, &newSchema.Spec) {
 			// nothing to do
-			upToDate.Insert(resourceGroup)
-			schemasByResourceGroup[resourceGroup] = existingSchema
+			upToDateResourceGroups.Insert(gr.String())
 		}
 	}
 
 	// create missing or outdated schemas
-	outdatedOrMissing := expectedResourceGroups.Difference(upToDate)
+	outdatedOrMissing := expectedResourceGroups.Difference(upToDateResourceGroups)
+	outDatedSchemaNames := sets.NewString()
 	for _, resourceGroup := range outdatedOrMissing.List() {
 		logger.WithValues("schema", resourceGroup).V(2).Info("missing or outdated schema on APIExport, adding")
-		resource := resourcesByResourceGroup[resourceGroup]
+		gr := schema.ParseGroupResource(resourceGroup)
+		resource, ok := resourcesByResourceGroup[gr]
+		if !ok {
+			// no negotiated schema, keep the current schema name.
+			continue
+		}
 
 		group := resource.Spec.GroupVersion.Group
 		if group == "" {
@@ -173,23 +159,17 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 			return reconcileStatusStop, err
 		}
 
-		schemasByResourceGroup[resourceGroup] = schema
+		if _, ok := schemaNamesByResourceGroup[gr]; ok {
+			outDatedSchemaNames.Insert(schemaNamesByResourceGroup[gr])
+		}
+		schemaNamesByResourceGroup[gr] = schema.Name
 	}
 
 	// update schema list in export
 	old := export.DeepCopy()
 	export.Spec.LatestResourceSchemas = []string{}
-	referencedSchemaNames := map[string]bool{}
-	for _, resourceGroup := range expectedResourceGroups.List() {
-		schema, ok := schemasByResourceGroup[resourceGroup]
-		if !ok {
-			// should not happen. We should have all schemas by now
-			logger.WithValues("schema", resourceGroup).Error(fmt.Errorf("schema for resource %q not found", resourceGroup), "unexpectedly missing schema for resource in APIExport")
-			return reconcileStatusStop, nil
-		}
-
-		export.Spec.LatestResourceSchemas = append(export.Spec.LatestResourceSchemas, schema.Name)
-		referencedSchemaNames[schema.Name] = true
+	for _, schemaName := range schemaNamesByResourceGroup {
+		export.Spec.LatestResourceSchemas = append(export.Spec.LatestResourceSchemas, schemaName)
 	}
 	if !reflect.DeepEqual(old.Spec.LatestResourceSchemas, export.Spec.LatestResourceSchemas) {
 		if _, err := r.updateAPIExport(ctx, clusterName.Path(), export); err != nil {
@@ -198,46 +178,14 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	}
 
 	// delete schemas that are no longer needed
-	allSchemas, err := r.listAPIResourceSchemas(clusterName)
-	if err != nil {
-		return reconcileStatusStop, err
-	}
-	for _, schema := range allSchemas {
-		if !referencedSchemaNames[schema.Name] && metav1.IsControlledBy(schema, export) {
-			logging.WithObject(logger, schema).V(2).Info("deleting schema of APIExport")
-			if err := r.deleteAPIResourceSchema(ctx, clusterName.Path(), schema.Name); err != nil && !apierrors.IsNotFound(err) {
-				return reconcileStatusStop, err
-			}
+	for schemaName := range outDatedSchemaNames {
+		logger.V(2).Info("deleting schema of APIExport", "APIResourceSchema", schemaName)
+		if err := r.deleteAPIResourceSchema(ctx, clusterName.Path(), schemaName); err != nil && !apierrors.IsNotFound(err) {
+			return reconcileStatusStop, err
 		}
 	}
 
 	return reconcileStatusContinue, nil
-}
-
-func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name) (bool, error) {
-	syncTargets, err := r.listSyncTargets(clusterName)
-	if err != nil {
-		return false, err
-	}
-
-	for _, syncTarget := range syncTargets {
-		for _, export := range syncTarget.Spec.SupportedAPIExports {
-			// TODO: this does not work. We must not handle root:compute special in any way.
-			if export.Export == TemporaryComputeServiceExportName && export.Path == rootcompute.RootComputeClusterName.String() {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
-func split3(s string, sep string) (string, string, string, bool) {
-	comps := strings.SplitN(s, sep, 3)
-	if len(comps) != 3 {
-		return "", "", "", false
-	}
-	return comps[0], comps[1], comps[2], true
 }
 
 func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExport) error {

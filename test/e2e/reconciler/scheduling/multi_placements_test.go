@@ -63,14 +63,12 @@ func TestMultiPlacement(t *testing.T) {
 	t.Logf("Creating a SyncTarget and syncer in %s", locationPath)
 	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(firstSyncTargetName),
-		framework.WithExtraResources("services"),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	secondSyncTargetName := "second-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationPath)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationPath,
-		framework.WithExtraResources("services"),
 		framework.WithSyncTargetName(secondSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)

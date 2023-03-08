@@ -33,7 +33,7 @@ import (
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
-	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
+	workloadsdefaultlocation "github.com/kcp-dev/kcp/pkg/reconciler/workload/defaultlocation"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
@@ -308,27 +308,25 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 	})
 }
 
-func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkloadsDefaultLocationController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, workloadsapiexportcreate.ControllerName)
+	config = rest.AddUserAgent(config, workloadsdefaultlocation.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := workloadsapiexportcreate.NewController(
+	c, err := workloadsdefaultlocation.NewController(
 		kcpClusterClient,
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.Core.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.Core.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 	)
 	if err != nil {
 		return err
 	}
 
-	return s.Core.AddPostStartHook(postStartHookName(workloadsapiexportcreate.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsapiexportcreate.ControllerName))
+	return s.Core.AddPostStartHook(postStartHookName(workloadsdefaultlocation.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsdefaultlocation.ControllerName))
 		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -360,7 +358,7 @@ func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context,
 	}
 
 	return s.Core.AddPostStartHook(synctargetexports.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsapiexportcreate.ControllerName))
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(synctargetexports.ControllerName))
 		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.

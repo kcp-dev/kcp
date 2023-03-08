@@ -46,9 +46,6 @@ import (
 
 const (
 	ControllerName = "kcp-workload-apiexport"
-
-	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
-	TemporaryComputeServiceExportName = "kubernetes"
 )
 
 // NewController returns a new controller instance.
@@ -82,7 +79,7 @@ func NewController(
 		FilterFunc: func(obj interface{}) bool {
 			switch t := obj.(type) {
 			case *apisv1alpha1.APIExport:
-				return t.Name == TemporaryComputeServiceExportName
+				return t.Name == workloadv1alpha1.ImportedAPISExportName
 			}
 			return false
 		},
@@ -133,11 +130,11 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 		return
 	}
 
-	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(TemporaryComputeServiceExportName)
+	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(workloadv1alpha1.ImportedAPISExportName)
 	if errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
-		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), TemporaryComputeServiceExportName, err))
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), workloadv1alpha1.ImportedAPISExportName, err))
 		return
 	}
 
@@ -158,11 +155,11 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(TemporaryComputeServiceExportName)
+	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(workloadv1alpha1.ImportedAPISExportName)
 	if errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
-		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), TemporaryComputeServiceExportName, err))
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), workloadv1alpha1.ImportedAPISExportName, err))
 		return
 	}
 

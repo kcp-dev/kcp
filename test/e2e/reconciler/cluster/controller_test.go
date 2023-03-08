@@ -187,7 +187,7 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 
 			syncerFixture := framework.NewSyncerFixture(t, source, wsPath,
-				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
+				framework.WithExtraResources("cowboys.wildwest.dev"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
@@ -198,7 +198,7 @@ func TestClusterController(t *testing.T) {
 				})).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 			t.Logf("Bind second user workspace to location workspace")
-			framework.NewBindCompute(t, wsPath, source).Bind(t)
+			framework.NewBindCompute(t, wsPath, source, framework.WithAPIExportsWorkloadBindOption(workloadv1alpha1.ImportedAPISExportName)).Bind(t)
 
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
 			require.NoError(t, err)

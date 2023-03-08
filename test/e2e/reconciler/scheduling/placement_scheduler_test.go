@@ -66,7 +66,6 @@ func TestPlacementUpdate(t *testing.T) {
 	syncerFixture := framework.NewSyncerFixture(t, source, locationPath,
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userWorkspace),
-		framework.WithExtraResources("services"),
 	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 
 	t.Log("Wait for \"default\" location")

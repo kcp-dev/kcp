@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -56,7 +57,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
@@ -196,6 +199,13 @@ func (o *SyncOptions) Validate() error {
 		}
 	}
 
+	for _, apiExport := range o.APIExports {
+		_, name := logicalcluster.NewPath(apiExport).Split()
+		if name == workloadv1alpha1.ImportedAPISExportName {
+			errs = append(errs, fmt.Errorf("%s is a reserved APIExport name and should not be set", workloadv1alpha1.ImportedAPISExportName))
+		}
+	}
+
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -320,11 +330,45 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		})
 	}
 
-	// if ResourcesToSync is not empty, add export in synctarget workspace.
-	if len(o.ResourcesToSync) > 0 && !sets.NewString(o.APIExports...).Has("kubernetes") {
-		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
-			Export: "kubernetes",
-		})
+	// create local apiexport if resources flag is set
+	if len(o.ResourcesToSync) > 0 {
+		apiExport, err := kcpClient.ApisV1alpha1().APIExports().Get(ctx, workloadv1alpha1.ImportedAPISExportName, metav1.GetOptions{})
+		switch {
+		case apierrors.IsNotFound(err):
+			fmt.Fprintf(o.ErrOut, "Creating APIExport %q\n", workloadv1alpha1.ImportedAPISExportName)
+			apiExport = &apisv1alpha1.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: workloadv1alpha1.ImportedAPISExportName,
+					Annotations: map[string]string{
+						workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
+					},
+				},
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: []string{},
+				},
+			}
+			apiExport, _ = mergeLatestResourceSchema(apiExport, o.ResourcesToSync)
+			_, err = kcpClient.ApisV1alpha1().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				return nil, err
+			}
+		case err != nil:
+			return nil, err
+		default:
+			if apiExport, modified := mergeLatestResourceSchema(apiExport, o.ResourcesToSync); modified {
+				_, err = kcpClient.ApisV1alpha1().APIExports().Update(ctx, apiExport, metav1.UpdateOptions{})
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		// if ResourcesToSync is not empty, add export in synctarget workspace.
+		if !sets.NewString(o.APIExports...).Has(workloadv1alpha1.ImportedAPISExportName) {
+			supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
+				Export: workloadv1alpha1.ImportedAPISExportName,
+			})
+		}
 	}
 
 	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
@@ -418,13 +462,13 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 			return false, nil //nolint:nilerr
 		}
 
-		// skip if there is only the local kubernetes APIExport in the synctarget workspace, since we may not get syncedResources yet.
-		clusterName := logicalcluster.From(syncTarget)
+		if len(syncTarget.Spec.SupportedAPIExports) == 0 {
+			return true, nil
+		}
 
+		// skip if there is only the local imported-apis APIExport in the synctarget workspace, since we may not get syncedResources yet.
 		if len(syncTarget.Spec.SupportedAPIExports) == 1 &&
-			syncTarget.Spec.SupportedAPIExports[0].Export == "kubernetes" &&
-			(len(syncTarget.Spec.SupportedAPIExports[0].Path) == 0 ||
-				syncTarget.Spec.SupportedAPIExports[0].Path == clusterName.String()) {
+			syncTarget.Spec.SupportedAPIExports[0].Export == workloadv1alpha1.ImportedAPISExportName {
 			return true, nil
 		}
 
@@ -672,6 +716,32 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 	}
 
 	return string(saTokenBytes), syncerID, syncTarget, nil
+}
+
+func mergeLatestResourceSchema(apiExport *apisv1alpha1.APIExport, resourceToSync []string) (*apisv1alpha1.APIExport, bool) {
+	desiredResourceGroup := sets.NewString()
+	var modified bool
+	for _, schema := range apiExport.Spec.LatestResourceSchemas {
+		gr, valid := apiexport.ParseAPIResourceSchemaName(schema)
+		if !valid {
+			continue
+		}
+		desiredResourceGroup.Insert(gr.String())
+	}
+	for _, resource := range resourceToSync {
+		gr := schema.ParseGroupResource(resource)
+		if len(gr.Group) == 0 {
+			gr.Group = "core"
+		}
+		if !desiredResourceGroup.Has(gr.String()) {
+			// the rev-0 here is a placeholder and will be replaced by rv of negotiated APIResourceSchema finally.
+			schemaName := fmt.Sprintf("rev-0.%s", gr.String())
+			apiExport.Spec.LatestResourceSchemas = append(apiExport.Spec.LatestResourceSchemas, schemaName)
+			modified = true
+		}
+	}
+
+	return apiExport, modified
 }
 
 // mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences.

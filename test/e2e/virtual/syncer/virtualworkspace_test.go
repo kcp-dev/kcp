@@ -353,6 +353,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
+				logWithTimestampf(t, "Bind wildwest location workspace to itself")
+				framework.NewBindCompute(t, wildwestLocationPath, server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
+				).Bind(t)
+
 				logWithTimestampf(t, "Create two service accounts")
 				_, err := kubeClusterClient.Cluster(wildwestLocationPath).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
@@ -475,7 +480,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind wildwest location workspace to itself")
 				framework.NewBindCompute(t, wildwestLocationPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join("kubernetes").String()),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
@@ -626,7 +631,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -849,7 +854,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create 2 placements, one for each SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -860,7 +865,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1085,7 +1090,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create the north placement, for the north SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1193,7 +1198,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create the south placement, for the south SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1338,7 +1343,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join("kubernetes").String()),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -1446,7 +1451,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -1961,7 +1966,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 			logWithTimestampf(t, "Bind upsyncer workspace")
 			framework.NewBindCompute(t, upsyncerPath, server,
-				framework.WithAPIExportsWorkloadBindOption(upsyncerPath.Join("kubernetes").String()),
+				framework.WithAPIExportsWorkloadBindOption(upsyncerPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 			).Bind(t)
 
 			logWithTimestampf(t, "Waiting for the persistentvolumes crd to be imported and available in the upsyncer source cluster...")
