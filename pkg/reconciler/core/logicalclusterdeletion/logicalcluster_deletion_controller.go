@@ -31,6 +31,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -44,6 +45,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -68,8 +70,24 @@ func NewController(
 	metadataClusterClient kcpmetadata.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+
+	isBoundResource := func(clusterName logicalcluster.Name, group, resource string) (bool, error) {
+		apiBindings, err := apiBindingInformer.Cluster(clusterName).Lister().List(labels.Everything())
+		if err != nil {
+			return false, err
+		}
+		for _, apiBinding := range apiBindings {
+			for _, boundResource := range apiBinding.Status.BoundResources {
+				if boundResource.Group == group && boundResource.Resource == resource {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
 
 	c := &Controller{
 		queue:                     queue,
@@ -79,7 +97,7 @@ func NewController(
 		shardExternalURL:          shardExternalURL,
 		metadataClusterClient:     metadataClusterClient,
 		logicalClusterLister:      logicalClusterInformer.Lister(),
-		deleter:                   deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
+		deleter:                   deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn, isBoundResource),
 		commit:                    committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
