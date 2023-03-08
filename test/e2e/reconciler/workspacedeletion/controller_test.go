@@ -58,7 +58,6 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Helper()
 				orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 				t.Logf("Create a workspace with a shard")
@@ -191,8 +190,6 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "nested worksapce cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Helper()
-
 				orgPath, _ := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 
 				t.Logf("Should have finalizer in org workspace")
