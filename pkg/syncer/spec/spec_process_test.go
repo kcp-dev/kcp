@@ -37,6 +37,7 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -558,6 +559,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 		expectError             bool
 		expectActionsOnFrom     []kcptesting.Action
 		expectActionsOnTo       []clienttesting.Action
+		expectActionsOnKubeTo   []clienttesting.Action
 		expectNSCleaningPlanned []string
 	}{
 		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is not created downstream (will be in the next reconciliation)": {
@@ -585,6 +587,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -614,6 +617,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					),
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 		},
 		"SpecSyncer sync to downstream, syncer finalizer already there": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -640,6 +646,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -676,6 +683,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					),
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 		},
 		"SpecSyncer upstream resource has been removed, expect deletion downstream": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -708,6 +718,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -719,6 +730,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"theDeployment",
 					"kcp-33jbiactwhg0",
 				),
+			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
 			},
 			expectNSCleaningPlanned: []string{"kcp-33jbiactwhg0"},
 		},
@@ -745,6 +759,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -770,6 +785,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"kcp-33jbiactwhg0",
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 			expectNSCleaningPlanned: []string{"kcp-33jbiactwhg0"},
 		},
 		"SpecSyncer deletion: object does not exists downstream, upstream finalizer should be removed": {
@@ -792,6 +810,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -830,6 +849,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"kcp-33jbiactwhg0",
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 		},
 		"SpecSyncer deletion: upstream object has external finalizer, the object shouldn't be deleted": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -854,6 +876,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -907,6 +930,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					),
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 		},
 		"SpecSyncer with AdvancedScheduling, sync deployment to downstream and apply SpecDiff": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -936,6 +962,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -987,6 +1014,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					),
 				),
 			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-33jbiactwhg0", networkPolicy("kcp-33jbiactwhg0", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
 		},
 		"SpecSyncer namespace conflict: try to sync to an already existing namespace with a different namespace-locator, expect error": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -1012,6 +1042,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				}, map[string]string{
 					"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -1043,6 +1074,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, map[string]string{},
 				),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -1087,6 +1119,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "foo",
@@ -1100,6 +1133,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					types.ApplyPatchType,
 					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.io/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
 				),
+			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-01c0zzvlqsi7n", networkPolicy("kcp-01c0zzvlqsi7n", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
 			},
 		},
 		"tenant label is added to existing downstream namespaces": {
@@ -1132,6 +1168,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
 				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -1160,6 +1197,74 @@ func TestSpecSyncerProcess(t *testing.T) {
 						),
 					),
 				),
+			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				createNetworkPolicyAction("kcp-01c0zzvlqsi7n", networkPolicy("kcp-01c0zzvlqsi7n", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
+			},
+		},
+		"network policy exists and is updated": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResources: []runtime.Object{
+				secret("default-token-abc", "test", "root:org:ws",
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"kubernetes.io/service-account.name": "default"},
+					map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					}),
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+			},
+			toResources: []runtime.Object{
+				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
+					map[string]string{
+						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+					}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kubernetes", "default"),
+				networkPolicy("kcp-01c0zzvlqsi7n", "oldtenantformat", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "theDeployment",
+			syncTargetName:                      "us-west1",
+
+			expectActionsOnFrom: []kcptesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				updateNamespaceAction("kcp-01c0zzvlqsi7n",
+					toUnstructured(t, namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
+						"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+						"kcp.io/tenant-id":                 "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7"},
+						map[string]string{
+							"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						}))),
+				patchDeploymentSingleClusterAction(
+					"theDeployment",
+					"kcp-01c0zzvlqsi7n",
+					types.ApplyPatchType,
+					toJson(t,
+						changeUnstructured(
+							toUnstructured(t, deployment("theDeployment", "kcp-01c0zzvlqsi7n", "", map[string]string{
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+							}, nil, nil)),
+							setNestedField(map[string]interface{}{}, "status"),
+							setPodSpec("spec", "template", "spec"),
+						),
+					),
+				),
+			},
+			expectActionsOnKubeTo: []clienttesting.Action{
+				updateNetworkPolicyAction("kcp-01c0zzvlqsi7n", networkPolicy("kcp-01c0zzvlqsi7n", "9Fn3Q4y5UDPmCOrYCujwdgCbD9SwOcKdcefYE7", "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g")),
 			},
 		},
 	}
@@ -1295,6 +1400,18 @@ func TestSpecSyncerProcess(t *testing.T) {
 			}
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
+
+			var networkpoliciesActions []clienttesting.Action
+			for _, action := range toKubeClient.Actions() {
+				if action.GetResource().Resource == "networkpolicies" && action.GetVerb() != "watch" && action.GetVerb() != "list" {
+					networkpoliciesActions = append(networkpoliciesActions, action)
+					fmt.Printf("ACTION: %#v\n", action.(clienttesting.CreateAction).GetObject())
+				}
+			}
+			if networkpoliciesActions != nil {
+				assert.Empty(t, cmp.Diff(tc.expectActionsOnKubeTo, networkpoliciesActions))
+			}
+
 			mockedCleaner.lock.Lock()
 			defer mockedCleaner.lock.Unlock()
 			if tc.expectNSCleaningPlanned != nil {
@@ -1385,6 +1502,10 @@ func endpoints(name, namespace string) *corev1.Endpoints {
 				}}},
 		},
 	}
+}
+
+func networkPolicy(namespace, tenantID, syncTargetKey string) *networkingv1.NetworkPolicy {
+	return MakeTenantNetworkPolicy(namespace, tenantID, syncTargetKey, &networkingv1.NetworkPolicyEgressRule{To: []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: "8.8.8.8/32"}}}})
 }
 
 func service(name, namespace string) *corev1.Service {
@@ -1583,6 +1704,29 @@ func namespaceAction(verb, namespace string, subresources ...string) clienttesti
 func updateNamespaceAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
 	return clienttesting.UpdateActionImpl{
 		ActionImpl: namespaceAction("update", namespace, subresources...),
+		Object:     object,
+	}
+}
+
+func networkPolicyAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
+	return clienttesting.ActionImpl{
+		Namespace:   namespace,
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func createNetworkPolicyAction(namespace string, object runtime.Object, subresources ...string) clienttesting.CreateActionImpl {
+	return clienttesting.CreateActionImpl{
+		ActionImpl: networkPolicyAction("create", namespace, subresources...),
+		Object:     object,
+	}
+}
+
+func updateNetworkPolicyAction(namespace string, object runtime.Object, subresources ...string) clienttesting.CreateActionImpl {
+	return clienttesting.CreateActionImpl{
+		ActionImpl: networkPolicyAction("update", namespace, subresources...),
 		Object:     object,
 	}
 }

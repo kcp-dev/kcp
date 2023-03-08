@@ -285,10 +285,11 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 	}
 
 	// Check if the namespace already exists, if not create it.
-	namespaceExists := false
+	namespaceExists := true
 	namespace, err := namespaceLister.Get(newNamespace.GetName())
 	if apierrors.IsNotFound(err) {
 		_, err = namespaces.Create(ctx, newNamespace, metav1.CreateOptions{})
+		namespaceExists = false
 
 		if err == nil {
 			logger.Info("Created downstream namespace for upstream namespace")
@@ -296,7 +297,6 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 	}
 	if apierrors.IsAlreadyExists(err) {
 		namespace, err = namespaces.Get(ctx, newNamespace.GetName(), metav1.GetOptions{})
-		namespaceExists = true
 	}
 	if err != nil {
 		return err
@@ -327,7 +327,6 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 	}
 
 	// Check the kcp tenant network policy exists
-
 	apiServerRule, err := shared.MakeAPIServerNetworkPolicyEgressRule(ctx, c.downstreamKubeClient)
 	if err != nil {
 		return err

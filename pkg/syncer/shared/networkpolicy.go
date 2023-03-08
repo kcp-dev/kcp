@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,12 +49,15 @@ func MakeAPIServerNetworkPolicyEgressRule(ctx context.Context, kubeClient kubern
 		}
 	}
 
-	ports := make([]networkingv1.NetworkPolicyPort, len(subset.Ports))
-	for i, port := range subset.Ports {
-		pport := intstr.FromInt(int(port.Port))
-		ports[i].Port = &pport
-		pprotocol := port.Protocol
-		ports[i].Protocol = &pprotocol
+	var ports []networkingv1.NetworkPolicyPort
+	if len(subset.Ports) > 0 {
+		ports = make([]networkingv1.NetworkPolicyPort, len(subset.Ports))
+		for i, port := range subset.Ports {
+			pport := intstr.FromInt(int(port.Port))
+			ports[i].Port = &pport
+			pprotocol := port.Protocol
+			ports[i].Protocol = &pprotocol
+		}
 	}
 
 	return &networkingv1.NetworkPolicyEgressRule{
