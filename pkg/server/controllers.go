@@ -356,6 +356,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 		metadataClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		discoverResourcesFn,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
 	return s.AddPostStartHook(postStartHookName(logicalclusterdeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {

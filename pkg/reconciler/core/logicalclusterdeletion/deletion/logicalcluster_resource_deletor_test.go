@@ -123,7 +123,9 @@ func TestWorkspaceTerminating(t *testing.T) {
 				return resources, tt.gvrError
 			}
 			mockMetadataClient := kcpfakemetadata.NewSimpleMetadataClient(scheme, tt.existingObject...)
-			d := NewWorkspacedResourcesDeleter(mockMetadataClient, fn)
+			d := NewWorkspacedResourcesDeleter(mockMetadataClient, fn, func(clusterName logicalcluster.Name, group, resource string) (bool, error) {
+				return false, nil
+			})
 
 			err := d.Delete(context.TODO(), ws)
 			if !matchErrors(err, tt.expectErrorOnDelete) {
