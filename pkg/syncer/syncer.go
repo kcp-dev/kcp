@@ -428,7 +428,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	// Start tunneler for POD access
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName)
+		StartSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName, cfg.SyncTargetUID, func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			informers, _ := ddsifForDownstream.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				return nil, fmt.Errorf("failed to get informer for gvr: %s", gvr)
+			}
+			return informer.Lister(), nil
+		})
 	}
 
 	StartHeartbeat(ctx, kcpSyncTargetClient, cfg.SyncTargetName, cfg.SyncTargetUID)

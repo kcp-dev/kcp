@@ -263,7 +263,6 @@ func (tn *tunneler) Proxy(clusterName logicalcluster.Name, syncerName string, rw
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	// director := proxy.Director
 	proxy.Transport = &http.Transport{
 		Proxy:               nil,    // no proxies
 		DialContext:         d.Dial, // use a reverse connection

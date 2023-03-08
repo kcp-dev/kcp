@@ -41,8 +41,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	kubernetesinformers "k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -56,6 +59,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -570,7 +574,50 @@ type appliedSyncerFixture struct {
 	SyncerVirtualWorkspaceConfig   *rest.Config
 	UpsyncerVirtualWorkspaceConfig *rest.Config
 
-	stopHeartBeat context.CancelFunc
+	stopHeartBeat    context.CancelFunc
+	stopSyncerTunnel context.CancelFunc
+}
+
+func (sf *appliedSyncerFixture) StartSyncerTunnel(t *testing.T) *StartedSyncerFixture {
+	t.Helper()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+	sf.stopSyncerTunnel = cancelFunc
+
+	downstreamClient, err := dynamic.NewForConfig(sf.SyncerConfig.DownstreamConfig)
+	require.NoError(t, err)
+
+	downstreamInformer := dynamicinformer.NewDynamicSharedInformerFactory(downstreamClient, 10*time.Hour)
+	downstreamInformer.Start(ctx.Done())
+
+	podGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	namespaceGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	informers := make(map[schema.GroupVersionResource]kubernetesinformers.GenericInformer)
+
+	// Let's bootstrap the pod and namespace informers so they are ready to use during tests.
+	informers[podGvr] = downstreamInformer.ForResource(podGvr)
+	indexers.AddIfNotPresentOrDie(informers[podGvr].Informer().GetIndexer(), cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	informers[namespaceGvr] = downstreamInformer.ForResource(namespaceGvr)
+
+	syncer.StartSyncerTunnel(ctx, sf.SyncerConfig.UpstreamConfig, sf.SyncerConfig.DownstreamConfig, sf.SyncTargetClusterName, sf.SyncerConfig.SyncTargetName, sf.SyncerConfig.SyncTargetUID, func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+		if _, ok := informers[gvr]; !ok {
+			return nil, fmt.Errorf("no informer for %v", gvr)
+		}
+		return informers[gvr].Lister(), nil
+	})
+	startedSyncer := &StartedSyncerFixture{
+		sf,
+	}
+
+	return startedSyncer
+}
+
+// StopSyncerTunnel stops the syncer tunnel, the syncer will close the reverse connection and
+// pod subresources will not be available anymore.
+func (sf *StartedSyncerFixture) StopSyncerTunnel(t *testing.T) {
+	t.Helper()
+
+	sf.stopSyncerTunnel()
 }
 
 // StartHeartBeat starts the Heartbeat keeper to maintain
