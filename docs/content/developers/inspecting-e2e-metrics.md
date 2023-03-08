@@ -35,9 +35,10 @@ $ prometheus --storage.tsdb.path=metrics --config.file /dev/null
 ### Prow
 
 To inspect e2e metrics from prow runs, just copy-paste the prow link from the pull request:
+
 ![PR prow link](prow_link.png)
 
-And paste it into the Promecieus tool available under https://promecieus.dptools.openshift.org/:
+And paste it into [PromeCIeus](https://promecieus.dptools.openshift.org/):
 
 ![promecieus](promecieus.png)
 
