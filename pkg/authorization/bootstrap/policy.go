@@ -35,10 +35,13 @@ const (
 	// We need a separate group (not the privileged system group) for this because system-owned workspaces (e.g. root:users) need
 	// a workspace owner annotation set, and the owner annotation is skipped/not set for the privileged system group.
 	SystemKcpWorkspaceBootstrapper = "system:kcp:tenancy:workspace-bootstrapper"
-	// SystemLogicalClusterAdmin is a group used by the scheduler to create LogicalCluster resources.
+	// SystemLogicalClusterAdmin is a group used by the workspace scheduler to create LogicalCluster resources.
 	// This group allows it to skip the entire authorization stack except the bootstrap policy authorizer.
 	// Otherwise, the requests would be rejected because the LogicalCluster resource does not exist yet.
 	SystemLogicalClusterAdmin = "system:kcp:logical-cluster-admin"
+	// SystemExternalLogicalClusterAdmin is a group used by the workspace controllers to manage LogicalCluster
+	// resources after creation, using a subset of permissions allowed for the internal logical-cluster-admin.
+	SystemExternalLogicalClusterAdmin = "system:kcp:external-logical-cluster-admin"
 	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
 )
@@ -49,6 +52,7 @@ func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpAdminGroup).BindingOrDie(), "system:kcp:admin:cluster-admin"),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemKcpWorkspaceBootstrapper).Groups(SystemKcpWorkspaceBootstrapper, "apis.kcp.io:binding:"+SystemKcpWorkspaceBootstrapper).BindingOrDie(), SystemKcpWorkspaceBootstrapper),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemLogicalClusterAdmin).Groups(SystemLogicalClusterAdmin).BindingOrDie(), SystemLogicalClusterAdmin),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemExternalLogicalClusterAdmin).Groups(SystemExternalLogicalClusterAdmin).BindingOrDie(), SystemExternalLogicalClusterAdmin),
 	}
 }
 
@@ -74,6 +78,14 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("*").Groups(core.GroupName).Resources("logicalclusters", "logicalclusters/status").RuleOrDie(),
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("delete", "update", "get").Groups(core.GroupName).Resources("logicalclusters", "logicalclusters/status").RuleOrDie(),
+				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("access").URLs("/").RuleOrDie(),
 			},
 		},
 		{

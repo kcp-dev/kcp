@@ -378,13 +378,13 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
-		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig); err != nil {
+		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
 			return err
 		}
 		if err := s.installTenancyLogicalClusterController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
+		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
 			return err
 		}
 		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {

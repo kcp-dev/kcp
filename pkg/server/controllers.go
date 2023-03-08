@@ -320,7 +320,7 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 	})
 }
 
-func (s *Server) installLogicalClusterDeletionController(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config, shardExternalURL func() string) error {
+func (s *Server) installLogicalClusterDeletionController(ctx context.Context, config *rest.Config, logicalClusterAdminConfig, externalLogicalClusterAdminConfig *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, logicalclusterdeletion.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -349,7 +349,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 		kubeClusterClient,
 		kcpClusterClient,
 		logicalClusterAdminConfig,
-		shardExternalURL,
+		externalLogicalClusterAdminConfig,
 		metadataClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		discoverResourcesFn,
@@ -367,7 +367,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 	})
 }
 
-func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config) error {
+func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config, logicalClusterAdminConfig, externalLogicalClusterAdminConfig *rest.Config) error {
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	workspaceConfig := rest.CopyConfig(config)
 	workspaceConfig = rest.AddUserAgent(workspaceConfig, workspace.ControllerName)
@@ -381,14 +381,17 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
-	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName)
+	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
+
+	externalLogicalClusterAdminConfig = rest.CopyConfig(externalLogicalClusterAdminConfig)
+	externalLogicalClusterAdminConfig = rest.AddUserAgent(externalLogicalClusterAdminConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
 
 	workspaceController, err := workspace.NewController(
 		s.Options.Extra.ShardName,
-		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
+		externalLogicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),

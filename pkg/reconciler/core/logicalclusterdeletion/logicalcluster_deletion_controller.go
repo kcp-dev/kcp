@@ -64,7 +64,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
-	shardExternalURL func() string,
+	externalLogicalClusterAdminConfig *rest.Config,
 	metadataClusterClient kcpmetadata.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
@@ -72,15 +72,15 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &Controller{
-		queue:                     queue,
-		kubeClusterClient:         kubeClusterClient,
-		kcpClusterClient:          kcpClusterClient,
-		logicalClusterAdminConfig: logicalClusterAdminConfig,
-		shardExternalURL:          shardExternalURL,
-		metadataClusterClient:     metadataClusterClient,
-		logicalClusterLister:      logicalClusterInformer.Lister(),
-		deleter:                   deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
-		commit:                    committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		queue:                             queue,
+		kubeClusterClient:                 kubeClusterClient,
+		kcpClusterClient:                  kcpClusterClient,
+		logicalClusterAdminConfig:         logicalClusterAdminConfig,
+		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
+		metadataClusterClient:             metadataClusterClient,
+		logicalClusterLister:              logicalClusterInformer.Lister(),
+		deleter:                           deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
+		commit:                            committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -114,9 +114,9 @@ type Controller struct {
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	kcpClusterClient  kcpclientset.ClusterInterface
 
-	logicalClusterAdminConfig *rest.Config
-	shardExternalURL          func() string
-	dynamicFrontProxyClient   kcpdynamic.ClusterInterface
+	logicalClusterAdminConfig         *rest.Config
+	externalLogicalClusterAdminConfig *rest.Config
+	dynamicFrontProxyClient           kcpdynamic.ClusterInterface
 
 	metadataClusterClient kcpmetadata.ClusterInterface
 
@@ -148,9 +148,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer logger.Info("Shutting down controller")
 
 	// a client needed to remove the finalizer from the logical cluster on a different shard
-	frontProxyConfig := rest.CopyConfig(c.logicalClusterAdminConfig)
+	frontProxyConfig := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
 	frontProxyConfig = rest.AddUserAgent(frontProxyConfig, ControllerName)
-	frontProxyConfig.Host = c.shardExternalURL()
 	dynamicFrontProxyClient, err := kcpdynamic.NewForConfig(frontProxyConfig)
 	if err != nil {
 		runtime.HandleError(err)
