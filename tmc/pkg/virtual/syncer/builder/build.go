@@ -92,6 +92,7 @@ func BuildVirtualWorkspace(
 					return true
 				},
 				transformer: &transformations.SyncerResourceTransformer{
+					ShardExternalURL:         shardExternalURL(),
 					TransformationProvider:   &transformations.SpecDiffTransformation{},
 					SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
 				},

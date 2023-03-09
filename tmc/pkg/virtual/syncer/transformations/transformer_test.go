@@ -208,6 +208,10 @@ func gvr(group, version, resource string) schema.GroupVersionResource {
 
 type resourceBuilder func() *unstructured.Unstructured
 
+func (rb resourceBuilder) clusterName(clusterName string) resourceBuilder {
+	return rb.annotation(logicalcluster.AnnotationKey, clusterName)
+}
+
 func (rb resourceBuilder) annotation(key, value string) resourceBuilder {
 	return func() *unstructured.Unstructured {
 		r := rb.annotations()()
@@ -354,7 +358,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"new"}}`)(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
@@ -375,7 +379,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 					Name: "aThing",
 				},
 			},
-			expectedResult: resource("group/version", "Resource", "aThing").annotations().
+			expectedResult: resource("group/version", "Resource", "aThing").
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				field("added", "value").
 				field("status", map[string]interface{}{"statusField": "new"})(),
 		},
@@ -384,7 +390,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
 					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
 			},
@@ -404,6 +410,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			expectedResult: resource("group/version", "Resource", "aThing").
 				label("state.workload.kcp.io/syncTargetKey", "Sync").
 				annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				deletionTimestamp(&deletionTimestamp)(),
 		},
 		{
@@ -411,7 +419,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
 					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
 			},
@@ -443,13 +451,15 @@ func TestSyncerResourceTransformer(t *testing.T) {
 					Object: resource("group/version", "Resource", "aThing").
 						finalizer("workload.kcp.io/syncer-syncTargetKey").
 						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						annotation("kcp.io/cluster", "onecluster").
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated","status":{"statusField":"updated"}}`)(),
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").
 				finalizer("workload.kcp.io/syncer-syncTargetKey").
 				label("state.workload.kcp.io/syncTargetKey", "Sync").
-				annotations().
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value").
 				field("spec", map[string]interface{}{"field": "alreadyupdated"})(),
@@ -459,7 +469,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
 					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
 			},
@@ -489,7 +499,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					label("state.workload.kcp.io/syncTargetKey", "Sync")(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
@@ -520,6 +530,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 					Object: resource("group/version", "Resource", "aThing").
 						finalizer("workload.kcp.io/syncer-syncTargetKey").
 						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						annotation("kcp.io/cluster", "onecluster").
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":"##promoted##"}`).
 						field("status", map[string]interface{}{"statusField": "updated"})(),
 				},
@@ -527,7 +538,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			expectedResult: resource("group/version", "Resource", "aThing").
 				finalizer("workload.kcp.io/syncer-syncTargetKey").
 				label("state.workload.kcp.io/syncTargetKey", "Sync").
-				annotations().
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value")(),
 		},
@@ -536,7 +548,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
 					label("state.workload.kcp.io/syncTargetKey2", "").
@@ -572,6 +584,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						finalizer("workload.kcp.io/syncer-syncTargetKey").
 						label("state.workload.kcp.io/syncTargetKey", "Sync").
 						label("state.workload.kcp.io/syncTargetKey2", "").
+						annotation("kcp.io/cluster", "onecluster").
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"updated"}}`).
 						field("status", map[string]interface{}{"statusField": "updated"})(),
 				},
@@ -580,7 +593,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 				finalizer("workload.kcp.io/syncer-syncTargetKey").
 				label("state.workload.kcp.io/syncTargetKey", "Sync").
 				label("state.workload.kcp.io/syncTargetKey2", "").
-				annotations().
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value")(),
 		},
@@ -611,7 +625,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			name: "update - conflict",
 			gvr:  schema.GroupVersionResource{Group: "group", Version: "version", Resource: "resources"},
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					resourceVersion("0001").
 					label("state.workload.kcp.io/syncTargetKey", "Sync")(),
 			},
@@ -641,7 +655,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
 					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
@@ -669,10 +683,13 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Verb:     "update",
 						Resource: gvr("group", "version", "resources"),
 					},
-					Object: resource("group/version", "Resource", "aThing").finalizers().labels().annotations()(),
+					Object: resource("group/version", "Resource", "aThing").finalizers().labels().
+						annotation("kcp.io/cluster", "onecluster")(),
 				},
 			},
-			expectedResult: resource("group/version", "Resource", "aThing").labels().annotations().
+			expectedResult: resource("group/version", "Resource", "aThing").labels().
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				field("added", "value")(),
 		},
 		{
@@ -680,7 +697,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:           gvr("group", "version", "resources"),
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
-				resource("group/version", "Resource", "aThing").
+				resource("group/version", "Resource", "aThing").clusterName("onecluster").
 					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					finalizer("workload.kcp.io/syncer-syncTargetKey2").
 					label("state.workload.kcp.io/syncTargetKey", "Sync").
@@ -719,6 +736,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						finalizer("workload.kcp.io/syncer-syncTargetKey2").
 						label("state.workload.kcp.io/syncTargetKey", "Sync").
 						label("state.workload.kcp.io/syncTargetKey2", "Sync").
+						annotation("kcp.io/cluster", "onecluster").
 						annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"updated"}}`).
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey2", `{"status":"##promoted##"}`).
@@ -732,11 +750,14 @@ func TestSyncerResourceTransformer(t *testing.T) {
 					Object: resource("group/version", "Resource", "aThing").
 						finalizer("workload.kcp.io/syncer-syncTargetKey2").
 						label("state.workload.kcp.io/syncTargetKey2", "Sync").
+						annotation("kcp.io/cluster", "onecluster").
 						annotation("diff.syncer.internal.kcp.io/syncTargetKey2", `{"status":"##promoted##"}`).
 						field("status", map[string]any{"statusField": string("new")})(),
 				},
 			},
-			expectedResult: resource("group/version", "Resource", "aThing").labels().annotations().
+			expectedResult: resource("group/version", "Resource", "aThing").labels().
+				annotation("internal.workload.kcp.io/workspace-url", "https://localhost/clusters/onecluster").
+				annotation("kcp.io/cluster", "onecluster").
 				label("state.workload.kcp.io/syncTargetKey2", "Sync").
 				field("added", "value")(),
 		},
@@ -784,6 +805,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThing",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster": "onecluster",
+									},
 								},
 							},
 						})
@@ -793,6 +817,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThingMore",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster": "onecluster",
+									},
 								},
 							},
 						})
@@ -802,6 +829,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThing",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster": "onecluster",
+									},
 								},
 							},
 						})
@@ -811,6 +841,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThingMore",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster": "onecluster",
+									},
 								},
 							},
 						})
@@ -823,6 +856,10 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThing",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster":                         "onecluster",
+										"internal.workload.kcp.io/workspace-url": "https://localhost/clusters/onecluster",
+									},
 								},
 								"after": "added aThing",
 							},
@@ -833,6 +870,10 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThingMore",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster":                         "onecluster",
+										"internal.workload.kcp.io/workspace-url": "https://localhost/clusters/onecluster",
+									},
 								},
 								"after": "added aThingMore",
 							},
@@ -843,6 +884,10 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThing",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster":                         "onecluster",
+										"internal.workload.kcp.io/workspace-url": "https://localhost/clusters/onecluster",
+									},
 								},
 								"after": "added aThing",
 							},
@@ -853,6 +898,10 @@ func TestSyncerResourceTransformer(t *testing.T) {
 								"kind":       "Resource",
 								"metadata": map[string]interface{}{
 									"name": "aThingMore",
+									"annotations": map[string]interface{}{
+										"kcp.io/cluster":                         "onecluster",
+										"internal.workload.kcp.io/workspace-url": "https://localhost/clusters/onecluster",
+									},
 								},
 								"after": "added aThingMore",
 							},
@@ -874,7 +923,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 				},
 			}
 
-			rt := &SyncerResourceTransformer{}
+			rt := &SyncerResourceTransformer{
+				ShardExternalURL: "https://localhost/",
+			}
 			if test.transform != nil {
 				rt.TransformationProvider = &mockedTransformation{
 					test.transform,
