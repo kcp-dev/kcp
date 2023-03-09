@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -57,6 +58,8 @@ var _ transforming.ResourceTransformer = (*SyncerResourceTransformer)(nil)
 // when syncing to downstream, and the management of fields updated by the Syncer
 // when syncing back to upstream.
 type SyncerResourceTransformer struct {
+	ShardExternalURL string
+
 	TransformationProvider
 	SummarizingRulesProvider
 }
@@ -510,6 +513,20 @@ func (srt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx
 		// Only propagate the deletionTimestamp if no soft finalizers exist for this SyncTarget.
 		logger.Info("propagating the deletionTimestanmp annotation as the real deletionTimestamp of the transformed syncer view")
 		transformedSyncerViewResource.SetDeletionTimestamp(deletionTimestamp)
+	}
+
+	workspaceURL, err := url.JoinPath(srt.ShardExternalURL, logicalcluster.From(upstreamResource).Path().RequestPath())
+	if err != nil {
+		logger.Error(err, errorMessage)
+		return nil, kerrors.NewInternalError(fmt.Errorf("unable to build workspace URL for resource %s|%s/%s: %w", logicalcluster.From(transformedSyncerViewResource), transformedSyncerViewResource.GetNamespace(), transformedSyncerViewResource.GetName(), err))
+	}
+	if annotations := transformedSyncerViewResource.GetAnnotations(); annotations != nil {
+		annotations[v1alpha1.InternalWorkspaceURLAnnotationKey] = workspaceURL
+		transformedSyncerViewResource.SetAnnotations(annotations)
+	} else {
+		transformedSyncerViewResource.SetAnnotations(map[string]string{
+			v1alpha1.InternalWorkspaceURLAnnotationKey: workspaceURL,
+		})
 	}
 
 	logger.Info("resource transformed")
