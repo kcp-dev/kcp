@@ -188,4 +188,15 @@ const (
 	// and further work should be done to define such (up)syncing strategies at a more appropriate level
 	// (SyncTarget, KCP namespace, KCP workspace ?).
 	ExperimentalUpsyncDerivedResourcesAnnotationKey = "experimental.workload.kcp.io/upsync-derived-resources"
+
+	// InternalWorkspaceURLAnnotationKey is an annotation dynamically added on resources exposed
+	// by the Syncer Virtual Workspace to be synced by the Syncer.
+	// It contains the external URL of the workspace the resource is part of.
+	//
+	// The Syncer doesn't have this information and needs it to correctly point some created downstream
+	// resources back to the right KCP workspace.
+	//
+	//   internal.workload.kcp.io/workspace-url
+	//
+	InternalWorkspaceURLAnnotationKey = "internal.workload.kcp.io/workspace-url"
 )
