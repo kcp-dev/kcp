@@ -53,9 +53,10 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
+	shardExternalURL func() string,
 	cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
+	syncer, err := o.Syncer.NewVirtualWorkspaces(rootPathPrefix, shardExternalURL, config, cachedKcpInformers)
 	if err != nil {
 		return nil, err
 	}

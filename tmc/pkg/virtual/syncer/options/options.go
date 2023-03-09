@@ -51,6 +51,7 @@ func (o *Syncer) Validate(flagPrefix string) []error {
 
 func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
+	shardExternalURL func() string,
 	config *rest.Config,
 	cachedKCPInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
@@ -64,5 +65,5 @@ func (o *Syncer) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, cachedKCPInformers), nil
+	return builder.BuildVirtualWorkspace(rootPathPrefix, shardExternalURL, kubeClusterClient, dynamicClusterClient, cachedKCPInformers), nil
 }

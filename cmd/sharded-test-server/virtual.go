@@ -145,6 +145,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	var args []string
 	args = append(args,
 		fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
+		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
 		fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath),
 		fmt.Sprintf("--authentication-kubeconfig=%s", authenticationKubeconfigPath),
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
