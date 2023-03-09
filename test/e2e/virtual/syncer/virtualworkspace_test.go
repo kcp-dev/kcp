@@ -139,6 +139,15 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name, rootCompu
 	coreResourceList := requiredCoreAPIResourceList(workspaceName)
 	coreResourceList.APIResources = append(coreResourceList.APIResources,
 		metav1.APIResource{
+			Kind:               "Endpoints",
+			Name:               "endpoints",
+			SingularName:       "endpoints",
+			Namespaced:         true,
+			Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+			ShortNames:         []string{"ep"},
+			StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "", "v1", "Endpoints"),
+		},
+		metav1.APIResource{
 			Kind:               "Service",
 			Name:               "services",
 			SingularName:       "service",
@@ -274,7 +283,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						return false, err.Error()
 					}
 					diff := cmp.Diff(
-						withRootComputeAPIResourceList(kubelikeLocationWorkspaceClusterName, rootComputeLogicalCluster),
+						sortAPIResourceList(withRootComputeAPIResourceList(kubelikeLocationWorkspaceClusterName, rootComputeLogicalCluster)),
 						sortAPIResourceList(kubelikeAPIResourceLists))
 					return len(diff) == 0, diff
 				}, wait.ForeverTestTimeout, time.Millisecond*100)

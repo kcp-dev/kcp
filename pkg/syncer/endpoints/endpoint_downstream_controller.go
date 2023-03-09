@@ -22,7 +22,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -31,12 +38,20 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
 	ControllerName = "syncer-endpoint-controller"
+)
+
+var (
+	endpointsGVR  = corev1.SchemeGroupVersion.WithResource("endpoints")
+	servicesGVR   = corev1.SchemeGroupVersion.WithResource("services")
+	namespacesGVR = corev1.SchemeGroupVersion.WithResource("namespaces")
 )
 
 // NewEndpointController returns new controller which would annotate Endpoints related to synced Services, so that those Endpoints
@@ -46,11 +61,60 @@ const (
 func NewEndpointController(
 	downstreamClient dynamic.Interface,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
+	syncTargetClusterName logicalcluster.Name,
+	syncTargetName string,
+	syncTargetUID types.UID,
 ) (*controller, error) {
-	endpointsGVR := corev1.SchemeGroupVersion.WithResource("endpoints")
-
 	c := &controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+
+		syncTargetClusterName: syncTargetClusterName,
+		syncTargetName:        syncTargetName,
+		syncTargetUID:         syncTargetUID,
+		syncTargetKey:         workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, syncTargetName),
+
+		getDownstreamResource: func(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
+			informers, notSynced := ddsifForDownstream.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+				}
+				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+			}
+			object, err := informer.Lister().ByNamespace(namespace).Get(name)
+			if err != nil {
+				return nil, err
+			}
+			unstr, ok := object.(*unstructured.Unstructured)
+			if !ok {
+				return nil, fmt.Errorf("object type should be *unstructured.Unstructured but was %t", object)
+			}
+			return unstr, nil
+		},
+		getDownstreamNamespace: func(name string) (*unstructured.Unstructured, error) {
+			informers, notSynced := ddsifForDownstream.Informers()
+			informer, ok := informers[namespacesGVR]
+			if !ok {
+				if shared.ContainsGVR(notSynced, namespacesGVR) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", namespacesGVR)
+				}
+				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", namespacesGVR)
+			}
+			object, err := informer.Lister().Get(name)
+			if err != nil {
+				return nil, err
+			}
+			unstr, ok := object.(*unstructured.Unstructured)
+			if !ok {
+				return nil, fmt.Errorf("object type should be *unstructured.Unstructured but was %t", object)
+			}
+			return unstr, nil
+		},
+		patchEndpoint: func(ctx context.Context, namespace, name string, pt types.PatchType, data []byte) error {
+			_, err := downstreamClient.Resource(endpointsGVR).Namespace(namespace).Patch(ctx, name, pt, data, metav1.PatchOptions{})
+			return err
+		},
 	}
 
 	informers, _ := ddsifForDownstream.Informers()
@@ -61,13 +125,21 @@ func NewEndpointController(
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueue(obj)
+			c.enqueueEndpoints(obj)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueue(newObj)
+		UpdateFunc: func(old, new interface{}) {
+			c.enqueueEndpoints(new)
 		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueue(obj)
+	})
+
+	servicesInformer, ok := informers[servicesGVR]
+	if !ok {
+		return nil, errors.New("endpoints informer should be available")
+	}
+
+	servicesInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(old, new interface{}) {
+			c.enqueueService(new)
 		},
 	})
 
@@ -76,9 +148,18 @@ func NewEndpointController(
 
 type controller struct {
 	queue workqueue.RateLimitingInterface
+
+	syncTargetClusterName logicalcluster.Name
+	syncTargetName        string
+	syncTargetUID         types.UID
+	syncTargetKey         string
+
+	getDownstreamResource  func(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error)
+	getDownstreamNamespace func(name string) (*unstructured.Unstructured, error)
+	patchEndpoint          func(ctx context.Context, namespace, name string, pt types.PatchType, data []byte) error
 }
 
-func (c *controller) enqueue(obj interface{}) {
+func (c *controller) enqueueEndpoints(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -87,6 +168,33 @@ func (c *controller) enqueue(obj interface{}) {
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing")
+	c.queue.Add(key)
+}
+
+func (c *controller) enqueueService(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "error when queueing from the related service")
+	}
+
+	_, err = c.getDownstreamResource(endpointsGVR, namespace, name)
+	if kerrors.IsNotFound(err) {
+		// no related Endpoints resource => nothing to do
+		return
+	}
+	if err != nil {
+		logger.Error(err, "error when queueing from the related service")
+	}
+
+	logger.V(2).Info("queueing from service")
 	c.queue.Add(key)
 }
 
@@ -141,21 +249,4 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	c.queue.Forget(key)
 
 	return true
-}
-
-func (c *controller) process(ctx context.Context, key string) error {
-	logger := klog.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-	logger = logger.WithValues(logging.NamespaceKey, namespace, logging.NameKey, name)
-
-	logger.Info("Processing endpoint")
-
-	// TODO(davidfestal): check if a service synced from KCP exists with the same name.
-	// If it's the case, then label the Endpoints resource so that it can be Upsynced.
-	// We should also cleanup the endpoint (remove the label) when the corresonding service is removed.
-	return nil
 }

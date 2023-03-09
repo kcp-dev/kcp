@@ -226,8 +226,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		&filteredGVRSource{
 			GVRSource: syncTargetGVRSource,
 			keepGVR: func(gvr schema.GroupVersionResource) bool {
-				// Don't expose pods or endpoints via the syncer vw
-				if gvr.Group == corev1.GroupName && (gvr.Resource == "pods" || gvr.Resource == "endpoints") {
+				// Don't expose pods via the syncer vw
+				if gvr.Group == corev1.GroupName && (gvr.Resource == "pods") {
 					return false
 				}
 				return true
@@ -413,7 +413,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 					corev1.SchemeGroupVersion.WithResource("endpoints"),
 				},
 				Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
-					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream)
+					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream, logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID))
 					if err != nil {
 						return nil, err
 					}

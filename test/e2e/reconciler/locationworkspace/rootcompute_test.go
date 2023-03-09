@@ -88,7 +88,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 			return false
 		}
 
-		if len(syncTarget.Status.SyncedResources) != 4 {
+		if len(syncTarget.Status.SyncedResources) != 5 {
 			return false
 		}
 
@@ -104,8 +104,12 @@ func TestRootComputeWorkspace(t *testing.T) {
 			syncTarget.Status.SyncedResources[2].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
-		if syncTarget.Status.SyncedResources[3].Resource != "deployments" ||
+		if syncTarget.Status.SyncedResources[3].Resource != "endpoints" ||
 			syncTarget.Status.SyncedResources[3].State != workloadv1alpha1.ResourceSchemaAcceptedState {
+			return false
+		}
+		if syncTarget.Status.SyncedResources[4].Resource != "deployments" ||
+			syncTarget.Status.SyncedResources[4].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
 
