@@ -18,12 +18,11 @@ package options
 
 import (
 	"fmt"
-	synceroptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/options"
-	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
+	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/client-go/rest"
 
 	virtualadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
@@ -31,6 +30,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	synceroptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/options"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"

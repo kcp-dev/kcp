@@ -20,13 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/permissionclaim"
-	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"io"
+
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
+
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
+	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
 const (

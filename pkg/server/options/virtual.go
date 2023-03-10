@@ -17,8 +17,9 @@ limitations under the License.
 package options
 
 import (
-	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	"github.com/spf13/pflag"
+
+	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 type Virtual struct {

@@ -17,26 +17,26 @@ limitations under the License.
 package server
 
 import (
-	"github.com/kcp-dev/client-go/kubernetes"
-	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/clientsethack"
-	"k8s.io/apiserver/pkg/informerfactoryhack"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"net/http"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/client-go/kubernetes"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apiserver/pkg/admission"
 	kaudit "k8s.io/apiserver/pkg/audit"
+	"k8s.io/apiserver/pkg/clientsethack"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"

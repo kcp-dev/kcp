@@ -19,7 +19,6 @@ package forwardingregistry
 import (
 	"context"
 	"fmt"
-	"k8s.io/apiserver/pkg/registry/rest"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/registry/rest"
 )
 
 func WithStaticLabelSelector(labelSelector labels.Requirements) StorageWrapper {
