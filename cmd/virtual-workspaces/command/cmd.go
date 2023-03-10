@@ -197,13 +197,16 @@ func Run(ctx context.Context, o *options.Options) error {
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(wildcardKcpInformers, cacheKcpInformers),
 	}
-	o.CoreVirtualWorkspaces.Admission.ApplyTo(
+	err = o.CoreVirtualWorkspaces.Admission.ApplyTo(
 		&recommendedConfig.Config,
 		informerfactoryhack.Wrap(wildcardKubeInformers),
 		clientsethack.Wrap(localShardKubeClusterClient),
 		utilfeature.DefaultFeatureGate,
 		admissionPluginInitializers...,
 	)
+	if err != nil {
+		return err
+	}
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())

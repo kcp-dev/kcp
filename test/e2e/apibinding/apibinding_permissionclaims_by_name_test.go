@@ -1,5 +1,5 @@
-/*/
-Copyright 2022 The KCP Authors.
+/*
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -157,10 +157,8 @@ func TestPermissionClaimsByName(t *testing.T) {
 	cm.Data = map[string]string{
 		"something": "new",
 	}
-	times := 0
 	updatedCM := &v1.ConfigMap{}
 	framework.Eventually(t, func() (done bool, str string) {
-		times = times + 1
 		updatedCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Update(ctx, cm, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -359,7 +357,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return true, "created configmap outside view url"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not create configmap outside view url")
 
 	t.Logf("listing configmaps through view URL only returns applicable objects")
@@ -372,7 +369,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return true, "got expected items in list"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not list configmaps")
 
 	t.Logf("deleting claimed configmaps through the view url")
@@ -383,7 +379,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return true, "successfully deleted configmaps through view url"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out waiting to delete configmaps")
 
 	t.Logf("getting configmaps that were not covered by permission claims")
@@ -401,7 +396,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		require.ElementsMatch(t, names, []string{"not-unique", "kube-root-ca.crt", "confmap1"})
 
 		return true, "got expected items in list"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not list configmaps")
 
 	t.Logf("trying to delete single configmap not covered by permission claims")
@@ -416,7 +410,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return false, "delete unexpectedly successful"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not delete configmap")
 }
 

@@ -157,11 +157,6 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 			"namespace", resourceNamespace, "name", resourceName,
 		)
 
-		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
-		if path.Empty() {
-			path = logicalcluster.From(binding).Path()
-		}
-
 		for _, claim := range binding.Spec.PermissionClaims {
 			// There is no PermissionClaim for this object, no need to compute selection
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
@@ -172,7 +167,6 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 				// return if any permission claim on any binding do not allow the object.
 				logger.Info("not permitted by PermissionClaims")
 				return false, fmt.Errorf("operation not permitted")
-				continue
 			}
 		}
 	}
@@ -197,7 +191,6 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, names
 		if selectsName(selector.Names, name) && selectsNamespaces(selector.Namespaces, namespace) {
 			return true
 		}
-
 	}
 
 	return false
@@ -213,11 +206,7 @@ func selectsName(names []string, objectName string) bool {
 	}
 
 	validNames := sets.NewString(names...)
-	if validNames.Has(objectName) {
-		return true
-	}
-
-	return false
+	return validNames.Has(objectName)
 }
 
 // selectsNamespaces determines if an object's namespace matches a set of namespace values, and if it is cluster-scoped.
@@ -237,9 +226,5 @@ func selectsNamespaces(namespaces []string, objectNamespace string) bool {
 
 	// Match listed namespaces
 	validNamespaces := sets.NewString(namespaces...)
-	if validNamespaces.Has(objectNamespace) {
-		return true
-	}
-
-	return false
+	return validNamespaces.Has(objectNamespace)
 }

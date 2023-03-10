@@ -95,13 +95,16 @@ func newVirtualConfig(
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(kcpSharedInformerFactory, cacheKcpSharedInformerFactory),
 	}
-	o.Virtual.VirtualWorkspaces.Admission.ApplyTo(
+	err = o.Virtual.VirtualWorkspaces.Admission.ApplyTo(
 		&recommendedConfig.Config,
 		informerfactoryhack.Wrap(kubeSharedInformerFactory),
 		clientsethack.Wrap(kubeClusterClient),
 		utilfeature.DefaultFeatureGate,
 		admissionPluginInitializers...,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,

@@ -85,6 +85,5 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 			listOptions.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
 			return delegateDeleteCollection.DeleteCollection(ctx, deleteValidation, options, listOptions)
 		}
-
 	})
 }
