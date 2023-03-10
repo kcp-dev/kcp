@@ -41,9 +41,7 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-type VirtualConfig struct {
-	virtualrootapiserver.Config
-}
+type VirtualConfig virtualrootapiserver.Config
 
 type completedVirtualConfig struct {
 	virtualrootapiserver.CompletedConfig
@@ -97,7 +95,7 @@ func newVirtualConfig(
 		return nil, err
 	}
 
-	return &VirtualConfig{*c}, nil
+	return (*VirtualConfig)(c), nil
 }
 
 func (c *VirtualConfig) Complete(auth genericapiserver.AuthenticationInfo, auditEvaluator kaudit.PolicyRuleEvaluator, auditBackend kaudit.Backend, externalAddress string) CompletedVirtualConfig {
@@ -109,7 +107,7 @@ func (c *VirtualConfig) Complete(auth genericapiserver.AuthenticationInfo, audit
 	c.Generic.ExternalAddress = externalAddress
 
 	completed := &completedVirtualConfig{
-		c.Config.Complete(),
+		(*virtualrootapiserver.Config)(c).Complete(),
 	}
 
 	completed.Generic.AuditBackend = auditBackend
