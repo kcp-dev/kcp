@@ -197,7 +197,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(wildcardKcpInformers, cacheKcpInformers),
 	}
-	o.VirtualWorkspaces.Admission.ApplyTo(
+	o.CoreVirtualWorkspaces.Admission.ApplyTo(
 		&recommendedConfig.Config,
 		informerfactoryhack.Wrap(wildcardKubeInformers),
 		clientsethack.Wrap(localShardKubeClusterClient),

@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/kcp-dev/client-go/kubernetes"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/clientsethack"
@@ -62,6 +63,7 @@ func newVirtualConfig(
 	config *rest.Config,
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
+	kubeClusterClient kubernetes.ClusterInterface,
 ) (*VirtualConfig, error) {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
@@ -91,12 +93,12 @@ func newVirtualConfig(
 
 	// apply admission to check permission claims for resources through a view's URL
 	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKcpInformersInitializer(kcpSharedInformerFactory, cacheKcpSharedInformerFactory),
 	}
-	s.Options.Virtual.VirtualWorkspaces.Admission.ApplyTo(
+	o.Virtual.VirtualWorkspaces.Admission.ApplyTo(
 		&recommendedConfig.Config,
-		informerfactoryhack.Wrap(s.KubeSharedInformerFactory),
-		clientsethack.Wrap(s.KubeClusterClient),
+		informerfactoryhack.Wrap(kubeSharedInformerFactory),
+		clientsethack.Wrap(kubeClusterClient),
 		utilfeature.DefaultFeatureGate,
 		admissionPluginInitializers...,
 	)
