@@ -40,8 +40,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
-	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
+	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
 )
 
 const (

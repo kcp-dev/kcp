@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -52,6 +53,7 @@ type Server struct {
 	CompletedConfig
 
 	*genericcontrolplane.ServerChain
+	virtual *virtualrootapiserver.Server
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -111,6 +113,19 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.Options.Virtual.Enabled {
+		s.virtual, err = c.OptionalVirtual.NewServer(s.preHandlerChainMux)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.AddPostStartHook("kcp-start-virtual-workspaces", func(ctx genericapiserver.PostStartHookContext) error {
+			s.virtual.GenericAPIServer.RunPostStartHooks(ctx.StopCh)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return s, nil
@@ -468,14 +483,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
 		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Virtual.Enabled {
-		virtualWorkspacesConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
-		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
-		if err := s.installVirtualWorkspaces(ctx, virtualWorkspacesConfig, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
 			return err
 		}
 	}

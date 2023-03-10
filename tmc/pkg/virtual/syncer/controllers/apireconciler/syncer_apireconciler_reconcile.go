@@ -34,7 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	syncerbuiltin "github.com/kcp-dev/kcp/pkg/virtual/syncer/schemas/builtin"
+	syncerbuiltin "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/schemas/builtin"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiDomainKey dynamiccontext.APIDomainKey, syncTarget *workloadv1alpha1.SyncTarget) error {

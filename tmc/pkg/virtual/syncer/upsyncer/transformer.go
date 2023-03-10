@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 
-	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
+	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
 )
 
 // UpsyncDiffAnnotationPrefix is an internal annotation used on downstream resources to specify a transformation

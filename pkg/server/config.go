@@ -74,10 +74,11 @@ type Config struct {
 
 	EmbeddedEtcd *embeddedetcd.Config
 
-	GenericConfig  *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
-	MiniAggregator *aggregator.MiniAggregatorConfig
-	Apis           *apis.Config
-	ApiExtensions  *apiextensionsapiserver.Config
+	GenericConfig   *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
+	MiniAggregator  *aggregator.MiniAggregatorConfig
+	Apis            *apis.Config
+	ApiExtensions   *apiextensionsapiserver.Config
+	OptionalVirtual *VirtualConfig
 
 	ExtraConfig
 }
@@ -129,11 +130,12 @@ type ExtraConfig struct {
 type completedConfig struct {
 	Options kcpserveroptions.CompletedOptions
 
-	GenericConfig  genericapiserver.CompletedConfig
-	EmbeddedEtcd   embeddedetcd.CompletedConfig
-	MiniAggregator aggregator.CompletedMiniAggregatorConfig
-	Apis           apis.CompletedConfig
-	ApiExtensions  apiextensionsapiserver.CompletedConfig
+	GenericConfig   genericapiserver.CompletedConfig
+	EmbeddedEtcd    embeddedetcd.CompletedConfig
+	MiniAggregator  aggregator.CompletedMiniAggregatorConfig
+	Apis            apis.CompletedConfig
+	ApiExtensions   apiextensionsapiserver.CompletedConfig
+	OptionalVirtual CompletedVirtualConfig
 
 	ExtraConfig
 }
@@ -145,14 +147,21 @@ type CompletedConfig struct {
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
 func (c *Config) Complete() (CompletedConfig, error) {
+	miniAggregator := c.MiniAggregator.Complete()
 	return CompletedConfig{&completedConfig{
 		Options: c.Options,
 
 		GenericConfig:  c.GenericConfig.Complete(informerfactoryhack.Wrap(c.KubeSharedInformerFactory)),
 		EmbeddedEtcd:   c.EmbeddedEtcd.Complete(),
-		MiniAggregator: c.MiniAggregator.Complete(),
+		MiniAggregator: miniAggregator,
 		Apis:           c.Apis.Complete(),
 		ApiExtensions:  c.ApiExtensions.Complete(),
+		OptionalVirtual: c.OptionalVirtual.Complete(
+			miniAggregator.GenericConfig.Authentication,
+			miniAggregator.GenericConfig.AuditPolicyRuleEvaluator,
+			miniAggregator.GenericConfig.AuditBackend,
+			c.GenericConfig.ExternalAddress,
+		),
 
 		ExtraConfig: c.ExtraConfig,
 	}}, nil
@@ -518,6 +527,22 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	c.MiniAggregator = &aggregator.MiniAggregatorConfig{
 		GenericConfig: c.GenericConfig,
+	}
+
+	if opts.Virtual.Enabled {
+		virtualWorkspacesConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
+
+		c.OptionalVirtual, err = newVirtualConfig(
+			opts,
+			virtualWorkspacesConfig,
+			c.KubeSharedInformerFactory,
+			c.KcpSharedInformerFactory,
+			c.CacheKcpSharedInformerFactory,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return c, nil

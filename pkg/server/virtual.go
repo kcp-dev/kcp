@@ -17,8 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"net/http"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,9 +29,10 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
@@ -39,31 +41,25 @@ type mux interface {
 	Handle(pattern string, handler http.Handler)
 }
 
-func (s *Server) installVirtualWorkspaces(
-	ctx context.Context,
-	config *rest.Config,
-	auth genericapiserver.AuthenticationInfo,
-	externalAddress string,
-	auditEvaluator kaudit.PolicyRuleEvaluator,
-	preHandlerChainMux mux,
-) error {
-	logger := klog.FromContext(ctx)
-	// create virtual workspaces
-	virtualWorkspaces, err := s.Options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
-		config,
-		virtualcommandoptions.DefaultRootPathPrefix,
-		s.KubeSharedInformerFactory,
-		s.KcpSharedInformerFactory,
-		s.CacheKcpSharedInformerFactory,
-	)
-	if err != nil {
-		return err
-	}
+type VirtualConfig virtualrootapiserver.Config
 
-	// create apiserver, with its own delegation chain
+type completedVirtualConfig struct {
+	virtualrootapiserver.CompletedConfig
+}
+
+type CompletedVirtualConfig struct {
+	// Embed a private pointer that cannot be instantiated outside of this package.
+	*completedVirtualConfig
+}
+
+func newVirtualConfig(
+	o kcpserveroptions.CompletedOptions,
+	config *rest.Config,
+	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
+	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
+) (*VirtualConfig, error) {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
-
 	codecs := serializer.NewCodecFactory(scheme)
 
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
@@ -73,50 +69,67 @@ func (s *Server) installVirtualWorkspaces(
 	recommendedConfig.HealthzChecks = []healthz.HealthChecker{}
 	recommendedConfig.ReadyzChecks = []healthz.HealthChecker{}
 	recommendedConfig.LivezChecks = []healthz.HealthChecker{}
-	recommendedConfig.Authentication = auth
+
+	c, err := virtualrootapiserver.NewConfig(recommendedConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	authorizationOptions := virtualoptions.NewAuthorization()
-	authorizationOptions.AlwaysAllowGroups = s.Options.Authorization.AlwaysAllowGroups
-	authorizationOptions.AlwaysAllowPaths = s.Options.Authorization.AlwaysAllowPaths
-	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
-		return err
+	authorizationOptions.AlwaysAllowGroups = o.Authorization.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = o.Authorization.AlwaysAllowPaths
+	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return c.Extra.VirtualWorkspaces
+	}); err != nil {
+		return nil, err
 	}
 
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, nil, virtualWorkspaces)
+	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+		config,
+		virtualcommandoptions.DefaultRootPathPrefix,
+		kubeSharedInformerFactory,
+		kcpSharedInformerFactory,
+		cacheKcpSharedInformerFactory,
+	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
 
-	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
-	completedRootAPIServerConfig.GenericConfig.AuditBackend = s.MiniAggregator.GenericAPIServer.AuditBackend
-	completedRootAPIServerConfig.GenericConfig.AuditPolicyRuleEvaluator = auditEvaluator
+	return (*VirtualConfig)(c), nil
+}
 
-	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
+func (c *VirtualConfig) Complete(auth genericapiserver.AuthenticationInfo, auditEvaluator kaudit.PolicyRuleEvaluator, auditBackend kaudit.Backend, externalAddress string) CompletedVirtualConfig {
+	if c == nil {
+		return CompletedVirtualConfig{}
+	}
+
+	c.Generic.Authentication = auth
+	c.Generic.ExternalAddress = externalAddress
+
+	completed := &completedVirtualConfig{
+		(*virtualrootapiserver.Config)(c).Complete(),
+	}
+
+	completed.Generic.AuditBackend = auditBackend
+	completed.Generic.AuditPolicyRuleEvaluator = auditEvaluator
+
+	return CompletedVirtualConfig{completed}
+}
+
+func (c CompletedVirtualConfig) NewServer(preHandlerChainMux mux) (*virtualrootapiserver.Server, error) {
+	s, err := virtualrootapiserver.NewServer(c.CompletedConfig, genericapiserver.NewEmptyDelegate())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := s.MiniAggregator.GenericAPIServer.AddReadyzChecks(completedRootAPIServerConfig.GenericConfig.ReadyzChecks...); err != nil {
-		return err
-	}
-
-	preparedRootAPIServer := rootAPIServer.GenericAPIServer.PrepareRun()
+	preparedRootAPIServer := s.GenericAPIServer.PrepareRun()
 
 	// this **must** be done after PrepareRun() as it sets up the openapi endpoints
-	if err := completedRootAPIServerConfig.WithOpenAPIAggregationController(preparedRootAPIServer.GenericAPIServer); err != nil {
-		return err
+	if err := c.WithOpenAPIAggregationController(preparedRootAPIServer.GenericAPIServer); err != nil {
+		return nil, err
 	}
 
-	if err := s.AddPostStartHook("kcp-start-virtual-workspace", func(ctx genericapiserver.PostStartHookContext) error {
-		preparedRootAPIServer.RunPostStartHooks(ctx.StopCh)
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	logger.Info("starting virtual workspace apiserver")
 	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
 
-	return nil
+	return s, nil
 }

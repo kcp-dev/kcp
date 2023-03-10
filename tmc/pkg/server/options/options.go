@@ -20,11 +20,13 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 
 	kcpcoreoptions "github.com/kcp-dev/kcp/pkg/server/options"
+	tmcvirtualoptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/options"
 )
 
 type Options struct {
-	Core        kcpcoreoptions.Options
-	Controllers Controllers
+	Core                 kcpcoreoptions.Options
+	TmcControllers       Controllers
+	TmcVirtualWorkspaces tmcvirtualoptions.Options
 
 	Extra ExtraOptions
 }
@@ -33,8 +35,9 @@ type ExtraOptions struct {
 }
 
 type completedOptions struct {
-	Core        kcpcoreoptions.CompletedOptions
-	Controllers Controllers
+	Core                 kcpcoreoptions.CompletedOptions
+	Controllers          Controllers
+	TmcVirtualWorkspaces tmcvirtualoptions.Options
 
 	Extra ExtraOptions
 }
@@ -46,8 +49,9 @@ type CompletedOptions struct {
 // NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
-		Core:        *kcpcoreoptions.NewOptions(rootDir),
-		Controllers: *NewControllers(),
+		Core:                 *kcpcoreoptions.NewOptions(rootDir),
+		TmcControllers:       *NewTmcControllers(),
+		TmcVirtualWorkspaces: *tmcvirtualoptions.NewOptions(),
 
 		Extra: ExtraOptions{},
 	}
@@ -57,7 +61,8 @@ func NewOptions(rootDir string) *Options {
 
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	o.Core.AddFlags(fss)
-	o.Controllers.AddFlags(fss.FlagSet("KCP Controllers"))
+	o.TmcControllers.AddFlags(fss.FlagSet("KCP Controllers"))
+	o.TmcVirtualWorkspaces.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
 }
 
 func (o *CompletedOptions) Validate() []error {
@@ -74,15 +79,16 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := o.Controllers.Complete(rootDir); err != nil {
+	if err := o.TmcControllers.Complete(rootDir); err != nil {
 		return nil, err
 	}
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
-			Core:        *core,
-			Controllers: o.Controllers,
-			Extra:       o.Extra,
+			Core:                 *core,
+			Controllers:          o.TmcControllers,
+			TmcVirtualWorkspaces: o.TmcVirtualWorkspaces,
+			Extra:                o.Extra,
 		},
 	}, nil
 }

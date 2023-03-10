@@ -30,9 +30,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/upsyncer"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/upsyncer"
 )
 
 const (

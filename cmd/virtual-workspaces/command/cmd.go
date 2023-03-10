@@ -45,6 +45,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
@@ -149,10 +150,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create apiserver
-	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
-	if err != nil {
-		return err
-	}
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
@@ -163,23 +160,36 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err := o.Authentication.ApplyTo(&recommendedConfig.Authentication, recommendedConfig.SecureServing, recommendedConfig.OpenAPIConfig); err != nil {
 		return err
 	}
-	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
-		return err
-	}
 	if err := o.Audit.ApplyTo(&recommendedConfig.Config); err != nil {
 		return err
 	}
-	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
-		wildcardKubeInformers.Start,
-		wildcardKcpInformers.Start,
-		cacheKcpInformers.Start,
-	}, virtualWorkspaces)
+
+	rootAPIServerConfig, err := virtualrootapiserver.NewConfig(recommendedConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return rootAPIServerConfig.Extra.VirtualWorkspaces
+	}); err != nil {
+		return err
+	}
+
+	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	if err != nil {
+		return err
+	}
+	tmcVWs, err := o.TmcVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, cacheKcpInformers)
+	if err != nil {
+		return err
+	}
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = corevwoptions.Merge(coreVWs, tmcVWs)
 	if err != nil {
 		return err
 	}
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
-	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
+	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return err
 	}
@@ -190,8 +200,15 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.GenericConfig.ExternalAddress, "version", version.Get().String())
+	logger.Info("Starting informers")
+	wildcardKubeInformers.Start(ctx.Done())
+	wildcardKcpInformers.Start(ctx.Done())
+	cacheKcpInformers.Start(ctx.Done())
+	wildcardKubeInformers.WaitForCacheSync(ctx.Done())
+	wildcardKcpInformers.WaitForCacheSync(ctx.Done())
+	cacheKcpInformers.WaitForCacheSync(ctx.Done())
 
+	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.Generic.ExternalAddress, "version", version.Get().String())
 	return preparedRootAPIServer.Run(ctx.Done())
 }
 
