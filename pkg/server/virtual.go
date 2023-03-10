@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apiserver/pkg/audit"
 	kaudit "k8s.io/apiserver/pkg/audit"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -101,7 +100,7 @@ func newVirtualConfig(
 	return &VirtualConfig{*c}, nil
 }
 
-func (c *VirtualConfig) Complete(auth genericapiserver.AuthenticationInfo, auditEvaluator kaudit.PolicyRuleEvaluator, auditBackend audit.Backend, externalAddress string) CompletedVirtualConfig {
+func (c *VirtualConfig) Complete(auth genericapiserver.AuthenticationInfo, auditEvaluator kaudit.PolicyRuleEvaluator, auditBackend kaudit.Backend, externalAddress string) CompletedVirtualConfig {
 	if c == nil {
 		return CompletedVirtualConfig{}
 	}

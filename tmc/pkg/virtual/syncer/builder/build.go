@@ -30,9 +30,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	apireconciler2 "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/controllers/apireconciler"
-	transformations2 "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
-	upsyncer2 "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/upsyncer"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
+	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/upsyncer"
 )
 
 const (
@@ -58,13 +58,13 @@ func BuildVirtualWorkspace(
 	indexers.AddIfNotPresentOrDie(
 		cachedKCPInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer(),
 		cache.Indexers{
-			apireconciler2.IndexSyncTargetsByExport: apireconciler2.IndexSyncTargetsByExports,
+			apireconciler.IndexSyncTargetsByExport: apireconciler.IndexSyncTargetsByExports,
 		},
 	)
 	indexers.AddIfNotPresentOrDie(
 		cachedKCPInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
 		cache.Indexers{
-			apireconciler2.IndexAPIExportsByAPIResourceSchema: apireconciler2.IndexAPIExportsByAPIResourceSchemas,
+			apireconciler.IndexAPIExportsByAPIResourceSchema: apireconciler.IndexAPIExportsByAPIResourceSchemas,
 		},
 	)
 
@@ -90,9 +90,9 @@ func BuildVirtualWorkspace(
 					}
 					return true
 				},
-				transformer: &transformations2.SyncerResourceTransformer{
-					TransformationProvider:   &transformations2.SpecDiffTransformation{},
-					SummarizingRulesProvider: &transformations2.DefaultSummarizingRules{},
+				transformer: &transformations.SyncerResourceTransformer{
+					TransformationProvider:   &transformations.SpecDiffTransformation{},
+					SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
 				},
 				storageWrapperBuilder: forwardingregistry.WithStaticLabelSelector,
 			}).buildVirtualWorkspace(),
@@ -110,8 +110,8 @@ func BuildVirtualWorkspace(
 							apiGroupResource.Resource == "pods" ||
 							apiGroupResource.Resource == "endpoints")
 				},
-				transformer:           &upsyncer2.UpsyncerResourceTransformer{},
-				storageWrapperBuilder: upsyncer2.WithStaticLabelSelectorAndInWriteCallsCheck,
+				transformer:           &upsyncer.UpsyncerResourceTransformer{},
+				storageWrapperBuilder: upsyncer.WithStaticLabelSelectorAndInWriteCallsCheck,
 			}).buildVirtualWorkspace(),
 		},
 	}
