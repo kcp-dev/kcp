@@ -56,8 +56,8 @@ func TestPermissionClaimsByName(t *testing.T) {
 	serviceProviderPath := logicalcluster.NewPath(serviceProviderWorkspace.Spec.Cluster)
 	consumerPath := logicalcluster.NewPath(consumerWorkspace.Spec.Cluster)
 
-	t.Logf("provider workspace: %s", serviceProviderWorkspace.Spec.Cluster)
-	t.Logf("consumer workspace: %s", consumerWorkspace.Spec.Cluster)
+	t.Logf("provider workspace: %s", serviceProviderPath)
+	t.Logf("consumer workspace: %s", consumerPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -71,7 +71,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
 	sheriffExport := &apisv1alpha1.APIExport{}
-	identityHash := ""
 	framework.Eventually(t, func() (done bool, str string) {
 		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
@@ -79,7 +78,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
-			identityHash = sheriffExport.Status.IdentityHash
 			return true, ""
 		}
 		condition := conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid)
@@ -89,8 +87,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return false, "not done waiting for APIExportIdentity to be marked valid, no condition exists"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 	require.NotNil(t, sheriffExport)
-
-	t.Logf("found identity hash: %v sheriff export", identityHash)
 
 	t.Logf("creating consumer namespace")
 	consumerNS1, err := kubeClusterClient.Cluster(consumerPath).CoreV1().Namespaces().Create(ctx, &v1.Namespace{
@@ -135,7 +131,6 @@ func TestPermissionClaimsByName(t *testing.T) {
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	apiExportVWCfg.Host = sheriffExport.Status.VirtualWorkspaces[0].URL
 	t.Logf("vwHost: %s", apiExportVWCfg.Host)
-
 	apiExportClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
 
@@ -155,7 +150,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 	require.Equal(t, consumerNS1.Name, newCM.Namespace)
-	t.Logf("cluster for CM: %s", logicalcluster.From(newCM).String())
+	t.Logf("cluster for %s: %s", newCM.Name, logicalcluster.From(newCM).String())
 
 	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
 	cm.Namespace = consumerNS1.Name
@@ -208,11 +203,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 		return false, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
-
 	t.Logf("creation of configmap in namespace %s successfully forbidden", consumerNS2.Name)
 
 	t.Logf("updating permission claims to allow configmap by explicit name in any namespace")
-
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
 	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("confmap1", "*")
 	framework.Eventually(t, func() (done bool, str string) {
@@ -244,7 +237,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
 	require.Equal(t, consumerNS2.Name, cm.Namespace)
 	require.NoError(t, err)
-	t.Logf("cluster for CM: %s", logicalcluster.From(cm).String())
+	t.Logf("cluster for configmap %s: %s", cm.Name, logicalcluster.From(cm).String())
 
 	framework.Eventually(t, func() (done bool, str string) {
 		updatedCM, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Get(ctx, cm.Name, metav1.GetOptions{})
@@ -255,18 +248,17 @@ func TestPermissionClaimsByName(t *testing.T) {
 		require.Equal(t, consumerNS2.Name, updatedCM.Namespace)
 
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to get configmap in consumer namespace")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to get configmap in %s", consumerNS2.Name)
 
 	t.Logf("verify we can update a configmap in consumer workspace via the view URL")
 	cm.Data = map[string]string{
 		"something": "new",
 	}
 	updateCM := func() (bool, string) {
-		t.Logf("cm name: %s", cm.Name)
 		var newCM *v1.ConfigMap
 		newCM, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS2.Name).Update(ctx, cm, metav1.UpdateOptions{})
 		if apierrors.IsNotFound(err) {
-			t.Logf("couldn't find configmap in NS2")
+			t.Logf("couldn't find configmap in %s", consumerNS2.Name)
 		}
 		if err != nil {
 			return false, err.Error()
@@ -274,7 +266,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		cm = newCM
 		return true, ""
 	}
-	framework.Eventually(t, updateCM, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to update configmap in consumer namespace")
+	framework.Eventually(t, updateCM, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to update configmap in %s", consumerNS2.Name)
 	require.Equal(t, cm.Data["something"], "new")
 
 	t.Logf("update PermissionClaims to only work in one namespace")
@@ -337,7 +329,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in consumer namespace")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "timed out trying to create configmap in %s", consumerNS1.Name)
 	require.Equal(t, "consumer-ns-1", cm.Namespace)
 	require.NoError(t, err)
 
@@ -361,11 +353,10 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 	t.Logf("create a configmap that does not match permision claims in consumer namespace, outside the view")
 	framework.Eventually(t, func() (done bool, str string) {
-		updatedBadCM, err := kubeClusterClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, badCM, metav1.CreateOptions{})
+		_, err := kubeClusterClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Create(ctx, badCM, metav1.CreateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
-		t.Logf("%v", updatedBadCM)
 
 		return true, "created configmap outside view url"
 
@@ -412,11 +403,24 @@ func TestPermissionClaimsByName(t *testing.T) {
 		return true, "got expected items in list"
 
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not list configmaps")
-	t.Logf("end of test")
+
+	t.Logf("trying to delete single configmap not covered by permission claims")
+	framework.Eventually(t, func() (done bool, str string) {
+		err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(consumerNS1.Name).Delete(ctx, "confmap1", metav1.DeleteOptions{})
+		if apierrors.IsForbidden(err) {
+			return true, ""
+		}
+
+		if err != nil {
+			return false, err.Error()
+		}
+
+		return false, "delete unexpectedly successful"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not delete configmap")
 }
 
 // makeNarrowCMPermissionClaim creates a PermissionClaim for ConfigMaps scoped to just a name, just a namespace, or both.
-// TODO(nrb): allow for multiple namespaces/names?
 func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.PermissionClaim {
 	return []apisv1alpha1.PermissionClaim{
 		{
@@ -429,21 +433,9 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 				},
 			},
 		},
-		// Allow the root CA configmap through always
-		//{
-		//	GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
-		//	All:           false,
-		//	ResourceSelector: []apisv1alpha1.ResourceSelector{
-		//		{
-		//			Names:      []string{"kube-root-ca.crt "},
-		//			Namespaces: []string{""},
-		//		},
-		//	},
-		//},
 	}
 }
 
-// TODO(nrb): allow for multiple namespaces/names?
 func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.AcceptablePermissionClaim {
 	return []apisv1alpha1.AcceptablePermissionClaim{
 		{
@@ -459,20 +451,6 @@ func makeAcceptedCMPermissionClaims(name, namespace string) []apisv1alpha1.Accep
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
-		// Allow the root CA configmap through always
-		//{
-		//	PermissionClaim: apisv1alpha1.PermissionClaim{
-		//		GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
-		//		All:           false,
-		//		ResourceSelector: []apisv1alpha1.ResourceSelector{
-		//			{
-		//				Names:      []string{"kube-root-ca.crt "},
-		//				Namespaces: []string{""},
-		//			},
-		//		},
-		//	},
-		//	State: apisv1alpha1.ClaimAccepted,
-		//},
 	}
 }
 func bindConsumerToProviderCMExport(
