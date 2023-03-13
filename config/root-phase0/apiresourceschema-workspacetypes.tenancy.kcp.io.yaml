@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230110-89146c99.workspacetypes.tenancy.kcp.io
+  name: v230313-2197e455a.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -46,7 +46,7 @@ spec:
               additionalProperties:
                 type: string
               description: additionalWorkspaceLabels are a set of labels that will
-                be added to a ClusterWorkspace on creation.
+                be added to a Workspace on creation.
               type: object
             defaultAPIBindings:
               description: defaultAPIBindings are the APIs to bind during initialization
@@ -74,10 +74,10 @@ spec:
                 name: universal
                 path: root
               description: defaultChildWorkspaceType is the WorkspaceType that will
-                be used by default if another, nested ClusterWorkspace is created
-                in a workspace of this type. When this field is unset, the user must
-                specify a type when creating nested workspaces. Extending another
-                WorkspaceType does not inherit its defaultChildWorkspaceType.
+                be used by default if another, nested Workspace is created in a workspace
+                of this type. When this field is unset, the user must specify a type
+                when creating nested workspaces. Extending another WorkspaceType does
+                not inherit its defaultChildWorkspaceType.
               properties:
                 name:
                   description: name is the name of the WorkspaceType
@@ -98,8 +98,8 @@ spec:
                 this WorkspaceType will be considered as that other type in evaluation
                 of limitAllowedChildren and limitAllowedParents constraints. \n A
                 dependency cycle stop this WorkspaceType from being admitted as the
-                type of a ClusterWorkspace. \n A non-existing dependency stop this
-                WorkspaceType from being admitted as the type of a ClusterWorkspace."
+                type of a Workspace. \n A non-existing dependency stop this WorkspaceType
+                from being admitted as the type of a Workspace."
               properties:
                 with:
                   description: with are WorkspaceTypes whose initializers are added
@@ -127,13 +127,13 @@ spec:
             initializer:
               description: "initializer determines if this WorkspaceType has an associated
                 initializing controller. These controllers are used to add functionality
-                to a ClusterWorkspace; all controllers must finish their work before
-                the ClusterWorkspace becomes ready for use. \n One initializing controller
-                is supported per WorkspaceType; the identifier for this initializer
-                will be a colon-delimited string using the workspace in which the
-                WorkspaceType is defined, and the type's name. For example, if a WorkspaceType
-                `example` is created in the `root:org` workspace, the implicit initializer
-                name is `root:org:Example`."
+                to a Workspace; all controllers must finish their work before the
+                Workspace becomes ready for use. \n One initializing controller is
+                supported per WorkspaceType; the identifier for this initializer will
+                be a colon-delimited string using the workspace in which the WorkspaceType
+                is defined, and the type's name. For example, if a WorkspaceType `example`
+                is created in the `root:org` workspace, the implicit initializer name
+                is `root:org:Example`."
               type: boolean
             limitAllowedChildren:
               description: limitAllowedChildren specifies constraints for sub-workspaces
