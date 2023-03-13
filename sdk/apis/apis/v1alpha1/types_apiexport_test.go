@@ -184,7 +184,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		{
 			name: "none is set",
 			current: map[string]interface{}{
-				"name":      nil,
+				"names":     nil,
 				"namespace": nil,
 			},
 			wantErrs: []string{
@@ -194,21 +194,21 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		{
 			name: "namespaces are set",
 			current: map[string]interface{}{
-				"name":       nil,
+				"names":      nil,
 				"namespaces": []interface{}{"foo"},
 			},
 		},
 		{
-			name: "name is set",
+			name: "names are set",
 			current: map[string]interface{}{
-				"name":       "foo",
+				"names":      []interface{}{"foo"},
 				"namespaces": nil,
 			},
 		},
 		{
 			name: "both name and namespaces are set",
 			current: map[string]interface{}{
-				"name":       "foo",
+				"names":      []interface{}{"foo"},
 				"namespaces": []interface{}{"bar"},
 			},
 		},
@@ -235,81 +235,6 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 				if got != tc.wantErrs[i] {
 					t.Errorf("want error %q, got %q", tc.wantErrs[i], got)
 				}
-			}
-		})
-	}
-}
-
-func TestAPIExportPermissionClaimPattern(t *testing.T) {
-	testCases := []struct {
-		name      string
-		value     string
-		wantError string
-	}{
-		{
-			name:  "middle dot",
-			value: "abc.123",
-		},
-		{
-			name:  "middle dash",
-			value: "abc-123",
-		},
-		{
-			name:  "mixed dash and dot",
-			value: "ab-c1.23",
-		},
-		{
-			name:      "dot at the end",
-			value:     "abc123.",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "dot at the beginning",
-			value:     ".abc123",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "dash at the end",
-			value:     "abc123-",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "dash at the beginning",
-			value:     "-abc123",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "uppercase",
-			value:     "ABC",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "invalid exclamation marks",
-			value:     "!!!",
-			wantError: "pattern mismatch",
-		},
-		{
-			name:      "empty",
-			value:     "",
-			wantError: "pattern mismatch",
-		},
-	}
-
-	validators := apitest.PatternValidatorsFromFile(t, "../../../../config/crds/apis.kcp.io_apiexports.yaml")
-
-	for _, tc := range testCases {
-		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items.properties.name"
-		validator, found := validators["v1alpha1"][pth]
-		require.True(t, found, "failed to find validator for %s", pth)
-
-		t.Run(tc.name, func(t *testing.T) {
-			err := validator(tc.value)
-			got := ""
-			if err != nil {
-				got = err.Error()
-			}
-			if got != tc.wantError {
-				t.Errorf("want error %q, got %q", tc.wantError, got)
 			}
 		})
 	}

@@ -2537,7 +2537,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "names of specific resources to select. It matches the metadata.name field of the underlying object. A value of \"*\" or empty means all object names are permitted. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
+							Description: "names of specific resources to select. It matches the metadata.name field of the underlying object. A single entry of \"*\" (the default) means all object names are permitted. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
