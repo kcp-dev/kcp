@@ -23,3 +23,6 @@ tmp
 .prometheus_data
 .prometheus-config.yaml
 .prometheus-pid
+
+go.work
+go.work.sum

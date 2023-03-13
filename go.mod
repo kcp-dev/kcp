@@ -19,7 +19,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0
 	github.com/kcp-dev/client-go v0.0.0-20230126185145-aeff170a288b
-	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/kcp/pkg/apis v0.11.0
+	github.com/kcp-dev/kcp/pkg/client v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.2
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/miekg/dns v1.1.50
@@ -118,6 +119,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/gomega v1.19.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.1 // indirect
@@ -189,6 +191,7 @@ require (
 replace (
 	github.com/google/cel-go => github.com/google/cel-go v0.12.6
 	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
+	github.com/kcp-dev/kcp/pkg/client => ./pkg/client
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20230210192259-aaa28aa88b2d
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20230210192259-aaa28aa88b2d
 	k8s.io/apimachinery => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20230210192259-aaa28aa88b2d

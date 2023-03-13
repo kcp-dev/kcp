@@ -6,7 +6,7 @@ description: >
 # Publishing a new kcp release
 
 !!! note
-    You currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these 
+    You currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these
     tasks.
 
     You also need an available team member with approval permissions from <https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS>.
@@ -32,7 +32,7 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
     ```shell
     REF=upstream/main
     TAG=v1.2.3
-    git tag --sign --message "$TAG" "$TAG" "$REF" 
+    git tag --sign --message "$TAG" "$TAG" "$REF"
     ```
 
 3. Tag the `pkg/apis` module, following the same logic as above for `REF` and `TAG`
@@ -40,7 +40,15 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
     ```shell
     REF=upstream/main
     TAG=v1.2.3
-    git tag --sign --message "pkg/apis/$TAG" "pkg/apis/$TAG" "$REF" 
+    git tag --sign --message "pkg/apis/$TAG" "pkg/apis/$TAG" "$REF"
+    ```
+
+4. Tag the `pkg/client` module, following the same logic as above for `REF` and `TAG`
+
+    ```shell
+    REF=upstream/main
+    TAG=v1.2.3
+    git tag --sign --message "pkg/client/$TAG" "pkg/client/$TAG" "$REF"
     ```
 
 ### Push the tags
@@ -49,6 +57,7 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
 REMOTE=upstream
 TAG=v1.2.3
 git push "$REMOTE" "$TAG" "pkg/apis/$TAG"
+git push "$REMOTE" "$TAG" "pkg/client/$TAG"
 ```
 
 ## If it's a new minor version
