@@ -152,18 +152,16 @@ type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, bool
 // When a shard is found (identified by the couple of virtual workspace URLs - for both syncer and upsyncer),
 // then the startShardControllers() method is called, and the resulting [ShardAccess] is stored.
 //
-// When a shard is removed, the cleanupShard() method is called, and the context initially passed to the
+// When a shard is removed, the context initially passed to the
 // startShardControllers() method is cancelled.
 //
 // The ShardAccessForCluster() method will be used by some downstream controllers in order to
 // be able to get / list upstream resources in the right shard.
 func NewShardManager(
-	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error),
-	cleanupShard func(urls workloadv1alpha1.VirtualWorkspace)) *shardManager {
+	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)) *shardManager {
 	return &shardManager{
 		controllers:           map[workloadv1alpha1.VirtualWorkspace]shardControllers{},
 		startShardControllers: startShardControllers,
-		cleanupShard:          cleanupShard,
 	}
 }
 
@@ -171,7 +169,6 @@ type shardManager struct {
 	controllersLock       sync.RWMutex
 	controllers           map[workloadv1alpha1.VirtualWorkspace]shardControllers
 	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)
-	cleanupShard          func(urls workloadv1alpha1.VirtualWorkspace)
 }
 
 func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (ShardAccess, bool, error) {
@@ -221,16 +218,12 @@ func (c *shardManager) reconcile(ctx context.Context, syncTarget *workloadv1alph
 
 		// Start the controllers
 		shardControllersContext, cancelFunc := context.WithCancel(ctx)
-		stop := func() {
-			c.cleanupShard(shardURLs)
-			cancelFunc()
-		}
 		// Create the controllers
 		shardAccess, err := c.startShardControllers(shardControllersContext, shardURLs)
 		if err != nil {
 			logger.Error(err, "failed creating controllers for shard", "shard", shardURLs)
 			errs = append(errs, err)
-			stop()
+			cancelFunc()
 			continue
 		}
 		c.controllers[shardURLs] = shardControllers{

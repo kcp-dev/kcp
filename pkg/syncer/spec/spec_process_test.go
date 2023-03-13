@@ -1257,11 +1257,13 @@ func TestSpecSyncerProcess(t *testing.T) {
 
 			secretMutator := mutators.NewSecretMutator()
 			podspecableMutator := mutators.NewPodspecableMutator(
-				ddsifForUpstreamSyncer, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", false)
+				func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error) {
+					return ddsifForUpstreamSyncer, nil
+				}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", false)
 
 			dnsProcessor := dns.NewDNSProcessor(toKubeClient, toInformerFactory, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", "dnsimage")
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled,
-				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, func(gh ddsif.GVREventHandler) {}, mockedCleaner, syncTargetUID,
+				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
 				"kcp-01c0zzvlqsi7n", dnsProcessor, "dnsimage", secretMutator, podspecableMutator)
 			require.NoError(t, err)
 

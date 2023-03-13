@@ -19,7 +19,6 @@ package syncer
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -199,28 +198,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamEventHandlers := sync.Map{}
-	ddsifForDownstream.AddEventHandler(ddsif.GVREventHandlerFuncs{
-		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			downstreamEventHandlers.Range(func(_, value any) bool {
-				value.(ddsif.GVREventHandler).OnAdd(gvr, obj)
-				return true
-			})
-		},
-		UpdateFunc: func(gvr schema.GroupVersionResource, oldObj, newObj interface{}) {
-			downstreamEventHandlers.Range(func(_, value any) bool {
-				value.(ddsif.GVREventHandler).OnUpdate(gvr, oldObj, newObj)
-				return true
-			})
-		},
-		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			downstreamEventHandlers.Range(func(_, value any) bool {
-				value.(ddsif.GVREventHandler).OnDelete(gvr, obj)
-				return true
-			})
-		},
-	})
-
 	// syncerNamespaceInformerFactory to watch some DNS-related resources in the dns namespace
 	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 	dnsProcessor := dns.NewDNSProcessor(downstreamKubeClient,
@@ -283,14 +260,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			logicalClusterIndex := synctarget.NewLogicalClusterIndex(ddsifForUpstreamSyncer, ddsifForUpstreamUpsyncer)
 
 			secretMutator := mutators.NewSecretMutator()
-			podspecableMutator := mutators.NewPodspecableMutator(ddsifForUpstreamSyncer, syncerNamespaceInformerFactory.Core().V1().Services().Lister(), logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID), syncerNamespace, kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel))
+			podspecableMutator := mutators.NewPodspecableMutator(
+				func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error) {
+					return ddsifForUpstreamSyncer, nil
+				}, syncerNamespaceInformerFactory.Core().V1().Services().Lister(), logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID), syncerNamespace, kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel))
 
 			logger.Info("Creating spec syncer")
 			specSyncer, err := spec.NewSpecSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 				upstreamSyncerClusterClient, downstreamDynamicClient, downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream,
-				func(gh ddsif.GVREventHandler) {
-					downstreamEventHandlers.Store(shardURLs, gh)
-				},
 				namespaceCleaner, syncTarget.GetUID(),
 				syncerNamespace, dnsProcessor, cfg.DNSImage, secretMutator, podspecableMutator)
 			if err != nil {
@@ -371,9 +348,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 				LogicalClusterIndex: logicalClusterIndex,
 			}, nil
 		},
-		func(shardURLs workloadv1alpha1.VirtualWorkspace) {
-			downstreamEventHandlers.Delete(shardURLs)
-		},
 	)
 
 	syncTargetController, err := synctarget.NewSyncTargetController(
@@ -395,6 +369,28 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 	namespaceCleaner.delegate = downstreamNamespaceController
+
+	secretMutator := mutators.NewSecretMutator()
+	podspecableMutator := mutators.NewPodspecableMutator(
+		func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error) {
+			shardAccess, ok, err := shardManager.ShardAccessForCluster(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+			return shardAccess.SyncerDDSIF, nil
+		}, syncerNamespaceInformerFactory.Core().V1().Services().Lister(), logicalcluster.From(syncTarget), cfg.SyncTargetName, types.UID(cfg.SyncTargetUID), syncerNamespace, kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel))
+
+	logger.Info("Creating spec syncer")
+	specSyncerForDownstream, err := spec.NewSpecSyncerForDownstream(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
+		shardManager.ShardAccessForCluster, downstreamDynamicClient, downstreamKubeClient, ddsifForDownstream,
+		namespaceCleaner, syncTarget.GetUID(),
+		syncerNamespace, dnsProcessor, cfg.DNSImage, secretMutator, podspecableMutator)
+	if err != nil {
+		return err
+	}
 
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
@@ -431,6 +427,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	// Start static controllers
 	go apiImporter.Start(klog.NewContext(ctx, logger.WithValues("resources", resources)), importPollInterval)
+	go specSyncerForDownstream.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go upSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
