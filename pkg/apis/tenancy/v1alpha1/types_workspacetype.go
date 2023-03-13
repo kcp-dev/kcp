@@ -56,8 +56,8 @@ type WorkspaceType struct {
 
 type WorkspaceTypeSpec struct {
 	// initializer determines if this WorkspaceType has an associated initializing
-	// controller. These controllers are used to add functionality to a ClusterWorkspace;
-	// all controllers must finish their work before the ClusterWorkspace becomes ready
+	// controller. These controllers are used to add functionality to a Workspace;
+	// all controllers must finish their work before the Workspace becomes ready
 	// for use.
 	//
 	// One initializing controller is supported per WorkspaceType; the identifier
@@ -75,22 +75,22 @@ type WorkspaceTypeSpec struct {
 	// other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
 	//
 	// A dependency cycle stop this WorkspaceType from being admitted as the type
-	// of a ClusterWorkspace.
+	// of a Workspace.
 	//
 	// A non-existing dependency stop this WorkspaceType from being admitted as the type
-	// of a ClusterWorkspace.
+	// of a Workspace.
 	//
 	// +optional
 	Extend WorkspaceTypeExtension `json:"extend,omitempty"`
 
 	// additionalWorkspaceLabels are a set of labels that will be added to a
-	// ClusterWorkspace on creation.
+	// Workspace on creation.
 	//
 	// +optional
 	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
 
 	// defaultChildWorkspaceType is the WorkspaceType that will be used
-	// by default if another, nested ClusterWorkspace is created in a workspace
+	// by default if another, nested Workspace is created in a workspace
 	// of this type. When this field is unset, the user must specify a type when
 	// creating nested workspaces. Extending another WorkspaceType does
 	// not inherit its defaultChildWorkspaceType.
