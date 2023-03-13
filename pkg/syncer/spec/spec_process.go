@@ -380,7 +380,11 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.upstreamClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+		upstreamClient, err := c.getUpstreamClient(clusterName)
+		if err != nil {
+			return false, err
+		}
+		if _, err := upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "Failed adding finalizer on upstream upstreamresource")
 			return false, err
 		}
@@ -427,7 +431,11 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, c.upstreamClient.Cluster(upstreamObjLogicalCluster.Path()), upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObj.GetName())
+				upstreamClient, err := c.getUpstreamClient(upstreamObjLogicalCluster)
+				if err != nil {
+					return err
+				}
+				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObj.GetName())
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err

@@ -39,6 +39,7 @@ import (
 
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
 type GetWorkspaceURLFunc func(obj *unstructured.Unstructured) (*url.URL, error)
+type GetClusterDDSIFFunc func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error)
 
 type PodSpecableMutator struct {
 	getWorkspaceURL       GetWorkspaceURLFunc
@@ -71,7 +72,7 @@ func (dm *PodSpecableMutator) GVRs() []schema.GroupVersionResource {
 	}
 }
 
-func NewPodspecableMutator(ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory, serviceLister listerscorev1.ServiceLister,
+func NewPodspecableMutator(ddsifForUpstreamSyncer GetClusterDDSIFFunc, serviceLister listerscorev1.ServiceLister,
 	syncTargetClusterName logicalcluster.Name, syncTargetName string, syncTargetUID types.UID,
 	dnsNamespace string, upsyncPods bool) *PodSpecableMutator {
 	secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
@@ -84,7 +85,11 @@ func NewPodspecableMutator(ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicShare
 			return url.Parse(workspaceURL)
 		},
 		listSecrets: func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
-			informers, notSynced := ddsifForUpstreamSyncer.Informers()
+			ddsif, err := ddsifForUpstreamSyncer(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			informers, notSynced := ddsif.Informers()
 			informer, ok := informers[secretsGVR]
 			if !ok {
 				if shared.ContainsGVR(notSynced, secretsGVR) {
