@@ -421,6 +421,7 @@ type RunningServer interface {
 	BaseConfig(t *testing.T) *rest.Config
 	RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config
 	ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config
+	ShardNames() []string
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 	ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config
 	CADirectory() string
@@ -853,6 +854,10 @@ func (c *kcpServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *res
 	return c.RootShardSystemMasterBaseConfig(t)
 }
 
+func (c *kcpServer) ShardNames() []string {
+	return []string{corev1alpha1.RootShard}
+}
+
 // RawConfig exposes a copy of the client config for this server.
 func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	c.lock.Lock()
@@ -1115,6 +1120,10 @@ func (s *unmanagedKCPServer) ShardSystemMasterBaseConfig(t *testing.T, shard str
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg
+}
+
+func (s *unmanagedKCPServer) ShardNames() []string {
+	return sets.StringKeySet(s.shardCfgs).List()
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

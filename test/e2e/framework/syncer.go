@@ -310,41 +310,26 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	rawConfig, err := sf.upstreamServer.RawConfig()
-	require.NoError(t, err)
-
 	kcpClusterClient, err := kcpclientset.NewForConfig(syncerConfig.UpstreamConfig)
 	require.NoError(t, err)
-	var virtualWorkspaceURL string
 	var syncTargetClusterName logicalcluster.Name
-	Eventually(t, func() (success bool, reason string) {
-		syncTarget, err := kcpClusterClient.Cluster(syncerConfig.SyncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncerConfig.SyncTargetName, metav1.GetOptions{})
-		require.NoError(t, err)
-		if len(syncTarget.Status.VirtualWorkspaces) != 1 {
-			return false, ""
-		}
-		virtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].SyncerURL
-		syncTargetClusterName = logicalcluster.From(syncTarget)
-		return true, "Virtual workspace URL is available"
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Syncer Virtual Workspace URL not available")
+	syncTarget, err := kcpClusterClient.Cluster(syncerConfig.SyncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncerConfig.SyncTargetName, metav1.GetOptions{})
+	require.NoError(t, err)
 
-	virtualWorkspaceRawConfig := rawConfig.DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["syncer"] = rawConfig.Clusters["base"].DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["syncer"].Server = virtualWorkspaceURL
-	virtualWorkspaceRawConfig.Contexts["syncer"] = rawConfig.Contexts["base"].DeepCopy()
-	virtualWorkspaceRawConfig.Contexts["syncer"].Cluster = "syncer"
-	virtualWorkspaceRawConfig.Clusters["upsyncer"] = rawConfig.Clusters["base"].DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["upsyncer"].Server = strings.Replace(virtualWorkspaceURL, "/services/syncer/", "/services/upsyncer/", 1)
-	virtualWorkspaceRawConfig.Contexts["upsyncer"] = rawConfig.Contexts["base"].DeepCopy()
-	virtualWorkspaceRawConfig.Contexts["upsyncer"].Cluster = "upsyncer"
-	syncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "syncer", nil, nil).ClientConfig()
-	require.NoError(t, err)
-	syncerVWConfig = rest.AddUserAgent(rest.CopyConfig(syncerVWConfig), t.Name())
-	require.NoError(t, err)
-	upsyncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "upsyncer", nil, nil).ClientConfig()
-	require.NoError(t, err)
-	upsyncerVWConfig = rest.AddUserAgent(rest.CopyConfig(upsyncerVWConfig), t.Name())
-	require.NoError(t, err)
+	syncTargetClusterName = logicalcluster.From(syncTarget)
+
+	getVWURLs := func(toURL func(workloadv1alpha1.VirtualWorkspace) string) func() []string {
+		return func() []string {
+			syncTarget, err := kcpClusterClient.Cluster(syncerConfig.SyncTargetPath).WorkloadV1alpha1().SyncTargets().Get(ctx, syncerConfig.SyncTargetName, metav1.GetOptions{})
+			require.NoError(t, err)
+
+			var urls []string
+			for _, vw := range syncTarget.Status.VirtualWorkspaces {
+				urls = append(urls, toURL(vw))
+			}
+			return urls
+		}
+	}
 
 	return &appliedSyncerFixture{
 		syncerFixture: *sf,
@@ -356,8 +341,8 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 		DownstreamKubeClient:     downstreamKubeClient,
 		DownstreamKubeconfigPath: downstreamKubeconfigPath,
 
-		SyncerVirtualWorkspaceConfig:   syncerVWConfig,
-		UpsyncerVirtualWorkspaceConfig: upsyncerVWConfig,
+		GetSyncerVirtualWorkspaceURLs:   getVWURLs(func(vw workloadv1alpha1.VirtualWorkspace) string { return vw.SyncerURL }),
+		GetUpsyncerVirtualWorkspaceURLs: getVWURLs(func(vw workloadv1alpha1.VirtualWorkspace) string { return vw.UpsyncerURL }),
 	}
 }
 
@@ -571,8 +556,8 @@ type appliedSyncerFixture struct {
 	DownstreamKubeClient     kubernetesclient.Interface
 	DownstreamKubeconfigPath string
 
-	SyncerVirtualWorkspaceConfig   *rest.Config
-	UpsyncerVirtualWorkspaceConfig *rest.Config
+	GetSyncerVirtualWorkspaceURLs   func() []string
+	GetUpsyncerVirtualWorkspaceURLs func() []string
 
 	stopHeartBeat    context.CancelFunc
 	stopSyncerTunnel context.CancelFunc
