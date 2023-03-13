@@ -80,7 +80,7 @@ func (m *permissionClaimAdmitter) Validate(ctx context.Context, a admission.Attr
 		return err
 	}
 
-	permitted, err := m.permissionClaimLabeler.ObjectPermitted(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+	permitted, err := m.permissionClaimLabeler.ObjectPermitted(ctx, clusterName, a.GetResource().GroupResource(), a.GetNamespace(), a.GetName())
 	if err != nil {
 		return admission.NewForbidden(a, err)
 	}

@@ -89,7 +89,7 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetNamespace(), a.GetName())
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 	if err != nil {
 		return err
 	}
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), a.GetNamespace())
+	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetNamespace(), a.GetName())
 	if err != nil {
 		return err
 	}

@@ -74,7 +74,7 @@ func NewLabeler(
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource and possibly namespace/name.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceNamespace, resourceName string) (map[string]string, error) {
 	labels := map[string]string{}
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
@@ -144,19 +144,13 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 
 // ObjectPermitted determines if any PermissionClaims apply to a given object's GroupResource, namespace, or name.
 // If no APIBinding or PermissionClaim exists for the GroupResource, the object is permitted.
-func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (bool, error) {
+func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceNamespace, resourceName string) (bool, error) {
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
 		return true, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
 	}
 
-	logger := klog.FromContext(ctx)
-
 	for _, binding := range bindings {
-		logger := logging.WithObject(logger, binding).WithValues(
-			"namespace", resourceNamespace, "name", resourceName,
-		)
-
 		for _, claim := range binding.Spec.PermissionClaims {
 			// There is no PermissionClaim for this object, no need to compute selection
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
@@ -164,9 +158,7 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 			}
 			// The permission claim is relevant for this object, but the object does not match the criteria
 			if !Selects(claim, resourceName, resourceNamespace) {
-				// return if any permission claim on any binding do not allow the object.
-				logger.Info("not permitted by PermissionClaims")
-				return false, fmt.Errorf("operation not permitted")
+				return false, nil
 			}
 		}
 	}
