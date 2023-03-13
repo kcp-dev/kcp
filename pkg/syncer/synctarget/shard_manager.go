@@ -26,11 +26,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 // NewLogicalClusterIndex creates an index that contains all the keys of the synced and upsynced resources,
@@ -185,7 +186,7 @@ func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (S
 	return ShardAccess{}, false, nil
 }
 
-func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) {
+func (c *shardManager) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
 	requiredShards := map[workloadv1alpha1.VirtualWorkspace]bool{}
@@ -210,6 +211,7 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 		delete(c.controllers, shardURLs)
 	}
 
+	var errs []error
 	// Create and start missing controllers that have Virtual Workspace URLs for a shard
 	for shardURLs := range requiredShards {
 		if _, ok := c.controllers[shardURLs]; ok {
@@ -227,6 +229,7 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 		shardAccess, err := c.startShardControllers(shardControllersContext, shardURLs)
 		if err != nil {
 			logger.Error(err, "failed creating controllers for shard", "shard", shardURLs)
+			errs = append(errs, err)
 			stop()
 			continue
 		}
@@ -234,6 +237,7 @@ func (c *shardManager) updateShards(ctx context.Context, syncTarget *workloadv1a
 			*shardAccess, cancelFunc,
 		}
 	}
+	return reconcileStatusContinue, utilserrors.NewAggregate(errs)
 }
 
 type shardControllers struct {

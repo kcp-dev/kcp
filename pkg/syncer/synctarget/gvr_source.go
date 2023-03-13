@@ -19,22 +19,27 @@ package synctarget
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
 )
 
 var _ informer.GVRSource = (*syncTargetGVRSource)(nil)
@@ -245,6 +250,10 @@ func getAllGVRs(synctarget *workloadv1alpha1.SyncTarget) map[schema.GroupVersion
 		gvrs[gvr] = true
 	}
 
+	if synctarget == nil {
+		return gvrs
+	}
+
 	// TODO(qiujian16) We currently checks the API compatibility on the server side. When we change to check the
 	// compatibility on the syncer side, this part needs to be changed.
 	for _, r := range synctarget.Status.SyncedResources {
@@ -263,7 +272,7 @@ func getAllGVRs(synctarget *workloadv1alpha1.SyncTarget) map[schema.GroupVersion
 	return gvrs
 }
 
-func (c *syncTargetGVRSource) updateGVRs(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (unauthorizedGVRs []string, errs []error) {
+func (c *syncTargetGVRSource) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
 	requiredGVRs := getAllGVRs(syncTarget)
@@ -271,6 +280,8 @@ func (c *syncTargetGVRSource) updateGVRs(ctx context.Context, syncTarget *worklo
 	c.downstreamDiscoveryClient.Invalidate()
 
 	notify := false
+	var unauthorizedGVRs []string
+	var errs []error
 	for gvr := range requiredGVRs {
 		logger := logger.WithValues("gvr", gvr.String())
 		ctx := klog.NewContext(ctx, logger)
@@ -306,5 +317,27 @@ func (c *syncTargetGVRSource) updateGVRs(ctx context.Context, syncTarget *worklo
 		c.notifySubscribers(ctx)
 	}
 
-	return unauthorizedGVRs, nil
+	if syncTarget == nil {
+		return reconcileStatusContinue, utilserrors.NewAggregate(errs)
+	}
+
+	oldCondition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized).DeepCopy()
+	if len(unauthorizedGVRs) > 0 {
+		conditions.MarkFalse(
+			syncTarget,
+			workloadv1alpha1.SyncerAuthorized,
+			"SyncerUnauthorized",
+			conditionsv1alpha1.ConditionSeverityError,
+			"SSAR check failed for gvrs: %s", strings.Join(unauthorizedGVRs, ";"),
+		)
+	} else {
+		conditions.MarkTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+	}
+	newCondition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+
+	if equality.Semantic.DeepEqual(oldCondition, newCondition) {
+		return reconcileStatusContinue, utilserrors.NewAggregate(errs)
+	}
+
+	return reconcileStatusStopAndRequeue, utilserrors.NewAggregate(errs)
 }

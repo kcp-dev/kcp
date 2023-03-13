@@ -18,18 +18,13 @@ package synctarget
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -38,19 +33,29 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	workloadv1alpha1typed "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
-	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	workloadv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/workload/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/workload/v1alpha1"
 )
 
 const (
 	resyncPeriod   = 10 * time.Hour
 	controllerName = "kcp-syncer-synctarget-gvrsource-controller"
 )
+
+type controller struct {
+	queue workqueue.RateLimitingInterface
+
+	syncTargetUID    types.UID
+	syncTargetLister workloadv1alpha1listers.SyncTargetLister
+	commit           CommitFunc
+
+	shardManager *shardManager
+	gvrSource    *syncTargetGVRSource
+}
 
 // NewSyncTargetController returns a controller that watches the [workloadv1alpha1.SyncTarget]
 // associated to this syncer.
@@ -59,7 +64,7 @@ const (
 // according to the content of the SyncTarget status.
 func NewSyncTargetController(
 	syncerLogger logr.Logger,
-	syncTargetClient workloadv1alpha1typed.SyncTargetInterface,
+	syncTargetClient workloadv1alpha1client.SyncTargetInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetInformer,
 	syncTargetName string,
 	syncTargetClusterName logicalcluster.Name,
@@ -69,11 +74,12 @@ func NewSyncTargetController(
 ) (*controller, error) {
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		syncTargetClient: syncTargetClient,
 		syncTargetUID:    syncTargetUID,
 		syncTargetLister: syncTargetInformer.Lister(),
-		gvrSource:        gvrSource,
-		shardManager:     shardManager,
+		commit:           committer.NewCommitterScoped[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](syncTargetClient),
+
+		gvrSource:    gvrSource,
+		shardManager: shardManager,
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
@@ -91,27 +97,23 @@ func NewSyncTargetController(
 			return name == syncTargetName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
-			UpdateFunc: func(old, obj interface{}) { c.enqueueSyncTarget(obj, logger) },
-			DeleteFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
+			AddFunc:    func(obj interface{}) { c.enqueue(obj, logger) },
+			UpdateFunc: func(old, obj interface{}) { c.enqueue(obj, logger) },
+			DeleteFunc: func(obj interface{}) { c.enqueue(obj, logger) },
 		},
 	})
 
 	return c, nil
 }
 
-type controller struct {
-	queue workqueue.RateLimitingInterface
+type SyncTarget = workloadv1alpha1.SyncTarget
+type SyncTargetSpec = workloadv1alpha1.SyncTargetSpec
+type SyncTargetStatus = workloadv1alpha1.SyncTargetStatus
+type Patcher = workloadv1alpha1client.SyncTargetInterface
+type Resource = committer.Resource[*SyncTargetSpec, *SyncTargetStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
 
-	syncTargetUID    types.UID
-	syncTargetLister workloadv1alpha1listers.SyncTargetLister
-	syncTargetClient workloadv1alpha1typed.SyncTargetInterface
-
-	shardManager *shardManager
-	gvrSource    *syncTargetGVRSource
-}
-
-func (c *controller) enqueueSyncTarget(obj interface{}, logger logr.Logger) {
+func (c *controller) enqueue(obj interface{}, logger logr.Logger) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -159,9 +161,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("failed to sync %q: %w", key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 		return true
 	}
 
@@ -169,89 +175,37 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) error {
+func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	logger := klog.FromContext(ctx)
 
 	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
-		return nil
+		return false, nil
 	}
 
 	syncTarget, err := c.syncTargetLister.Get(name)
-	if apierrors.IsNotFound(err) {
-		c.shardManager.updateShards(ctx, nil)
-		c.gvrSource.updateGVRs(ctx, nil)
-		return nil
+	if err != nil && !apierrors.IsNotFound(err) {
+		return false, err
 	}
+	if apierrors.IsNotFound(err) || syncTarget.GetUID() != c.syncTargetUID {
+		return c.reconcile(ctx, nil)
+	}
+
+	previous := syncTarget
+	syncTarget = syncTarget.DeepCopy()
+
+	var errs []error
+	requeue, err := c.reconcile(ctx, syncTarget)
 	if err != nil {
-		return err
-	}
-	if syncTarget.GetUID() != c.syncTargetUID {
-		c.shardManager.updateShards(ctx, nil)
-		c.gvrSource.updateGVRs(ctx, nil)
-		return nil
-	}
-
-	c.shardManager.updateShards(ctx, syncTarget)
-	unauthorizedGVRs, errs := c.gvrSource.updateGVRs(ctx, syncTarget)
-	if err != nil {
-		return err
-	}
-
-	newSyncTarget := syncTarget.DeepCopy()
-	if len(unauthorizedGVRs) > 0 {
-		conditions.MarkFalse(
-			newSyncTarget,
-			workloadv1alpha1.SyncerAuthorized,
-			"SyncerUnauthorized",
-			conditionsv1alpha1.ConditionSeverityError,
-			"SSAR check failed for gvrs: %s", strings.Join(unauthorizedGVRs, ";"),
-		)
-	} else {
-		conditions.MarkTrue(newSyncTarget, workloadv1alpha1.SyncerAuthorized)
-	}
-
-	if err := c.patchSyncTargetCondition(ctx, newSyncTarget, syncTarget); err != nil {
 		errs = append(errs, err)
 	}
 
-	return errors.NewAggregate(errs)
-}
-
-func (c *controller) patchSyncTargetCondition(ctx context.Context, new, old *workloadv1alpha1.SyncTarget) error {
-	logger := klog.FromContext(ctx)
-	// If the object being reconciled changed as a result, update it.
-	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
-		return nil
-	}
-	oldData, err := json.Marshal(workloadv1alpha1.SyncTarget{
-		Status: workloadv1alpha1.SyncTargetStatus{
-			Conditions: old.Status.Conditions,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for syncTarget %s: %w", old.Name, err)
+	oldResource := &Resource{ObjectMeta: previous.ObjectMeta, Spec: &previous.Spec, Status: &previous.Status}
+	newResource := &Resource{ObjectMeta: syncTarget.ObjectMeta, Spec: &syncTarget.Spec, Status: &syncTarget.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	newData, err := json.Marshal(workloadv1alpha1.SyncTarget{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:             old.UID,
-			ResourceVersion: old.ResourceVersion,
-		}, // to ensure they appear in the patch as preconditions
-		Status: workloadv1alpha1.SyncTargetStatus{
-			Conditions: new.Status.Conditions,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for syncTarget %s: %w", new.Name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return fmt.Errorf("failed to create patch for syncTarget %s: %w", new.Name, err)
-	}
-	logger.V(2).Info("patching syncTarget", "patch", string(patchBytes))
-	_, uerr := c.syncTargetClient.Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-	return uerr
+	return requeue, errors.NewAggregate(errs)
 }
