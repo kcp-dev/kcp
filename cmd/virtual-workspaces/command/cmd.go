@@ -33,18 +33,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/clientsethack"
-	"k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -180,7 +175,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(rootAPIServerConfig.Generic, identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers, localShardKubeClusterClient)
 	if err != nil {
 		return err
 	}
@@ -189,21 +184,6 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 	rootAPIServerConfig.Extra.VirtualWorkspaces, err = corevwoptions.Merge(coreVWs, tmcVWs)
-	if err != nil {
-		return err
-	}
-
-	// apply admission to check permission claims for resources through a view's URL
-	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(wildcardKcpInformers, cacheKcpInformers),
-	}
-	err = o.CoreVirtualWorkspaces.Admission.ApplyTo(
-		&recommendedConfig.Config,
-		informerfactoryhack.Wrap(wildcardKubeInformers),
-		clientsethack.Wrap(localShardKubeClusterClient),
-		utilfeature.DefaultFeatureGate,
-		admissionPluginInitializers...,
-	)
 	if err != nil {
 		return err
 	}

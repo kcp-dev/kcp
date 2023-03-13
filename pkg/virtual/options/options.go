@@ -20,23 +20,28 @@ import (
 	"fmt"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/clientsethack"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
+	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	virtualadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
-	synceroptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/options"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
-	Syncer                 *synceroptions.Syncer
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
 	Admission              *genericapiserveroptions.AdmissionOptions
@@ -44,7 +49,6 @@ type Options struct {
 
 func NewOptions() *Options {
 	o := &Options{
-		Syncer:                 synceroptions.New(),
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
 		Admission:              genericapiserveroptions.NewAdmissionOptions(),
@@ -73,7 +77,6 @@ func NewOptions() *Options {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	errs = append(errs, o.Syncer.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.Admission.Validate()...)
@@ -87,12 +90,29 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) NewVirtualWorkspaces(
+	rootConfig *genericapiserver.RecommendedConfig,
 	config *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
+	localShardKubeClusterClient kubernetes.ClusterInterface,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
+	if err != nil {
+		return nil, err
+	}
+
+	// apply admission to check permission claims for resources through a view's URL
+	admissionPluginInitializers := []admission.PluginInitializer{
+		kcpadmissioninitializers.NewKcpInformersInitializer(wildcardKcpInformers, cachedKcpInformers),
+	}
+	err = o.Admission.ApplyTo(
+		&rootConfig.Config,
+		informerfactoryhack.Wrap(wildcardKubeInformers),
+		clientsethack.Wrap(localShardKubeClusterClient),
+		utilfeature.DefaultFeatureGate,
+		admissionPluginInitializers...,
+	)
 	if err != nil {
 		return nil, err
 	}

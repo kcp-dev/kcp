@@ -26,17 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apiserver/pkg/admission"
 	kaudit "k8s.io/apiserver/pkg/audit"
-	"k8s.io/apiserver/pkg/clientsethack"
-	"k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
@@ -91,27 +86,14 @@ func newVirtualConfig(
 		return nil, err
 	}
 
-	// apply admission to check permission claims for resources through a view's URL
-	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(kcpSharedInformerFactory, cacheKcpSharedInformerFactory),
-	}
-	err = o.Virtual.VirtualWorkspaces.Admission.ApplyTo(
-		&recommendedConfig.Config,
-		informerfactoryhack.Wrap(kubeSharedInformerFactory),
-		clientsethack.Wrap(kubeClusterClient),
-		utilfeature.DefaultFeatureGate,
-		admissionPluginInitializers...,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+		recommendedConfig,
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		kubeSharedInformerFactory,
 		kcpSharedInformerFactory,
 		cacheKcpSharedInformerFactory,
+		kubeClusterClient,
 	)
 	if err != nil {
 		return nil, err
