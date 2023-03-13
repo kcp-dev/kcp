@@ -193,7 +193,7 @@ func TestPartitionSet(t *testing.T) {
 		if len(partitions.Items) == 1 {
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected 1 partition, but got %d", len(partitions.Items))
+		return false, fmt.Sprintf("expected 1 partition, but got %d, details: %s", len(partitions.Items), spew.Sdump(partitions.Items))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 1 partition")
 
 	t.Logf("Creating a shard part of a third region")
@@ -231,7 +231,7 @@ func TestPartitionSet(t *testing.T) {
 		if len(partitions.Items) == 2 {
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected 2 partitions, but got %d", len(partitions.Items))
+		return false, fmt.Sprintf("expected 2 partitions, but got %d, details: %s", len(partitions.Items), spew.Sdump(partitions.Items))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 2 partitions")
 
 	t.Logf("Excluding the shard of the third region")
@@ -255,7 +255,7 @@ func TestPartitionSet(t *testing.T) {
 		if len(partitions.Items) == 1 {
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected 1 partition, but got %d", len(partitions.Items))
+		return false, fmt.Sprintf("expected 1 partition, but got %d, details: %s", len(partitions.Items), spew.Sdump(partitions.Items))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 1 partition")
 }
 
