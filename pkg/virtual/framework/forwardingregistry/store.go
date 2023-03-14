@@ -193,7 +193,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.List(ctx, v1ListOptions)
 	}
-	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, validator rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidator rest.ValidateObjectFunc, updateValidator rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -214,12 +214,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 				}
 				oldObj = nil
 			}
-			if validator != nil {
-				err := validator(ctx, oldObj)
-				if err != nil {
-					return nil, err
-				}
-			}
 
 			// The following call returns a 404 error for non server-side apply
 			// requests, i.e., for json, merge and strategic-merge PATCH requests,
@@ -232,14 +226,21 @@ func DefaultDynamicDelegatedStoreFuncs(
 				return nil, err
 			}
 
+			if updateValidator != nil {
+				err := updateValidator(ctx, obj, oldObj)
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			unstructuredObj, ok := obj.(*unstructured.Unstructured)
 			if !ok {
 				return nil, fmt.Errorf("not an Unstructured: %T", obj)
 			}
 
 			if oldObj == nil {
-				if validator != nil {
-					err := validator(ctx, obj)
+				if createValidator != nil {
+					err := createValidator(ctx, obj)
 					if err != nil {
 						return nil, err
 					}
