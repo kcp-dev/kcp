@@ -234,10 +234,13 @@ type ResourceSelector struct {
 	// If namespace is "*", all objects matching that name will be claimed within those namespaces.
 	// If namespace is an empty list, name will match against cluster-scoped resources.
 	//
-	// +kubebuilder:default={"*"}
 	// +optional
 	// +listType=set
+	// +kubebuilder:default={"*"}
 	Names []string `json:"names,omitempty"`
+
+	// TODO(nrb): this validation rule prevents the server from starting up due to cost estimates. Removed in order to allow startup until it's fixed
+	// kubebuilder:validation:XValidation:rule="self.all(x, x != \"\")",message="\"\" is not a valid namespace. Leave field blank for cluster-scoped resources"
 
 	// namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field.
 	// A value of "*" indicates objects across all namespaces. A value of "" or an empty list indicates a cluster-scoped resource.
@@ -245,7 +248,6 @@ type ResourceSelector struct {
 	//
 	// +optional
 	// +listType=set
-	// TODO: reject "" in the list
 	Namespaces []string `json:"namespaces,omitempty"`
 
 	//

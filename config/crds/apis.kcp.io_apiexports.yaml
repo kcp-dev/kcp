@@ -171,14 +171,13 @@ spec:
                             type: array
                             x-kubernetes-list-type: set
                           namespaces:
-                            description: "namespaces represents namespaces where an
+                            description: namespaces represents namespaces where an
                               object of the given group/resource may be managed. Matches
-                              against metadata.namespace field. A value of \"*\" indicates
-                              objects across all namespaces. A value of \"\" or an
-                              empty list indicates a cluster-scoped resource. If \"names\"
+                              against metadata.namespace field. A value of "*" indicates
+                              objects across all namespaces. A value of "" or an empty
+                              list indicates a cluster-scoped resource. If "names"
                               is unset, all objects of the group/resource within the
-                              listed namespaces will be claimed. \n TODO: reject \"\"
-                              in the list"
+                              listed namespaces will be claimed.
                             items:
                               type: string
                             type: array

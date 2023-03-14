@@ -239,3 +239,45 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIExportPermissionClaimNamespace(t *testing.T) {
+	testCases := []struct {
+		name      string
+		value     []interface{}
+		wantError string
+	}{
+		{
+			name:  "single valid entry",
+			value: []interface{}{"ns1"},
+		},
+		{
+			name:      "single invalid entry",
+			value:     []interface{}{""},
+			wantError: "\"\" is not a valid namespace. Leave field blank for cluster-scoped resources",
+		},
+	}
+
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.io_apiexports.yaml")
+
+	for _, tc := range testCases {
+		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items.properties.namespaces"
+		validator, found := validators["v1alpha1"][pth]
+		require.True(t, found, "failed to find validator for %s", pth)
+
+		if tc.wantError != "" {
+			_ = 1 + 1
+		}
+
+		t.Run(tc.name, func(t *testing.T) {
+			errs := validator(tc.value, nil)
+			err := errs.ToAggregate()
+			got := ""
+			if err != nil {
+				got = err.Error()
+			}
+			if got != tc.wantError {
+				t.Errorf("want error %q, got %q", tc.wantError, got)
+			}
+		})
+	}
+}
