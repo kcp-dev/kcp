@@ -18,7 +18,6 @@ package permissionclaim
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -29,7 +28,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
@@ -77,43 +75,34 @@ func NewLabeler(
 func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceNamespace, resourceName string) (map[string]string, error) {
 	labels := map[string]string{}
 
-	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
-	if err != nil {
-		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
-	}
-
 	logger := klog.FromContext(ctx)
 
-	for _, binding := range bindings {
-		logger := logging.WithObject(logger, binding)
-
-		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
-		if path.Empty() {
-			path = logicalcluster.From(binding).Path()
-		}
-		export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
-		if err != nil {
-			continue
-		}
-
-		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
-				// There is no PermissionClaim for this object, no need to compute selection
-				continue
+	err := l.visitBindingsAndClaims(ctx, cluster, groupResource, resourceNamespace, resourceName,
+		func(binding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
+			path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+			if path.Empty() {
+				path = logicalcluster.From(binding).Path()
+			}
+			export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
+			if err != nil {
+				return
 			}
 			if !Selects(claim, resourceName, resourceNamespace) {
 				// The permission claim is relevant for this object, but the object does not match the criteria
-				continue
+				return
 			}
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",
 					"claim", claim.String())
-				continue
+				return
 			}
 			labels[k] = v
-		}
+		})
+	if err != nil {
+		logger.Error(err, "error processing permissionclaims")
+		return labels, nil
 	}
 
 	// for APIBindings we have to set the constant label value on itself to make the APIBinding
@@ -145,24 +134,26 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 // ObjectPermitted determines if any PermissionClaims apply to a given object's GroupResource, namespace, or name.
 // If no APIBinding or PermissionClaim exists for the GroupResource, the object is permitted.
 func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceNamespace, resourceName string) (bool, error) {
-	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
+	permitted := true
+
+	logger := klog.FromContext(ctx)
+
+	err := l.visitBindingsAndClaims(ctx, cluster, groupResource, resourceNamespace, resourceName,
+		func(apiBinding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
+			for _, claim := range apiBinding.Spec.PermissionClaims {
+				if !Selects(claim, resourceName, resourceNamespace) {
+					// The permission claim is relevant for this object, but the object does not match the criteria
+					permitted = false
+					return
+				}
+			}
+		})
 	if err != nil {
-		return true, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
+		logger.Error(err, "error processing permissionclaims")
+		return permitted, nil
 	}
 
-	for _, binding := range bindings {
-		for _, claim := range binding.Spec.PermissionClaims {
-			// There is no PermissionClaim for this object, no need to compute selection
-			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
-				continue
-			}
-			// The permission claim is relevant for this object, but the object does not match the criteria
-			if !Selects(claim, resourceName, resourceNamespace) {
-				return false, nil
-			}
-		}
-	}
-	return true, nil
+	return permitted, nil
 }
 
 // Selects indicates whether an object's name and namespace are selected by an accepted PermissionClaim.
@@ -219,4 +210,30 @@ func selectsNamespaces(namespaces []string, objectNamespace string) bool {
 	// Match listed namespaces
 	validNamespaces := sets.NewString(namespaces...)
 	return validNamespaces.Has(objectNamespace)
+}
+
+func (l *Labeler) visitBindingsAndClaims(
+	ctx context.Context,
+	cluster logicalcluster.Name,
+	groupResource schema.GroupResource,
+	resourceNamespace, resourceName string,
+	visit func(apiBinding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace,
+		name string),
+) error {
+	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
+	if err != nil {
+		return err
+	}
+
+	for _, binding := range bindings {
+		for _, claim := range binding.Spec.PermissionClaims {
+			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
+				// There is no PermissionClaim for this object, no need to compute selection
+				continue
+			}
+
+			visit(binding, claim, resourceNamespace, resourceName)
+		}
+	}
+	return nil
 }
