@@ -3945,21 +3945,21 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"initializer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
+							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"extend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.",
+							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeExtension"),
 						},
 					},
 					"additionalWorkspaceLabels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "additionalWorkspaceLabels are a set of labels that will be added to a ClusterWorkspace on creation.",
+							Description: "additionalWorkspaceLabels are a set of labels that will be added to a Workspace on creation.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -3975,7 +3975,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 					},
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.",
+							Description: "defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested Workspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
