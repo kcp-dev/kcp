@@ -97,12 +97,12 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			// There is no PermissionClaim for this object, no need to compute selection
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
+				// There is no PermissionClaim for this object, no need to compute selection
 				continue
 			}
-			// The permission claim is relevant for this object, but the object does not match the criteria
 			if !Selects(claim, resourceName, resourceNamespace) {
+				// The permission claim is relevant for this object, but the object does not match the criteria
 				continue
 			}
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
@@ -180,7 +180,7 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, names
 	}
 
 	for _, selector := range claim.ResourceSelector {
-		if selectsName(selector.Names, name) && selectsNamespaces(selector.Namespaces, namespace) {
+		if selectsNames(selector.Names, name) && selectsNamespaces(selector.Namespaces, namespace) {
 			return true
 		}
 	}
@@ -188,16 +188,19 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, names
 	return false
 }
 
-func selectsName(names []string, objectName string) bool {
+// selectsNames determines if an object's name matches a set of name values.
+func selectsNames(names []string, objectName string) bool {
 	if len(names) == 0 {
 		return true
 	}
 
-	if len(names) == 1 && names[0] == apisv1alpha1.ResourceSelectorAll {
+	validNames := sets.NewString(names...)
+
+	// A value of "*" anywhere in the list means all names are claimed.
+	if validNames.Has("*") {
 		return true
 	}
 
-	validNames := sets.NewString(names...)
 	return validNames.Has(objectName)
 }
 
@@ -205,9 +208,6 @@ func selectsName(names []string, objectName string) bool {
 func selectsNamespaces(namespaces []string, objectNamespace string) bool {
 	// match cluster-scoped resources
 	if len(namespaces) == 0 && objectNamespace == "" {
-		return true
-	}
-	if (len(namespaces) == 1 && namespaces[0] == "") && objectNamespace == "" {
 		return true
 	}
 

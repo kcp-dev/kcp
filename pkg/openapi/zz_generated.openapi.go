@@ -2527,7 +2527,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by name or namespace.",
+				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by name and/or namespace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"names": {
@@ -2537,7 +2537,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "names of specific resources to select. It matches the metadata.name field of the underlying object. A single entry of \"*\" (the default) means all object names are permitted. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is \"\" or an empty list, name will match against cluster-scoped resources.",
+							Description: "names is a list of specific resources to select. It matches the metadata.name field of the underlying object. An entry of \"*\" anywhere in the list means all object names of the group/resource are claimed. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is an empty list, name will match against cluster-scoped resources.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2557,7 +2557,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" indicates objects across all namespaces. A value of \"\" or an empty list indicates a cluster-scoped resource. If \"name\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
+							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" indicates objects across all namespaces. A value of \"\" or an empty list indicates a cluster-scoped resource. If \"names\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
