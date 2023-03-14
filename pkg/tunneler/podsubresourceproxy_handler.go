@@ -252,7 +252,8 @@ func podSubresourceURL(downstreamNamespaceName, podName, subresource string) (*u
 func (tn *tunneler) Proxy(clusterName logicalcluster.Name, syncerName string, rw http.ResponseWriter, req *http.Request) {
 	d := tn.getDialer(clusterName, syncerName)
 	if d == nil || isClosedChan(d.Done()) {
-		http.Error(rw, "syncer tunnels: tunnel closed", http.StatusInternalServerError)
+		rw.Header().Set("Retry-After", "1")
+		http.Error(rw, "syncer tunnels: tunnel closed", http.StatusServiceUnavailable)
 		return
 	}
 
