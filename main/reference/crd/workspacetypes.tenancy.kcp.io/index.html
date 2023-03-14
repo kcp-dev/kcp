@@ -1681,7 +1681,7 @@
 </div>
 
 <div class="property-description">
-<p>additionalWorkspaceLabels are a set of labels that will be added to a ClusterWorkspace on creation.</p>
+<p>additionalWorkspaceLabels are a set of labels that will be added to a Workspace on creation.</p>
 
 </div>
 
@@ -1771,7 +1771,7 @@
 </div>
 
 <div class="property-description">
-<p>defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.</p>
+<p>defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested Workspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.</p>
 
 </div>
 
@@ -1826,8 +1826,8 @@
 
 <div class="property-description">
 <p>extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
- A dependency cycle stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.
- A non-existing dependency stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.</p>
+ A dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.
+ A non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.</p>
 
 </div>
 
@@ -1917,7 +1917,7 @@
 </div>
 
 <div class="property-description">
-<p>initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.
+<p>initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.
  One initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type&rsquo;s name. For example, if a WorkspaceType <code>example</code> is created in the <code>root:org</code> workspace, the implicit initializer name is <code>root:org:Example</code>.</p>
 
 </div>
