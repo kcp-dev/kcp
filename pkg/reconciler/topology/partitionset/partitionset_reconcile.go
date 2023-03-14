@@ -77,7 +77,7 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 		return err
 	}
 
-	oldPartitions, err := c.getPartitionsByPartitionSet(partitionSet)
+	oldPartitions, err := c.getPartitionsByPartitionSet(ctx, partitionSet)
 	if err != nil {
 		conditions.MarkFalse(
 			partitionSet,

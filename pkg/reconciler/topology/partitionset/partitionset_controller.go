@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,7 +42,6 @@ import (
 	topologyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 	coreinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	topologyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/topology/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -71,12 +71,29 @@ func NewController(
 		getPartitionSet: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.PartitionSet, error) {
 			return partitionSetClusterInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		getPartitionsByPartitionSet: func(partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error) {
-			key, err := kcpcache.MetaClusterNamespaceKeyFunc(partitionSet)
+		// getPartitionsByPartitionSet calls the API directly instead of using an indexer
+		// as otherwise duplicates are created when the cache is not updated quickly enough.
+		getPartitionsByPartitionSet: func(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error) {
+			partitions, err := kcpClusterClient.Cluster(logicalcluster.From(partitionSet).Path()).TopologyV1alpha1().Partitions().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return nil, err
 			}
-			return indexers.ByIndex[*topologyv1alpha1.Partition](partitionClusterInformer.Informer().GetIndexer(), indexPartitionsByPartitionSet, key)
+			result := []*topologyv1alpha1.Partition{}
+			for i := range partitions.Items {
+				for _, owner := range partitions.Items[i].OwnerReferences {
+					ownerGV, err := schema.ParseGroupVersion(owner.APIVersion)
+					if err != nil {
+						continue
+					}
+					if owner.UID == partitionSet.UID &&
+						owner.Kind == "PartitionSet" &&
+						ownerGV.Group == topologyv1alpha1.SchemeGroupVersion.Group {
+						result = append(result, &partitions.Items[i])
+						break
+					}
+				}
+			}
+			return result, nil
 		},
 		createPartition: func(ctx context.Context, path logicalcluster.Path, partition *topologyv1alpha1.Partition) (*topologyv1alpha1.Partition, error) {
 			return kcpClusterClient.Cluster(path).TopologyV1alpha1().Partitions().Create(ctx, partition, metav1.CreateOptions{})
@@ -87,10 +104,6 @@ func NewController(
 
 		commit: committer.NewCommitter[*PartitionSet, Patcher, *PartitionSetSpec, *PartitionSetStatus](kcpClusterClient.TopologyV1alpha1().PartitionSets()),
 	}
-
-	indexers.AddIfNotPresentOrDie(partitionClusterInformer.Informer().GetIndexer(), cache.Indexers{
-		indexPartitionsByPartitionSet: indexPartitionsByPartitionSetFunc,
-	})
 
 	globalShardClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -157,7 +170,7 @@ type controller struct {
 	listShards                  func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 	listPartitionSets           func() ([]*topologyv1alpha1.PartitionSet, error)
 	getPartitionSet             func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.PartitionSet, error)
-	getPartitionsByPartitionSet func(partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error)
+	getPartitionsByPartitionSet func(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error)
 	createPartition             func(ctx context.Context, path logicalcluster.Path, partition *topologyv1alpha1.Partition) (*topologyv1alpha1.Partition, error)
 	deletePartition             func(ctx context.Context, path logicalcluster.Path, partitionName string) error
 	commit                      CommitFunc

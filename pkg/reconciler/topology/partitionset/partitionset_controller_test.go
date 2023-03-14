@@ -226,7 +226,7 @@ func TestReconcile(t *testing.T) {
 					}, nil
 				},
 
-				getPartitionsByPartitionSet: func(partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error) {
+				getPartitionsByPartitionSet: func(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSet) ([]*topologyv1alpha1.Partition, error) {
 					var partitions []*topologyv1alpha1.Partition
 					if tc.existingValidPartition {
 						partition := &topologyv1alpha1.Partition{
