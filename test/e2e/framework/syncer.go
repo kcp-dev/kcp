@@ -56,6 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	scheduling1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -259,6 +260,8 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 		kcpClusterClient, err := kcpclientset.NewForConfig(upstreamCfg)
 		require.NoError(t, err, "error creating upstream kcp client")
 
+		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"))
+		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), scheduling1alpha1.SchemeGroupVersion.WithResource("locations"))
 		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
 		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
 		gather(upstreamClusterDynamic.Cluster(sf.syncTargetPath), corev1.SchemeGroupVersion.WithResource("namespaces"))
