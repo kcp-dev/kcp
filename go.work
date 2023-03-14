@@ -1,0 +1,9 @@
+go 1.19
+
+// All go modules in this repo
+use(
+    .
+    ./pkg/client
+    ./pkg/apis
+    ./cmd/apigen
+    )
