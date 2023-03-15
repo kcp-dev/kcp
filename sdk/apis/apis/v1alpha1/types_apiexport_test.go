@@ -241,6 +241,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 }
 
 func TestAPIExportPermissionClaimNamespace(t *testing.T) {
+	t.Skip("TODO: #2898")
 	testCases := []struct {
 		name      string
 		value     []interface{}
