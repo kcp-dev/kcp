@@ -95,7 +95,7 @@ spec:
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
 least one matching Namespace, the Namespace will be annotated with `scheduling.kcp.io/placement` and the placement turns from `Unbound` to `Bound`.
-After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.io/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
+After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.io/<sync-target-key>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
 
 The user can create another placement targeted to a different location for this Namespace, e.g.
 
@@ -114,8 +114,8 @@ spec:
   locationWorkspace: root:default:location-ws
 ```
 
-which will result in another `state.workload.kcp.io/<cluster-id>` label added to the Namespace, and the Namespace will have two different
-`state.workload.kcp.io/<cluster-id>` label.
+which will result in another `state.workload.kcp.io/<sync-target-key>` label added to the Namespace, and the Namespace will have two different
+`state.workload.kcp.io/<sync-target-key>` label.
 
 Placement is in the `Ready` status condition when
 
@@ -130,40 +130,40 @@ A sync target will be removed when:
 2. corresponding `Placement` is not in `Ready` condition.
 3. corresponding `SyncTarget` is evicting/not Ready/deleted
 
-All above cases will make the `SyncTarget` represented in the label `state.workload.kcp.io/<cluster-id>` invalid, which will cause
-`finalizers.workload.kcp.io/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the Namespace.
+All above cases will make the `SyncTarget` represented in the label `state.workload.kcp.io/<sync-target-key>` invalid, which will cause
+`finalizers.workload.kcp.io/<sync-target-key>` annotation with removing time in the format of RFC-3339 added on the Namespace.
 
 ### Resource Syncing
 
-As soon as the `state.workload.kcp.io/<cluster-id>` label is set on the Namespace, the workload resource controller will
-copy the `state.workload.kcp.io/<cluster-id>` label to the resources in that namespace.
+As soon as the `state.workload.kcp.io/<sync-target-key>` label is set on the Namespace, the workload resource controller will
+copy the `state.workload.kcp.io/<sync-target-key>` label to the resources in that namespace.
 
 !!! note
     In the future, the label on the resources is first set to empty string `""`, and a coordination controller will be
     able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
-    `finalizers.workload.kcp.io/<cluster-id>` annotation such that the coordination controller gets full control over
+    `finalizers.workload.kcp.io/<sync-target-key>` annotation such that the coordination controller gets full control over
     the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
     have been launched on another sync target). Finally, the coordination controller will replace the empty string with `Sync`
     such that the state machine continues.
 
 With the state label set to `Sync`, the syncer will start seeing the resources in the namespace
 and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set
-a finalizer `workload.kcp.io/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
+a finalizer `workload.kcp.io/syncer-<sync-target-key>` on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.
 
-When the `deletion.internal.workload.kcp.io/<cluster-id>` is added to the Namespace. The virtual workspace apiserver
+When the `deletion.internal.workload.kcp.io/<sync-target-key>` is added to the Namespace. The virtual workspace apiserver
 will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
 notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
-`finalizers.workload.kcp.io/<cluster-id>` annotation anymore, the syncer will start a deletion of the downstream object.
+`finalizers.workload.kcp.io/<sync-target-key>` annotation anymore, the syncer will start a deletion of the downstream object.
 
 When the downstream deletion is complete, the syncer will remove the finalizer from the upstream object, and the
-`state.workload.kcp.io/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
+`state.workload.kcp.io/<sync-target-key>` labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.
 
 !!! note
-    There is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.io/<cluster-id>`
+    There is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.io/<sync-target-key>`
     label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
-    downstream namespace deletion via `state.workload.kcp.io/<cluster-id>` label removal.
+    downstream namespace deletion via `state.workload.kcp.io/<sync-target-key>` label removal.
     
     For more information on the upsync use case for storage, refer to the [storage doc](storage.md).
 
@@ -176,7 +176,7 @@ This is the case with storage PVs, which are created on the `SyncTarget` by a CS
 Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be the source of truth for an upsynced resource.
 In addition, other `SyncTargets` cannot be syncing down while the resource is being upsynced.
 
-A resource coordination controller will be responsible for changing the `state.workload.kcp.io/<cluster-id>` label,
+A resource coordination controller will be responsible for changing the `state.workload.kcp.io/<sync-target-key>` label,
 to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`.
 This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
 and all the sync targets involved will be in `Sync` state.
