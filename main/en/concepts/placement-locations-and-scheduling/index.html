@@ -1735,7 +1735,7 @@ label of "app=foo" to a location with label "cloud=aws" as below:</p>
 </code></pre></div>
 <p>A matched location will be selected for this <code>Placement</code> at first, which makes the <code>Placement</code> turns from <code>Pending</code> to <code>Unbound</code>. Then if there is at
 least one matching Namespace, the Namespace will be annotated with <code>scheduling.kcp.io/placement</code> and the placement turns from <code>Unbound</code> to <code>Bound</code>.
-After this, a <code>SyncTarget</code> will be selected from the location picked by the placement.  <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label with value of <code>Sync</code> will be set if a valid <code>SyncTarget</code> is selected.</p>
+After this, a <code>SyncTarget</code> will be selected from the location picked by the placement.  <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label with value of <code>Sync</code> will be set if a valid <code>SyncTarget</code> is selected.</p>
 <p>The user can create another placement targeted to a different location for this Namespace, e.g.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scheduling.kcp.io/v1alpha1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Placement</span>
@@ -1750,8 +1750,8 @@ After this, a <code>SyncTarget</code> will be selected from the location picked 
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">foo</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">locationWorkspace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root:default:location-ws</span>
 </code></pre></div>
-<p>which will result in another <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label added to the Namespace, and the Namespace will have two different
-<code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label.</p>
+<p>which will result in another <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label added to the Namespace, and the Namespace will have two different
+<code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label.</p>
 <p>Placement is in the <code>Ready</code> status condition when</p>
 <ol>
 <li>selected location matches the <code>Placement</code> spec.</li>
@@ -1764,36 +1764,36 @@ After this, a <code>SyncTarget</code> will be selected from the location picked 
 <li>corresponding <code>Placement</code> is not in <code>Ready</code> condition.</li>
 <li>corresponding <code>SyncTarget</code> is evicting/not Ready/deleted</li>
 </ol>
-<p>All above cases will make the <code>SyncTarget</code> represented in the label <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> invalid, which will cause
-<code>finalizers.workload.kcp.io/&lt;cluster-id&gt;</code> annotation with removing time in the format of RFC-3339 added on the Namespace.</p>
+<p>All above cases will make the <code>SyncTarget</code> represented in the label <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> invalid, which will cause
+<code>finalizers.workload.kcp.io/&lt;sync-target-key&gt;</code> annotation with removing time in the format of RFC-3339 added on the Namespace.</p>
 <h3 id="resource-syncing">Resource Syncing</h3>
-<p>As soon as the <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label is set on the Namespace, the workload resource controller will
-copy the <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label to the resources in that namespace.</p>
+<p>As soon as the <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label is set on the Namespace, the workload resource controller will
+copy the <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label to the resources in that namespace.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In the future, the label on the resources is first set to empty string <code>""</code>, and a coordination controller will be
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
-<code>finalizers.workload.kcp.io/&lt;cluster-id&gt;</code> annotation such that the coordination controller gets full control over
+<code>finalizers.workload.kcp.io/&lt;sync-target-key&gt;</code> annotation such that the coordination controller gets full control over
 the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
 have been launched on another sync target). Finally, the coordination controller will replace the empty string with <code>Sync</code>
 such that the state machine continues.</p>
 </div>
 <p>With the state label set to <code>Sync</code>, the syncer will start seeing the resources in the namespace
 and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set
-a finalizer <code>workload.kcp.io/syncer-&lt;cluster-id&gt;</code> on the upstream object in order to delay upstream deletion until
+a finalizer <code>workload.kcp.io/syncer-&lt;sync-target-key&gt;</code> on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.</p>
-<p>When the <code>deletion.internal.workload.kcp.io/&lt;cluster-id&gt;</code> is added to the Namespace. The virtual workspace apiserver
+<p>When the <code>deletion.internal.workload.kcp.io/&lt;sync-target-key&gt;</code> is added to the Namespace. The virtual workspace apiserver
 will translate that annotation into a deletion timestamp on the object the syncer sees. The syncer
 notices that as a started deletion flow. As soon as there are no coordination controller finalizers registered via the
-<code>finalizers.workload.kcp.io/&lt;cluster-id&gt;</code> annotation anymore, the syncer will start a deletion of the downstream object.</p>
+<code>finalizers.workload.kcp.io/&lt;sync-target-key&gt;</code> annotation anymore, the syncer will start a deletion of the downstream object.</p>
 <p>When the downstream deletion is complete, the syncer will remove the finalizer from the upstream object, and the
-<code>state.workload.kcp.io/&lt;cluster-id&gt;</code> labels gets deleted as well. The syncer stops seeing the object in the virtual
+<code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>There is a missing bit in the implementation (in v0.5) about removal of the <code>state.workload.kcp.io/&lt;cluster-id&gt;</code>
+<p>There is a missing bit in the implementation (in v0.5) about removal of the <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code>
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
-downstream namespace deletion via <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label removal.</p>
+downstream namespace deletion via <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label removal.</p>
 <p>For more information on the upsync use case for storage, refer to the <a href="../storage/">storage doc</a>.</p>
 </div>
 <h3 id="resource-upsyncing">Resource Upsyncing</h3>
@@ -1802,7 +1802,7 @@ kcp would need to receive a resource that was provisioned by a controller on the
 This is the case with storage PVs, which are created on the <code>SyncTarget</code> by a CSI driver.</p>
 <p>Unlike the <code>Sync</code> state, the <code>Upsync</code> state is exclusive, and only a single <code>SyncTarget</code> can be the source of truth for an upsynced resource.
 In addition, other <code>SyncTargets</code> cannot be syncing down while the resource is being upsynced.</p>
-<p>A resource coordination controller will be responsible for changing the <code>state.workload.kcp.io/&lt;cluster-id&gt;</code> label,
+<p>A resource coordination controller will be responsible for changing the <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label,
 to drive the different flows on the resource. A resource can be changed from <code>Upsync</code> to <code>Sync</code> in order to share it across <code>SyncTargets</code>.
 This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
 and all the sync targets involved will be in <code>Sync</code> state.</p>
