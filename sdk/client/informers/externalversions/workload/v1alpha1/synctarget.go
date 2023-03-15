@@ -34,11 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
-	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/workload/v1alpha1"
 )
 
 // SyncTargetClusterInformer provides access to a shared informer and lister for

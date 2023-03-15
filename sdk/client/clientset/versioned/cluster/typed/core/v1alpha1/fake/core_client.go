@@ -27,8 +27,8 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
 
-	kcpcorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
+	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 )
 
 var _ kcpcorev1alpha1.CoreV1alpha1ClusterInterface = (*CoreV1alpha1ClusterClient)(nil)

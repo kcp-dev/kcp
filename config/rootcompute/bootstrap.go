@@ -28,7 +28,7 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 //go:embed *.yaml

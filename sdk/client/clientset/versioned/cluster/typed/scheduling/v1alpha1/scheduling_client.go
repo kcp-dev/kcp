@@ -29,7 +29,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/scheduling/v1alpha1"
 )
 
 type SchedulingV1alpha1ClusterInterface interface {

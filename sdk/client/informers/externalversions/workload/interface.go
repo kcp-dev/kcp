@@ -22,8 +22,8 @@ limitations under the License.
 package workload
 
 import (
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
 )
 
 type ClusterInterface interface {

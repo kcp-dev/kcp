@@ -34,16 +34,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	apiresourceinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis"
-	coreinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy"
-	topologyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/topology"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload"
+	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	apiresourceinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apiresource"
+	apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis"
+	coreinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
+	schedulinginformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/scheduling"
+	tenancyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy"
+	topologyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/topology"
+	workloadinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

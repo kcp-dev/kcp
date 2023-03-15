@@ -34,11 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
-	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
+	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apiresource/v1alpha1"
 )
 
 // NegotiatedAPIResourceClusterInformer provides access to a shared informer and lister for

@@ -21,7 +21,7 @@ import (
 
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 type reconcileStatus int

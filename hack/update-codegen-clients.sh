@@ -28,17 +28,17 @@ popd
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
-  github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
+  github.com/kcp-dev/kcp/sdk/client github.com/kcp-dev/kcp/sdk/apis \
   "core:v1alpha1 workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 apis:v1alpha1 scheduling:v1alpha1 topology:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
 
-pushd ./pkg/apis
+pushd ./sdk/apis
 ${CODE_GENERATOR} \
-  "client:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,headerFile=${BOILERPLATE_HEADER}" \
-  "lister:apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=${BOILERPLATE_HEADER}" \
-  "informer:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=${BOILERPLATE_HEADER}" \
+  "client:outputPackagePath=github.com/kcp-dev/kcp/sdk/client,apiPackagePath=github.com/kcp-dev/kcp/sdk/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/sdk/client/clientset/versioned,headerFile=${BOILERPLATE_HEADER}" \
+  "lister:apiPackagePath=github.com/kcp-dev/kcp/sdk/apis,headerFile=${BOILERPLATE_HEADER}" \
+  "informer:outputPackagePath=github.com/kcp-dev/kcp/sdk/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/sdk/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/sdk/apis,headerFile=${BOILERPLATE_HEADER}" \
   "paths=./..." \
   "output:dir=./../client"
 popd
@@ -68,14 +68,14 @@ popd
 
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
 
-"$GOPATH"/bin/openapi-gen  --input-dirs github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1 \
---input-dirs github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1 \
+"$GOPATH"/bin/openapi-gen  --input-dirs github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
+--input-dirs github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
 --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
 --output-package github.com/kcp-dev/kcp/pkg/openapi -O zz_generated.openapi \
 --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \

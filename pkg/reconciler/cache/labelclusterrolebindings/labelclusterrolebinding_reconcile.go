@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
-	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
+	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 )
 
 func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {

@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 // getSyncerViewFields builds a map whose keys are the summarizing field paths,

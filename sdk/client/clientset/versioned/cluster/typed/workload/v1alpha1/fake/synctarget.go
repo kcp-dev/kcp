@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/testing"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	workloadv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	workloadv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
 var syncTargetsResource = schema.GroupVersionResource{Group: "workload.kcp.io", Version: "v1alpha1", Resource: "synctargets"}

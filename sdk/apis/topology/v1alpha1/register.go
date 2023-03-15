@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kcp-dev/kcp/pkg/apis/topology"
+	"github.com/kcp-dev/kcp/sdk/apis/topology"
 )
 
 // SchemeGroupVersion is group version used to register these objects

@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	apitest "github.com/kcp-dev/kcp/pkg/apis/test"
+	apitest "github.com/kcp-dev/kcp/sdk/apis/test"
 )
 
 func TestAPIExportPermissionClaimCELValidation(t *testing.T) {

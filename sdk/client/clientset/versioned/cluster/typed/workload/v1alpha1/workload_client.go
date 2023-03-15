@@ -29,7 +29,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
 type WorkloadV1alpha1ClusterInterface interface {

@@ -60,9 +60,9 @@ import (
 
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/tmc/pkg/server"
 )

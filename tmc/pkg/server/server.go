@@ -26,9 +26,9 @@ import (
 	"k8s.io/klog/v2"
 
 	configrootcompute "github.com/kcp-dev/kcp/config/rootcompute"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	coreserver "github.com/kcp-dev/kcp/pkg/server"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 type Server struct {

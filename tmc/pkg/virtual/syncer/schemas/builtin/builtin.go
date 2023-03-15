@@ -26,8 +26,8 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core/install/genericcontrolplane"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 // syncerSchemas contains a list of internal APIs that should be exposed for the

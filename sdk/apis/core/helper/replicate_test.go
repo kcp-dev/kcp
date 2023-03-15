@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 func TestReplicateForValue(t *testing.T) {

@@ -27,8 +27,8 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
 
-	kcpschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
+	kcpschedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/scheduling/v1alpha1"
 )
 
 var _ kcpschedulingv1alpha1.SchedulingV1alpha1ClusterInterface = (*SchedulingV1alpha1ClusterClient)(nil)

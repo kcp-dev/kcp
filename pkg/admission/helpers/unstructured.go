@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 func ToUnstructuredOrDie(obj runtime.Object) *unstructured.Unstructured {

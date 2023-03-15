@@ -35,8 +35,8 @@ import (
 	k8sopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 	"sigs.k8s.io/yaml"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 //go:embed fixtures/*.yaml

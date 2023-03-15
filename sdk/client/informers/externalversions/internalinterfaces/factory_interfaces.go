@@ -30,8 +30,8 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
 // NewInformerFunc takes clientset.ClusterInterface and time.Duration to return a ScopeableSharedIndexInformer.

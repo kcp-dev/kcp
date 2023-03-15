@@ -21,7 +21,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 )
 
 func indexByLocationWorkspace(obj interface{}) ([]string, error) {

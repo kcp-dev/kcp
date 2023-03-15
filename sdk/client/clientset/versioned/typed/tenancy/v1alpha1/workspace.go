@@ -27,8 +27,8 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 
-	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	scheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 // WorkspacesGetter has a method to return a WorkspaceInterface.

@@ -29,7 +29,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
 type TenancyV1alpha1ClusterInterface interface {

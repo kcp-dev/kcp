@@ -24,8 +24,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 )
 
 const (

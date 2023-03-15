@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 func TestRequiredGroupsAuthorizer(t *testing.T) {

@@ -27,8 +27,8 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/client-go/rest"
 
-	kcpapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
+	kcpapiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apiresource/v1alpha1"
 )
 
 var _ kcpapiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface = (*ApiresourceV1alpha1ClusterClient)(nil)

@@ -22,8 +22,8 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
 )
 
 type ClusterInterface interface {

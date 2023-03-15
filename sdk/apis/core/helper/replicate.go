@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 // ReplicateForValue returns the replicate value for the given controller added.

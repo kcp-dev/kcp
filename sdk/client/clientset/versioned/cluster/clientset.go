@@ -32,14 +32,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 
-	client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
-	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/topology/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/workload/v1alpha1"
+	client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/workload/v1alpha1"
 )
 
 type ClusterInterface interface {

@@ -23,8 +23,8 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/builder"
 )
 

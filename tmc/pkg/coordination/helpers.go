@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
 )

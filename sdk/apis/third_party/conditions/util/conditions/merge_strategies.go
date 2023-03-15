@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // mergeOptions allows to set strategies for merging a set of conditions into a single condition,

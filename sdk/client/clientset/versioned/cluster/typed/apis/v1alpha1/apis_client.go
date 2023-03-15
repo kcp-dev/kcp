@@ -29,7 +29,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
 type ApisV1alpha1ClusterInterface interface {

@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
+	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
 )
 
 type ClusterInterface interface {
