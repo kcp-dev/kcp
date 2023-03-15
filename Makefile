@@ -388,10 +388,10 @@ ifdef USE_GOTESTSUM
 test: $(GOTESTSUM)
 endif
 test: WHAT ?= ./...
-# We will need to move into the sub package, of pkg/apis to run those tests.
+# We will need to move into the sub package, of sdk to run those tests.
 test:
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
-	cd pkg/apis && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps:

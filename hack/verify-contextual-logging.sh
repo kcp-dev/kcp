@@ -30,16 +30,12 @@ set +o errexit
 ${LOGCHECK} ${LOGCHECK_ARGS} ./... > "${work_file}" 2>&1
 set -o errexit
 
-
-# pkg/apis is a separate module, so check that in addition to our root packages
-pkgs="apis client"
-for pk in $pkgs; do
-    echo "Checking "${REPO_ROOT}"/pkg/${pk}"
-    cd "${REPO_ROOT}"/pkg/${pk}
-    set +o errexit
-    ${LOGCHECK} ${LOGCHECK_ARGS} ./... >> "${work_file}" 2>&1
-    set -o errexit
-done
+# sdk is a separate module, so check that in addition to our root packages
+echo "Checking "${REPO_ROOT}"/sdk"
+cd "${REPO_ROOT}"/sdk
+set +o errexit
+${LOGCHECK} ${LOGCHECK_ARGS} ./... >> "${work_file}" 2>&1
+set -o errexit
 
 is_gnu_sed() { sed --version >/dev/null 2>&1; }
 if is_gnu_sed; then
