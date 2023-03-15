@@ -38,9 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -359,6 +361,14 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
+		kubeBasicLongRunningRequestCheck := c.GenericConfig.LongRunningFunc
+		tunnelBasicLongRunningRequestCheck := genericfilters.BasicLongRunningRequestCheck(sets.NewString(""), sets.NewString("tunnel"))
+		c.GenericConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
+			return kubeBasicLongRunningRequestCheck(r, requestInfo) || tunnelBasicLongRunningRequestCheck(r, requestInfo)
+		}
+	}
 
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
