@@ -311,11 +311,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
 	sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("unique", consumerNS1.Name)
 	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
+		updatedSheriffExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 
+		sheriffExport = updatedSheriffExport
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
