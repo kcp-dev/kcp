@@ -210,7 +210,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 			}
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "should create the deployment after the deployments resource is available in workspace %q", workspace.clusterName)
 
-		t.Logf("Wait for the workload in workspace %q to be started and available with 4 replicas", workspace.clusterName)
+		t.Logf("Wait for the workload in workspace %q to be started and available with %d replicas", workspace.clusterName, workspace.requestedReplicas)
 		func() {
 			defer dumpEventsAndPods(wkspDownstreamInfo)
 
