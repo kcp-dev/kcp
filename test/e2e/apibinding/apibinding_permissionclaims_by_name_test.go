@@ -49,8 +49,8 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName, _ := framework.NewOrganizationFixture(t, server)
-	_, serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	_, serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("provider"))
+	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer"))
 
 	// Use the cluster hash since we're not using the front proxy here
 	serviceProviderPath := logicalcluster.NewPath(serviceProviderWorkspace.Spec.Cluster)
@@ -129,7 +129,15 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	apiExportVWCfg.Host = sheriffExport.Status.VirtualWorkspaces[0].URL
+	framework.Eventually(t, func() (bool, string) {
+		apiExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, sheriffExport.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		require.NoError(t, err)
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 	t.Logf("vwHost: %s", apiExportVWCfg.Host)
 	apiExportClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
