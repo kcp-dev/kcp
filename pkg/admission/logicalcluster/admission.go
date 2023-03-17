@@ -127,7 +127,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
+	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemExternalLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
 	}
 

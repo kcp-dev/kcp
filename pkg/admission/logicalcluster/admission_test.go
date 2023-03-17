@@ -337,6 +337,14 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "passed deletion as system:kcp:external-logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: deleteAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:external-logical-cluster-admin"}},
+			),
+		},
+		{
 			name:        "passed deletion as another user if directly deletable",
 			clusterName: "root:org:ws",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
