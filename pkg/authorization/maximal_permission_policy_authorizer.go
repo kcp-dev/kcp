@@ -138,7 +138,7 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		}
 	}
 	if relevantBinding == nil {
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization("no relevant binding found", a.delegate).Authorize(ctx, attr)
 	}
 
 	// get the corresponding APIExport
