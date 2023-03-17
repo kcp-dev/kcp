@@ -2537,7 +2537,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "names is a list of specific resources to select. It matches the metadata.name field of the underlying object. An entry of \"*\" anywhere in the list means all object names of the group/resource are claimed. If namespace is \"*\", all objects matching that name will be claimed within those namespaces. If namespace is an empty list, name will match against cluster-scoped resources.",
+							Description: "names is a list of specific resources to select. It matches the metadata.name field of the underlying object. An entry of \"*\" anywhere in the list means all object names of the group/resource within the \"namespaces\" list are claimed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2557,7 +2557,7 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" indicates objects across all namespaces. A value of \"\" or an empty list indicates a cluster-scoped resource. If \"names\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
+							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" matches objects across all namespaces. If not set, matches cluster-scoped resources. If \"names\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

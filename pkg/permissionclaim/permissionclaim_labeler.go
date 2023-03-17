@@ -195,7 +195,7 @@ func selectsNames(names []string, objectName string) bool {
 	validNames := sets.NewString(names...)
 
 	// A value of "*" anywhere in the list means all names are claimed.
-	if validNames.Has("*") {
+	if validNames.Has(apisv1alpha1.ResourceSelectorAll) {
 		return true
 	}
 
@@ -209,13 +209,14 @@ func selectsNamespaces(namespaces []string, objectNamespace string) bool {
 		return true
 	}
 
+	validNamespaces := sets.NewString(namespaces...)
+
 	// Match all namespaces
-	if len(namespaces) == 1 && namespaces[0] == apisv1alpha1.ResourceSelectorAll {
+	if validNamespaces.Has(apisv1alpha1.ResourceSelectorAll) {
 		return true
 	}
 
 	// Match listed namespaces
-	validNamespaces := sets.NewString(namespaces...)
 	return validNamespaces.Has(objectNamespace)
 }
 

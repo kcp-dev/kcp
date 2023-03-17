@@ -230,9 +230,7 @@ const (
 type ResourceSelector struct {
 	// names is a list of specific resources to select.
 	// It matches the metadata.name field of the underlying object.
-	// An entry of "*" anywhere in the list means all object names of the group/resource are claimed.
-	// If namespace is "*", all objects matching that name will be claimed within those namespaces.
-	// If namespace is an empty list, name will match against cluster-scoped resources.
+	// An entry of "*" anywhere in the list means all object names of the group/resource within the "namespaces" list are claimed.
 	//
 	// +optional
 	// +listType=set
@@ -243,7 +241,8 @@ type ResourceSelector struct {
 	// kubebuilder:validation:XValidation:rule="self.all(x, x != \"\")",message="\"\" is not a valid namespace. Leave field blank for cluster-scoped resources"
 
 	// namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field.
-	// A value of "*" indicates objects across all namespaces. A value of "" or an empty list indicates a cluster-scoped resource.
+	// A value of "*" matches objects across all namespaces.
+	// If not set, matches cluster-scoped resources.
 	// If "names" is unset, all objects of the group/resource within the listed namespaces will be claimed.
 	//
 	// +optional
