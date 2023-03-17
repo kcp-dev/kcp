@@ -35,12 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/pkg/version"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
@@ -143,6 +145,12 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
+
+	// Add this initializer so that APIBindings can be looked up by the PermissionClaimLabeler
+	indexers.AddIfNotPresentOrDie(wildcardKcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+		})
 
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck,gosec
