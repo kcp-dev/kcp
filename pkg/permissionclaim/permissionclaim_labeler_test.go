@@ -231,7 +231,7 @@ func TestIsSelected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Selects(tt.args.claim, tt.args.name, tt.args.namespace); got != tt.want {
+			if got := Selects(tt.args.claim, tt.args.namespace, tt.args.name); got != tt.want {
 				t.Errorf("isSelected() = %v, want %v", got, tt.want)
 			}
 		})

@@ -18,7 +18,9 @@ package permissionclaim
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
@@ -87,7 +90,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 			if err != nil {
 				return
 			}
-			if !Selects(claim, resourceName, resourceNamespace) {
+			if !Selects(claim, resourceNamespace, resourceName) {
 				// The permission claim is relevant for this object, but the object does not match the criteria
 				return
 			}
@@ -137,11 +140,16 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 	permitted := true
 
 	logger := klog.FromContext(ctx)
+	logger = logger.WithValues("cluster", cluster.String(), "groupResource", groupResource, "namespace", resourceNamespace, "name", resourceName)
 
 	err := l.visitBindingsAndClaims(ctx, cluster, groupResource, resourceNamespace, resourceName,
 		func(apiBinding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
+			logger := logging.WithObject(logger, apiBinding)
+			logger.Info("visiting claims")
 			for _, claim := range apiBinding.Spec.PermissionClaims {
-				if !Selects(claim, resourceName, resourceNamespace) {
+				logger.WithValues("claim", spew.Sdump(claim)).Info("looking at claim")
+				if !Selects(claim, resourceNamespace, resourceName) {
+					logger.Info("not permitted")
 					// The permission claim is relevant for this object, but the object does not match the criteria
 					permitted = false
 					return
@@ -149,15 +157,14 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 			}
 		})
 	if err != nil {
-		logger.Error(err, "error processing permissionclaims")
-		return permitted, nil
+		return false, fmt.Errorf("error processing permissionclaims, %w", err)
 	}
-
+	logger.Info("decision", "permitted", permitted)
 	return permitted, nil
 }
 
 // Selects indicates whether an object's name and namespace are selected by an accepted PermissionClaim.
-func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, name, namespace string) bool {
+func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) bool {
 	claim := acceptableClaim.PermissionClaim
 
 	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
