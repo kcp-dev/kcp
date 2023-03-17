@@ -133,7 +133,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}, wait.ForeverTestTimeout, 110*time.Millisecond, "could not wait for namespace to be ready")
 		t.Logf("namespace %s ready", unclaimedNamespace)
 
-		t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		require.NoError(t, err)
+		t.Logf("setting PermissionClaims on APIExport %s to select all names in one namespace", sheriffExport.Name)
 		sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims(apisv1alpha1.ResourceSelectorAll, claimedNamespace)
 		framework.Eventually(t, func() (done bool, str string) {
 			updatedSheriffExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
@@ -228,8 +230,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 	{
 		t.Logf("==== create and update in any namespace ====")
-		t.Logf("updating permission claims to allow configmap by explicit name in any namespace")
-		t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		require.NoError(t, err)
+		t.Logf("setting PermissionClaims on APIExport %s to allow configmap by explicit name, in any namespace", sheriffExport.Name)
 		sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("confmap1", apisv1alpha1.ResourceSelectorAll)
 		framework.Eventually(t, func() (done bool, str string) {
 			sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
@@ -294,8 +297,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 	t.Logf("==== create in unclaimed namespace forbidden ===")
 	{
-		t.Logf("update PermissionClaims to only claim one namespace")
-		t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		require.NoError(t, err)
+		t.Logf("setting PermissionClaims on APIExport %s to only claim one namespace", sheriffExport.Name)
 		sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", claimedNamespace)
 		framework.Eventually(t, func() (done bool, str string) {
 			sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
@@ -329,8 +333,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 	t.Logf("==== create/update with single claimed name and single claimed namespace ====")
 	{
-		t.Logf("update PermissionClaims to only allow a specific object name in a specific namespace")
-		t.Logf("setting PermissionClaims on APIExport %s", sheriffExport.Name)
+		sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		require.NoError(t, err)
+		t.Logf("setting PermissionClaims on APIExport %s to only allow a specific object name in a specific namespace", sheriffExport.Name)
 		sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("unique", claimedNamespace)
 		framework.Eventually(t, func() (done bool, str string) {
 			updatedSheriffExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
