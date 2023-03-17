@@ -96,6 +96,8 @@ type syncerFixture struct {
 	extraResourcesToSync []string
 	apiExports           []string
 	prepareDownstream    func(config *rest.Config, isFakePCluster bool)
+
+	fakeWorkloadServer RunningServer
 }
 
 func WithSyncTargetName(name string) SyncerOption {
@@ -139,6 +141,13 @@ func WithDownstreamPreparation(prepare func(config *rest.Config, isFakePCluster 
 	return func(t *testing.T, sf *syncerFixture) {
 		t.Helper()
 		sf.prepareDownstream = prepare
+	}
+}
+
+func WithFakeWorkloadServer(fakeWorkloadServer RunningServer) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		t.Helper()
+		sf.fakeWorkloadServer = fakeWorkloadServer
 	}
 }
 
@@ -210,7 +219,10 @@ func (sf *syncerFixture) CreateSyncTargetAndApplyToDownstream(t *testing.T) *app
 		// The syncer will target a logical cluster that is a child of the current workspace. A
 		// logical server provides as a lightweight approximation of a pcluster for tests that
 		// don't need to validate running workloads or interaction with kube controllers.
-		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, sf.syncTargetPath, sf.syncTargetName)
+		downstreamServer := sf.fakeWorkloadServer
+		if downstreamServer == nil {
+			downstreamServer = NewFakeWorkloadServer(t, sf.upstreamServer, sf.syncTargetPath, sf.syncTargetName)
+		}
 		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}

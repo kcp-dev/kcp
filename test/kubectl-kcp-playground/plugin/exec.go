@@ -26,6 +26,22 @@ import (
 
 type runCmdOption func(cmd *exec.Cmd) *exec.Cmd
 
+func withEnvironExcept(ignore ...string) runCmdOption {
+	return func(cmd *exec.Cmd) *exec.Cmd {
+		for _, v := range os.Environ() {
+			skip := false
+			for _, i := range ignore {
+				if strings.HasPrefix(v, fmt.Sprintf("%s=", i)) {
+					skip = true
+				}
+			}
+			if !skip {
+				cmd.Env = append(cmd.Env, v)
+			}
+		}
+		return cmd
+	}
+}
 func withEnvVariable(name, value string) runCmdOption {
 	return func(cmd *exec.Cmd) *exec.Cmd {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", name, value))
@@ -35,7 +51,7 @@ func withEnvVariable(name, value string) runCmdOption {
 
 func runCmd(commandLine []string, options ...runCmdOption) (*bytes.Buffer, error) {
 	cmd := exec.Command(commandLine[0], commandLine[1:]...) //nolint:gosec
-	cmd.Env = os.Environ()
+	// cmd.Env = os.Environ()
 	for _, opt := range options {
 		cmd = opt(cmd)
 	}

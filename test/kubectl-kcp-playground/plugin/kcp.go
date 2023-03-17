@@ -18,22 +18,25 @@ package plugin
 
 import (
 	"fmt"
-	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"path"
-	"path/filepath"
 	"sigs.k8s.io/yaml"
-	"strings"
-	"testing"
+
+	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 type existingKcpServer struct {

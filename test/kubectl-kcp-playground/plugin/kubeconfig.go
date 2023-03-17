@@ -155,6 +155,47 @@ func mergeFromKind(runningKind *runningKindCluster, dst *clientcmdapi.Config) er
 	return nil
 }
 
+func mergeFromFake(runningFake *fakePCluster, dst *clientcmdapi.Config) error {
+	prefix := fmt.Sprintf("pcluster-%s-", runningFake.Name())
+	src, err := runningFake.RawConfig()
+	if err != nil {
+		return err
+	}
+
+	if dst.Contexts == nil {
+		dst.Contexts = map[string]*clientcmdapi.Context{}
+	}
+	if dst.Clusters == nil {
+		dst.Clusters = map[string]*clientcmdapi.Cluster{}
+	}
+	if dst.AuthInfos == nil {
+		dst.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
+	}
+
+	context, ok := src.Contexts["base"]
+	if !ok {
+		return fmt.Errorf("failed to get current context for the '%s' fake cluster", runningFake.Name())
+	}
+
+	cluster, ok := src.Clusters[context.Cluster]
+	if !ok {
+		return fmt.Errorf("failed to get current cluster for the '%s' fake cluster", runningFake.Name())
+	}
+	dst.Clusters[prefix+"cluster"] = cluster
+
+	authInfo, ok := src.AuthInfos[context.AuthInfo]
+	if !ok {
+		return fmt.Errorf("failed to get current user for the '%s' fake cluster", runningFake.Name())
+	}
+	dst.AuthInfos[prefix+"admin"] = authInfo
+
+	dst.Contexts[prefix+"admin"] = &clientcmdapi.Context{
+		Cluster:  prefix + "cluster",
+		AuthInfo: prefix + "admin",
+	}
+	return nil
+}
+
 func contextForPCluster(name string) string {
 	return fmt.Sprintf("pcluster-%s-admin", name)
 }

@@ -238,8 +238,16 @@ type PCluster struct {
 // PClusterType defines type of the PCluster.
 type PClusterType string
 
-// KindPClusterType identifies PCluster created with kind.
-const KindPClusterType = "kind"
+const (
+	// KindPClusterType identifies PCluster created with kind.
+	KindPClusterType = "kind"
+
+	// FakePClusterType identifies PCluster implemented as a logical cluster that
+	// is a child of the current workspace. This provides as a lightweight approximation
+	// of a pcluster for tests that don't need to validate running workloads or interaction
+	// with kube controllers.
+	FakePClusterType = "fake"
+)
 
 // Other resource to be added to the PCluster.
 type Other struct {

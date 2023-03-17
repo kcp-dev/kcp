@@ -17,32 +17,30 @@ limitations under the License.
 package plugin
 
 import (
-	"fmt"
-	"runtime"
-	"strings"
-	"testing"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-type koConfig struct {
-	Package         string
-	KindClusterName string
+type fakePCluster struct {
+	framework.RunningServer
+	name string
 }
 
-func koBuild(t *testing.T, cfg koConfig) string {
-	commandLine := []string{
-		"ko",
-		"build",
-		fmt.Sprintf("--platform=linux/%s", runtime.GOARCH),
-		cfg.Package,
-	}
+var _ RunningPCluster = &fakePCluster{}
 
-	out, err := runCmd(commandLine,
-		withEnvVariable("KO_DOCKER_REPO", "kind.local"),
-		withEnvVariable("KIND_CLUSTER_NAME", cfg.KindClusterName),
-		withEnvironExcept("CGO_ENABLED", "GOOS", "GOARCH"),
-	)
-	if err != nil {
-		t.Fatalf("failed to run ko %v", err)
-	}
-	return strings.TrimSuffix(out.String(), "\n")
+func (f fakePCluster) Name() string {
+	return f.name
+}
+
+func (f fakePCluster) Type() PClusterType {
+	return FakePClusterType
+}
+
+func (f fakePCluster) KubeconfigPath() string {
+	return f.RunningServer.KubeconfigPath()
+}
+
+func (f fakePCluster) RawConfig() (clientcmdapi.Config, error) {
+	return f.RunningServer.RawConfig()
 }

@@ -49,6 +49,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -189,7 +190,6 @@ type RunningPCluster interface {
 	Type() PClusterType
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
-	SyncerImage() string
 }
 
 func newStartedPlaygroundFixture(pf *PlaygroundFixture) *StartedPlaygroundFixture {
@@ -226,6 +226,19 @@ func (sp *StartedPlaygroundFixture) KubeConfigPath() string {
 
 func (sp *StartedPlaygroundFixture) RawConfig() clientcmdapi.Config {
 	return *sp.kubeConfig
+}
+
+func (sp *StartedPlaygroundFixture) WriteWorkspaceKubeConfig(t *testing.T, server framework.RunningServer, wsPath logicalcluster.Path) string {
+	raw, err := server.RawConfig()
+	require.NoError(t, err, "failed to get Raw config for shard")
+
+	logicalRawConfig := framework.LogicalClusterRawConfig(raw, wsPath, "base")
+	pathSafeClusterName := strings.ReplaceAll(wsPath.String(), ":", "_")
+	kubeconfigPath := filepath.Join(sp.ArtifactsDirectory(), fmt.Sprintf("%s.%s.kubeconfig", server.Name(), pathSafeClusterName))
+	err = clientcmd.WriteToFile(logicalRawConfig, kubeconfigPath)
+	require.NoError(t, err, "failed to write kubeconfig file for '%s'", wsPath)
+
+	return kubeconfigPath
 }
 
 func (sp *StartedPlaygroundFixture) createShards(t *testing.T) {
@@ -272,6 +285,17 @@ func (sp *StartedPlaygroundFixture) createPClusters(t *testing.T) {
 
 			err = mergeFromKind(runningKind, sp.kubeConfig)
 			require.NoError(t, err, "failed to merge kubeconfig for pcluster '%s'", kindDirectory)
+		case FakePClusterType:
+			sp.prettyPrint(" 🔸 Adding pCluster '%s' of type fake 🏐...\n", pCluster.Name)
+
+			fakePCluster := &fakePCluster{
+				RunningServer: framework.NewFakeWorkloadServer(t, sp.Shards[MainShardName], logicalcluster.NewPath("root:compute"), pCluster.Name),
+				name:          pCluster.Name,
+			}
+			sp.PClusters[pCluster.Name] = fakePCluster
+
+			err := mergeFromFake(fakePCluster, sp.kubeConfig)
+			require.NoError(t, err, "failed to merge kubeconfig for pcluster '%s'", fakePCluster.KubeconfigPath())
 		default:
 			t.Fatalf("unknown type '%s' for pcluster '%s'", pCluster.Type, pCluster.Name)
 		}
@@ -301,6 +325,7 @@ func (sp *StartedPlaygroundFixture) createWorkspaces(t *testing.T, server framew
 
 	for _, workspace := range workspaces {
 		wsPath := core.RootCluster.Path()
+		var ws *tenancyv1alpha1.Workspace
 		if parent != logicalcluster.None {
 			sp.prettyPrint(" 🔹 Shard '%s', adding workspace '%s:%s' 🏐...\n", server.Name(), parent.String(), workspace.Name)
 
@@ -308,14 +333,14 @@ func (sp *StartedPlaygroundFixture) createWorkspaces(t *testing.T, server framew
 			if workspace.Type.String() != "" {
 				wsOptions = append(wsOptions, framework.WithType(logicalcluster.NewPath(workspace.Type.Path), workspace.Type.Name))
 			}
-			wsPath, _ = framework.NewWorkspaceFixture(t, server, parent, wsOptions...)
+			wsPath, ws = framework.NewWorkspaceFixture(t, server, parent, wsOptions...)
 		}
 
 		sp.createAPIResourceSchemas(t, server, parent, workspace, wsPath)
 		sp.createAPIExports(t, server, parent, workspace, wsPath)
 		sp.createAPIBindings(t, server, parent, workspace, wsPath)
 
-		sp.createSyncTargets(t, server, parent, workspace, wsPath)
+		sp.createSyncTargets(t, server, parent, workspace, wsPath, ws)
 		sp.createLocations(t, server, parent, workspace, wsPath)
 		sp.createPlacementsAndBindCompute(t, server, parent, workspace, wsPath)
 
@@ -325,19 +350,21 @@ func (sp *StartedPlaygroundFixture) createWorkspaces(t *testing.T, server framew
 	}
 }
 
-func (sp *StartedPlaygroundFixture) createSyncTargets(t *testing.T, server framework.RunningServer, parent logicalcluster.Path, workspace Workspace, wsPath logicalcluster.Path) {
+func (sp *StartedPlaygroundFixture) createSyncTargets(t *testing.T, server framework.RunningServer, parent logicalcluster.Path, workspace Workspace, wsPath logicalcluster.Path, ws *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	for _, syncTarget := range workspace.SyncTargets {
 		pCluster, ok := sp.PClusters[syncTarget.PCluster]
 		require.True(t, ok, "SyncTarget '%s' is referencing '%s' PCluster which does not exist", syncTarget.Name, syncTarget.PCluster)
 
+		opts := []framework.SyncerOption{framework.WithSyncTargetName(syncTarget.Name)}
+
 		switch pCluster.Type() {
 		case KindPClusterType:
-			if pCluster.SyncerImage() == "" {
-				kind, ok := pCluster.(*runningKindCluster)
-				require.True(t, ok, "pcluster '%s' isn't of the expected type", pCluster.Name())
+			kind, ok := pCluster.(*runningKindCluster)
+			require.True(t, ok, "pcluster '%s' isn't of the expected type", pCluster.Name())
 
+			if kind.SyncerImage() == "" {
 				syncerPackage := "./cmd/syncer"
 				sp.prettyPrint(" 🔸 pCluster '%s', build and publish syncer image 🎾...\n", kind.Name())
 				image := koBuild(t, koConfig{
@@ -346,17 +373,20 @@ func (sp *StartedPlaygroundFixture) createSyncTargets(t *testing.T, server frame
 				})
 				kind.SetSyncerImage(image)
 			}
+
+			framework.TestConfig.SetSyncerImage(kind.SyncerImage())
+			framework.TestConfig.SetPClusterKubeconfig(kind.KubeconfigPath())
+		case FakePClusterType:
+			fakePCluster, ok := pCluster.(*fakePCluster)
+			require.True(t, ok, "pcluster '%s' isn't of the expected type", pCluster.Name())
+			opts = append(opts, framework.WithFakeWorkloadServer(fakePCluster.RunningServer), framework.WithSyncedUserWorkspaces(ws))
 		default:
 			t.Fatalf("unknown type '%s' for pcluster '%s'", pCluster.Type(), pCluster.Name())
 		}
 
-		framework.TestConfig.SetSyncerImage(pCluster.SyncerImage())
-		framework.TestConfig.SetPClusterKubeconfig(pCluster.KubeconfigPath())
-
 		sp.prettyPrint(" 🔹 Shard '%s', workspace '%s:%s', creating SyncTarget '%s' 🏐...\n", server.Name(), parent.String(), workspace.Name, syncTarget.Name)
 		sp.prettyPrint(" 🔸 pCluster '%s', applying syncer 🎾...\n", pCluster.Name())
 
-		opts := []framework.SyncerOption{framework.WithSyncTargetName(syncTarget.Name)}
 		if syncTarget.Labels != nil {
 			opts = append(opts, framework.WithSyncTargetLabels(syncTarget.Labels))
 		}
@@ -585,15 +615,7 @@ func (sp *StartedPlaygroundFixture) createOthers(t *testing.T, server framework.
 		return
 	}
 
-	raw, err := server.RawConfig()
-	require.NoError(t, err, "failed to get Raw config for shard")
-
-	logicalRawConfig := framework.LogicalClusterRawConfig(raw, wsPath, "base")
-	pathSafeClusterName := strings.ReplaceAll(wsPath.String(), ":", "_")
-	kubeconfigPath := filepath.Join(sp.ArtifactsDirectory(), fmt.Sprintf("%s.%s.kubeconfig", server.Name(), pathSafeClusterName))
-	err = clientcmd.WriteToFile(logicalRawConfig, kubeconfigPath)
-	require.NoError(t, err, "failed to write kubeconfig file for '%s'", wsPath)
-
+	kubeconfigPath := sp.WriteWorkspaceKubeConfig(t, server, wsPath)
 	sp.applyOthers(t, kubeconfigPath, workspace.Others, fmt.Sprintf(" 🔹 Shard '%s', workspace '%s:%s'", server.Name(), parent.String(), workspace.Name))
 }
 
