@@ -3,7 +3,7 @@
 #
 # 1. Start the playground:
 #
-#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/placement/east-west-placement.yaml
+#  kubectl kcp playground start -f test/kubectl-kcp-playground/examples/placement/east-west.yaml
 #
 #  (from another window)
 #

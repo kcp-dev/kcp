@@ -1,0 +1,151 @@
+---
+apiVersion: test.kcp.io/v1alpha1
+kind: Playground
+spec:
+  # Shards to be created as part of the playground.
+  # NOTE: As of today playground supports one shard only, and it must be named "main".
+  shards:
+    - name: main
+
+      # Use an existing kcp instance (alternative to provision one on the flight)
+      use:
+        kubeConfigPath: <path to a kubeconfig>
+
+      # Defines if a deployment coordinator has to be run for this Shard.
+      deploymentCoordinator: true
+
+      # Initial workspaces configuration for the Shard.
+      # Each workspace can define its own type type as well as the configuration of a set of items
+      # to be installed it il like syncTargets, locations, placements, apiResourceSchemas, apiExports
+      # apiBindings and other resources.
+      # Also, like in kcp, nested workspaces can be defined as well.
+      # NOTE: As of today playground supports one top level workspace, and it must be named "root".
+      # NOTE: Workspaces are created in same order they are defined in the config file.
+      workspaces:
+        - name: root # required
+
+          # Type of the workspace (optional)
+          type:
+            name: "<workspace-type-name>"
+            path: "<absolute reference to the workspace that owns this type>"
+
+          # SyncTarget to be added to the workspace.
+          # NOTE: Defining SyncTarget is equivalent to run `kubectl kcp workload sync`; the generated
+          # syncer yaml will be applied to the target pCluster.
+          # NOTE: The pCluster name must reference an entry in the corresponding section down in of this file.
+          syncTargets:
+            - name: "<SyncTarget name>" # required
+              labels:
+                "<key>": "<value>"
+              pCluster: "<name of a pCluster>" # required
+              resource:
+                - "<kind>"
+              apiExports:
+                - path: "<absolute reference to the workspace that owns this APIExport>"
+                  name: "<name of the APIExport>"
+            # Add more syncTargets...
+
+          # Location to be added to the workspace; each location selects one or more instance/syncTarget.
+          locations:
+            - name: "<Location name>" # required
+              labels:
+                "<key>": "<value>"
+              instanceSelector:
+                # metav1.LabelSelector, e.g.
+                matchLabels:
+                  "<key>": "<value>"
+            # Add more locations...
+
+          # Placement to be added to the workspace; use placements to define where workloads should be scheduled.
+          # NOTE: Defining SyncTarget is equivalent to run `kubectl kcp bind compute`.
+          placements:
+            - name: "<placement name>" # required
+              locationWorkspace: "<absolute reference to the workspace where locations are defined>" # required
+              locationSelectors:
+                -  # metav1.LabelSelector, e.g.
+                   matchLabels:
+                    "<key>": "<value>"
+            # Add more placements...
+
+          # APIResourceSchema to be added to the workspace; it is generated from a
+          # source that can be either a CustomResource or APIResourceSchema.
+          # NOTE: The conversion from CRD to APIResourceSchema is equivalent to run `kubectl crd snapshot`;
+          # NOTE: More than one APIResourceSchema could be generated from an APIResourceSchema, but
+          # kcp playground will automatically consider the entire set of generated objects when this
+          # apiResourceSchema is referenced from APIExports objects.
+          apiResourceSchemas:
+            - name: "<apiResourceSchema name>" # required
+              source: # required with one of raw and file
+                raw: "<raw source of the APIResourceSchema>"
+                file: # one of path of url
+                  path: "<path to the source of the APIResourceSchema>"
+                  url: "<url to the source of the APIResourceSchema>"
+                prefix: "<prefix to be use if generating APIResourceSchema from a CRD>"
+            # Add more apiResourceSchemas...
+
+          # APIExport to be added to the workspace.
+          apiExports:
+            - name: "<apiExport name>" # required
+              labels:
+                "<key>": "<value>"
+              annotations:
+                "<key>": "<value>"
+              apiResourceSchemas: # required
+                - "<apiResourceSchema name>"
+              permissionClaims:
+                - # permission claim struct, same as the kcp APIExport API, e.g.
+                  all: true
+                  group: ""
+                  resource: namespaces
+            # Add more apiExports...
+
+          # APIBinding to be added to the workspace.
+          apiBindings:
+            - name: "<apiBinding name>" # required
+              labels:
+                "<key>": "<value>"
+              annotations:
+                "<key>": "<value>"
+              apiExport:
+                path: "<absolute reference to the workspace that owns this APIExport>"
+                name: "<name of the APIExport>"
+              permissionClaims:
+                - # permission claim struct, same as the kcp APIBinding API, e.g.
+                  all: true
+                  group: ""
+                  resource: namespaces
+                  state: Accepted
+            # Add more apiBindings...
+
+          # Additional resources to be added to the PCluster.
+          others:
+            - name: "<other resource name>" # required
+              source: # required with one of raw and file
+                raw: "<raw source of the resource>"
+                file: # one of path of url
+                  path: "<path to the source of the resource>"
+                  url: "<url to the source of the resource>"
+            # Add more resources...
+
+          # Nested workspaces.
+          # Like the root workspace, each Nested workspace can have type, syncTargets, locations, placements,
+          # apiResourceSchemas, apiExports apiBindings, other resources and further nested workspaces
+          workspaces: []
+
+  # Add compute clusters to the playground.
+  # NOTE: currently only pCluster of type 'kind' and 'fake' are supported.
+  pClusters:
+    - name: "<name of the pCluster>"
+      type: "kind"
+
+      # Other resources to be added to the pCluster.
+      others:
+        - name: "<name of the resource>"
+          source: # required with one of raw and file
+            raw: "<raw source of the resource>"
+            file: # one of path of url
+              path: "<path to the source of the resource>"
+              url: "<url to the source of the resource>"
+      # Add more resources...
+
+    # Add more pClusters...
