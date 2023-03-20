@@ -461,8 +461,8 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 			All:           false,
 			ResourceSelector: []apisv1alpha1.ResourceSelector{
 				{
-					Names:      []string{name},
-					Namespaces: []string{namespace},
+					Names:      []apisv1alpha1.Name{apisv1alpha1.Name(name)},
+					Namespaces: []apisv1alpha1.Name{apisv1alpha1.Name(namespace)},
 				},
 			},
 		},
@@ -476,8 +476,8 @@ func makeAcceptedCMPermissionClaims(namespace, name string) []apisv1alpha1.Accep
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				ResourceSelector: []apisv1alpha1.ResourceSelector{
 					{
-						Names:      []string{name},
-						Namespaces: []string{namespace},
+						Names:      []apisv1alpha1.Name{apisv1alpha1.Name(name)},
+						Namespaces: []apisv1alpha1.Name{apisv1alpha1.Name(namespace)},
 					},
 				},
 				All: false,

@@ -224,30 +224,38 @@ const (
 	ResourceSelectorAll = "*"
 )
 
-// ResourceSelector identifies the objects to be included within a PermissionClaim either by name and/or namespace.
+// Name validates a string for use with a PermissionClaim.
+//
+// +kubebuilder:validation:Type=string
+// +kubebuilder:validation:Pattern=`^(\*|[a-z][-a-z0-9]*[a-z0-9])$`
+type Name string
+
+// ResourceSelector identifies the objects to be included within a PermissionClaim either by names and/or namespaces.
 //
 // +kubebuilder:validation:XValidation:rule="has(self.namespaces) || has(self.names)",message="at least one field must be set"
 type ResourceSelector struct {
 	// names is a list of specific resources to select.
-	// It matches the metadata.name field of the underlying object.
-	// An entry of "*" anywhere in the list means all object names of the group/resource within the "namespaces" list are claimed.
+	//
+	// Names matches the metadata.name field of the underlying object.
+	// An entry of "*" anywhere in the list means all object names of the group/resource within the "namespaces" field are claimed.
+	// Wildcard entries other than "*" and regular expressions are currently unsupported.
+	// Default is "*".
 	//
 	// +optional
-	// +listType=set
 	// +kubebuilder:default={"*"}
-	Names []string `json:"names,omitempty"`
+	Names []Name `json:"names,omitempty"`
 
-	// TODO(nrb): this validation rule prevents the server from starting up due to cost estimates. Removed in order to allow startup until it's fixed
-	// kubebuilder:validation:XValidation:rule="self.all(x, x != \"\")",message="\"\" is not a valid namespace. Leave field blank for cluster-scoped resources"
-
-	// namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field.
-	// A value of "*" matches objects across all namespaces.
-	// If not set, matches cluster-scoped resources.
-	// If "names" is unset, all objects of the group/resource within the listed namespaces will be claimed.
+	// namespaces represents namespaces where an object of the given group/resource may be managed.
+	//
+	// Namespaces matches against metadata.namespace field.
+	// A value of "*" matches namespaced objects across all namespaces.
+	// If Namespaces is not set (an empty list), matches cluster-scoped resources.
+	// If the "names" field is unset, all objects of the group/resource within the listed namespaces (or cluster) will be claimed.
+	// Wildcard entries other than "*" and regular expressions are currently unsupported.
+	// Default is an empty list.
 	//
 	// +optional
-	// +listType=set
-	Namespaces []string `json:"namespaces,omitempty"`
+	Namespaces []Name `json:"namespaces,omitempty"`
 
 	//
 	// WARNING: If adding new fields, add them to the XValidation check!

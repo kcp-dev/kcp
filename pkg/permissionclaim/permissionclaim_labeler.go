@@ -186,37 +186,47 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, namespace, 
 	return false
 }
 
+func toStrings(names []apisv1alpha1.Name) []string {
+	ret := make([]string, 0, len(names))
+	for _, name := range names {
+		ret = append(ret, string(name))
+	}
+	return ret
+}
+
 // selectsNames determines if an object's name matches a set of name values.
-func selectsNames(names []string, objectName string) bool {
+func selectsNames(names []apisv1alpha1.Name, objectName string) bool {
+	// No name selector was provided.
 	if len(names) == 0 {
 		return true
 	}
 
-	validNames := sets.NewString(names...)
+	validNames := sets.NewString(toStrings(names)...)
 
 	// A value of "*" anywhere in the list means all names are claimed.
 	if validNames.Has(apisv1alpha1.ResourceSelectorAll) {
 		return true
 	}
 
+	// Match listed names.
 	return validNames.Has(objectName)
 }
 
 // selectsNamespaces determines if an object's namespace matches a set of namespace values, and if it is cluster-scoped.
-func selectsNamespaces(namespaces []string, objectNamespace string) bool {
+func selectsNamespaces(namespaces []apisv1alpha1.Name, objectNamespace string) bool {
 	// match cluster-scoped resources
 	if len(namespaces) == 0 && objectNamespace == "" {
 		return true
 	}
 
-	validNamespaces := sets.NewString(namespaces...)
+	validNamespaces := sets.NewString(toStrings(namespaces)...)
 
-	// Match all namespaces
+	// Match all namespaces for namespaced objects.
 	if validNamespaces.Has(apisv1alpha1.ResourceSelectorAll) {
 		return true
 	}
 
-	// Match listed namespaces
+	// Match listed namespaces.
 	return validNamespaces.Has(objectNamespace)
 }
 

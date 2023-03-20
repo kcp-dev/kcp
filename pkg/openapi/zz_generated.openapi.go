@@ -2527,17 +2527,12 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by name and/or namespace.",
+				Description: "ResourceSelector identifies the objects to be included within a PermissionClaim either by names and/or namespaces.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"names": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
-							Description: "names is a list of specific resources to select. It matches the metadata.name field of the underlying object. An entry of \"*\" anywhere in the list means all object names of the group/resource within the \"namespaces\" list are claimed.",
+							Description: "names is a list of specific resources to select.\n\nNames matches the metadata.name field of the underlying object. An entry of \"*\" anywhere in the list means all object names of the group/resource within the \"namespaces\" field are claimed. Wildcard entries other than \"*\" and regular expressions are currently unsupported. Default is \"*\".",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2551,13 +2546,8 @@ func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 						},
 					},
 					"namespaces": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
-							Description: "namespaces represents namespaces where an object of the given group/resource may be managed. Matches against metadata.namespace field. A value of \"*\" matches objects across all namespaces. If not set, matches cluster-scoped resources. If \"names\" is unset, all objects of the group/resource within the listed namespaces will be claimed.",
+							Description: "namespaces represents namespaces where an object of the given group/resource may be managed.\n\nNamespaces matches against metadata.namespace field. A value of \"*\" matches namespaced objects across all namespaces. If Namespaces is not set (an empty list), matches cluster-scoped resources. If the \"names\" field is unset, all objects of the group/resource within the listed namespaces (or cluster) will be claimed. Wildcard entries other than \"*\" and regular expressions are currently unsupported. Default is an empty list.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

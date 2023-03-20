@@ -839,12 +839,12 @@ func (in *ResourceSelector) DeepCopyInto(out *ResourceSelector) {
 	*out = *in
 	if in.Names != nil {
 		in, out := &in.Names, &out.Names
-		*out = make([]string, len(*in))
+		*out = make([]Name, len(*in))
 		copy(*out, *in)
 	}
 	if in.Namespaces != nil {
 		in, out := &in.Namespaces, &out.Namespaces
-		*out = make([]string, len(*in))
+		*out = make([]Name, len(*in))
 		copy(*out, *in)
 	}
 	return

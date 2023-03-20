@@ -46,8 +46,6 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 					},
 				},
-				name:      "",
-				namespace: "",
 			},
 			want: true,
 		},
@@ -63,7 +61,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names: []string{"John Wayne"},
+								Names: []v1alpha1.Name{"John Wayne"},
 							},
 						},
 					},
@@ -85,7 +83,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Namespaces: []string{"foo"},
+								Namespaces: []v1alpha1.Name{"foo"},
 							},
 						},
 					},
@@ -107,8 +105,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []string{"John Wayne"},
-								Namespaces: []string{"foo"},
+								Names:      []v1alpha1.Name{"John Wayne"},
+								Namespaces: []v1alpha1.Name{"foo"},
 							},
 						},
 					},
@@ -130,8 +128,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []string{"John Wayne"},
-								Namespaces: []string{"foo"},
+								Names:      []v1alpha1.Name{"John Wayne"},
+								Namespaces: []v1alpha1.Name{"foo"},
 							},
 						},
 					},
@@ -171,8 +169,8 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []string{"John"},
-								Namespaces: []string{"foo"},
+								Names:      []v1alpha1.Name{"John"},
+								Namespaces: []v1alpha1.Name{"foo"},
 							},
 						},
 					},
@@ -194,8 +192,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []string{"John"},
-								Namespaces: []string{"*"},
+								Names:      []v1alpha1.Name{"John"},
+								Namespaces: []v1alpha1.Name{"*"},
 							},
 						},
 					},
@@ -217,8 +215,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []string{"*"},
-								Namespaces: []string{"bar"},
+								Names:      []v1alpha1.Name{"*"},
+								Namespaces: []v1alpha1.Name{"bar"},
 							},
 						},
 					},
