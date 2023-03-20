@@ -48,6 +48,11 @@ const (
 func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured.Unstructured, gvr schema.GroupVersionResource, upstreamClusterName logicalcluster.Name, upstreamNamespace, upstreamName string, dirtyStatus bool) (bool, error) {
 	logger := klog.FromContext(ctx)
 
+	upstreamClient, err := c.getUpstreamClient(upstreamClusterName)
+	if err != nil {
+		return false, err
+	}
+
 	downstreamNamespace := ""
 	if upstreamNamespace != "" {
 		// find downstream namespace through locator index
@@ -128,26 +133,26 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 			// resource
 			preparedResource.SetAnnotations(addResourceVersionAnnotation(downstreamRV, preparedResource.GetAnnotations()))
 			// Create the resource
-			_, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Create(ctx, preparedResource, metav1.CreateOptions{})
+			_, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Create(ctx, preparedResource, metav1.CreateOptions{})
 			return false, err
 		}
 
 		// Status also needs to be upsynced so let's do it in 3 steps:
 		// - create the resource
-		createdResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Create(ctx, preparedResource, metav1.CreateOptions{})
+		createdResource, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Create(ctx, preparedResource, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
 		// - update the status as a distinct action,
 		preparedResource.SetResourceVersion(createdResource.GetResourceVersion())
-		updatedResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).UpdateStatus(ctx, preparedResource, metav1.UpdateOptions{})
+		updatedResource, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, preparedResource, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
 		// - finally update the main content again to set the resource version annotation to the value of the downstream resource version
 		preparedResource.SetAnnotations(addResourceVersionAnnotation(downstreamRV, preparedResource.GetAnnotations()))
 		preparedResource.SetResourceVersion(updatedResource.GetResourceVersion())
-		_, err = c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
 		return false, err
 	}
 
@@ -163,12 +168,12 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 		// quick path: status unchanged, only update main resource
 		if !dirtyStatus {
 			preparedResource.SetAnnotations(addResourceVersionAnnotation(downstreamRV, preparedResource.GetAnnotations()))
-			existingResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Get(ctx, preparedResource.GetName(), metav1.GetOptions{})
+			existingResource, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, preparedResource.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
 			preparedResource.SetResourceVersion(existingResource.GetResourceVersion())
-			_, err = c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
+			_, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
 			// If the downstream resource is marked for deletion, let's requeue it to manage the deletion timestamp
 			return markedForDeletionDownstream, err
 		}
@@ -177,19 +182,19 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 		// 1. update main resource
 
 		preparedResource.SetAnnotations(addResourceVersionAnnotation(resourceVersionUpstream, preparedResource.GetAnnotations()))
-		existingResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Get(ctx, preparedResource.GetName(), metav1.GetOptions{})
+		existingResource, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Get(ctx, preparedResource.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		preparedResource.SetResourceVersion(existingResource.GetResourceVersion())
-		updatedResource, err := c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
+		updatedResource, err := upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
 
 		// 2. update the status as a distinct action,
 		preparedResource.SetResourceVersion(updatedResource.GetResourceVersion())
-		updatedResource, err = c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).UpdateStatus(ctx, preparedResource, metav1.UpdateOptions{})
+		updatedResource, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, preparedResource, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -197,7 +202,7 @@ func (c *controller) reconcile(ctx context.Context, upstreamObject *unstructured
 		// 3. finally update the main resource again to set the resource version annotation to the value of the downstream resource version.
 		preparedResource.SetAnnotations(addResourceVersionAnnotation(downstreamRV, preparedResource.GetAnnotations()))
 		preparedResource.SetResourceVersion(updatedResource.GetResourceVersion())
-		_, err = c.upstreamClient.Resource(gvr).Cluster(upstreamClusterName.Path()).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, preparedResource, metav1.UpdateOptions{})
 		// If the downstream resource is marked for deletion, let's requeue it to manage the deletion timestamp
 		return markedForDeletionDownstream, err
 	}
@@ -237,8 +242,13 @@ func (c *controller) prepareResourceForUpstream(ctx context.Context, gvr schema.
 }
 
 func (c *controller) deleteUpstreamResource(ctx context.Context, gvr schema.GroupVersionResource, clusterName logicalcluster.Name, namespace, name string, force bool) error {
+	upstreamClient, err := c.getUpstreamClient(clusterName)
+	if err != nil {
+		return err
+	}
+
 	if force {
-		existingResource, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		existingResource, err := upstreamClient.Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if k8serror.IsNotFound(err) {
 			return nil
 		}
@@ -247,12 +257,12 @@ func (c *controller) deleteUpstreamResource(ctx context.Context, gvr schema.Grou
 		}
 		if len(existingResource.GetFinalizers()) > 0 {
 			existingResource.SetFinalizers(nil)
-			if _, err := c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Update(ctx, existingResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, existingResource, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
 		}
 	}
-	return c.upstreamClient.Resource(gvr).Cluster(clusterName.Path()).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	return upstreamClient.Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
 func addResourceVersionAnnotation(resourceVersion string, annotations map[string]string) map[string]string {
