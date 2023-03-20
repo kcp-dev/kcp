@@ -93,7 +93,11 @@ func (m *permissionClaimAdmitter) Validate(ctx context.Context, a admission.Attr
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (m *permissionClaimAdmitter) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	m.apiBindingsHasSynced = local.Apis().V1alpha1().APIBindings().Informer().HasSynced
+	m.apiBindingsHasSynced = func() bool {
+		return local.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+			local.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+			global.Apis().V1alpha1().APIExports().Informer().HasSynced()
+	}
 
 	m.permissionClaimLabeler = permissionclaim.NewLabeler(
 		local.Apis().V1alpha1().APIBindings(),
