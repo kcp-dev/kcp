@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -135,7 +136,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	defer l.Close()
 
 	// reverse proxy the request coming from the reverse connection to the p-cluster apiserver
-	server := &http.Server{ReadHeaderTimeout: 30 * time.Second, Handler: withPodAccessCheck(proxy, getDownstreamLister, syncTargetClusterName, syncTargetName, syncTargetUID)}
+	server := &http.Server{ReadHeaderTimeout: 30 * time.Second, Handler: withAccessAccessCheck(proxy, getDownstreamLister, syncTargetClusterName, syncTargetName, syncTargetUID)}
 	defer server.Close()
 
 	logger.V(2).Info("serving on reverse connection")
@@ -153,9 +154,8 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	return err
 }
 
-func withPodAccessCheck(handler http.Handler, getDownstreamLister ResourceListerFunc, synctargetClusterName logicalcluster.Name, synctargetName, syncTargetUID string) http.HandlerFunc {
+func withAccessAccessCheck(handler http.Handler, getDownstreamLister ResourceListerFunc, synctargetClusterName logicalcluster.Name, synctargetName, syncTargetUID string) http.HandlerFunc {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		resolver := requestinfo.NewKCPRequestInfoResolver()
@@ -168,10 +168,37 @@ func withPodAccessCheck(handler http.Handler, getDownstreamLister ResourceLister
 			return
 		}
 
-		// Ensure that requests are only for pods, and we have the required information, if not, return false.
-		if requestInfo.Resource != "pods" || requestInfo.Subresource == "" || requestInfo.Name == "" || requestInfo.Namespace == "" {
+		resource := requestInfo.Resource
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: resource}
+
+		// Ensure that requests are only for pods or services
+		name := requestInfo.Name
+		var expectedRequestState workloadv1alpha1.ResourceState
+		switch resource {
+		case "pods":
+			expectedRequestState = workloadv1alpha1.ResourceStateUpsync
+		case "services":
+			expectedRequestState = ""
+			nameParts := strings.SplitN(name, ":", 3)
+			partNumber := len(nameParts)
+			switch partNumber {
+			case 2:
+				name = nameParts[0]
+			case 3:
+				name = nameParts[1]
+			}
+		default:
 			responsewriters.ErrorNegotiated(
-				errors.NewForbidden(podGVR.GroupResource(), requestInfo.Name, fmt.Errorf("invalid resource and/or subresource")),
+				errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("invalid resource")),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
+			return
+		}
+
+		// Ensure that requests are only for pods, and we have the required information, if not, return false.
+		if requestInfo.Subresource == "" || requestInfo.Name == "" || requestInfo.Namespace == "" {
+			responsewriters.ErrorNegotiated(
+				errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("invalid subresource")),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return
@@ -212,48 +239,47 @@ func withPodAccessCheck(handler http.Handler, getDownstreamLister ResourceLister
 		if locator, ok, err := shared.LocatorFromAnnotations(annotations); ok {
 			if err != nil || locator.SyncTarget.Name != synctargetName || string(locator.SyncTarget.UID) != syncTargetUID || locator.SyncTarget.ClusterName != string(synctargetClusterName) {
 				responsewriters.ErrorNegotiated(
-					errors.NewForbidden(podGVR.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
+					errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
 					errorCodecs, schema.GroupVersion{}, w, req,
 				)
 				return
 			}
 		} else {
 			responsewriters.ErrorNegotiated(
-				errors.NewForbidden(podGVR.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
+				errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return
 		}
 
 		// Ensure Pod is in Upsynced state.
-		podName := requestInfo.Name
-		podInformer, err := getDownstreamLister(podGVR)
+		informer, err := getDownstreamLister(gvr)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
-				errors.NewInternalError(fmt.Errorf("error while getting pod lister: %w", err)),
+				errors.NewInternalError(fmt.Errorf("error while getting lister: %w", err)),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return
 		}
-		obj, err = podInformer.ByNamespace(downstreamNamespaceName).Get(podName)
+		obj, err = informer.ByNamespace(downstreamNamespaceName).Get(name)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
-				errors.NewForbidden(podGVR.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
+				errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return
 		}
-		if downstreamPod, ok := obj.(*unstructured.Unstructured); ok {
-			if downstreamPod.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+workloadv1alpha1.ToSyncTargetKey(synctargetClusterName, synctargetName)] != string(workloadv1alpha1.ResourceStateUpsync) {
+		if downstreamObj, ok := obj.(*unstructured.Unstructured); ok {
+			if downstreamObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+workloadv1alpha1.ToSyncTargetKey(synctargetClusterName, synctargetName)] != string(expectedRequestState) {
 				responsewriters.ErrorNegotiated(
-					errors.NewForbidden(podGVR.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
+					errors.NewForbidden(gvr.GroupResource(), requestInfo.Name, fmt.Errorf("forbidden")),
 					errorCodecs, schema.GroupVersion{}, w, req,
 				)
 				return
 			}
 		} else {
 			responsewriters.ErrorNegotiated(
-				errors.NewInternalError(fmt.Errorf("pod resource should be *unstructured.Unstructured but was: %T", obj)),
+				errors.NewInternalError(fmt.Errorf("resource should be *unstructured.Unstructured but was: %T", obj)),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return

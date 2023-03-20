@@ -156,7 +156,7 @@ func Test_withPodAccessCheck(t *testing.T) {
 			}
 
 			synctargetWorkspaceName, _ := logicalcluster.NewPath(tt.synctargetClusterName).Name()
-			handler := withPodAccessCheck(
+			handler := withAccessAccessCheck(
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}),

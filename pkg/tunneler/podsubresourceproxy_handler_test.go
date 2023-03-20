@@ -28,9 +28,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
@@ -100,7 +100,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			proxiedPath := ""
-			handler := &podSubresourceProxyHandler{
+			handler := &subresourceTunnelHandler{
 				proxyFunc: func(cluster logicalcluster.Name, syncTargetName string, w http.ResponseWriter, req *http.Request) {
 					proxiedPath = req.URL.Path
 					if tc.syncTargetExists && tc.podExists {
@@ -109,7 +109,7 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 					}
 				},
 				apiHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-				getPodByName: func(ctx context.Context, cluster logicalcluster.Name, namespace, podName string) (*corev1.Pod, error) {
+				getByName: func(ctx context.Context, resource string, cluster logicalcluster.Name, namespace, podName string) (*unstructured.Unstructured, error) {
 					if !tc.podExists {
 						return nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, podName)
 					}
@@ -117,12 +117,14 @@ func TestPodSubresourceProxyingHandler(t *testing.T) {
 					if !tc.podIsUpsynced {
 						stateLabel = "Synced"
 					}
-					return &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      podName,
-							Namespace: namespace,
-							Labels: map[string]string{
-								"state.workload.kcp.io/ABCDEFGHIJKL": stateLabel,
+					return &unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"metadata": map[string]interface{}{
+								"name":      podName,
+								"namespace": namespace,
+								"labels": map[string]interface{}{
+									"state.workload.kcp.io/ABCDEFGHIJKL": stateLabel,
+								},
 							},
 						},
 					}, nil
