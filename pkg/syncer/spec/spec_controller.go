@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -73,7 +72,7 @@ type Controller struct {
 	upstreamClient   kcpdynamic.ClusterInterface
 	downstreamClient dynamic.Interface
 
-	getUpstreamLister                 func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getUpstreamLister                 func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
 
@@ -86,14 +85,15 @@ type Controller struct {
 }
 
 func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string,
-	upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
+	addDownstreamEventHandler func(ddsif.GVREventHandler),
 	downstreamNSCleaner shared.Cleaner,
 	syncTargetUID types.UID,
 	dnsNamespace string,
-	syncerNamespaceInformerFactory informers.SharedInformerFactory,
+	dnsProcessor *dns.DNSProcessor,
 	dnsImage string,
 	mutators ...Mutator) (*Controller, error) {
 	c := Controller{
@@ -114,7 +114,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 			}
 			return informer.Lister(), nil
 		},
-		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
+		getUpstreamLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
 			informers, notSynced := ddsifForUpstreamSyncer.Informers()
 			informer, ok := informers[gvr]
 			if !ok {
@@ -123,7 +123,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				}
 				return nil, fmt.Errorf("gvr %v should be known in the upstream informer factory", gvr)
 			}
-			return informer.Lister(), nil
+			return informer.Lister().ByCluster(clusterName), nil
 		},
 
 		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
@@ -174,7 +174,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		},
 	)
 
-	ddsifForDownstream.AddEventHandler(
+	addDownstreamEventHandler(
 		ddsif.GVREventHandlerFuncs{
 			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
 				if gvr == namespaceGVR {
@@ -263,15 +263,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		}
 	}
 
-	c.dnsProcessor = dns.NewDNSProcessor(downstreamKubeClient,
-		syncerNamespaceInformerFactory.Core().V1().ServiceAccounts().Lister(),
-		syncerNamespaceInformerFactory.Rbac().V1().Roles().Lister(),
-		syncerNamespaceInformerFactory.Rbac().V1().RoleBindings().Lister(),
-		syncerNamespaceInformerFactory.Apps().V1().Deployments().Lister(),
-		syncerNamespaceInformerFactory.Core().V1().Services().Lister(),
-		syncerNamespaceInformerFactory.Core().V1().Endpoints().Lister(),
-		syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister(),
-		syncTargetUID, syncTargetName, dnsNamespace, dnsImage)
+	c.dnsProcessor = dnsProcessor
 
 	return &c, nil
 }

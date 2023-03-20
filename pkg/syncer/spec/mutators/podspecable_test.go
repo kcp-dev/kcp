@@ -919,9 +919,6 @@ func TestDeploymentMutate(t *testing.T) {
 	} {
 		{
 			t.Run(c.desc, func(t *testing.T) {
-				upstreamURL, err := url.Parse(c.config.Host)
-				require.NoError(t, err)
-
 				secretLister := func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 					unstructuredObjects := make([]runtime.Object, 0, len(c.upstreamSecrets))
 					for _, obj := range c.upstreamSecrets {
@@ -937,11 +934,22 @@ func TestDeploymentMutate(t *testing.T) {
 				serviceIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 
 				dnsServiceName := shared.GetDNSID(clusterName, "syncTargetUID", "syncTargetName")
-				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))
+				err := serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))
 				require.NoError(t, err, "Service Add() = %v", err)
 				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
 
-				dm := NewPodspecableMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace", c.upsyncPods)
+				dm := &PodSpecableMutator{
+					getWorkspaceURL: func(obj *unstructured.Unstructured) (*url.URL, error) {
+						return url.Parse(c.config.Host)
+					},
+					listSecrets:           secretLister,
+					serviceLister:         svcLister,
+					syncTargetClusterName: clusterName,
+					syncTargetUID:         "syncTargetUID",
+					syncTargetName:        "syncTargetName",
+					dnsNamespace:          "dnsNamespace",
+					upsyncPods:            c.upsyncPods,
+				}
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)

@@ -23,14 +23,12 @@ import (
 	"reflect"
 	"strings"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -149,14 +147,19 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(logging.WorkspaceKey, upstreamClusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, upstreamName)
 	ctx = klog.NewContext(ctx, logger)
 
-	upstreamLister, err := c.getUpstreamLister(gvr)
+	upstreamLister, err := c.getUpstreamLister(upstreamClusterName, gvr)
+	if err != nil {
+		return err
+	}
+
+	upstreamClient, err := c.getUpstreamClient(upstreamClusterName)
 	if err != nil {
 		return err
 	}
 
 	if !resourceExists {
 		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamLister, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamClusterName, shared.GetUpstreamResourceName(gvr, downstreamName))
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamLister, upstreamClient, upstreamNamespace, c.syncTargetKey, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -169,10 +172,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 
-	return c.updateStatusInUpstream(ctx, gvr, upstreamLister, upstreamNamespace, upstreamName, upstreamClusterName, u)
+	return c.updateStatusInUpstream(ctx, gvr, upstreamClient, upstreamLister, upstreamNamespace, upstreamName, u)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamLister kcpcache.GenericClusterLister, upstreamNamespace, upstreamName string, upstreamClusterName logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.Interface, upstreamLister cache.GenericLister, upstreamNamespace, upstreamName string, downstreamObj *unstructured.Unstructured) error {
 	logger := klog.FromContext(ctx)
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
@@ -183,7 +186,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return nil
 	}
 
-	existingObj, err := upstreamLister.ByCluster(upstreamClusterName).ByNamespace(upstreamNamespace).Get(upstreamName)
+	existingObj, err := upstreamLister.ByNamespace(upstreamNamespace).Get(upstreamName)
 	if err != nil {
 		logger.Error(err, "Error getting upstream resource")
 		return err
@@ -217,9 +220,9 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		if upstreamNamespace != "" {
 			// In this case we will update the whole resource, not the status, as the status is in the annotation.
 			// this is specific to the advancedScheduling flag.
-			_, err = c.upstreamClient.Cluster(upstreamClusterName.Path()).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{})
+			_, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{})
 		} else {
-			_, err = c.upstreamClient.Cluster(upstreamClusterName.Path()).Resource(gvr).Update(ctx, newUpstream, metav1.UpdateOptions{})
+			_, err = upstreamClient.Resource(gvr).Update(ctx, newUpstream, metav1.UpdateOptions{})
 		}
 
 		if err != nil {
@@ -239,9 +242,9 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	// clusterIP for service, or other field values set by SyncTarget cluster admission.
 	// But for now let's only update the status.
 	if upstreamNamespace != "" {
-		_, err = c.upstreamClient.Cluster(upstreamClusterName.Path()).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
 	} else {
-		_, err = c.upstreamClient.Cluster(upstreamClusterName.Path()).Resource(gvr).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		logger.Error(err, "Failed updating status of upstream resource")

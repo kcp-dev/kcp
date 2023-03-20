@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listersappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
@@ -58,31 +59,29 @@ type DNSProcessor struct {
 
 func NewDNSProcessor(
 	downstreamKubeClient kubernetes.Interface,
-	serviceAccountLister listerscorev1.ServiceAccountLister,
-	roleLister listersrbacv1.RoleLister,
-	roleBindingLister listersrbacv1.RoleBindingLister,
-	deploymentLister listersappsv1.DeploymentLister,
-	serviceLister listerscorev1.ServiceLister,
-	endpointLister listerscorev1.EndpointsLister,
-	networkPolicyLister listersnetworkingv1.NetworkPolicyLister,
-	syncTargetUID types.UID,
+	syncerNamespaceInformerFactory kubernetesinformers.SharedInformerFactory,
 	syncTargetName string,
+	syncTargetUID types.UID,
 	dnsNamespace string,
 	dnsImage string) *DNSProcessor {
 	return &DNSProcessor{
 		downstreamKubeClient: downstreamKubeClient,
-		serviceAccountLister: serviceAccountLister,
-		roleLister:           roleLister,
-		roleBindingLister:    roleBindingLister,
-		deploymentLister:     deploymentLister,
-		serviceLister:        serviceLister,
-		endpointLister:       endpointLister,
-		networkPolicyLister:  networkPolicyLister,
-		syncTargetUID:        syncTargetUID,
+		serviceAccountLister: syncerNamespaceInformerFactory.Core().V1().ServiceAccounts().Lister(),
+		roleLister:           syncerNamespaceInformerFactory.Rbac().V1().Roles().Lister(),
+		roleBindingLister:    syncerNamespaceInformerFactory.Rbac().V1().RoleBindings().Lister(),
+		deploymentLister:     syncerNamespaceInformerFactory.Apps().V1().Deployments().Lister(),
+		serviceLister:        syncerNamespaceInformerFactory.Core().V1().Services().Lister(),
+		endpointLister:       syncerNamespaceInformerFactory.Core().V1().Endpoints().Lister(),
+		networkPolicyLister:  syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister(),
 		syncTargetName:       syncTargetName,
+		syncTargetUID:        syncTargetUID,
 		dnsNamespace:         dnsNamespace,
 		dnsImage:             dnsImage,
 	}
+}
+
+func (d *DNSProcessor) ServiceLister() listerscorev1.ServiceLister {
+	return d.serviceLister
 }
 
 // EnsureDNSUpAndReady creates all DNS-related resources if necessary.

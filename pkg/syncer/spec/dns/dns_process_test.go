@@ -199,16 +199,8 @@ func TestDNSProcess(t *testing.T) {
 
 			// informerFactory to watch some DNS-related resources in the dns namespace
 			informerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClient, time.Hour, informers.WithNamespace(dnsns))
-			serviceAccountLister := informerFactory.Core().V1().ServiceAccounts().Lister()
-			roleLister := informerFactory.Rbac().V1().Roles().Lister()
-			roleBindingLister := informerFactory.Rbac().V1().RoleBindings().Lister()
-			deploymentLister := informerFactory.Apps().V1().Deployments().Lister()
-			serviceLister := informerFactory.Core().V1().Services().Lister()
-			endpointLister := informerFactory.Core().V1().Endpoints().Lister()
-			networkPolicyLister := informerFactory.Networking().V1().NetworkPolicies().Lister()
 
-			controller := NewDNSProcessor(kubeClient, serviceAccountLister, roleLister, roleBindingLister,
-				deploymentLister, serviceLister, endpointLister, networkPolicyLister, syncTargetUID, syncTargetName,
+			controller := NewDNSProcessor(kubeClient, informerFactory, syncTargetName, syncTargetUID,
 				dnsns, tc.dnsImage)
 
 			controller.initialized.Store(dnsID, tc.initialized)
@@ -251,16 +243,8 @@ func TestMultipleDNSInitialization(t *testing.T) {
 
 	// informerFactory to watch some DNS-related resources in the dns namespace
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClient, time.Hour, informers.WithNamespace(dnsns))
-	serviceAccountLister := informerFactory.Core().V1().ServiceAccounts().Lister()
-	roleLister := informerFactory.Rbac().V1().Roles().Lister()
-	roleBindingLister := informerFactory.Rbac().V1().RoleBindings().Lister()
-	deploymentLister := informerFactory.Apps().V1().Deployments().Lister()
-	serviceLister := informerFactory.Core().V1().Services().Lister()
-	endpointLister := informerFactory.Core().V1().Endpoints().Lister()
-	networkPolicyLister := informerFactory.Networking().V1().NetworkPolicies().Lister()
 
-	controller := NewDNSProcessor(kubeClient, serviceAccountLister, roleLister, roleBindingLister,
-		deploymentLister, serviceLister, endpointLister, networkPolicyLister, syncTargetUID, syncTargetName,
+	controller := NewDNSProcessor(kubeClient, informerFactory, syncTargetName, syncTargetUID,
 		dnsns, "animage")
 
 	informerFactory.Start(ctx.Done())

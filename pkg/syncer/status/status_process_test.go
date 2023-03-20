@@ -47,6 +47,7 @@ import (
 
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
+	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
@@ -612,7 +613,13 @@ func TestStatusSyncerProcess(t *testing.T) {
 			fromClientResourceWatcherStarted := setupWatchReactor(t, tc.gvr.Resource, fromClient)
 			toClientResourceWatcherStarted := setupClusterWatchReactor(t, tc.gvr.Resource, toClusterClient)
 
-			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, ddsifForUpstreamSyncer, ddsifForDownstream, tc.syncTargetUID)
+			getShardAccess := func(clusterName logicalcluster.Name) (synctarget.ShardAccess, error) {
+				return synctarget.ShardAccess{
+					SyncerClient: toClusterClient,
+					SyncerDDSIF:  ddsifForUpstreamSyncer,
+				}, nil
+			}
+			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, getShardAccess, fromClient, ddsifForDownstream, tc.syncTargetUID)
 			require.NoError(t, err)
 
 			ddsifForUpstreamSyncer.Start(ctx.Done())
@@ -663,9 +670,9 @@ func TestStatusSyncerProcess(t *testing.T) {
 				key,
 			)
 			if tc.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClient.Actions()))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))

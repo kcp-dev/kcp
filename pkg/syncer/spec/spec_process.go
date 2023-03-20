@@ -153,12 +153,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
 
 	// get the upstream object
-	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
+	upstreamSyncerLister, err := c.getUpstreamLister(clusterName, gvr)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := upstreamSyncerLister.ByCluster(clusterName).ByNamespace(upstreamNamespace).Get(name)
+	obj, err := upstreamSyncerLister.ByNamespace(upstreamNamespace).Get(name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
 	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
-	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
+	upstreamSyncerLister, err := c.getUpstreamLister(upstreamObjLogicalCluster, gvr)
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName())
+				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, c.upstreamClient.Cluster(upstreamObjLogicalCluster.Path()), upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObj.GetName())
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err

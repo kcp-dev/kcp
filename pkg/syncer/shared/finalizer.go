@@ -20,14 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -39,9 +37,9 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.io/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamLister kcpcache.GenericClusterLister, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamLister cache.GenericLister, upstreamClient dynamic.Interface, upstreamNamespace, syncTargetKey string, resourceName string) error {
 	logger := klog.FromContext(ctx)
-	upstreamObjFromLister, err := upstreamLister.ByCluster(logicalClusterName).ByNamespace(upstreamNamespace).Get(resourceName)
+	upstreamObjFromLister, err := upstreamLister.ByNamespace(upstreamNamespace).Get(resourceName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -89,9 +87,9 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 
 	if upstreamNamespace != "" {
-		_, err = upstreamClient.Cluster(logicalClusterName.Path()).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	} else {
-		_, err = upstreamClient.Cluster(logicalClusterName.Path()).Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+		_, err = upstreamClient.Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	}
 
 	if err != nil {
