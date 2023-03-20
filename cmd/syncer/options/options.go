@@ -19,6 +19,7 @@ package options
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -100,5 +101,34 @@ func (options *Options) Validate() error {
 	if options.SyncTargetUID == "" {
 		return errors.New("--sync-target-uid is required")
 	}
+	if validateResources(options.SyncedResourceTypes) {
+		return errors.New("--resources should be passed a core resource or should use a <group>.<resource> syntax")
+	}
+
 	return nil
+}
+
+func isCoreResource(resource string) bool {
+	coreResources := []string{"container", "pod", "replicationcontroller", "endpoint",
+		"service", "configmap", "secret", "persistentvolumeclaim", "volume",
+		"limitrange", "podtemplate", "binding", "componentstatus", "namespace",
+		"node", "persistentvolume", "resourcequota", "serviceaccount", "event", "eventseries"}
+	for _, item := range coreResources {
+		if item == resource {
+			return true
+		}
+	}
+	return false
+}
+
+func validateResources(resources []string) bool {
+	groupResourcePattern := regexp.MustCompile(`\b\w+\.\w+\b`)
+	for _, item := range resources {
+		if !isCoreResource(item) {
+			if !groupResourcePattern.MatchString(item) {
+				return true
+			}
+		}
+	}
+	return false
 }

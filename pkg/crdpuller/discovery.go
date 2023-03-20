@@ -106,7 +106,8 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 	for _, resourceToPull := range resourceNames {
 		gr := schema.ParseGroupResource(resourceToPull)
 		grToPull, err := sp.resourceFor(gr)
-		if err != nil {
+		// Check the group.resource equals to that provided by the user
+		if err != nil && grToPull.String() == resourceToPull {
 			logger.Error(err, "error mapping", "resource", resourceToPull)
 			continue
 		}
