@@ -302,11 +302,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 		t.Logf("setting PermissionClaims on APIExport %s to only claim one namespace", sheriffExport.Name)
 		sheriffExport.Spec.PermissionClaims = makeNarrowCMPermissionClaims("", claimedNamespace)
 		framework.Eventually(t, func() (done bool, str string) {
-			sheriffExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
+			updatedExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Update(ctx, sheriffExport, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
 
+			sheriffExport = updatedExport
 			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be updated with PermissionClaims")
 
@@ -455,14 +456,22 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 // makeNarrowCMPermissionClaim creates a PermissionClaim for ConfigMaps scoped to just a name, just a namespace, or both.
 func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.PermissionClaim {
+	var names, namespaces []apisv1alpha1.Name
+	if name != "" {
+		names = []apisv1alpha1.Name{apisv1alpha1.Name(name)}
+	}
+	if namespace != "" {
+		namespaces = []apisv1alpha1.Name{apisv1alpha1.Name(namespace)}
+	}
+
 	return []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 			All:           false,
 			ResourceSelector: []apisv1alpha1.ResourceSelector{
 				{
-					Names:      []apisv1alpha1.Name{apisv1alpha1.Name(name)},
-					Namespaces: []apisv1alpha1.Name{apisv1alpha1.Name(namespace)},
+					Names:      names,
+					Namespaces: namespaces,
 				},
 			},
 		},
@@ -470,14 +479,21 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 }
 
 func makeAcceptedCMPermissionClaims(namespace, name string) []apisv1alpha1.AcceptablePermissionClaim {
+	var names, namespaces []apisv1alpha1.Name
+	if name != "" {
+		names = []apisv1alpha1.Name{apisv1alpha1.Name(name)}
+	}
+	if namespace != "" {
+		namespaces = []apisv1alpha1.Name{apisv1alpha1.Name(namespace)}
+	}
 	return []apisv1alpha1.AcceptablePermissionClaim{
 		{
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				ResourceSelector: []apisv1alpha1.ResourceSelector{
 					{
-						Names:      []apisv1alpha1.Name{apisv1alpha1.Name(name)},
-						Namespaces: []apisv1alpha1.Name{apisv1alpha1.Name(namespace)},
+						Names:      names,
+						Namespaces: namespaces,
 					},
 				},
 				All: false,
