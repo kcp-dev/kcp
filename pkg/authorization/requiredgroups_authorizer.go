@@ -101,6 +101,11 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 			return authorizer.DecisionNoOpinion, "", err
 		}
 
+		// always let external-logical-cluster-admins through
+		if sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemExternalLogicalClusterAdmin) {
+			return DelegateAuthorization("external logical cluster admin access", a.delegate).Authorize(ctx, attr)
+		}
+
 		// check required groups
 		value, found := logicalCluster.Annotations[RequiredGroupsAnnotationKey]
 		if !found {
