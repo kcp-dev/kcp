@@ -834,20 +834,29 @@ func getGroupMappings(resourcesToSync []string) []groupMapping {
 		} else {
 			groupMap[apiGroup] = append(groupMap[apiGroup], name)
 		}
+		var subresources []string
+
 		// If pods are being synced, add the subresources that are required to
 		// support the pod subresources.
-		if apiGroup == "" && name == "pods" {
-			podSubresources := []string{
-				"pods/log",
-				"pods/exec",
-				"pods/attach",
-				"pods/binding",
-				"pods/portforward",
-				"pods/proxy",
-				"pods/ephemeralcontainers",
+		if apiGroup == "" {
+			switch name {
+			case "pods":
+				subresources = []string{
+					"pods/log",
+					"pods/exec",
+					"pods/attach",
+					"pods/binding",
+					"pods/portforward",
+					"pods/proxy",
+					"pods/ephemeralcontainers",
+				}
+			case "services":
+				subresources = []string{
+					"services/proxy",
+				}
 			}
-			groupMap[apiGroup] = append(groupMap[apiGroup], podSubresources...)
 		}
+		groupMap[apiGroup] = append(groupMap[apiGroup], subresources...)
 	}
 
 	groupMappings := make([]groupMapping, 0, len(groupMap))

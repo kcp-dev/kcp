@@ -531,6 +531,7 @@ func TestGetGroupMappings(t *testing.T) {
 					APIGroup: "",
 					Resources: []string{
 						"services",
+						"services/proxy",
 					},
 				},
 			},
@@ -561,6 +562,7 @@ func TestGetGroupMappings(t *testing.T) {
 					APIGroup: "",
 					Resources: []string{
 						"services",
+						"services/proxy",
 						"secrets",
 					},
 				},
