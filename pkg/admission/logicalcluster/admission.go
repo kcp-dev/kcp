@@ -190,8 +190,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		if err != nil {
 			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
-		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-		if !logicalCluster.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
+		if !logicalCluster.Spec.DirectlyDeletable {
 			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
 		}
 
