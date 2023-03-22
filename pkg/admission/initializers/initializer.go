@@ -23,6 +23,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	quota "k8s.io/apiserver/pkg/quota/v1"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -67,6 +68,26 @@ type kcpInformersInitializer struct {
 func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsKcpInformers); ok {
 		wants.SetKcpInformers(i.localKcpInformers, i.globalKcpInformers)
+	}
+}
+
+// NewLoopbackClientConfigInitializer returns an admission plugin initializer that injects
+// the loopback config into admission plugins.
+func NewLoopbackClientConfigInitializer(
+	loopbackClientConfig rest.Config,
+) *kubeLoopbackClientConfigInitializer {
+	return &kubeLoopbackClientConfigInitializer{
+		loopbackClientConfig: loopbackClientConfig,
+	}
+}
+
+type kubeLoopbackClientConfigInitializer struct {
+	loopbackClientConfig rest.Config
+}
+
+func (i *kubeLoopbackClientConfigInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsLoopbackClientConfig); ok {
+		wants.SetLoopbackClientConfig(i.loopbackClientConfig)
 	}
 }
 

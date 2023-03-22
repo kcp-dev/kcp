@@ -47,6 +47,8 @@ type Plugin struct {
 	// This plugins admit function will never be called.
 	validating.Plugin
 	*webhook.WebhookDispatcher
+
+	webhook.ServiceToURLTransformer
 }
 
 var (
@@ -54,6 +56,7 @@ var (
 	_ = admission.InitializationValidator(&Plugin{})
 	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
 	_ = kcpinitializers.WantsKubeInformers(&Plugin{})
+	_ = kcpinitializers.WantsLoopbackClientConfig(&Plugin{})
 )
 
 func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
@@ -88,6 +91,7 @@ func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
 	// Set defaults which may be overridden later.
 	cm.SetAuthenticationInfoResolver(authInfoResolver)
 	cm.SetServiceResolver(webhookutil.NewDefaultServiceResolver())
+	cm.SetAuthenticationInfoResolverWrapper(p.WrapAuthenticationInforesolver)
 
 	p.WebhookDispatcher.SetDispatcher(dispatcherFactory(&cm))
 	// Need to do this, to make sure that the underlying objects for the call to ShouldCallHook have the right values
@@ -123,6 +127,9 @@ func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInfo
 }
 
 func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
+	informer := global.Admissionregistration().V1().ValidatingWebhookConfigurations()
+	_ = informer.Informer().SetTransform(p.TransformValidatingWebhookConfiguration)
+
 	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
 		informer := global.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(cluster)
 		return configuration.NewValidatingWebhookConfigurationManagerForInformer(informer)

@@ -20,6 +20,8 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"k8s.io/client-go/rest"
+
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
@@ -40,6 +42,12 @@ type WantsKubeInformers interface {
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
 	SetKubeClusterClient(kcpkubernetesclientset.ClusterInterface)
+}
+
+// WantsLoopbackClientConfig interface should be implemented by admission plugins
+// that want to have the loopback client config injected.
+type WantsLoopbackClientConfig interface {
+	SetLoopbackClientConfig(rest.Config)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins

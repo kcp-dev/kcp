@@ -462,6 +462,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
 
 	admissionPluginInitializers := []admission.PluginInitializer{
+		kcpadmissioninitializers.NewLoopbackClientConfigInitializer(*c.GenericConfig.LoopbackClientConfig),
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
