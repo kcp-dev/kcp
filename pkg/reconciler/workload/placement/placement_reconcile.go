@@ -27,7 +27,6 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -71,14 +70,6 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 	}
 
 	return requeue, utilserrors.NewAggregate(errs)
-}
-
-func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
-}
-
-func (c *controller) getLocation(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
-	return indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), c.locationIndexer, path, name)
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {

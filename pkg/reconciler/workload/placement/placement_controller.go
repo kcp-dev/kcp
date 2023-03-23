@@ -63,8 +63,8 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	locationInformer schedulinginformers.LocationClusterInformer,
-	syncTargetInformer workloadinformers.SyncTargetClusterInformer,
+	locationInformer, cacheLocationInformer schedulinginformers.LocationClusterInformer,
+	syncTargetInformer, cacheSyncTargetInformer workloadinformers.SyncTargetClusterInformer,
 	placementInformer schedulinginformers.PlacementClusterInformer,
 	apiBindingInformer apisinformers.APIBindingClusterInformer,
 ) (*controller, error) {
@@ -80,7 +80,32 @@ func NewController(
 		locationLister:  locationInformer.Lister(),
 		locationIndexer: locationInformer.Informer().GetIndexer(),
 
+		listLocations: func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
+			locations, err := locationInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			if err != nil || len(locations) == 0 {
+				return cacheLocationInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			}
+
+			return locations, nil
+		},
+
 		syncTargetLister: syncTargetInformer.Lister(),
+
+		listSyncTarget: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+			targets, err := syncTargetInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			if err != nil || len(targets) == 0 {
+				return cacheSyncTargetInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			}
+			return targets, nil
+		},
+
+		getLocation: func(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
+			location, err := indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), locationInformer.Informer().GetIndexer(), path, name)
+			if errors.IsNotFound(err) {
+				return indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), cacheLocationInformer.Informer().GetIndexer(), path, name)
+			}
+			return location, nil
+		},
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
@@ -178,7 +203,12 @@ type controller struct {
 	locationLister  schedulingv1alpha1listers.LocationClusterLister
 	locationIndexer cache.Indexer
 
+	listLocations func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error)
+	getLocation   func(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error)
+
 	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
+
+	listSyncTarget func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
@@ -269,7 +299,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}, logger logr.Logger) {
 	}
 
 	// Get all locations in the same cluster and enqueue locations.
-	locations, err := c.locationLister.Cluster(logicalcluster.From(syncTarget)).List(labels.Everything())
+	locations, err := c.listLocations(logicalcluster.From(syncTarget))
 	if err != nil {
 		runtime.HandleError(err)
 		return
