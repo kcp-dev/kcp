@@ -159,8 +159,8 @@ func DefaultDynamicDelegatedStoreFuncs(
 		return obj, deletedImmediately, nil
 	}
 	s.CollectionDeleterFunc = func(ctx context.Context, validator rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *metainternalversion.ListOptions) (runtime.Object, error) {
-		// There is a validator passed into this function, but the actual filtering for virtual workspaces/views
-		// as well as any resources claimed happens in the wrapper that applies the label selector.
+		// There is a validator passed into this function, but the actual filtering
+		// for any resources claimed happens in the wrapper that applies the label selector.
 		// See wrappers.go in this package.
 		delegate, err := client(ctx)
 		if err != nil {
