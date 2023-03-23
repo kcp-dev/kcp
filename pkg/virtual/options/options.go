@@ -86,7 +86,6 @@ func (o *Options) Validate() []error {
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
-	o.Admission.AddFlags(fs)
 }
 
 func (o *Options) NewVirtualWorkspaces(
