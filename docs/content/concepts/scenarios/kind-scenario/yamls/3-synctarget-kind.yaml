@@ -1,0 +1,55 @@
+apiVersion: workload.kcp.io/v1alpha1
+kind: SyncTarget
+metadata:
+  annotations:
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T17:05:37Z"
+  generation: 1
+  labels:
+    internal.workload.kcp.io/key: alIviEyJiysDMorx9fWmI2ygTHSTrvxXGyVwSJ
+  name: kind
+  resourceVersion: "9266"
+  uid: 8df305e7-f4f8-439f-9115-51054d519361
+spec:
+  supportedAPIExports:
+  - export: kubernetes
+    path: root:compute
+  unschedulable: false
+status:
+  conditions:
+  - lastTransitionTime: "2023-03-21T17:10:07Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T17:10:07Z"
+    status: "True"
+    type: HeartbeatHealthy
+  - lastTransitionTime: "2023-03-21T17:10:07Z"
+    status: "True"
+    type: SyncerAuthorized
+  lastSyncerHeartbeatTime: "2023-03-21T17:19:07Z"
+  syncedResources:
+  - identityHash: <id-hash>
+    resource: services
+    state: Accepted
+    versions:
+    - v1
+  - identityHash: <id-hash>
+    resource: pods
+    state: Accepted
+    versions:
+    - v1
+  - group: networking.k8s.io
+    identityHash: <id-hash>
+    resource: ingresses
+    state: Accepted
+    versions:
+    - v1
+  - group: apps
+    identityHash: <id-hash>
+    resource: deployments
+    state: Accepted
+    versions:
+    - v1
+  virtualWorkspaces:
+  - syncerURL: https://<kcp-url>:6443/services/syncer/br3qimk2t1o3jb70/kind/8df305e7-f4f8-439f-9115-51054d519361
+    upsyncerURL: https://<kcp-url>:6443/services/upsyncer/br3qimk2t1o3jb70/kind/8df305e7-f4f8-439f-9115-51054d519361

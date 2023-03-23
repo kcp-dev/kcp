@@ -1,0 +1,32 @@
+apiVersion: scheduling.kcp.io/v1alpha1
+kind: Placement
+metadata:
+  annotations:
+    internal.workload.kcp.io/synctarget: alIviEyJiysDMorx9fWmI2ygTHSTrvxXGyVwSJ
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T17:23:57Z"
+  generation: 1
+  name: placement-2iddvmcj
+  resourceVersion: "9368"
+  uid: acab9d5b-a715-4558-8146-8d570645fca1
+spec:
+  locationResource:
+    group: workload.kcp.io
+    resource: synctargets
+    version: v1alpha1
+  locationSelectors:
+  - {}
+  locationWorkspace: root:kind
+  namespaceSelector: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-03-21T17:23:57Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T17:23:57Z"
+    status: "True"
+    type: Scheduled
+  phase: Bound
+  selectedLocation:
+    locationName: default
+    path: br3qimk2t1o3jb70

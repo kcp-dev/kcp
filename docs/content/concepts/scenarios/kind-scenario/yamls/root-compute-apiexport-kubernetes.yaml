@@ -1,0 +1,36 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  annotations:
+    bootstrap.kcp.io/battery: root-compute-workspace
+    extra.apis.kcp.io/compute.workload.kcp.io: "true"
+    kcp.io/cluster: 2ei017lw8ljpxp5x
+    kcp.io/path: root:compute
+  creationTimestamp: "2023-03-20T18:15:11Z"
+  generation: 2
+  name: kubernetes
+  resourceVersion: "599"
+  uid: 437f1d1c-2a0a-4592-a22a-1e10e0220df3
+spec:
+  identity:
+    secretRef:
+      name: kubernetes
+      namespace: kcp-system
+  latestResourceSchemas:
+  - v124.ingresses.networking.k8s.io
+  - v124.services.core
+  - v124.deployments.apps
+  - v124.pods.core
+  maximalPermissionPolicy:
+    local: {}
+status:
+  conditions:
+  - lastTransitionTime: "2023-03-20T18:15:11Z"
+    status: "True"
+    type: IdentityValid
+  - lastTransitionTime: "2023-03-20T18:15:11Z"
+    status: "True"
+    type: VirtualWorkspaceURLsReady
+  identityHash: <id-hash>
+  virtualWorkspaces:
+  - url: https://<kcp-url>:6443/services/apiexport/2ei017lw8ljpxp5x/kubernetes

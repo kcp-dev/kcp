@@ -1,0 +1,42 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    extra.apis.kcp.io/compute.workload.kcp.io: "true"
+    kcp.io/cluster: 49adf4fn8ks8x43u
+  creationTimestamp: "2023-03-20T18:37:20Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/40Zi0j9PsQDYRFZUfMx8bfzH69sqffiovtyuvN: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: 40Zi0j9PsQDYRFZUfMx8bfzH69sqffiovtyuvN
+  name: kubernetes
+  resourceVersion: "751"
+  uid: bf4cb1a5-c734-4a88-a1a4-b1d630289b9d
+spec:
+  reference:
+    export:
+      name: kubernetes
+status:
+  apiExportClusterName: 49adf4fn8ks8x43u
+  conditions:
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-20T18:37:20Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound

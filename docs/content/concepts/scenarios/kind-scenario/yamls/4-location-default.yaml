@@ -1,0 +1,20 @@
+apiVersion: scheduling.kcp.io/v1alpha1
+kind: Location
+metadata:
+  annotations:
+    kcp.io/cluster: br3qimk2t1o3jb70
+    kcp.io/path: root:kind
+  creationTimestamp: "2023-03-21T17:05:37Z"
+  generation: 1
+  name: default
+  resourceVersion: "9136"
+  uid: d5ecd13e-d413-4d87-a62b-c154f9156e73
+spec:
+  instanceSelector: {}
+  resource:
+    group: workload.kcp.io
+    resource: synctargets
+    version: v1alpha1
+status:
+  availableInstances: 1
+  instances: 1

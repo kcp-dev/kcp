@@ -1,0 +1,76 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    extra.apis.kcp.io/compute.workload.kcp.io: "true"
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T17:21:48Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/77zi8i256rosNE0ykJyOOB4OwxAMrho27rckj3: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: 77zi8i256rosNE0ykJyOOB4OwxAMrho27rckj3
+  name: kubernetes-1pre20xf
+  resourceVersion: "9320"
+  uid: 35bd2e6c-ebc4-411b-ab95-f706841c9441
+spec:
+  reference:
+    export:
+      name: kubernetes
+      path: root:compute
+status:
+  apiExportClusterName: 2ei017lw8ljpxp5x
+  boundResources:
+  - group: networking.k8s.io
+    resource: ingresses
+    schema:
+      UID: ac065681-9ce8-4798-956b-347dfe2610f2
+      identityHash: <id-hash>
+      name: v124.ingresses.networking.k8s.io
+    storageVersions:
+    - v1
+  - group: ""
+    resource: services
+    schema:
+      UID: 06b1ff23-56af-42bd-b3f9-d016dbbf6000
+      identityHash: <id-hash>
+      name: v124.services.core
+    storageVersions:
+    - v1
+  - group: apps
+    resource: deployments
+    schema:
+      UID: 8eb70a7d-6856-4b52-8a88-7adcf40b6c49
+      identityHash: <id-hash>
+      name: v124.deployments.apps
+    storageVersions:
+    - v1
+  - group: ""
+    resource: pods
+    schema:
+      UID: ad4c06b1-3d92-46d4-8ca7-78ee41548b40
+      identityHash: <id-hash>
+      name: v124.pods.core
+    storageVersions:
+    - v1
+  conditions:
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-21T17:21:48Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound
