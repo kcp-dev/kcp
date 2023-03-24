@@ -33,6 +33,7 @@ import (
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
@@ -49,13 +50,16 @@ type Authentication struct {
 // NewAuthentication creates a default Authentication.
 func NewAuthentication() *Authentication {
 	auth := &Authentication{
+		// Note: when adding new auth methods, also update AdditionalAuthEnabled below
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
 			WithClientCert().
 			WithOIDC().
 			WithServiceAccounts().
 			WithTokenFile(),
-		// when adding new auth methods, also update AdditionalAuthEnabled below
-		DropGroups: []string{user.SystemPrivilegedGroup},
+		// SystemLogicalClusterAdmin is privileged and only for internal traffic,
+		// SystemExternalLogicalClusterAdmin must be used for all logical-cluster-admin
+		// requests via the proxy, so we drop SystemLogicalClusterAdmin here
+		DropGroups: []string{user.SystemPrivilegedGroup, bootstrap.SystemLogicalClusterAdmin},
 	}
 	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	return auth

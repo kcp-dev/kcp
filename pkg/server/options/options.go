@@ -51,22 +51,22 @@ type Options struct {
 }
 
 type ExtraOptions struct {
-	ProfilerAddress                    string
-	ShardKubeconfigFile                string
-	RootShardKubeconfigFile            string
-	ShardBaseURL                       string
-	ShardExternalURL                   string
-	ShardName                          string
-	ShardVirtualWorkspaceURL           string
-	ShardClientCertFile                string
-	ShardClientKeyFile                 string
-	ShardVirtualWorkspaceCAFile        string
-	DiscoveryPollInterval              time.Duration
-	ExperimentalBindFreePort           bool
-	LogicalClusterAdminKubeconfig      string
-	ConversionCELTransformationTimeout time.Duration
-
-	BatteriesIncluded []string
+	ProfilerAddress                       string
+	ShardKubeconfigFile                   string
+	RootShardKubeconfigFile               string
+	ShardBaseURL                          string
+	ShardExternalURL                      string
+	ShardName                             string
+	ShardVirtualWorkspaceURL              string
+	ShardClientCertFile                   string
+	ShardClientKeyFile                    string
+	ShardVirtualWorkspaceCAFile           string
+	DiscoveryPollInterval                 time.Duration
+	ExperimentalBindFreePort              bool
+	LogicalClusterAdminKubeconfig         string
+	ExternalLogicalClusterAdminKubeconfig string
+	ConversionCELTransformationTimeout    time.Duration
+	BatteriesIncluded                     []string
 }
 
 type completedOptions struct {
@@ -166,7 +166,8 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
 	fs.StringVar(&o.Extra.ShardClientCertFile, "shard-client-cert-file", o.Extra.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
 	fs.StringVar(&o.Extra.ShardClientKeyFile, "shard-client-key-file", o.Extra.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
-	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client")
+	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:logical-cluster-admin credentials for connecting to other shards. Defaults to the loopback client")
+	fs.StringVar(&o.Extra.ExternalLogicalClusterAdminKubeconfig, "external-logical-cluster-admin-kubeconfig", o.Extra.ExternalLogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:external-logical-cluster-admin credentials for connecting to the external address (e.g. the front-proxy). Defaults to the loopback client")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
@@ -265,6 +266,12 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	}
 	if len(o.Extra.LogicalClusterAdminKubeconfig) > 0 && !filepath.IsAbs(o.Extra.LogicalClusterAdminKubeconfig) {
 		o.Extra.LogicalClusterAdminKubeconfig, err = filepath.Abs(o.Extra.LogicalClusterAdminKubeconfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(o.Extra.ExternalLogicalClusterAdminKubeconfig) > 0 && !filepath.IsAbs(o.Extra.ExternalLogicalClusterAdminKubeconfig) {
+		o.Extra.ExternalLogicalClusterAdminKubeconfig, err = filepath.Abs(o.Extra.ExternalLogicalClusterAdminKubeconfig)
 		if err != nil {
 			return nil, err
 		}

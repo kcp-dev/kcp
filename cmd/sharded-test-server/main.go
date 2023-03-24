@@ -135,7 +135,21 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create kcp-logical-cluster client cert: %w", err)
+		return fmt.Errorf("failed to create logical-cluster-admin client cert: %w", err)
+	}
+
+	// client cert for external-logical-cluster-admin
+	_, _, err = clientCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "external-logical-cluster-admin",
+			Groups: []string{bootstrap.SystemExternalLogicalClusterAdmin},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create external-logical-cluster-admin client cert: %w", err)
 	}
 
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
@@ -199,6 +213,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}()
 
 	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
+	if err := writeExternalLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
 	}
 

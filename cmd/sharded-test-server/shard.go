@@ -95,6 +95,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
 		fmt.Sprintf("--logical-cluster-admin-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/logical-cluster-admin.kubeconfig")),
+		fmt.Sprintf("--external-logical-cluster-admin-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.kubeconfig")),
 		fmt.Sprintf("--shard-client-cert-file=%s", shardClientCert),
 		fmt.Sprintf("--shard-client-key-file=%s", shardClientCertKey),
 		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(workDirPath, ".kcp", "serving-ca.crt")),

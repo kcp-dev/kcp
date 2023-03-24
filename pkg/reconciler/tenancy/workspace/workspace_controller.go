@@ -51,10 +51,10 @@ const (
 
 func NewController(
 	shardName string,
-	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
+	externalLogicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
@@ -65,10 +65,9 @@ func NewController(
 	c := &Controller{
 		queue: queue,
 
-		shardName:        shardName,
-		shardExternalURL: shardExternalURL,
-
-		logicalClusterAdminConfig: logicalClusterAdminConfig,
+		shardName:                         shardName,
+		logicalClusterAdminConfig:         logicalClusterAdminConfig,
+		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
 
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
@@ -119,9 +118,9 @@ type workspaceResource = committer.Resource[*tenancyv1alpha1.WorkspaceSpec, *ten
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	shardName                 string
-	shardExternalURL          func() string
-	logicalClusterAdminConfig *rest.Config
+	shardName                         string
+	logicalClusterAdminConfig         *rest.Config // for direct shard connections used during scheduling
+	externalLogicalClusterAdminConfig *rest.Config // for front-proxy connections used during initialization
 
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kubernetes.ClusterInterface
@@ -191,8 +190,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer c.queue.ShutDown()
 
 	// create external client that goes through the front-proxy
-	externalConfig := rest.CopyConfig(c.logicalClusterAdminConfig)
-	externalConfig.Host = c.shardExternalURL()
+	externalConfig := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
 	kcpExternalClient, err := kcpclientset.NewForConfig(externalConfig)
 	if err != nil {
 		runtime.HandleError(err)

@@ -127,7 +127,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
+	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemExternalLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
 	}
 
@@ -190,8 +190,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		if err != nil {
 			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
-		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-		if !logicalCluster.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
+		if !logicalCluster.Spec.DirectlyDeletable {
 			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
 		}
 
