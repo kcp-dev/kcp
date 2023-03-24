@@ -46,7 +46,7 @@ To register a Kubernetes cluster with kcp, you have to install a special compone
     kubectl kcp workload sync <synctarget name> --syncer-image <image name> -o syncer.yaml
     ```
 
-    Where `<image name>` [one of the syncer images](https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer) for your corresponding KCP release (e.g. `ghcr.io/kcp-dev/kcp/syncer:v0.7.5`).
+    Where `<image name>` [one of the syncer images](https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer) for your corresponding KCP release (e.g. `ghcr.io/kcp-dev/kcp/syncer:v0.11.0`).
 
 1. Apply the manifest to the p-cluster:
 

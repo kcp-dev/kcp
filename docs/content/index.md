@@ -66,7 +66,7 @@ In this recipe we use the root workspace to hold the description of the workload
 Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed; CI now puts built images in https://github.com/orgs/kcp-dev/packages):
 
 ```shell
-$ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.10.0 -o syncer-kind-main.yaml
+$ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.11.0 -o syncer-kind-main.yaml
 Creating synctarget "kind"
 Creating service account "kcp-syncer-kind-25coemaz"
 Creating cluster role "kcp-syncer-kind-25coemaz" to give service account "kcp-syncer-kind-25coemaz"
@@ -103,7 +103,7 @@ deployment.apps/kcp-syncer-kind-25coemaz created
 
 ### Bind to workload APIs and create default placement
 
-If you are running kcp version v0.10.0 or higher, you will need to run the following commmand (continuing in the `root` workspace)
+If you are running kcp version v0.11.0 or higher, you will need to run the following commmand (continuing in the `root` workspace)
 to create a binding to the workload APIs export and a default placement for your physical cluster:
 
 ```shell
