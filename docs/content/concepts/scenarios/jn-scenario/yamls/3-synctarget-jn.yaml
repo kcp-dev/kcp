@@ -27,24 +27,24 @@ status:
     type: SyncerAuthorized
   lastSyncerHeartbeatTime: "2023-03-20T19:14:14Z"
   syncedResources:
-  - identityHash: <id-hash>
+  - identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
     resource: services
     state: Accepted
     versions:
     - v1
-  - identityHash: <id-hash>
+  - identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
     resource: pods
     state: Accepted
     versions:
     - v1
   - group: networking.k8s.io
-    identityHash: <id-hash>
+    identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
     resource: ingresses
     state: Accepted
     versions:
     - v1
   - group: apps
-    identityHash: <id-hash>
+    identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
     resource: deployments
     state: Accepted
     versions:

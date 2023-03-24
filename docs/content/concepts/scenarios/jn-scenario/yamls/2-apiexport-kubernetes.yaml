@@ -24,6 +24,6 @@ status:
   - lastTransitionTime: "2023-03-20T18:37:20Z"
     status: "True"
     type: VirtualWorkspaceURLsReady
-  identityHash: <id-hash>
+  identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
   virtualWorkspaces:
   - url: https://<kcp-url>:6443/services/apiexport/49adf4fn8ks8x43u/kubernetes

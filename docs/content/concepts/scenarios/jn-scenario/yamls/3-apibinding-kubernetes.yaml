@@ -25,7 +25,7 @@ status:
     resource: services
     schema:
       UID: ddee1955-e64e-478b-9310-f934fac54910
-      identityHash: <id-hash>
+      identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
       name: rev-770.services.core
     storageVersions:
     - v1
@@ -33,7 +33,7 @@ status:
     resource: pods
     schema:
       UID: a5fe7c2d-adb9-4109-a4ee-8d703b27f2a9
-      identityHash: <id-hash>
+      identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
       name: rev-774.pods.core
     storageVersions:
     - v1
@@ -41,7 +41,7 @@ status:
     resource: deployments
     schema:
       UID: 309b6c26-5aa4-41d5-8afa-ce718ac1ea67
-      identityHash: <id-hash>
+      identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
       name: rev-788.deployments.apps
     storageVersions:
     - v1
@@ -49,7 +49,7 @@ status:
     resource: ingresses
     schema:
       UID: 6ab13f61-194b-4e0d-9816-b574cae3f875
-      identityHash: <id-hash>
+      identityHash: b20e9ad1d17024e51df7cd1af743cf403e385c3e890c9e1b16034ee604de7b0e
       name: rev-789.ingresses.networking.k8s.io
     storageVersions:
     - v1
