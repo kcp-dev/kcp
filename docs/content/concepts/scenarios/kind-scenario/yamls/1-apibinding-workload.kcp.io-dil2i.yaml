@@ -1,0 +1,51 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T16:12:44Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/dVu53medKhDTkZGOwOJZA2llRa3TUeGHwzWm9: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: dVu53medKhDTkZGOwOJZA2llRa3TUeGHwzWm9
+  name: workload.kcp.io-dil2i
+  resourceVersion: "8724"
+  uid: a8df7a0f-4237-4f27-a750-3f90478bf16b
+spec:
+  reference:
+    export:
+      name: workload.kcp.io
+      path: root
+status:
+  apiExportClusterName: root
+  boundResources:
+  - group: workload.kcp.io
+    resource: synctargets
+    schema:
+      UID: b04de63e-a290-4d17-8fc4-ec8f59b2f1af
+      identityHash: d8b380917662ba269c5428943831c7e5c4677254efe87b9456933eb71fafe1cb
+      name: v230109-773b219c.synctargets.workload.kcp.io
+    storageVersions:
+    - v1alpha1
+  conditions:
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound

@@ -90,6 +90,18 @@ $ k get APIConversions
 No resources found
 ```
 
+Objects yamls:
+
+- [APIBinding `apiresource.kcp.io-c8wp6`](yamls/1-apibinding-apiresource.kcp.io-c8wp6.yaml) from `k get APIBinding apiresource.kcp.io-c8wp6 -o yaml > 1-apibinding-apiresource.kcp.io-c8wp6.yaml`
+
+- [APIBinding `scheduling.kcp.io-7rr1j`](yamls/1-apibinding-scheduling.kcp.io-7rr1j.yaml) from `k get APIBinding scheduling.kcp.io-7rr1j -o yaml > 1-apibinding-scheduling.kcp.io-7rr1j.yaml`
+
+- [APIBinding `tenancy.kcp.io-5qqol`](yamls/1-apibinding-tenancy.kcp.io-5qqol.yaml) from `k get APIBinding tenancy.kcp.io-5qqol -o yaml > 1-apibinding-tenancy.kcp.io-5qqol.yaml`
+
+- [APIBinding `topology.kcp.io-2eqkm`](yamls/1-apibinding-topology.kcp.io-2eqkm.yaml) from `k get APIBinding topology.kcp.io-2eqkm -o yaml > 1-apibinding-topology.kcp.io-2eqkm.yaml`
+
+- [APIBinding `workload.kcp.io-dil2i`](yamls/1-apibinding-workload.kcp.io-dil2i.yaml) from `k get APIBinding workload.kcp.io-dil2i -o yaml > 1-apibinding-workload.kcp.io-dil2i.yaml`
+
 ## 3. Create a syncer at the center
 
 Given:
@@ -179,6 +191,7 @@ No resources found
 ```
 
 Objects yamls:
+
 - [APIExport `kubernetes`](yamls/2-apiexport-kubernetes.yaml) from `k get apiexport kubernetes -o yaml > 2-apiexport-kubernetes.yaml`
 - [APIBinding `kubernetes`](yamls/2-apibinding-kubernetes.yaml) from `k get apibinding kubernetes -o yaml > 2-apibinding-kubernetes.yaml`
 - [SyncTarget `kind`](yamls/2-synctarget-kind.yaml) from `k get synctarget kind -o yaml > 2-synctarget-kind.yaml`
@@ -309,6 +322,7 @@ No resources found
 ```
 
 Objects yamls:
+
 - [APIExport `kubernetes`](yamls/3-apiexport-kubernetes.yaml) from `k get apiexport kubernetes -o yaml > 3-apiexport-kubernetes.yaml`
 
     No difference. Compared to the MicroShift case (NVIDIA Jetson Nano) there is no `latestResourceSchemas` in the `spec`.
@@ -489,6 +503,7 @@ No resources found
 ```
 
 Objects yamls:
+
 - [APIExport `kubernetes`](yamls/4-apiexport-kubernetes.yaml) from `k get apiexport kubernetes -o yaml > 4-apiexport-kubernetes.yaml`
 
     No difference.

@@ -1,0 +1,59 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    kcp.io/cluster: 49adf4fn8ks8x43u
+  creationTimestamp: "2023-03-20T18:20:24Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/ahnWRDJw63QggF1foil1RXbW9P9PfRFOltnChg: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: ahnWRDJw63QggF1foil1RXbW9P9PfRFOltnChg
+  name: apiresource.kcp.io-9xqib
+  resourceVersion: "703"
+  uid: b380da1b-44f8-404e-96d4-3021ef9f8e8e
+spec:
+  reference:
+    export:
+      name: apiresource.kcp.io
+      path: root
+status:
+  apiExportClusterName: root
+  boundResources:
+  - group: apiresource.kcp.io
+    resource: apiresourceimports
+    schema:
+      UID: 29ee7819-e850-4c79-9fc9-fcd3df50ec6c
+      identityHash: 5bfce2f1622b9059caac79b2629edc40815aaa5786dc2d3507206f709b3435c9
+      name: v220628-546034da.apiresourceimports.apiresource.kcp.io
+    storageVersions:
+    - v1alpha1
+  - group: apiresource.kcp.io
+    resource: negotiatedapiresources
+    schema:
+      UID: 7145a586-4e5d-4a79-9ec2-b4c1ea7fb4a8
+      identityHash: 5bfce2f1622b9059caac79b2629edc40815aaa5786dc2d3507206f709b3435c9
+      name: v220628-546034da.negotiatedapiresources.apiresource.kcp.io
+    storageVersions:
+    - v1alpha1
+  conditions:
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound

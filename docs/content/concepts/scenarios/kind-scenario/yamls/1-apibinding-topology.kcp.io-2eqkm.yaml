@@ -1,0 +1,59 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T16:12:44Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/7QHLqjz8KlhjPddt8MECYq0OLDUNvLAO5v9x4x: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: 7QHLqjz8KlhjPddt8MECYq0OLDUNvLAO5v9x4x
+  name: topology.kcp.io-2eqkm
+  resourceVersion: "8728"
+  uid: b79c8c18-7698-45ca-8bc6-85daf3f10c34
+spec:
+  reference:
+    export:
+      name: topology.kcp.io
+      path: root
+status:
+  apiExportClusterName: root
+  boundResources:
+  - group: topology.kcp.io
+    resource: partitions
+    schema:
+      UID: 7e71bb77-e28f-4153-912d-dcf31a29ea2b
+      identityHash: 55303337649adc08e12ed03c2fb1c99f0102abe45b066471ed68f772818506c9
+      name: v221115-9b370eb8.partitions.topology.kcp.io
+    storageVersions:
+    - v1alpha1
+  - group: topology.kcp.io
+    resource: partitionsets
+    schema:
+      UID: 29e32771-d550-4000-9e1c-245a9e2a78d3
+      identityHash: 55303337649adc08e12ed03c2fb1c99f0102abe45b066471ed68f772818506c9
+      name: v230202-eee1a845.partitionsets.topology.kcp.io
+    storageVersions:
+    - v1alpha1
+  conditions:
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound

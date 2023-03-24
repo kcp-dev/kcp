@@ -1,0 +1,67 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    kcp.io/cluster: br3qimk2t1o3jb70
+  creationTimestamp: "2023-03-21T16:12:44Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/bmCdly9xXiUpEHe3ypvDwvXMTfoVZUE92mqAQf: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: bmCdly9xXiUpEHe3ypvDwvXMTfoVZUE92mqAQf
+  name: tenancy.kcp.io-5qqol
+  resourceVersion: "8715"
+  uid: 3df82e63-04f5-4eb4-996e-b31107ec6639
+spec:
+  reference:
+    export:
+      name: tenancy.kcp.io
+      path: root
+status:
+  apiExportClusterName: root
+  boundResources:
+  - group: tenancy.kcp.io
+    resource: clusterworkspaces
+    schema:
+      UID: 4c8fb1a4-16c9-40f5-9f99-832fd4209c49
+      identityHash: 58e0c91beecd0df4a83ba96f7b39bab6f2fbae9423198c00aa1b14fa611d5625
+      name: v221219-c92ed8152.clusterworkspaces.tenancy.kcp.io
+    storageVersions:
+    - v1alpha1
+  - group: tenancy.kcp.io
+    resource: workspacetypes
+    schema:
+      UID: 5a005041-76b7-45f0-a9d7-d22902f3d1b3
+      identityHash: 58e0c91beecd0df4a83ba96f7b39bab6f2fbae9423198c00aa1b14fa611d5625
+      name: v230110-89146c99.workspacetypes.tenancy.kcp.io
+    storageVersions:
+    - v1alpha1
+  - group: tenancy.kcp.io
+    resource: workspaces
+    schema:
+      UID: f695f3ec-6f4a-45c5-a765-045294138189
+      identityHash: 58e0c91beecd0df4a83ba96f7b39bab6f2fbae9423198c00aa1b14fa611d5625
+      name: v230116-832a4a55d.workspaces.tenancy.kcp.io
+    storageVersions:
+    - v1alpha1
+  conditions:
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-21T16:12:44Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound

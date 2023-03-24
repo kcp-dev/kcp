@@ -80,6 +80,18 @@ $ k get placements
 No resources found
 ```
 
+Objects yamls:
+
+- [APIBinding `apiresource.kcp.io-9xqib`](yamls/1-apibinding-apiresource.kcp.io-9xqib.yaml) from `k get APIBinding apiresource.kcp.io-9xqib -o yaml > 1-apibinding-apiresource.kcp.io-9xqib.yaml`
+
+- [APIBinding `scheduling.kcp.io-1vgbc`](yamls/1-apibinding-scheduling.kcp.io-1vgbc.yaml) from `k get APIBinding scheduling.kcp.io-1vgbc -o yaml > 1-apibinding-scheduling.kcp.io-1vgbc.yaml`
+
+- [APIBinding `tenancy.kcp.io-gn443`](yamls/1-apibinding-tenancy.kcp.io-gn443.yaml) from `k get APIBinding tenancy.kcp.io-gn443 -o yaml > 1-apibinding-tenancy.kcp.io-gn443.yaml`
+
+- [APIBinding `topology.kcp.io-1smay`](yamls/1-apibinding-topology.kcp.io-1smay.yaml) from `k get APIBinding topology.kcp.io-1smay -o yaml > 1-apibinding-topology.kcp.io-1smay.yaml`
+
+- [APIBinding `workload.kcp.io-ak35l`](yamls/1-apibinding-workload.kcp.io-ak35l.yaml) from `k get APIBinding workload.kcp.io-ak35l -o yaml > 1-apibinding-workload.kcp.io-ak35l.yaml`
+
 ## 3. Create a syncer at the center
 
 Given:

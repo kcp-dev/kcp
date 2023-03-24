@@ -1,0 +1,59 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  annotations:
+    kcp.io/cluster: 49adf4fn8ks8x43u
+  creationTimestamp: "2023-03-20T18:20:24Z"
+  finalizers:
+  - apis.kcp.io/apibinding-finalizer
+  generation: 1
+  labels:
+    claimed.internal.apis.kcp.io/8aZfSHUSG9wQttJSddiQz0e6FYRaCeqmEvcA3j: LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ
+    internal.apis.kcp.io/export: 8aZfSHUSG9wQttJSddiQz0e6FYRaCeqmEvcA3j
+  name: scheduling.kcp.io-1vgbc
+  resourceVersion: "695"
+  uid: e805dcd9-63f3-4216-85f0-0b65c8b4168a
+spec:
+  reference:
+    export:
+      name: scheduling.kcp.io
+      path: root
+status:
+  apiExportClusterName: root
+  boundResources:
+  - group: scheduling.kcp.io
+    resource: locations
+    schema:
+      UID: 2061e191-c4c5-4c0b-8ee4-6fad5527f5e3
+      identityHash: 1e770024e464271c0907a46fa6154a498417a05ea50e67d5d492c6b07786c81d
+      name: v221006-eaaf199d.locations.scheduling.kcp.io
+    storageVersions:
+    - v1alpha1
+  - group: scheduling.kcp.io
+    resource: placements
+    schema:
+      UID: e41dc47d-b12f-42eb-9fd8-0cbf88389dea
+      identityHash: 1e770024e464271c0907a46fa6154a498417a05ea50e67d5d492c6b07786c81d
+      name: v221212-cf67ac73a.placements.scheduling.kcp.io
+    storageVersions:
+    - v1alpha1
+  conditions:
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: APIExportValid
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: BindingUpToDate
+  - lastTransitionTime: "2023-03-20T18:20:25Z"
+    status: "True"
+    type: InitialBindingCompleted
+  - lastTransitionTime: "2023-03-20T18:20:24Z"
+    status: "True"
+    type: PermissionClaimsApplied
+  - lastTransitionTime: "2023-03-20T18:20:24Z"
+    status: "True"
+    type: PermissionClaimsValid
+  phase: Bound
