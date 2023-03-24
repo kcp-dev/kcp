@@ -30,24 +30,24 @@ status:
     status: "False"
     type: HeartbeatHealthy
   syncedResources:
-  - identityHash: <id-hash>
+  - identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
     resource: services
     state: Incompatible
     versions:
     - v1
-  - identityHash: <id-hash>
+  - identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
     resource: pods
     state: Incompatible
     versions:
     - v1
   - group: networking.k8s.io
-    identityHash: <id-hash>
+    identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
     resource: ingresses
     state: Incompatible
     versions:
     - v1
   - group: apps
-    identityHash: <id-hash>
+    identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
     resource: deployments
     state: Incompatible
     versions:

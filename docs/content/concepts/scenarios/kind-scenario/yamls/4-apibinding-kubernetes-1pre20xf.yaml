@@ -26,7 +26,7 @@ status:
     resource: ingresses
     schema:
       UID: ac065681-9ce8-4798-956b-347dfe2610f2
-      identityHash: <id-hash>
+      identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
       name: v124.ingresses.networking.k8s.io
     storageVersions:
     - v1
@@ -34,7 +34,7 @@ status:
     resource: services
     schema:
       UID: 06b1ff23-56af-42bd-b3f9-d016dbbf6000
-      identityHash: <id-hash>
+      identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
       name: v124.services.core
     storageVersions:
     - v1
@@ -42,7 +42,7 @@ status:
     resource: deployments
     schema:
       UID: 8eb70a7d-6856-4b52-8a88-7adcf40b6c49
-      identityHash: <id-hash>
+      identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
       name: v124.deployments.apps
     storageVersions:
     - v1
@@ -50,7 +50,7 @@ status:
     resource: pods
     schema:
       UID: ad4c06b1-3d92-46d4-8ca7-78ee41548b40
-      identityHash: <id-hash>
+      identityHash: 1215a6f9c5bad3a00c7af77b1bd715f81357d9238b1f4d2968b0a23cb3412217
       name: v124.pods.core
     storageVersions:
     - v1
