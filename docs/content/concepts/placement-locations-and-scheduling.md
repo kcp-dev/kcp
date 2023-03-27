@@ -25,7 +25,8 @@ The APIs used for Compute as a Service are:
   execute workload objects from the users' workspaces. On a Kubernetes cluster, there is one syncer
   process for each `SyncTarget` object.
 
-  Sync targets are invisible to users, and (medium term) at most identified via a UID.
+  SyncTargets are invisible to users, and (medium term) at most identified via a UID or a hash (called a "sync-target-key") of
+  the SyncTarget's name and an identifier of the workspace containing the SyncTarget.
 
 - `Location` in `scheduling.kcp.io/v1alpha1` – represents a collection of `SyncTarget` objects selected via instance labels, and
   exposes labels (potentially different from the instance labels) to the users to describe, identify and select locations to be used
@@ -50,16 +51,18 @@ The APIs used for Compute as a Service are:
   so that the default `Placement` will not be recreated upon deletion.
 
 - *Compute Service Workspace* (previously *Negotiation Workspace*) – the workspace owned by the compute service team to hold
-  the `APIExport` (named `kubernetes` today) with the synced resources, and `SyncTarget` and `Location` objects.
+  the `APIExport` (named `kubernetes` today) with the synced resources.
 
   The user binds to the `APIExport` called `kubernetes` using an `APIBinding`. From this moment on, the users' workspaces
   are subject to placement.
 
-!!! note
+  !!! note
     Binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
     workload objects.
-    
-    It is planned to allow multiple location workspaces for the same compute service, even with different owners.
+
+- *Location Workspace* - any one of possibly several workspaces that is owned by the compute service team and contains `SyncTarget` and `Location` objects.
+
+  It is planned to allow multiple location workspaces for the same compute service, even with different owners.
 
 ### Placement and resource scheduling
 
@@ -95,7 +98,7 @@ spec:
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
 least one matching Namespace, the Namespace will be annotated with `scheduling.kcp.io/placement` and the placement turns from `Unbound` to `Bound`.
-After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.io/<sync-target-key>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
+After this, a `SyncTarget` will be selected from the location picked by the placement.  Each matching Namespace will also get a label with a key of `state.workload.kcp.io/<sync-target-key>` and a value of `Sync` if a valid `SyncTarget` is selected.
 
 The user can create another placement targeted to a different location for this Namespace, e.g.
 
@@ -170,11 +173,13 @@ workspace.
 ### Resource Upsyncing
 
 In most cases kcp will be the source for syncing resources to the `SyncTarget`, however, in some cases,
-kcp would need to receive a resource that was provisioned by a controller on the `SyncTarget`.
-This is the case with storage PVs, which are created on the `SyncTarget` by a CSI driver.
+kcp would need to receive a resource that was provisioned by a controller on the pcluster.
+This is the case with storage PVs, which are created on the pcluster by a CSI driver.
 
 Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be the source of truth for an upsynced resource.
 In addition, other `SyncTargets` cannot be syncing down while the resource is being upsynced.
+
+Upsyncing is initiated by something creating a label with key = `state.workload.kcp.io/<sync-target-key>` and value = `Upsync` on the object in the pcluster.
 
 A resource coordination controller will be responsible for changing the `state.workload.kcp.io/<sync-target-key>` label,
 to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`.
