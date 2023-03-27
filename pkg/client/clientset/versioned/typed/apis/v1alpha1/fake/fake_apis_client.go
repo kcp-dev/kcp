@@ -45,6 +45,10 @@ func (c *FakeApisV1alpha1) APIExportEndpointSlices() v1alpha1.APIExportEndpointS
 	return &FakeAPIExportEndpointSlices{c}
 }
 
+func (c *FakeApisV1alpha1) APILifecycles() v1alpha1.APILifecycleInterface {
+	return &FakeAPILifecycles{c}
+}
+
 func (c *FakeApisV1alpha1) APIResourceSchemas() v1alpha1.APIResourceSchemaInterface {
 	return &FakeAPIResourceSchemas{c}
 }

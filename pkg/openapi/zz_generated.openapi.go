@@ -62,6 +62,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportList":                               schema_pkg_apis_apis_v1alpha1_APIExportList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec":                               schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus":                             schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycle":                                schema_pkg_apis_apis_v1alpha1_APILifecycle(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHook":                            schema_pkg_apis_apis_v1alpha1_APILifecycleHook(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHooks":                           schema_pkg_apis_apis_v1alpha1_APILifecycleHooks(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleList":                            schema_pkg_apis_apis_v1alpha1_APILifecycleList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleSpec":                            schema_pkg_apis_apis_v1alpha1_APILifecycleSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleStatus":                          schema_pkg_apis_apis_v1alpha1_APILifecycleStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema":                           schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
@@ -1881,6 +1887,220 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycle(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APILifecycle",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec holds the desired state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status communicates the observed state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleSpec", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycleHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url where the hook is located",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycleHooks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APILifecycleHooks defines the lifecycle hooks",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"bind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "bind is invoked when a binding is created and updated",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHook"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHook"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycleList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APILifecyleList is a list of APIBinding resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycle"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycle", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycleSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APILifecycleSpec records the APIs and implementations that are to be bound.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"reference": {
+						SchemaProps: spec.SchemaProps{
+							Description: "reference uniquely identifies an APIExport",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hooks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hooks hold all possible lifecycle hooks",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHooks"),
+						},
+					},
+					"permissionClaims": {
+						SchemaProps: spec.SchemaProps{
+							Description: "permissionClaims records decisions about permission claims requested by the API service provider. Individual claims can be accepted or rejected. If accepted, the API service provider gets the requested access to the specified resources in this workspace. Access is granted per GroupResource, identity, and other properties.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"reference", "hooks"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APILifecycleHooks", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_APILifecycleStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIBindingStatus records which schemas are bound.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the APIBinding.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
