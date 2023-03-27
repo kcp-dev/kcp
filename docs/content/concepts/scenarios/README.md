@@ -1,6 +1,6 @@
 # Document the KCP Workspace objects
 
-Document of the key KCP objects, with they Yaml, that are created and modified during the key steps of MC Syncer deployment:
+Document key KCP objects, with they Yaml, that are created and modified during the key steps of MC Syncer deployment:
 
 1. Creation of a KCP Workspace (`k ws create`)
 2. Creation of a KCP Syncer (`k kcp workload sync`)
