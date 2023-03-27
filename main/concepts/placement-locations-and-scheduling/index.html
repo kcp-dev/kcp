@@ -1671,7 +1671,8 @@ the compute consumers.</p>
   execute workload objects from the users' workspaces. On a Kubernetes cluster, there is one syncer
   process for each <code>SyncTarget</code> object.</li>
 </ul>
-<p>Sync targets are invisible to users, and (medium term) at most identified via a UID.</p>
+<p>SyncTargets are invisible to users, and (medium term) at most identified via a UID or a hash (called a "sync-target-key") of
+  the SyncTarget's name and an identifier of the workspace containing the SyncTarget.</p>
 <ul>
 <li><code>Location</code> in <code>scheduling.kcp.io/v1alpha1</code> – represents a collection of <code>SyncTarget</code> objects selected via instance labels, and
   exposes labels (potentially different from the instance labels) to the users to describe, identify and select locations to be used
@@ -1694,16 +1695,17 @@ the compute consumers.</p>
   so that the default <code>Placement</code> will not be recreated upon deletion.</p>
 <ul>
 <li><em>Compute Service Workspace</em> (previously <em>Negotiation Workspace</em>) – the workspace owned by the compute service team to hold
-  the <code>APIExport</code> (named <code>kubernetes</code> today) with the synced resources, and <code>SyncTarget</code> and <code>Location</code> objects.</li>
+  the <code>APIExport</code> (named <code>kubernetes</code> today) with the synced resources.</li>
 </ul>
 <p>The user binds to the <code>APIExport</code> called <code>kubernetes</code> using an <code>APIBinding</code>. From this moment on, the users' workspaces
   are subject to placement.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
-workload objects.</p>
+<p>!!! note
+    Binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
+    workload objects.</p>
+<ul>
+<li><em>Location Workspace</em> - any one of possibly several workspaces that is owned by the compute service team and contains <code>SyncTarget</code> and <code>Location</code> objects.</li>
+</ul>
 <p>It is planned to allow multiple location workspaces for the same compute service, even with different owners.</p>
-</div>
 <h3 id="placement-and-resource-scheduling">Placement and resource scheduling</h3>
 <p>The placement state is one of</p>
 <ul>
@@ -1735,7 +1737,7 @@ label of "app=foo" to a location with label "cloud=aws" as below:</p>
 </code></pre></div>
 <p>A matched location will be selected for this <code>Placement</code> at first, which makes the <code>Placement</code> turns from <code>Pending</code> to <code>Unbound</code>. Then if there is at
 least one matching Namespace, the Namespace will be annotated with <code>scheduling.kcp.io/placement</code> and the placement turns from <code>Unbound</code> to <code>Bound</code>.
-After this, a <code>SyncTarget</code> will be selected from the location picked by the placement.  <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label with value of <code>Sync</code> will be set if a valid <code>SyncTarget</code> is selected.</p>
+After this, a <code>SyncTarget</code> will be selected from the location picked by the placement.  Each matching Namespace will also get a label with a key of <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> and a value of <code>Sync</code> if a valid <code>SyncTarget</code> is selected.</p>
 <p>The user can create another placement targeted to a different location for this Namespace, e.g.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scheduling.kcp.io/v1alpha1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Placement</span>
@@ -1798,10 +1800,11 @@ downstream namespace deletion via <code>state.workload.kcp.io/&lt;sync-target-ke
 </div>
 <h3 id="resource-upsyncing">Resource Upsyncing</h3>
 <p>In most cases kcp will be the source for syncing resources to the <code>SyncTarget</code>, however, in some cases,
-kcp would need to receive a resource that was provisioned by a controller on the <code>SyncTarget</code>.
-This is the case with storage PVs, which are created on the <code>SyncTarget</code> by a CSI driver.</p>
+kcp would need to receive a resource that was provisioned by a controller on the pcluster.
+This is the case with storage PVs, which are created on the pcluster by a CSI driver.</p>
 <p>Unlike the <code>Sync</code> state, the <code>Upsync</code> state is exclusive, and only a single <code>SyncTarget</code> can be the source of truth for an upsynced resource.
 In addition, other <code>SyncTargets</code> cannot be syncing down while the resource is being upsynced.</p>
+<p>Upsyncing is initiated by something creating a label with key = <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> and value = <code>Upsync</code> on the object in the pcluster.</p>
 <p>A resource coordination controller will be responsible for changing the <code>state.workload.kcp.io/&lt;sync-target-key&gt;</code> label,
 to drive the different flows on the resource. A resource can be changed from <code>Upsync</code> to <code>Sync</code> in order to share it across <code>SyncTargets</code>.
 This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
