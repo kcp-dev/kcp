@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/client-go/kubernetes"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,7 +58,7 @@ func newVirtualConfig(
 	config *rest.Config,
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 ) (*VirtualConfig, error) {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})

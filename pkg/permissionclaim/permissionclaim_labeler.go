@@ -142,7 +142,7 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 	err := l.visitBindingsAndClaims(cluster, groupResource, resourceNamespace, resourceName,
 		func(apiBinding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
 			logger := logging.WithObject(logger, apiBinding)
-			logger.Info("visiting claims")
+			logger.V(4).Info("visiting claims")
 			for _, claim := range apiBinding.Spec.PermissionClaims {
 				logger.WithValues("claim.groupResource", claim.PermissionClaim.GroupResource).V(4).Info("evaluating claim")
 				if !Selects(claim, resourceNamespace, resourceName) {
