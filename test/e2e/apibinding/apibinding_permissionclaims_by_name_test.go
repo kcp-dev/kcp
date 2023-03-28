@@ -49,12 +49,9 @@ func TestPermissionClaimsByName(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName, _ := framework.NewOrganizationFixture(t, server)
-	_, serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("provider"))
-	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer"))
-
-	// Use the cluster hash since we're not using the front proxy here
-	serviceProviderPath := logicalcluster.NewPath(serviceProviderWorkspace.Spec.Cluster)
-	consumerPath := logicalcluster.NewPath(consumerWorkspace.Spec.Cluster)
+	serviceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("provider"))
+	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer"))
+	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
 	cfg := server.BaseConfig(t)
 
@@ -180,7 +177,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 			},
 		}
 		framework.Eventually(t, func() (done bool, str string) {
-			cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
+			cm, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -195,7 +192,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 			"something": "new",
 		}
 		framework.Eventually(t, func() (done bool, str string) {
-			updatedCM, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).Update(ctx, cm, metav1.UpdateOptions{})
+			updatedCM, err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Update(ctx, cm, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -209,7 +206,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	{
 		t.Logf("ensure that configmaps in an unspecified namespace cannot be created via APIExport VirtualWorkspace URL")
 		framework.Eventually(t, func() (done bool, str string) {
-			_, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, &v1.ConfigMap{
+			_, err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "confmap2",
 				},
@@ -254,7 +251,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 		t.Logf("creating configmap %s in NS %s", cm.Name, unclaimedNamespace)
 		framework.Eventually(t, func() (done bool, str string) {
-			cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
+			cm, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -266,7 +263,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		t.Logf("cluster for configmap %s: %s", cm.Name, logicalcluster.From(cm).String())
 
 		framework.Eventually(t, func() (done bool, str string) {
-			updatedCM, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Get(ctx, cm.Name, metav1.GetOptions{})
+			updatedCM, err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Get(ctx, cm.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -278,12 +275,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		t.Logf("verify we can update a configmap in consumer workspace via the APIExport VirtualWorkspace URL")
 		framework.Eventually(t, func() (bool, string) {
-			cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Get(ctx, cm.Name, metav1.GetOptions{})
+			cm, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Get(ctx, cm.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			cm.Data = map[string]string{
 				"something": "new",
 			}
-			newCM, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Update(ctx, cm, metav1.UpdateOptions{})
+			newCM, err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Update(ctx, cm, metav1.UpdateOptions{})
 			if apierrors.IsNotFound(err) {
 				t.Logf("couldn't find configmap in %s", unclaimedNamespace)
 			}
@@ -320,7 +317,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 			},
 		}
 		framework.Eventually(t, func() (done bool, str string) {
-			cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
+			cm, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(unclaimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
 			if apierrors.IsForbidden(err) {
 				return true, ""
 			}
@@ -358,7 +355,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		}
 		t.Logf("confirm configmap claimed by name can be created")
 		framework.Eventually(t, func() (done bool, str string) {
-			cm, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
+			cm, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, cm, metav1.CreateOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -375,7 +372,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 			},
 		}
 		framework.Eventually(t, func() (done bool, str string) {
-			_, err = apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, badCM, metav1.CreateOptions{})
+			_, err = apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Create(ctx, badCM, metav1.CreateOptions{})
 			if apierrors.IsForbidden(err) {
 				return true, ""
 			}
@@ -401,7 +398,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 	{
 		t.Logf("listing configmaps through APIExport VirtualWorkspace URL only returns applicable objects")
 		framework.Eventually(t, func() (done bool, str string) {
-			list, err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).List(ctx, metav1.ListOptions{})
+			list, err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).List(ctx, metav1.ListOptions{})
 			require.Equal(t, 1, len(list.Items))
 			require.Equal(t, "unique", list.Items[0].Name)
 			if err != nil {
@@ -413,7 +410,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		t.Logf("deleting configmaps through the APIExport VirtualWorkspace URL only deletes the claimed ones")
 		framework.Eventually(t, func() (done bool, str string) {
-			err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+			err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -440,7 +437,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 		t.Logf("trying to delete single unclaimed configmap through APIExport VirtualWorkspace URL should fail")
 		framework.Eventually(t, func() (done bool, str string) {
-			err := apiExportClient.Cluster(consumerPath).CoreV1().ConfigMaps(claimedNamespace).Delete(ctx, "confmap1", metav1.DeleteOptions{})
+			err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Delete(ctx, "confmap1", metav1.DeleteOptions{})
 			if apierrors.IsForbidden(err) {
 				return true, ""
 			}

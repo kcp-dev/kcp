@@ -146,7 +146,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
 
-	// Add this initializer so that APIBindings can be looked up by the PermissionClaimLabeler
+	// Add this indexer so that APIBindings can be looked up by the PermissionClaimLabeler
 	indexers.AddIfNotPresentOrDie(wildcardKcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		cache.Indexers{
 			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
