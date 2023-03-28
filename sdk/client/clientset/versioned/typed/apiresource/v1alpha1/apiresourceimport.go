@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiresource/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -48,6 +51,8 @@ type APIResourceImportInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIResourceImportList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceImport, err error)
+	Apply(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error)
+	ApplyStatus(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error)
 	APIResourceImportExpansion
 }
 
@@ -178,6 +183,60 @@ func (c *aPIResourceImports) Patch(ctx context.Context, name string, pt types.Pa
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIResourceImport.
+func (c *aPIResourceImports) Apply(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error) {
+	if aPIResourceImport == nil {
+		return nil, fmt.Errorf("aPIResourceImport provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIResourceImport)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIResourceImport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIResourceImport.Name must be provided to Apply")
+	}
+	result = &v1alpha1.APIResourceImport{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiresourceimports").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *aPIResourceImports) ApplyStatus(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error) {
+	if aPIResourceImport == nil {
+		return nil, fmt.Errorf("aPIResourceImport provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIResourceImport)
+	if err != nil {
+		return nil, err
+	}
+
+	name := aPIResourceImport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIResourceImport.Name must be provided to Apply")
+	}
+
+	result = &v1alpha1.APIResourceImport{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiresourceimports").
+		Name(*name).
+		SubResource("status").
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)

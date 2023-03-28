@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	applyconfigurationswildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 	kcpwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster/typed/wildwest/v1alpha1"
 	wildwestv1alpha1client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
@@ -165,6 +168,44 @@ func (c *cowboysClient) Watch(ctx context.Context, opts metav1.ListOptions) (wat
 
 func (c *cowboysClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*wildwestv1alpha1.Cowboy, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewPatchSubresourceAction(cowboysResource, c.ClusterPath, c.Namespace, name, pt, data, subresources...), &wildwestv1alpha1.Cowboy{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*wildwestv1alpha1.Cowboy), err
+}
+
+func (c *cowboysClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationswildwestv1alpha1.CowboyApplyConfiguration, opts metav1.ApplyOptions) (*wildwestv1alpha1.Cowboy, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewPatchSubresourceAction(cowboysResource, c.ClusterPath, c.Namespace, *name, types.ApplyPatchType, data), &wildwestv1alpha1.Cowboy{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*wildwestv1alpha1.Cowboy), err
+}
+
+func (c *cowboysClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationswildwestv1alpha1.CowboyApplyConfiguration, opts metav1.ApplyOptions) (*wildwestv1alpha1.Cowboy, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewPatchSubresourceAction(cowboysResource, c.ClusterPath, c.Namespace, *name, types.ApplyPatchType, data, "status"), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}

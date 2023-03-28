@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 )
 
 // FakeAPIExports implements APIExportInterface
@@ -127,6 +130,49 @@ func (c *FakeAPIExports) DeleteCollection(ctx context.Context, opts v1.DeleteOpt
 func (c *FakeAPIExports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, name, pt, data, subresources...), &v1alpha1.APIExport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIExport), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIExport.
+func (c *FakeAPIExports) Apply(ctx context.Context, aPIExport *apisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExport, err error) {
+	if aPIExport == nil {
+		return nil, fmt.Errorf("aPIExport provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIExport)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIExport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExport.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIExport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIExport), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeAPIExports) ApplyStatus(ctx context.Context, aPIExport *apisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExport, err error) {
+	if aPIExport == nil {
+		return nil, fmt.Errorf("aPIExport provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIExport)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIExport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExport.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIExport{})
 	if obj == nil {
 		return nil, err
 	}

@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -47,6 +50,7 @@ type APIResourceSchemaInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIResourceSchemaList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceSchema, err error)
+	Apply(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceSchema, err error)
 	APIResourceSchemaExpansion
 }
 
@@ -162,6 +166,31 @@ func (c *aPIResourceSchemas) Patch(ctx context.Context, name string, pt types.Pa
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIResourceSchema.
+func (c *aPIResourceSchemas) Apply(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceSchema, err error) {
+	if aPIResourceSchema == nil {
+		return nil, fmt.Errorf("aPIResourceSchema provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIResourceSchema)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIResourceSchema.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIResourceSchema.Name must be provided to Apply")
+	}
+	result = &v1alpha1.APIResourceSchema{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiresourceschemas").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)

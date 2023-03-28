@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 )
 
 // FakeAPIExportEndpointSlices implements APIExportEndpointSliceInterface
@@ -127,6 +130,49 @@ func (c *FakeAPIExportEndpointSlices) DeleteCollection(ctx context.Context, opts
 func (c *FakeAPIExportEndpointSlices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExportEndpointSlice, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, name, pt, data, subresources...), &v1alpha1.APIExportEndpointSlice{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIExportEndpointSlice), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIExportEndpointSlice.
+func (c *FakeAPIExportEndpointSlices) Apply(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	if aPIExportEndpointSlice == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIExportEndpointSlice)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIExportEndpointSlice.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, *name, types.ApplyPatchType, data), &v1alpha1.APIExportEndpointSlice{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIExportEndpointSlice), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeAPIExportEndpointSlices) ApplyStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	if aPIExportEndpointSlice == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIExportEndpointSlice)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIExportEndpointSlice.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}

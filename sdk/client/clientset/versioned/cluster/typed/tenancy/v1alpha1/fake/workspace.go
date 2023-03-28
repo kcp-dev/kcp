@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	applyconfigurationstenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *workspacesClient) Watch(ctx context.Context, opts metav1.ListOptions) (
 
 func (c *workspacesClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*tenancyv1alpha1.Workspace, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(workspacesResource, c.ClusterPath, name, pt, data, subresources...), &tenancyv1alpha1.Workspace{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*tenancyv1alpha1.Workspace), err
+}
+
+func (c *workspacesClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationstenancyv1alpha1.WorkspaceApplyConfiguration, opts metav1.ApplyOptions) (*tenancyv1alpha1.Workspace, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(workspacesResource, c.ClusterPath, *name, types.ApplyPatchType, data), &tenancyv1alpha1.Workspace{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*tenancyv1alpha1.Workspace), err
+}
+
+func (c *workspacesClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationstenancyv1alpha1.WorkspaceApplyConfiguration, opts metav1.ApplyOptions) (*tenancyv1alpha1.Workspace, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(workspacesResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &tenancyv1alpha1.Workspace{})
 	if obj == nil {
 		return nil, err
 	}

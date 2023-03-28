@@ -20,6 +20,8 @@ package v1alpha1
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -47,6 +50,7 @@ type APIConversionInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIConversionList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIConversion, err error)
+	Apply(ctx context.Context, aPIConversion *apisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIConversion, err error)
 	APIConversionExpansion
 }
 
@@ -162,6 +166,31 @@ func (c *aPIConversions) Patch(ctx context.Context, name string, pt types.PatchT
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIConversion.
+func (c *aPIConversions) Apply(ctx context.Context, aPIConversion *apisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIConversion, err error) {
+	if aPIConversion == nil {
+		return nil, fmt.Errorf("aPIConversion provided to Apply must not be nil")
+	}
+	patchOpts := opts.ToPatchOptions()
+	data, err := json.Marshal(aPIConversion)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIConversion.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIConversion.Name must be provided to Apply")
+	}
+	result = &v1alpha1.APIConversion{}
+	err = c.client.Patch(types.ApplyPatchType).
+		Resource("apiconversions").
+		Name(*name).
+		VersionedParams(&patchOpts, scheme.ParameterCodec).
 		Body(data).
 		Do(ctx).
 		Into(result)

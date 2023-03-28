@@ -23,6 +23,8 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	applyconfigurationsworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/workload/v1alpha1"
 	workloadv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
@@ -154,6 +157,44 @@ func (c *syncTargetsClient) Watch(ctx context.Context, opts metav1.ListOptions) 
 
 func (c *syncTargetsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*workloadv1alpha1.SyncTarget, error) {
 	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(syncTargetsResource, c.ClusterPath, name, pt, data, subresources...), &workloadv1alpha1.SyncTarget{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*workloadv1alpha1.SyncTarget), err
+}
+
+func (c *syncTargetsClient) Apply(ctx context.Context, applyConfiguration *applyconfigurationsworkloadv1alpha1.SyncTargetApplyConfiguration, opts metav1.ApplyOptions) (*workloadv1alpha1.SyncTarget, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(syncTargetsResource, c.ClusterPath, *name, types.ApplyPatchType, data), &workloadv1alpha1.SyncTarget{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*workloadv1alpha1.SyncTarget), err
+}
+
+func (c *syncTargetsClient) ApplyStatus(ctx context.Context, applyConfiguration *applyconfigurationsworkloadv1alpha1.SyncTargetApplyConfiguration, opts metav1.ApplyOptions) (*workloadv1alpha1.SyncTarget, error) {
+	if applyConfiguration == nil {
+		return nil, fmt.Errorf("applyConfiguration provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(applyConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	name := applyConfiguration.Name
+	if name == nil {
+		return nil, fmt.Errorf("applyConfiguration.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(syncTargetsResource, c.ClusterPath, *name, types.ApplyPatchType, data, "status"), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}

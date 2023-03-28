@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiresource/v1alpha1"
 )
 
 // FakeAPIResourceImports implements APIResourceImportInterface
@@ -127,6 +130,49 @@ func (c *FakeAPIResourceImports) DeleteCollection(ctx context.Context, opts v1.D
 func (c *FakeAPIResourceImports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceImport, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(apiresourceimportsResource, name, pt, data, subresources...), &v1alpha1.APIResourceImport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIResourceImport), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied aPIResourceImport.
+func (c *FakeAPIResourceImports) Apply(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error) {
+	if aPIResourceImport == nil {
+		return nil, fmt.Errorf("aPIResourceImport provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIResourceImport)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIResourceImport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIResourceImport.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiresourceimportsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIResourceImport{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.APIResourceImport), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeAPIResourceImports) ApplyStatus(ctx context.Context, aPIResourceImport *apiresourcev1alpha1.APIResourceImportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceImport, err error) {
+	if aPIResourceImport == nil {
+		return nil, fmt.Errorf("aPIResourceImport provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(aPIResourceImport)
+	if err != nil {
+		return nil, err
+	}
+	name := aPIResourceImport.Name
+	if name == nil {
+		return nil, fmt.Errorf("aPIResourceImport.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(apiresourceimportsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIResourceImport{})
 	if obj == nil {
 		return nil, err
 	}

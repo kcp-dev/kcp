@@ -20,6 +20,8 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +31,7 @@ import (
 	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 )
 
 // FakeCowboys implements CowboyInterface
@@ -135,6 +138,51 @@ func (c *FakeCowboys) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 func (c *FakeCowboys) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(cowboysResource, c.ns, name, pt, data, subresources...), &v1alpha1.Cowboy{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Cowboy), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied cowboy.
+func (c *FakeCowboys) Apply(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
+	if cowboy == nil {
+		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(cowboy)
+	if err != nil {
+		return nil, err
+	}
+	name := cowboy.Name
+	if name == nil {
+		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewPatchSubresourceAction(cowboysResource, c.ns, *name, types.ApplyPatchType, data), &v1alpha1.Cowboy{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Cowboy), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeCowboys) ApplyStatus(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
+	if cowboy == nil {
+		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(cowboy)
+	if err != nil {
+		return nil, err
+	}
+	name := cowboy.Name
+	if name == nil {
+		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewPatchSubresourceAction(cowboysResource, c.ns, *name, types.ApplyPatchType, data, "status"), &v1alpha1.Cowboy{})
 
 	if obj == nil {
 		return nil, err
