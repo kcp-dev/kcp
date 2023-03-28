@@ -75,13 +75,12 @@ To register a Kubernetes cluster with kcp, you have to install a special compone
     kubectl wait --for=condition=Ready synctarget/<mycluster>
     ```
 
-### Select resources to synchronize.
+### Select resources to synchronize
 
-Syncer will by default use the `kubernetes` APIExport in `root:compute` workspace and synchronize `deployments/services/ingresses/pods`
-to the physical cluster. The related API schemas of the physical cluster should be compatible with kubernetes 1.24. User can
-select to synchronize other resources in physical clusters or from other APIExports on kcp server.
+Syncer will by default use the `kubernetes` APIExport in `root:compute` workspace, synchronize `deployments/services/ingresses` resources to the physical cluster and up-synchronized `pods` from the physical cluster. The related API schemas of the physical cluster should be compatible with kubernetes 1.24. User can
+select to synchronize other resources in physical clusters or from other APIExports on the kcp server.
 
-To synchronize resources that the KCP server does not have an APIExport to support yet, run
+To synchronize resources that the KCP server does not have an APIExport to support yet, run:
 
 ```sh
 kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources foo.bar -o syncer.yaml
@@ -90,7 +89,7 @@ kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources fo
 Make sure to have the resource name in the form of `resourcename.<gvr_of_the_resource>` to be able to
 synchronize successfully to the physical cluster.
 
-For example to synchronize resource `routes` to physical cluster run the command below
+For example to synchronize resource `routes` to physical cluster run the command below:
 
 ```sh
 kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources routes.route.openshift.io -o syncer.yaml
@@ -100,7 +99,7 @@ And apply the generated manifests to the physical cluster. The syncer will then 
 to the workspace of the SyncTarget, followed by an auto generated kubernetes APIExport and APIBinding in the same workspace.
 You can then create `foo.bar` in this workspace, or create an APIBinding in another workspace to bind this APIExport.
 
-To synchronize resource from another existing APIExport in the KCP server, run
+To synchronize resource from another existing APIExport in the KCP server, run:
 
 ```sh
 kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports another-workspace:another-apiexport -o syncer.yaml
@@ -108,12 +107,15 @@ kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports a
 
 Syncer will start synchronizing the resources in this `APIExport` as long as the `SyncTarget` has compatible API schemas.
 
-To see if a certain resource is synchronized by the syncer, you can check the state of the `syncedResources` in `SyncTarget`
-status.
+To see if a certain resource is synchronized by the syncer, you can check the `state` of the `syncedResources` in `SyncTarget` status:
+
+- `Pending` state indicates the syncer has not report compatibility of the resource.
+- `Accepted` state indicates  the resource schema is compatible and can be synced by syncer.
+- `Incompatible` state indicates the resource schema is incompatible with the physical cluster schema.
 
 ### Bind workspaces to the Location Workspace
 
-After the `SyncTarget` is ready, switch to any workspace containing some workloads that you want to sync to this `SyncTarget`, and run
+After the `SyncTarget` is ready, switch to any workspace containing some workloads that you want to sync to this `SyncTarget`, and run:
 
 ```sh
 kubectl kcp bind compute <workspace of synctarget>
