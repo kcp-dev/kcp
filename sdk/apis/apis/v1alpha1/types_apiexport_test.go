@@ -265,10 +265,6 @@ func TestAPIExportPermissionClaimNamespace(t *testing.T) {
 		validator, found := validators["v1alpha1"][pth]
 		require.True(t, found, "failed to find validator for %s", pth)
 
-		if tc.wantError != "" {
-			_ = 1 + 1
-		}
-
 		t.Run(tc.name, func(t *testing.T) {
 			errs := validator(tc.value, nil)
 			err := errs.ToAggregate()
