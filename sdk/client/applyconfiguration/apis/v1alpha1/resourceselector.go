@@ -18,11 +18,15 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+)
+
 // ResourceSelectorApplyConfiguration represents an declarative configuration of the ResourceSelector type for use
 // with apply.
 type ResourceSelectorApplyConfiguration struct {
-	Name      *string `json:"name,omitempty"`
-	Namespace *string `json:"namespace,omitempty"`
+	Names      []v1alpha1.Name `json:"names,omitempty"`
+	Namespaces []v1alpha1.Name `json:"namespaces,omitempty"`
 }
 
 // ResourceSelectorApplyConfiguration constructs an declarative configuration of the ResourceSelector type for use with
@@ -31,18 +35,22 @@ func ResourceSelector() *ResourceSelectorApplyConfiguration {
 	return &ResourceSelectorApplyConfiguration{}
 }
 
-// WithName sets the Name field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Name field is set to the value of the last call.
-func (b *ResourceSelectorApplyConfiguration) WithName(value string) *ResourceSelectorApplyConfiguration {
-	b.Name = &value
+// WithNames adds the given value to the Names field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Names field.
+func (b *ResourceSelectorApplyConfiguration) WithNames(values ...v1alpha1.Name) *ResourceSelectorApplyConfiguration {
+	for i := range values {
+		b.Names = append(b.Names, values[i])
+	}
 	return b
 }
 
-// WithNamespace sets the Namespace field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Namespace field is set to the value of the last call.
-func (b *ResourceSelectorApplyConfiguration) WithNamespace(value string) *ResourceSelectorApplyConfiguration {
-	b.Namespace = &value
+// WithNamespaces adds the given value to the Namespaces field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Namespaces field.
+func (b *ResourceSelectorApplyConfiguration) WithNamespaces(values ...v1alpha1.Name) *ResourceSelectorApplyConfiguration {
+	for i := range values {
+		b.Namespaces = append(b.Namespaces, values[i])
+	}
 	return b
 }

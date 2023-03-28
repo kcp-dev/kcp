@@ -19,7 +19,7 @@ package permissionclaim
 import (
 	"testing"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 func TestIsSelected(t *testing.T) {

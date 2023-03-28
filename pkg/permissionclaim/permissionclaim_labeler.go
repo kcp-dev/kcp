@@ -19,6 +19,7 @@ package permissionclaim
 import (
 	"context"
 	"fmt"
+
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
