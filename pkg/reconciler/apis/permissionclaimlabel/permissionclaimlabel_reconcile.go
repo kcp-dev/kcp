@@ -93,7 +93,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	needToRemove := appliedClaims.Difference(acceptedClaims)
 	allChanges := needToApply.Union(needToRemove)
 
-	logger = logger.WithValues(
+	logger.V(4).Info("claim set details",
 		"expected", expectedClaims,
 		"unexpected", unexpectedClaims,
 		"toApply", needToApply,
