@@ -19,8 +19,6 @@ package permissionclaim
 import (
 	"context"
 	"fmt"
-
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -80,7 +78,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 
 	logger := klog.FromContext(ctx)
 
-	err := l.visitBindingsAndClaims(ctx, cluster, groupResource, resourceNamespace, resourceName,
+	err := l.visitBindingsAndClaims(cluster, groupResource, resourceNamespace, resourceName,
 		func(binding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
 			path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
 			if path.Empty() {
@@ -104,8 +102,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 			labels[k] = v
 		})
 	if err != nil {
-		logger.Error(err, "error processing permissionclaims")
-		return labels, nil
+		return nil, fmt.Errorf("error processing permisionclaims: %w", err)
 	}
 
 	// for APIBindings we have to set the constant label value on itself to make the APIBinding
@@ -142,14 +139,14 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 	logger := klog.FromContext(ctx)
 	logger = logger.WithValues("cluster", cluster.String(), "groupResource", groupResource, "namespace", resourceNamespace, "name", resourceName)
 
-	err := l.visitBindingsAndClaims(ctx, cluster, groupResource, resourceNamespace, resourceName,
+	err := l.visitBindingsAndClaims(cluster, groupResource, resourceNamespace, resourceName,
 		func(apiBinding *apisv1alpha1.APIBinding, claim apisv1alpha1.AcceptablePermissionClaim, namespace, name string) {
 			logger := logging.WithObject(logger, apiBinding)
 			logger.Info("visiting claims")
 			for _, claim := range apiBinding.Spec.PermissionClaims {
-				logger.WithValues("claim", spew.Sdump(claim)).Info("looking at claim")
+				logger.WithValues("claim.groupResource", claim.PermissionClaim.GroupResource).V(4).Info("evaluating claim")
 				if !Selects(claim, resourceNamespace, resourceName) {
-					logger.Info("not permitted")
+					logger.V(4).Info("not permitted")
 					// The permission claim is relevant for this object, but the object does not match the criteria
 					permitted = false
 					return
@@ -157,9 +154,9 @@ func (l *Labeler) ObjectPermitted(ctx context.Context, cluster logicalcluster.Na
 			}
 		})
 	if err != nil {
-		return false, fmt.Errorf("error processing permissionclaims, %w", err)
+		return false, fmt.Errorf("error processing permissionclaims: %w", err)
 	}
-	logger.Info("decision", "permitted", permitted)
+	logger.V(4).Info("decision", "permitted", permitted)
 	return permitted, nil
 }
 
@@ -186,10 +183,11 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, namespace, 
 	return false
 }
 
-func toStrings(names []apisv1alpha1.Name) []string {
-	ret := make([]string, 0, len(names))
+// toStrings transforms a slice of apisv1alpha1.Names into a set of strings.
+func toStrings(names []apisv1alpha1.Name) sets.String {
+	ret := sets.NewString()
 	for _, name := range names {
-		ret = append(ret, string(name))
+		ret.Insert(string(name))
 	}
 	return ret
 }
@@ -201,7 +199,7 @@ func selectsNames(names []apisv1alpha1.Name, objectName string) bool {
 		return true
 	}
 
-	validNames := sets.NewString(toStrings(names)...)
+	validNames := toStrings(names)
 
 	// A value of "*" anywhere in the list means all names are claimed.
 	if validNames.Has(apisv1alpha1.ResourceSelectorAll) {
@@ -219,7 +217,7 @@ func selectsNamespaces(namespaces []apisv1alpha1.Name, objectNamespace string) b
 		return true
 	}
 
-	validNamespaces := sets.NewString(toStrings(namespaces)...)
+	validNamespaces := toStrings(namespaces)
 
 	// Match all namespaces for namespaced objects.
 	if validNamespaces.Has(apisv1alpha1.ResourceSelectorAll) {
@@ -231,7 +229,6 @@ func selectsNamespaces(namespaces []apisv1alpha1.Name, objectNamespace string) b
 }
 
 func (l *Labeler) visitBindingsAndClaims(
-	ctx context.Context,
 	cluster logicalcluster.Name,
 	groupResource schema.GroupResource,
 	resourceNamespace, resourceName string,
