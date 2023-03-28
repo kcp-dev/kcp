@@ -498,8 +498,8 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#select-resources-to-sync" class="md-nav__link">
-    Select resources to sync.
+  <a href="#select-resources-to-synchronize" class="md-nav__link">
+    Select resources to synchronize
   </a>
   
 </li>
@@ -1638,8 +1638,8 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#select-resources-to-sync" class="md-nav__link">
-    Select resources to sync.
+  <a href="#select-resources-to-synchronize" class="md-nav__link">
+    Select resources to synchronize
   </a>
   
 </li>
@@ -1751,7 +1751,7 @@
 </div>
 <ol>
 <li>
-<p>Create an organisation and immediately enter it:</p>
+<p>Create an organization and immediately enter it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp<span class="w"> </span>workspace<span class="w"> </span>create<span class="w"> </span>my-org<span class="w"> </span>--enter
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>created.<span class="w"> </span>Waiting<span class="w"> </span><span class="k">for</span><span class="w"> </span>it<span class="w"> </span>to<span class="w"> </span>be<span class="w"> </span>ready...
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Workspace<span class="w"> </span><span class="s2">&quot;my-org&quot;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span><span class="w"> </span>is<span class="w"> </span>ready<span class="w"> </span>to<span class="w"> </span>use.
@@ -1759,13 +1759,13 @@
 </code></pre></div>
 </li>
 <li>
-<p>Enable the syncer for a p-cluster:</p>
+<p>Enable the syncer for a physical cluster:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;synctarget<span class="w"> </span>name&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
 <p>Where <code>&lt;image name&gt;</code> <a href="https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer">one of the syncer images</a> for your corresponding KCP release (e.g. <code>ghcr.io/kcp-dev/kcp/syncer:v0.7.5</code>).</p>
 </li>
 <li>
-<p>Apply the manifest to the p-cluster:</p>
+<p>Apply the manifest to the physical cluster:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>syncer.yaml
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>namespace/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>serviceaccount/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
@@ -1775,41 +1775,44 @@
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>secret/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>deployment.apps/kcp-syncer-kind-1owee1ci<span class="w"> </span>created
 </code></pre></div>
-<p>and it will create a <code>kcp-syncer</code> deployment:</p>
+<p>and it will create a <code>kcp-syncer-&lt;synctarget name&gt;-xx</code> deployment:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>&lt;pcluster-config&gt;<span class="w"> </span>kubectl<span class="w"> </span>-n<span class="w"> </span>kcp-syncer-kind-1owee1ci<span class="w"> </span>get<span class="w"> </span>deployments
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>NAME<span class="w">     </span>READY<span class="w">   </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kcp-syncer<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>13m
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>NAME<span class="w">     </span>READY<span class="w">                    </span>UP-TO-DATE<span class="w">   </span>AVAILABLE<span class="w">   </span>AGE
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kcp-syncer-&lt;synctarget<span class="w"> </span>name&gt;-xx<span class="w">   </span><span class="m">1</span>/1<span class="w">     </span><span class="m">1</span><span class="w">            </span><span class="m">1</span><span class="w">           </span>13m
 </code></pre></div>
 </li>
 <li>
 <p>Wait for the kcp sync target to go ready:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>synctarget/&lt;mycluster&gt;
 </code></pre></div>
-<h3 id="select-resources-to-sync">Select resources to sync.</h3>
 </li>
 </ol>
-<p>Syncer will by default use the <code>kubernetes</code> APIExport in <code>root:compute</code> workspace and sync <code>deployments/services/ingresses</code>
-to the physical cluster. The related API schemas of the physical cluster should be comptible with kubernetes 1.24. User can
-select to sync other resources in physical clusters or from other APIExports on kcp server.</p>
-<p>To sync resources that the KCP server does not have an APIExport to support yet, run</p>
+<h3 id="select-resources-to-synchronize">Select resources to synchronize</h3>
+<p>Syncer will by default use the <code>kubernetes</code> APIExport in <code>root:compute</code> workspace, synchronize <code>deployments/services/ingresses</code> resources to the physical cluster and up-synchronized <code>pods</code> from the physical cluster. The related API schemas of the physical cluster should be compatible with kubernetes 1.24. User can
+select to synchronize other resources in physical clusters or from other APIExports on the kcp server.</p>
+<p>To synchronize resources that the KCP server does not have an APIExport to support yet, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--resources<span class="w"> </span>foo.bar<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
 <p>Make sure to have the resource name in the form of <code>resourcename.&lt;gvr_of_the_resource&gt;</code> to be able to
-sync succesfully to the physical cluster.</p>
-<p>For example to sync resource <code>routes</code> to physical cluster run the command below</p>
+synchronize successfully to the physical cluster.</p>
+<p>For example to synchronize resource <code>routes</code> to physical cluster run the command below:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--resources<span class="w"> </span>routes.route.openshift.io<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
-<p>And apply the generated manifests to the physical cluster. The syncer will then import the API schema of foo.bar
-to the workspace of the synctarget, following up with an auto generated kubernetes APIExport/APIBinding in the same workspace.
-You can then create foo.bar in this workspace, or create an APIBinding in another workspace to bind this APIExport.</p>
-<p>To sync resource from another existing APIExport in the KCP server, run</p>
+<p>And apply the generated manifests to the physical cluster. The syncer will then import the API schema of <code>foo.bar</code>
+to the workspace of the SyncTarget, followed by an auto generated kubernetes APIExport and APIBinding in the same workspace.
+You can then create <code>foo.bar</code> in this workspace, or create an APIBinding in another workspace to bind this APIExport.</p>
+<p>To synchronize resource from another existing APIExport in the KCP server, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span>workload<span class="w"> </span>sync<span class="w"> </span>&lt;mycluster&gt;<span class="w"> </span>--syncer-image<span class="w"> </span>&lt;image<span class="w"> </span>name&gt;<span class="w"> </span>--apiexports<span class="w"> </span>another-workspace:another-apiexport<span class="w"> </span>-o<span class="w"> </span>syncer.yaml
 </code></pre></div>
-<p>Syncer will start syncing the resources in this <code>APIExport</code> as long as the <code>SyncTarget</code> has compatible API schemas.</p>
-<p>To see if a certain resource is supported to be synced by the syncer, you can check the state of the <code>syncedResources</code> in <code>SyncTarget</code>
-status.</p>
+<p>Syncer will start synchronizing the resources in this <code>APIExport</code> as long as the <code>SyncTarget</code> has compatible API schemas.</p>
+<p>To see if a certain resource is synchronized by the syncer, you can check the <code>state</code> of the <code>syncedResources</code> in <code>SyncTarget</code> status:</p>
+<ul>
+<li><code>Pending</code> state indicates the syncer has not report compatibility of the resource.</li>
+<li><code>Accepted</code> state indicates  the resource schema is compatible and can be synced by syncer.</li>
+<li><code>Incompatible</code> state indicates the resource schema is incompatible with the physical cluster schema.</li>
+</ul>
 <h3 id="bind-workspaces-to-the-location-workspace">Bind workspaces to the Location Workspace</h3>
-<p>After the <code>SyncTarget</code> is ready, switch to any workspace containing some workloads that you want to sync to this <code>SyncTarget</code>, and run</p>
+<p>After the <code>SyncTarget</code> is ready, switch to any workspace containing some workloads that you want to sync to this <code>SyncTarget</code>, and run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>compute<span class="w"> </span>&lt;workspace<span class="w"> </span>of<span class="w"> </span>synctarget&gt;
 </code></pre></div>
 <p>This command will create a <code>Placement</code> in the workspace. By default, it will also create <code>APIBinding</code>s for global kubernetes <code>APIExport</code> and
