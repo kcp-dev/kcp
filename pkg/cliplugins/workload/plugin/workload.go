@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
+	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 )
 
 // CordonOptions contains options for cordoning or uncordoning a SyncTarget.

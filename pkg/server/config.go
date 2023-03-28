@@ -53,11 +53,8 @@ import (
 	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -69,6 +66,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type Config struct {

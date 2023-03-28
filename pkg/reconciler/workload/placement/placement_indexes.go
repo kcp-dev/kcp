@@ -19,7 +19,7 @@ package placement
 import (
 	"fmt"
 
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 )
 
 func indexBySelectedLocationPath(obj interface{}) ([]string, error) {

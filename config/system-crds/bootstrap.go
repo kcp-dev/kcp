@@ -32,8 +32,8 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/apis"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 //go:embed *.yaml

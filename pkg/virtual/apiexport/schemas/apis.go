@@ -24,7 +24,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 var ApisKcpDevSchemas = map[string]*apisv1alpha1.APIResourceSchema{}

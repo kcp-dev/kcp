@@ -37,8 +37,8 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 const (

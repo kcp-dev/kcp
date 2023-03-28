@@ -34,12 +34,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	. "github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/helpers"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
 )

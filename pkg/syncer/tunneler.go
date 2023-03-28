@@ -39,10 +39,10 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 var (

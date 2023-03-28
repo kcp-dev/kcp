@@ -26,11 +26,11 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 func (c *controller) reconcile(ctx context.Context, wt *tenancyv1alpha1.WorkspaceType) {

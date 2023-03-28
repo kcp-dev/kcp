@@ -28,10 +28,8 @@ ENV GOPROXY=$goproxy
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-COPY pkg/apis/go.mod pkg/apis/go.mod
-COPY pkg/apis/go.sum pkg/apis/go.sum
-COPY pkg/client/go.mod pkg/client/go.mod
-COPY pkg/client/go.sum pkg/client/go.sum
+COPY sdk/go.mod sdk/go.mod
+COPY sdk/go.sum sdk/go.sum
 USER 0
 
 # Install kubectl.

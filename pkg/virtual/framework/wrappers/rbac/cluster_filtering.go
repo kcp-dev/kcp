@@ -26,7 +26,7 @@ import (
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kcp-dev/kcp/pkg/client"
+	"github.com/kcp-dev/kcp/sdk/client"
 )
 
 func FilterInformers(clusterName logicalcluster.Name, informers rbacinformers.Interface) rbacinformers.Interface {

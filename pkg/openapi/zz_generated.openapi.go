@@ -31,102 +31,102 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImport":                    schema_pkg_apis_apiresource_v1alpha1_APIResourceImport(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportCondition":           schema_pkg_apis_apiresource_v1alpha1_APIResourceImportCondition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportList":                schema_pkg_apis_apiresource_v1alpha1_APIResourceImportList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportSpec":                schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportStatus":              schema_pkg_apis_apiresource_v1alpha1_APIResourceImportStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition":                     schema_pkg_apis_apiresource_v1alpha1_ColumnDefinition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.CommonAPIResourceSpec":                schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion":                         schema_pkg_apis_apiresource_v1alpha1_GroupVersion(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResource":                schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition":       schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceCondition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceList":            schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec":            schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus":          schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource":                          schema_pkg_apis_apiresource_v1alpha1_SubResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBinding":                                  schema_pkg_apis_apis_v1alpha1_APIBinding(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingList":                              schema_pkg_apis_apis_v1alpha1_APIBindingList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingSpec":                              schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus":                            schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion":                               schema_pkg_apis_apis_v1alpha1_APIConversion(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionList":                           schema_pkg_apis_apis_v1alpha1_APIConversionList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule":                           schema_pkg_apis_apis_v1alpha1_APIConversionRule(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec":                           schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport":                                   schema_pkg_apis_apis_v1alpha1_APIExport(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint":                           schema_pkg_apis_apis_v1alpha1_APIExportEndpoint(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSlice":                      schema_pkg_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceList":                  schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceSpec":                  schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceStatus":                schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportList":                               schema_pkg_apis_apis_v1alpha1_APIExportList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec":                               schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus":                             schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema":                           schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion":                          schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion":                        schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference":                            schema_pkg_apis_apis_v1alpha1_BindingReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference":                      schema_pkg_apis_apis_v1alpha1_ExportBindingReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.GroupResource":                               schema_pkg_apis_apis_v1alpha1_GroupResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                                    schema_pkg_apis_apis_v1alpha1_Identity(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim":                             schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector":                            schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalCluster":                              schema_pkg_apis_core_v1alpha1_LogicalCluster(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterList":                          schema_pkg_apis_core_v1alpha1_LogicalClusterList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterOwner":                         schema_pkg_apis_core_v1alpha1_LogicalClusterOwner(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterSpec":                          schema_pkg_apis_core_v1alpha1_LogicalClusterSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterStatus":                        schema_pkg_apis_core_v1alpha1_LogicalClusterStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.Shard":                                       schema_pkg_apis_core_v1alpha1_Shard(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardList":                                   schema_pkg_apis_core_v1alpha1_ShardList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardSpec":                                   schema_pkg_apis_core_v1alpha1_ShardSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardStatus":                                 schema_pkg_apis_core_v1alpha1_ShardStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":                  schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location":                              schema_pkg_apis_scheduling_v1alpha1_Location(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationList":                          schema_pkg_apis_scheduling_v1alpha1_LocationList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference":                     schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec":                          schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus":                        schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement":                             schema_pkg_apis_scheduling_v1alpha1_Placement(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementList":                         schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec":                         schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus":                       schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference":                       schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.Workspace":                                schema_pkg_apis_tenancy_v1alpha1_Workspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceList":                            schema_pkg_apis_tenancy_v1alpha1_WorkspaceList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceLocation":                        schema_pkg_apis_tenancy_v1alpha1_WorkspaceLocation(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceSpec":                            schema_pkg_apis_tenancy_v1alpha1_WorkspaceSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceStatus":                          schema_pkg_apis_tenancy_v1alpha1_WorkspaceStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType":                            schema_pkg_apis_tenancy_v1alpha1_WorkspaceType(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeExtension":                   schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeList":                        schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference":                   schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector":                    schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec":                        schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus":                      schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.Partition":                               schema_pkg_apis_topology_v1alpha1_Partition(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionList":                           schema_pkg_apis_topology_v1alpha1_PartitionList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSet":                            schema_pkg_apis_topology_v1alpha1_PartitionSet(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetList":                        schema_pkg_apis_topology_v1alpha1_PartitionSetList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetSpec":                        schema_pkg_apis_topology_v1alpha1_PartitionSetSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetStatus":                      schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSpec":                           schema_pkg_apis_topology_v1alpha1_PartitionSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync":                          schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget":                              schema_pkg_apis_workload_v1alpha1_SyncTarget(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetList":                          schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec":                          schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus":                        schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace":                        schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImport":                    schema_sdk_apis_apiresource_v1alpha1_APIResourceImport(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportCondition":           schema_sdk_apis_apiresource_v1alpha1_APIResourceImportCondition(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportList":                schema_sdk_apis_apiresource_v1alpha1_APIResourceImportList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportSpec":                schema_sdk_apis_apiresource_v1alpha1_APIResourceImportSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportStatus":              schema_sdk_apis_apiresource_v1alpha1_APIResourceImportStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition":                     schema_sdk_apis_apiresource_v1alpha1_ColumnDefinition(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.CommonAPIResourceSpec":                schema_sdk_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion":                         schema_sdk_apis_apiresource_v1alpha1_GroupVersion(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResource":                schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition":       schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceCondition(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceList":            schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec":            schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus":          schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource":                          schema_sdk_apis_apiresource_v1alpha1_SubResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBinding":                                  schema_sdk_apis_apis_v1alpha1_APIBinding(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingList":                              schema_sdk_apis_apis_v1alpha1_APIBindingList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingSpec":                              schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingStatus":                            schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversion":                               schema_sdk_apis_apis_v1alpha1_APIConversion(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionList":                           schema_sdk_apis_apis_v1alpha1_APIConversionList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionRule":                           schema_sdk_apis_apis_v1alpha1_APIConversionRule(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionSpec":                           schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExport":                                   schema_sdk_apis_apis_v1alpha1_APIExport(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpoint":                           schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSlice":                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceList":                  schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec":                  schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus":                schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportList":                               schema_sdk_apis_apis_v1alpha1_APIExportList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportSpec":                               schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportStatus":                             schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchema":                           schema_sdk_apis_apis_v1alpha1_APIResourceSchema(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceVersion":                          schema_sdk_apis_apis_v1alpha1_APIResourceVersion(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIVersionConversion":                        schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BindingReference":                            schema_sdk_apis_apis_v1alpha1_BindingReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.GroupResource":                               schema_sdk_apis_apis_v1alpha1_GroupResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.Identity":                                    schema_sdk_apis_apis_v1alpha1_Identity(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_sdk_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_sdk_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim":                             schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector":                            schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalCluster":                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterList":                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterOwner":                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterSpec":                          schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterStatus":                        schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.Shard":                                       schema_sdk_apis_core_v1alpha1_Shard(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardList":                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec":                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_sdk_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.GroupVersionResource":                  schema_sdk_apis_scheduling_v1alpha1_GroupVersionResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Location":                              schema_sdk_apis_scheduling_v1alpha1_Location(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationList":                          schema_sdk_apis_scheduling_v1alpha1_LocationList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationReference":                     schema_sdk_apis_scheduling_v1alpha1_LocationReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationSpec":                          schema_sdk_apis_scheduling_v1alpha1_LocationSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationStatus":                        schema_sdk_apis_scheduling_v1alpha1_LocationStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Placement":                             schema_sdk_apis_scheduling_v1alpha1_Placement(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementList":                         schema_sdk_apis_scheduling_v1alpha1_PlacementList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementSpec":                         schema_sdk_apis_scheduling_v1alpha1_PlacementSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementStatus":                       schema_sdk_apis_scheduling_v1alpha1_PlacementStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace":                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceList":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceLocation(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceSpec":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceStatus":                          schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceType":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceType(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension":                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeList":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference":                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector":                    schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus":                      schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.Partition":                               schema_sdk_apis_topology_v1alpha1_Partition(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionList":                           schema_sdk_apis_topology_v1alpha1_PartitionList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSet":                            schema_sdk_apis_topology_v1alpha1_PartitionSet(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetList":                        schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetSpec":                        schema_sdk_apis_topology_v1alpha1_PartitionSetSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetStatus":                      schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSpec":                           schema_sdk_apis_topology_v1alpha1_PartitionSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.ResourceToSync":                          schema_sdk_apis_workload_v1alpha1_ResourceToSync(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTarget":                              schema_sdk_apis_workload_v1alpha1_SyncTarget(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetList":                          schema_sdk_apis_workload_v1alpha1_SyncTargetList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetSpec":                          schema_sdk_apis_workload_v1alpha1_SyncTargetSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetStatus":                        schema_sdk_apis_workload_v1alpha1_SyncTargetStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace":                        schema_sdk_apis_workload_v1alpha1_VirtualWorkspace(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                          schema_pkg_apis_meta_v1_APIResource(ref),
@@ -182,7 +182,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_APIResourceImport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_APIResourceImport(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -212,24 +212,24 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImport(ref common.Reference
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportSpec", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportSpec", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_APIResourceImportCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -282,7 +282,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportCondition(ref common.
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_APIResourceImportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -316,7 +316,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportList(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImport"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImport"),
 									},
 								},
 							},
@@ -327,11 +327,11 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportList(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImport", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImport", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -341,7 +341,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.Refer
 					"groupVersion": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion"),
 						},
 					},
 					"scope": {
@@ -435,7 +435,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource"),
 									},
 								},
 							},
@@ -454,7 +454,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition"),
 									},
 								},
 							},
@@ -480,11 +480,11 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportSpec(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_APIResourceImportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -498,7 +498,7 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportStatus(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportCondition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportCondition"),
 									},
 								},
 							},
@@ -508,11 +508,11 @@ func schema_pkg_apis_apiresource_v1alpha1_APIResourceImportStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.APIResourceImportCondition"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.APIResourceImportCondition"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_ColumnDefinition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_ColumnDefinition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -571,7 +571,7 @@ func schema_pkg_apis_apiresource_v1alpha1_ColumnDefinition(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -581,7 +581,7 @@ func schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.Refer
 					"groupVersion": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion"),
 						},
 					},
 					"scope": {
@@ -675,7 +675,7 @@ func schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource"),
 									},
 								},
 							},
@@ -694,7 +694,7 @@ func schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition"),
 									},
 								},
 							},
@@ -705,11 +705,11 @@ func schema_pkg_apis_apiresource_v1alpha1_CommonAPIResourceSpec(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_GroupVersion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_GroupVersion(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -735,7 +735,7 @@ func schema_pkg_apis_apiresource_v1alpha1_GroupVersion(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -765,24 +765,24 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref common.Refer
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceSpec", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -835,7 +835,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceCondition(ref com
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -869,7 +869,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResource"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResource"),
 									},
 								},
 							},
@@ -880,11 +880,11 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -894,7 +894,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.R
 					"groupVersion": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion"),
 						},
 					},
 					"scope": {
@@ -988,7 +988,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource"),
 									},
 								},
 							},
@@ -1007,7 +1007,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition"),
 									},
 								},
 							},
@@ -1024,11 +1024,11 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceSpec(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.ColumnDefinition", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.GroupVersion", "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.SubResource", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1042,7 +1042,7 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition"),
 									},
 								},
 							},
@@ -1052,11 +1052,11 @@ func schema_pkg_apis_apiresource_v1alpha1_NegotiatedAPIResourceStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition"},
+			"github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1.NegotiatedAPIResourceCondition"},
 	}
 }
 
-func schema_pkg_apis_apiresource_v1alpha1_SubResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apiresource_v1alpha1_SubResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1076,7 +1076,7 @@ func schema_pkg_apis_apiresource_v1alpha1_SubResource(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1107,25 +1107,25 @@ func schema_pkg_apis_apis_v1alpha1_APIBinding(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingSpec", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBindingStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingSpec", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBindingStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1159,7 +1159,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBinding"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBinding"),
 									},
 								},
 							},
@@ -1170,11 +1170,11 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIBinding", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIBinding", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1185,7 +1185,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "reference uniquely identifies an API to bind to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BindingReference"),
 						},
 					},
 					"permissionClaims": {
@@ -1196,7 +1196,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim"),
 									},
 								},
 							},
@@ -1207,11 +1207,11 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BindingReference"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1242,7 +1242,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResource"),
 									},
 								},
 							},
@@ -1263,7 +1263,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1277,7 +1277,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim"),
 									},
 								},
 							},
@@ -1291,7 +1291,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim"),
 									},
 								},
 							},
@@ -1301,11 +1301,11 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1336,7 +1336,7 @@ func schema_pkg_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionSpec"),
 						},
 					},
 				},
@@ -1344,11 +1344,11 @@ func schema_pkg_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1382,7 +1382,7 @@ func schema_pkg_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversion"),
 									},
 								},
 							},
@@ -1393,11 +1393,11 @@ func schema_pkg_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversion", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversion", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIConversionRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIConversionRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1434,7 +1434,7 @@ func schema_pkg_apis_apis_v1alpha1_APIConversionRule(ref common.ReferenceCallbac
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1458,7 +1458,7 @@ func schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIVersionConversion"),
 									},
 								},
 							},
@@ -1469,11 +1469,11 @@ func schema_pkg_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIVersionConversion"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIVersionConversion"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1504,25 +1504,25 @@ func schema_pkg_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportSpec", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportSpec", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1544,7 +1544,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpoint(ref common.ReferenceCallbac
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1575,25 +1575,25 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state: - the targetted APIExport - an optional partition for filtering",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status communicates the observed state: the filtered list of endpoints for the APIExport service.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceSpec", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSliceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1627,7 +1627,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSlice"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSlice"),
 									},
 								},
 							},
@@ -1638,11 +1638,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpointSlice", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSlice", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1653,7 +1653,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 						SchemaProps: spec.SchemaProps{
 							Description: "export points to the API export.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference"),
 						},
 					},
 					"partition": {
@@ -1668,11 +1668,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1687,7 +1687,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1701,7 +1701,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpoint"),
 									},
 								},
 							},
@@ -1711,11 +1711,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpoint", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1749,7 +1749,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExport"),
 									},
 								},
 							},
@@ -1760,11 +1760,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExport", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExport", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1794,13 +1794,13 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					"identity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity determines an unique etcd prefix for objects stored via this APIExport.\n\nDifferent APIExport in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the APIExport is moved.\n\nThe identity is a secret of the API provider. The APIBindings referencing this APIExport will store a derived, non-sensitive value of this identity.\n\nThe identity of an APIExport cannot be changed. A derived, non-sensitive value of the identity key is stored in the APIExport status and this value is immutable.\n\nThe identity is defaulted. A secret with the name of the APIExport is automatically created.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.Identity"),
 						},
 					},
 					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated` and `apis.kcp.io:binding:a-team`.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy"),
 						},
 					},
 					"permissionClaims": {
@@ -1820,7 +1820,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim"),
 									},
 								},
 							},
@@ -1830,11 +1830,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1856,7 +1856,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1870,7 +1870,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.VirtualWorkspace"),
 									},
 								},
 							},
@@ -1880,11 +1880,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1915,18 +1915,18 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchema(ref common.ReferenceCallbac
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1960,7 +1960,7 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchema"),
 									},
 								},
 							},
@@ -1971,11 +1971,11 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchema", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceSchema", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2021,7 +2021,7 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceVersion"),
 									},
 								},
 							},
@@ -2032,11 +2032,11 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceVersion", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIResourceVersion(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2131,7 +2131,7 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2170,7 +2170,7 @@ func schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionRule"),
 									},
 								},
 							},
@@ -2196,11 +2196,11 @@ func schema_pkg_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIConversionRule"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIConversionRule"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2222,7 +2222,7 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector"),
 									},
 								},
 							},
@@ -2247,11 +2247,11 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_BindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_BindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2261,18 +2261,18 @@ func schema_pkg_apis_apis_v1alpha1_BindingReference(ref common.ReferenceCallback
 					"export": {
 						SchemaProps: spec.SchemaProps{
 							Description: "export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb `bind` in order to bind to it.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2299,7 +2299,7 @@ func schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Schema references the APIResourceSchema that is bound to this API.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema"),
 						},
 					},
 					"storageVersions": {
@@ -2327,11 +2327,11 @@ func schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2369,7 +2369,7 @@ func schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_ExportBindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2398,7 +2398,7 @@ func schema_pkg_apis_apis_v1alpha1_ExportBindingReference(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2427,7 +2427,7 @@ func schema_pkg_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2448,7 +2448,7 @@ func schema_pkg_apis_apis_v1alpha1_Identity(ref common.ReferenceCallback) common
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2459,7 +2459,7 @@ func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2469,18 +2469,18 @@ func schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceC
 					"local": {
 						SchemaProps: spec.SchemaProps{
 							Description: "local is the policy that is defined in same workspace as the API Export.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2502,7 +2502,7 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector"),
 									},
 								},
 							},
@@ -2519,11 +2519,11 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector"},
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2549,7 +2549,7 @@ func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2570,7 +2570,7 @@ func schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_LogicalCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_LogicalCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2600,24 +2600,24 @@ func schema_pkg_apis_core_v1alpha1_LogicalCluster(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterSpec", "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterSpec", "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2651,7 +2651,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalCluster"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalCluster"),
 									},
 								},
 							},
@@ -2662,11 +2662,11 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_LogicalClusterOwner(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2727,7 +2727,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterOwner(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2744,7 +2744,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 					"owner": {
 						SchemaProps: spec.SchemaProps{
 							Description: "owner is a reference to a resource controlling the life-cycle of this logical cluster. On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is removed from the owner.\n\nWhen this object is deleted, but the owner is not deleted, the owner is deleted too.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterOwner"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterOwner"),
 						},
 					},
 					"initializers": {
@@ -2766,11 +2766,11 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.LogicalClusterOwner"},
+			"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterOwner"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2799,7 +2799,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -2824,11 +2824,11 @@ func schema_pkg_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_Shard(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_Shard(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2858,24 +2858,24 @@ func schema_pkg_apis_core_v1alpha1_Shard(ref common.ReferenceCallback) common.Op
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardSpec", "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.ShardStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec", "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2909,7 +2909,7 @@ func schema_pkg_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) commo
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.Shard"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.Shard"),
 									},
 								},
 							},
@@ -2920,11 +2920,11 @@ func schema_pkg_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1.Shard", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.Shard", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2960,7 +2960,7 @@ func schema_pkg_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2990,7 +2990,7 @@ func schema_pkg_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -3000,11 +3000,11 @@ func schema_pkg_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3053,7 +3053,7 @@ func schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref common.Refer
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_GroupVersionResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3090,7 +3090,7 @@ func schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref common.Referen
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_Location(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_Location(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3120,24 +3120,24 @@ func schema_pkg_apis_scheduling_v1alpha1_Location(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationSpec", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationSpec", "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_LocationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_LocationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3171,7 +3171,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Location"),
 									},
 								},
 							},
@@ -3182,11 +3182,11 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Location", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3216,7 +3216,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3227,7 +3227,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallba
 						SchemaProps: spec.SchemaProps{
 							Description: "resource is the group-version-resource of the instances that are subject to this location.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.GroupVersionResource"),
 						},
 					},
 					"description": {
@@ -3253,7 +3253,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.AvailableSelectorLabel"),
 									},
 								},
 							},
@@ -3270,11 +3270,11 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.AvailableSelectorLabel", "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_LocationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3301,7 +3301,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationStatus(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3331,24 +3331,24 @@ func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback)
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec", "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementSpec", "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.PlacementStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_PlacementList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3382,7 +3382,7 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Placement"),
 									},
 								},
 							},
@@ -3393,11 +3393,11 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Placement", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.Placement", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3421,7 +3421,7 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "locationResource is the group-version-resource of the instances that are subject to the locations to select.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.GroupVersionResource"),
 						},
 					},
 					"namespaceSelector": {
@@ -3442,11 +3442,11 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.GroupVersionResource", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
-func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3462,7 +3462,7 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 					"selectedLocation": {
 						SchemaProps: spec.SchemaProps{
 							Description: "selectedLocation is the location that a picked by this placement.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationReference"),
 						},
 					},
 					"conditions": {
@@ -3473,7 +3473,7 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -3483,11 +3483,11 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.LocationReference", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1.LocationReference", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3516,7 +3516,7 @@ func schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCal
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3537,7 +3537,7 @@ func schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3567,13 +3567,13 @@ func schema_pkg_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceStatus"),
 						},
 					},
 				},
@@ -3581,11 +3581,11 @@ func schema_pkg_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceSpec", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3619,7 +3619,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.Workspace"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace"),
 									},
 								},
 							},
@@ -3630,11 +3630,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.Workspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceLocation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceLocation(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3654,7 +3654,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceLocation(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3665,13 +3665,13 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
 					"location": {
 						SchemaProps: spec.SchemaProps{
 							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceLocation"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation"),
 						},
 					},
 					"cluster": {
@@ -3692,11 +3692,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceLocation", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3718,7 +3718,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -3743,11 +3743,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceType(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceType(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3777,24 +3777,24 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceType(ref common.ReferenceCallback
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3809,7 +3809,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 									},
 								},
 							},
@@ -3819,11 +3819,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3857,7 +3857,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceType"),
 									},
 								},
 							},
@@ -3868,11 +3868,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceType", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3901,7 +3901,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref common.Referenc
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3923,7 +3923,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 									},
 								},
 							},
@@ -3933,11 +3933,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3954,7 +3954,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 						SchemaProps: spec.SchemaProps{
 							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeExtension"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension"),
 						},
 					},
 					"additionalWorkspaceLabels": {
@@ -3976,19 +3976,19 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
 							Description: "defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested Workspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
 					"limitAllowedChildren": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedChildren specifies constraints for sub-workspaces created in workspaces of this type. These are in addition to child constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
 						},
 					},
 					"limitAllowedParents": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedParents specifies constraints for the parent workspace that workspaces of this type are created in. These are in addition to parent constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
 						},
 					},
 					"defaultAPIBindings": {
@@ -3999,7 +3999,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference"),
 									},
 								},
 							},
@@ -4009,11 +4009,11 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeExtension", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4028,7 +4028,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -4042,7 +4042,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace"),
 									},
 								},
 							},
@@ -4052,7 +4052,7 @@ func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -4116,7 +4116,7 @@ func schema_conditions_apis_conditions_v1alpha1_Condition(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_Partition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_Partition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4147,18 +4147,18 @@ func schema_pkg_apis_topology_v1alpha1_Partition(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSpec"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4192,7 +4192,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.Partition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.Partition"),
 									},
 								},
 							},
@@ -4203,11 +4203,11 @@ func schema_pkg_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.Partition", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.Partition", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionSet(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionSet(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4238,25 +4238,25 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSet(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status holds information about the current status",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetSpec", "github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetSpec", "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4290,7 +4290,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSet"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSet"),
 									},
 								},
 							},
@@ -4301,11 +4301,11 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1.PartitionSet", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1.PartitionSet", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionSetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionSetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4341,7 +4341,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetSpec(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4363,7 +4363,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -4373,11 +4373,11 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
-func schema_pkg_apis_topology_v1alpha1_PartitionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_topology_v1alpha1_PartitionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4398,7 +4398,7 @@ func schema_pkg_apis_topology_v1alpha1_PartitionSpec(ref common.ReferenceCallbac
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4441,7 +4441,7 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_SyncTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_SyncTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4472,25 +4472,25 @@ func schema_pkg_apis_workload_v1alpha1_SyncTarget(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus"),
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetSpec", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_SyncTargetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4524,7 +4524,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTarget"),
 									},
 								},
 							},
@@ -4535,11 +4535,11 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4568,7 +4568,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference"),
 									},
 								},
 							},
@@ -4594,11 +4594,11 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -4643,7 +4643,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -4657,7 +4657,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.ResourceToSync"),
 									},
 								},
 							},
@@ -4677,7 +4677,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace"),
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace"),
 									},
 								},
 							},
@@ -4687,11 +4687,11 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.ResourceToSync", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
-func schema_pkg_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_workload_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

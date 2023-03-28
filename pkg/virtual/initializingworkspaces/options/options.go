@@ -25,10 +25,10 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type InitializingWorkspaces struct{}

@@ -41,10 +41,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/helpers"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/tmc/pkg/coordination"
 )
 

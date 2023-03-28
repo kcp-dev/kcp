@@ -24,10 +24,10 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"

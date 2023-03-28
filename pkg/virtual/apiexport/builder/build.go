@@ -35,11 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -50,6 +47,9 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 const VirtualWorkspaceName string = "apiexport"

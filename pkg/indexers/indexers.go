@@ -28,9 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 const (

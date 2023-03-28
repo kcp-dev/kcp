@@ -28,7 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 func TestAdmit(t *testing.T) {

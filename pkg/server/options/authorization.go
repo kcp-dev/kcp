@@ -28,7 +28,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	authz "github.com/kcp-dev/kcp/pkg/authorization"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type Authorization struct {

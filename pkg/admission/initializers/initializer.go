@@ -24,8 +24,8 @@ import (
 	"k8s.io/apiserver/pkg/admission/initializer"
 	quota "k8s.io/apiserver/pkg/quota/v1"
 
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 // NewKcpInformersInitializer returns an admission plugin initializer that injects

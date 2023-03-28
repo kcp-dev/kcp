@@ -27,8 +27,8 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 // Validate WorkspaceTypes creation and updates for

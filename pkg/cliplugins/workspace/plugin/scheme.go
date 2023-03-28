@@ -19,7 +19,7 @@ package plugin
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 func init() {

@@ -34,8 +34,8 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/schemacompat"
+	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
 )
 
 func (c *Controller) process(ctx context.Context, key queueElement) error {

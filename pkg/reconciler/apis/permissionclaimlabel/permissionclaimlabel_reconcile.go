@@ -35,10 +35,10 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 // reconcilePermissionClaims determines the resources that need to be labeled for access by a permission claim.

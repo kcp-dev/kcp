@@ -32,8 +32,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 // Create APIResourceSchemas for built-in APIs available as permission claims

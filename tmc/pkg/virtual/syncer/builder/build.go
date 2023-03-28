@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/transformations"
 	"github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/upsyncer"

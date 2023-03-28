@@ -31,11 +31,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
 type reconcileStatus int

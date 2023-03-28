@@ -32,7 +32,7 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
 
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 func init() {

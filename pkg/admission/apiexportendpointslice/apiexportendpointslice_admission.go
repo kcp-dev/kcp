@@ -38,10 +38,10 @@ import (
 
 	apibindingadmission "github.com/kcp-dev/kcp/pkg/admission/apibinding"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 const (

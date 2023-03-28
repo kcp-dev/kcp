@@ -27,8 +27,8 @@ import (
 	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 type Options struct {

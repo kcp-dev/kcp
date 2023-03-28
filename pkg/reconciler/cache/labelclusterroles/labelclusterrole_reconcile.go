@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
-	kcpcorehelper "github.com/kcp-dev/kcp/pkg/apis/core/helper"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 )
 
 func (c *controller) reconcile(ctx context.Context, rb *rbacv1.ClusterRole) (bool, error) {

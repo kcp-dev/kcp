@@ -25,9 +25,9 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	corev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 

@@ -31,8 +31,8 @@ import (
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	utilspointer "k8s.io/utils/pointer"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)

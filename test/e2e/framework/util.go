@@ -60,10 +60,10 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 //go:embed *.csv

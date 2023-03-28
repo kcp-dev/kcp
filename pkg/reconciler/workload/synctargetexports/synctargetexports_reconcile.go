@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 // exportReconciler updates syncedResource in SyncTarget status based on supportedAPIExports.

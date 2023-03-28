@@ -20,9 +20,9 @@ import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 )
 
 const (

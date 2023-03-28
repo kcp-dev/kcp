@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/helpers"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 var _ Transformation = (*SpecDiffTransformation)(nil)

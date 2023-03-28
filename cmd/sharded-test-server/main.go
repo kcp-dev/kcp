@@ -38,9 +38,9 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
 func main() {

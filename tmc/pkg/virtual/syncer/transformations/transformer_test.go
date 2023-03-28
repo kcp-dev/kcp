@@ -40,10 +40,10 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 
-	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
-	"github.com/kcp-dev/kcp/pkg/client"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
+	"github.com/kcp-dev/kcp/sdk/apis/workload/helpers"
+	"github.com/kcp-dev/kcp/sdk/client"
 	syncercontext "github.com/kcp-dev/kcp/tmc/pkg/virtual/syncer/context"
 )
 

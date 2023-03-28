@@ -37,13 +37,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"github.com/kcp-dev/kcp/pkg/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
 
 const (
