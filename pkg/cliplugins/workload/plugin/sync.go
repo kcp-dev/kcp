@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sort"
@@ -206,15 +207,16 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	var outputFile *os.File
+	var output io.Writer
 	if o.OutputFile == "-" {
-		outputFile = os.Stdout
+		output = o.IOStreams.Out
 	} else {
-		outputFile, err = os.Create(o.OutputFile)
+		outputFile, err := os.Create(o.OutputFile)
 		if err != nil {
 			return err
 		}
 		defer outputFile.Close()
+		output = outputFile
 	}
 
 	labels := map[string]string{}
@@ -292,7 +294,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	_, err = outputFile.Write(resources)
+	_, err = output.Write(resources)
 	if o.OutputFile != "-" {
 		fmt.Fprintf(o.ErrOut, "\nWrote physical cluster manifest to %s for namespace %q. Use\n\n  KUBECONFIG=<pcluster-config> kubectl apply -f %q\n\nto apply it. "+
 			"Use\n\n  KUBECONFIG=<pcluster-config> kubectl get deployment -n %q %s\n\nto verify the syncer pod is running.\n", o.OutputFile, o.DownstreamNamespace, o.OutputFile, o.DownstreamNamespace, syncerID)
