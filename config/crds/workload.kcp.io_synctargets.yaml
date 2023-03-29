@@ -199,7 +199,7 @@ spec:
                       type: string
                     message:
                       description: A human readable message indicating details about
-                        the compatibility errors This field may be empty.
+                        the compatibility errors. This field may be empty.
                       type: string
                     resource:
                       description: 'resource is the name of the resource. Note: it

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230329-b5e3a0e1.synctargets.workload.kcp.io
+  name: v230329-eaa109f2.synctargets.workload.kcp.io
 spec:
   group: workload.kcp.io
   names:
@@ -194,7 +194,7 @@ spec:
                     type: string
                   message:
                     description: A human readable message indicating details about
-                      the compatibility errors This field may be empty.
+                      the compatibility errors. This field may be empty.
                     type: string
                   resource:
                     description: 'resource is the name of the resource. Note: it is
