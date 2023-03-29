@@ -19,6 +19,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0
 	github.com/kcp-dev/client-go v0.0.0-20230126185145-aeff170a288b
+	github.com/kcp-dev/kcp/pkg/apis v0.11.0
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.2
 	github.com/martinlindhe/base36 v1.1.1
