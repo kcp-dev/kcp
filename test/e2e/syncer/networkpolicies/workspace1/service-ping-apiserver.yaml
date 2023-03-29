@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ping-apiserver
+spec:
+  selector:
+    app: ping-apiserver
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

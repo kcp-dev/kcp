@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ping-apiserver
+spec:
+  selector:
+    matchLabels:
+      app: ping-apiserver
+  template:
+    metadata:
+      labels:
+        app: ping-apiserver
+    spec:
+      containers:
+      - name: ping-apiserver
+        image: ghcr.io/distroless/alpine-base:latest
+        command: ['sh', '-c', 'until ping ${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}; do sleep 1; done']

@@ -297,6 +297,7 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 	}
 	if apierrors.IsAlreadyExists(err) {
 		namespace, err = namespaces.Get(ctx, newNamespace.GetName(), metav1.GetOptions{})
+		namespaceExists = true
 	}
 	if err != nil {
 		return err
@@ -336,7 +337,7 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 
 	networkPolicy, err := c.getNetworkPolicyLister().NetworkPolicies(downstreamNamespace).Get("kcp-tenant")
 	if apierrors.IsNotFound(err) {
-		_, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Create(ctx, desiredNetworkPolicy, metav1.CreateOptions{})
+		networkPolicy, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Create(ctx, desiredNetworkPolicy, metav1.CreateOptions{})
 
 		if err == nil {
 			logger.Info("Created downstream tenant network policy")
@@ -344,7 +345,7 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 		}
 	}
 
-	if apierrors.IsAlreadyExists(err) {
+	if apierrors.IsAlreadyExists(err) && !equality.Semantic.DeepDerivative(desiredNetworkPolicy, networkPolicy) {
 		updatedNetworkPolicy := networkPolicy.DeepCopy()
 		updatedNetworkPolicy.Spec = desiredNetworkPolicy.Spec
 

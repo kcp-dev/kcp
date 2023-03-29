@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ping-external
+spec:
+  selector:
+    matchLabels:
+      app: ping-external
+  template:
+    metadata:
+      labels:
+        app: ping-external
+    spec:
+      containers:
+      - name: ping-external
+        image: ghcr.io/distroless/alpine-base:latest
+        command: ['sh', '-c', 'until ping www.ibm.com; do sleep 1; done']
