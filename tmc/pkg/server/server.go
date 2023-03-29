@@ -102,6 +102,14 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkloadsSyncTargetExportController(ctx, controllerConfig); err != nil {
 			return err
 		}
+
+		if err := s.installWorkloadReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+
+		if err := s.installWorkloadReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Core.Controllers.EnableAll || enabled.Has("resource-scheduler") {
