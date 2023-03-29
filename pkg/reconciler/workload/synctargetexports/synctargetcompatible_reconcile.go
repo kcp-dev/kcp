@@ -115,7 +115,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 
 			downStreamSchema, ok := apiImportMap[gvr]
 			if !ok {
-				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncompatibleState
+				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaPendingState
 				continue
 			}
 
