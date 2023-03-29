@@ -185,7 +185,7 @@ func Selects(acceptableClaim apisv1alpha1.AcceptablePermissionClaim, namespace, 
 }
 
 // toStrings transforms a slice of apisv1alpha1.Names into a set of strings.
-func toStrings(names []apisv1alpha1.Name) sets.String {
+func toStrings(names []apisv1alpha1.ResourceSelectorName) sets.String {
 	ret := sets.NewString()
 	for _, name := range names {
 		ret.Insert(string(name))
@@ -194,7 +194,7 @@ func toStrings(names []apisv1alpha1.Name) sets.String {
 }
 
 // selectsNames determines if an object's name matches a set of name values.
-func selectsNames(names []apisv1alpha1.Name, objectName string) bool {
+func selectsNames(names []apisv1alpha1.ResourceSelectorName, objectName string) bool {
 	// No name selector was provided.
 	if len(names) == 0 {
 		return true
@@ -212,7 +212,7 @@ func selectsNames(names []apisv1alpha1.Name, objectName string) bool {
 }
 
 // selectsNamespaces determines if an object's namespace matches a set of namespace values, and if it is cluster-scoped.
-func selectsNamespaces(namespaces []apisv1alpha1.Name, objectNamespace string) bool {
+func selectsNamespaces(namespaces []apisv1alpha1.ResourceSelectorName, objectNamespace string) bool {
 	// match cluster-scoped resources
 	if len(namespaces) == 0 && objectNamespace == "" {
 		return true

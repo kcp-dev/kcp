@@ -224,11 +224,11 @@ const (
 	ResourceSelectorAll = "*"
 )
 
-// Name validates a string for use with a PermissionClaim.
+// ResourceSelectorName validates a string for use with a PermissionClaim.
 //
 // +kubebuilder:validation:Type=string
 // +kubebuilder:validation:Pattern=`^(\*|[a-z][-a-z0-9]*[a-z0-9])$`
-type Name string
+type ResourceSelectorName string
 
 // ResourceSelector identifies the objects to be included within a PermissionClaim either by names and/or namespaces.
 //
@@ -243,7 +243,7 @@ type ResourceSelector struct {
 	//
 	// +optional
 	// +kubebuilder:default={"*"}
-	Names []Name `json:"names,omitempty"`
+	Names []ResourceSelectorName `json:"names,omitempty"`
 
 	// namespaces represents namespaces where an object of the given group/resource may be managed.
 	//
@@ -255,7 +255,7 @@ type ResourceSelector struct {
 	// Default is an empty list.
 	//
 	// +optional
-	Namespaces []Name `json:"namespaces,omitempty"`
+	Namespaces []ResourceSelectorName `json:"namespaces,omitempty"`
 
 	//
 	// WARNING: If adding new fields, add them to the XValidation check!

@@ -61,7 +61,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names: []v1alpha1.Name{"John Wayne"},
+								Names: []v1alpha1.ResourceSelectorName{"John Wayne"},
 							},
 						},
 					},
@@ -83,7 +83,7 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Namespaces: []v1alpha1.Name{"foo"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"foo"},
 							},
 						},
 					},
@@ -94,7 +94,7 @@ func TestIsSelected(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "Name selection doesn't match",
+			name: "ResourceSelectorName selection doesn't match",
 			args: args{
 				claim: v1alpha1.AcceptablePermissionClaim{
 					State: v1alpha1.ClaimAccepted,
@@ -105,8 +105,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []v1alpha1.Name{"John Wayne"},
-								Namespaces: []v1alpha1.Name{"foo"},
+								Names:      []v1alpha1.ResourceSelectorName{"John Wayne"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"foo"},
 							},
 						},
 					},
@@ -128,8 +128,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []v1alpha1.Name{"John Wayne"},
-								Namespaces: []v1alpha1.Name{"foo"},
+								Names:      []v1alpha1.ResourceSelectorName{"John Wayne"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"foo"},
 							},
 						},
 					},
@@ -169,8 +169,8 @@ func TestIsSelected(t *testing.T) {
 						All: true,
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []v1alpha1.Name{"John"},
-								Namespaces: []v1alpha1.Name{"foo"},
+								Names:      []v1alpha1.ResourceSelectorName{"John"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"foo"},
 							},
 						},
 					},
@@ -192,8 +192,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []v1alpha1.Name{"John"},
-								Namespaces: []v1alpha1.Name{"*"},
+								Names:      []v1alpha1.ResourceSelectorName{"John"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"*"},
 							},
 						},
 					},
@@ -215,8 +215,8 @@ func TestIsSelected(t *testing.T) {
 						},
 						ResourceSelector: []v1alpha1.ResourceSelector{
 							{
-								Names:      []v1alpha1.Name{"*"},
-								Namespaces: []v1alpha1.Name{"bar"},
+								Names:      []v1alpha1.ResourceSelectorName{"*"},
+								Namespaces: []v1alpha1.ResourceSelectorName{"bar"},
 							},
 						},
 					},

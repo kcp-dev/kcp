@@ -453,12 +453,12 @@ func TestPermissionClaimsByName(t *testing.T) {
 
 // makeNarrowCMPermissionClaim creates a PermissionClaim for ConfigMaps scoped to just a name, just a namespace, or both.
 func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.PermissionClaim {
-	var names, namespaces []apisv1alpha1.Name
+	var names, namespaces []apisv1alpha1.ResourceSelectorName
 	if name != "" {
-		names = []apisv1alpha1.Name{apisv1alpha1.Name(name)}
+		names = []apisv1alpha1.ResourceSelectorName{apisv1alpha1.ResourceSelectorName(name)}
 	}
 	if namespace != "" {
-		namespaces = []apisv1alpha1.Name{apisv1alpha1.Name(namespace)}
+		namespaces = []apisv1alpha1.ResourceSelectorName{apisv1alpha1.ResourceSelectorName(namespace)}
 	}
 
 	return []apisv1alpha1.PermissionClaim{
@@ -476,12 +476,12 @@ func makeNarrowCMPermissionClaims(name, namespace string) []apisv1alpha1.Permiss
 }
 
 func makeAcceptedCMPermissionClaims(namespace, name string) []apisv1alpha1.AcceptablePermissionClaim {
-	var names, namespaces []apisv1alpha1.Name
+	var names, namespaces []apisv1alpha1.ResourceSelectorName
 	if name != "" {
-		names = []apisv1alpha1.Name{apisv1alpha1.Name(name)}
+		names = []apisv1alpha1.ResourceSelectorName{apisv1alpha1.ResourceSelectorName(name)}
 	}
 	if namespace != "" {
-		namespaces = []apisv1alpha1.Name{apisv1alpha1.Name(namespace)}
+		namespaces = []apisv1alpha1.ResourceSelectorName{apisv1alpha1.ResourceSelectorName(namespace)}
 	}
 	return []apisv1alpha1.AcceptablePermissionClaim{
 		{

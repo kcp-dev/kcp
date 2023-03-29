@@ -167,8 +167,8 @@ spec:
                               entries other than \"*\" and regular expressions are
                               currently unsupported. Default is \"*\"."
                             items:
-                              description: Name validates a string for use with a
-                                PermissionClaim.
+                              description: ResourceSelectorName validates a string
+                                for use with a PermissionClaim.
                               pattern: ^(\*|[a-z][-a-z0-9]*[a-z0-9])$
                               type: string
                             type: array
@@ -184,8 +184,8 @@ spec:
                               entries other than \"*\" and regular expressions are
                               currently unsupported. Default is an empty list."
                             items:
-                              description: Name validates a string for use with a
-                                PermissionClaim.
+                              description: ResourceSelectorName validates a string
+                                for use with a PermissionClaim.
                               pattern: ^(\*|[a-z][-a-z0-9]*[a-z0-9])$
                               type: string
                             type: array

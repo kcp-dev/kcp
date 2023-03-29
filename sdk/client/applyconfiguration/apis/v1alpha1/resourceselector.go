@@ -25,8 +25,8 @@ import (
 // ResourceSelectorApplyConfiguration represents an declarative configuration of the ResourceSelector type for use
 // with apply.
 type ResourceSelectorApplyConfiguration struct {
-	Names      []v1alpha1.Name `json:"names,omitempty"`
-	Namespaces []v1alpha1.Name `json:"namespaces,omitempty"`
+	Names      []v1alpha1.ResourceSelectorName `json:"names,omitempty"`
+	Namespaces []v1alpha1.ResourceSelectorName `json:"namespaces,omitempty"`
 }
 
 // ResourceSelectorApplyConfiguration constructs an declarative configuration of the ResourceSelector type for use with
@@ -38,7 +38,7 @@ func ResourceSelector() *ResourceSelectorApplyConfiguration {
 // WithNames adds the given value to the Names field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Names field.
-func (b *ResourceSelectorApplyConfiguration) WithNames(values ...v1alpha1.Name) *ResourceSelectorApplyConfiguration {
+func (b *ResourceSelectorApplyConfiguration) WithNames(values ...v1alpha1.ResourceSelectorName) *ResourceSelectorApplyConfiguration {
 	for i := range values {
 		b.Names = append(b.Names, values[i])
 	}
@@ -48,7 +48,7 @@ func (b *ResourceSelectorApplyConfiguration) WithNames(values ...v1alpha1.Name) 
 // WithNamespaces adds the given value to the Namespaces field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Namespaces field.
-func (b *ResourceSelectorApplyConfiguration) WithNamespaces(values ...v1alpha1.Name) *ResourceSelectorApplyConfiguration {
+func (b *ResourceSelectorApplyConfiguration) WithNamespaces(values ...v1alpha1.ResourceSelectorName) *ResourceSelectorApplyConfiguration {
 	for i := range values {
 		b.Namespaces = append(b.Namespaces, values[i])
 	}
