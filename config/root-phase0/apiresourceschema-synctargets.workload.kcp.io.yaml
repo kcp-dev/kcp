@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230109-773b219c.synctargets.workload.kcp.io
+  name: v230329-b5e3a0e1.synctargets.workload.kcp.io
 spec:
   group: workload.kcp.io
   names:
@@ -191,6 +191,10 @@ spec:
                       that the APIResourceSchema belongs to. The hash can be found
                       on APIExport and APIResourceSchema's status. It will be empty
                       for core types.
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the compatibility errors This field may be empty.
                     type: string
                   resource:
                     description: 'resource is the name of the resource. Note: it is

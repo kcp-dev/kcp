@@ -123,6 +123,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 				field.NewPath(gvr.String()), upstreamSchema, downStreamSchema, false)
 			if err != nil {
 				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncompatibleState
+				syncTarget.Status.SyncedResources[i].Message = err.Error()
 				continue
 			}
 

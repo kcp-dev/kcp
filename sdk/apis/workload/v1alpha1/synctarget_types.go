@@ -136,6 +136,11 @@ type ResourceToSync struct {
 	// +kubebuilder:default=Pending
 	// +optional
 	State ResourceCompatibleState `json:"state,omitempty"`
+	
+	// A human readable message indicating details about the compatibility errors 
+	// This field may be empty.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 type ResourceCompatibleState string

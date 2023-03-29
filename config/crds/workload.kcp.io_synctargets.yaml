@@ -197,6 +197,10 @@ spec:
                         on APIExport and APIResourceSchema's status. It will be empty
                         for core types.
                       type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the compatibility errors This field may be empty.
+                      type: string
                     resource:
                       description: 'resource is the name of the resource. Note: it
                         is worth noting that you can not ask for permissions for resource
