@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// MakeAPIServerNetworkPolicyEgressRule creates a network policy egress rule to allow traffic to Kubernetes API Server
+// MakeAPIServerNetworkPolicyEgressRule creates a network policy egress rule to allow traffic to Kubernetes API Server.
 func MakeAPIServerNetworkPolicyEgressRule(ctx context.Context, kubeClient kubernetes.Interface) (*networkingv1.NetworkPolicyEgressRule, error) {
 	var kubeEndpoints *corev1.Endpoints
 

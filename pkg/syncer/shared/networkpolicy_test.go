@@ -108,7 +108,6 @@ func TestMakeAPIServerNetworkPolicyEgressRule(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func endpoints(name, namespace, ip string, port int32) *corev1.Endpoints {
