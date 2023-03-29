@@ -96,8 +96,8 @@ kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources ro
 ```
 
 And apply the generated manifests to the physical cluster. The syncer will then import the API schema of `foo.bar`
-to the workspace of the SyncTarget, followed by an auto generated kubernetes APIExport and APIBinding in the same workspace.
-You can then create `foo.bar` in this workspace, or create an APIBinding in another workspace to bind this APIExport.
+to the workspace of the SyncTarget, followed by an auto generated kubernetes APIExport in the same workspace.
+The auto generated APIExport name is `imported-apis`, and you can then create an APIBinding to bind this APIExport.
 
 To synchronize resource from another existing APIExport in the KCP server, run:
 
@@ -105,7 +105,8 @@ To synchronize resource from another existing APIExport in the KCP server, run:
 kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports another-workspace:another-apiexport -o syncer.yaml
 ```
 
-Syncer will start synchronizing the resources in this `APIExport` as long as the `SyncTarget` has compatible API schemas.
+Syncer will start synchronizing the resources in this `APIExport` as long as the `SyncTarget` has compatible API schemas. The auto generated
+APIExport `imported-apis` is a reserved APIExport name and should not be set in the `--apiexports`
 
 To see if a certain resource is synchronized by the syncer, you can check the `state` of the `syncedResources` in `SyncTarget` status:
 
@@ -121,8 +122,13 @@ After the `SyncTarget` is ready, switch to any workspace containing some workloa
 kubectl kcp bind compute <workspace of synctarget>
 ```
 
-This command will create a `Placement` in the workspace. By default, it will also create `APIBinding`s for global kubernetes `APIExport` and
-kubernetes `APIExport` in workspace of `SyncTarget`, if any of these `APIExport`s are supported by the `SyncTarget`.
+This command will create a `Placement` in the workspace. By default, it will also create `APIBinding`s for global kubernetes `APIExport`.
+
+You can also bind to the auto generated `imported-apis` APIExport by running
+
+```sh
+kubectl kcp bind compute <workspace of synctarget> --apiexports <workspace of synctarget>:imported-apis
+```
 
 Alternatively, if you would like to bind other `APIExport`s which are supported by the `SyncerTarget`, run:
 

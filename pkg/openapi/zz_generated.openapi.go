@@ -4562,7 +4562,7 @@ func schema_sdk_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 					},
 					"supportedAPIExports": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible with the resource schema included in the exports. If it is not set, the kubernetes export in the same workspace will be used by default.",
+							Description: "SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible with the resource schema included in the exports.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

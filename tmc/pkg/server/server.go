@@ -127,7 +127,7 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig); err != nil {
 				return err
 			}
-			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig); err != nil {
+			if err := s.installWorkloadsDefaultLocationController(ctx, controllerConfig); err != nil {
 				return err
 			}
 		}

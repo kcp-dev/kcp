@@ -68,14 +68,13 @@ func TestUpsyncedScheduling(t *testing.T) {
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, synctargetWsName.Path(),
 		framework.WithExtraResources("pods"),
 		framework.WithExtraResources("deployments.apps"),
-		framework.WithAPIExports("kubernetes"),
 		framework.WithSyncedUserWorkspaces(userWs),
 	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	t.Log("Binding the consumer workspace to the location workspace")
 	framework.NewBindCompute(t, userWsName.Path(), upstreamServer,
 		framework.WithLocationWorkspaceWorkloadBindOption(synctargetWsName.Path()),
-		framework.WithAPIExportsWorkloadBindOption(synctargetWsName.String()+":kubernetes"),
+		framework.WithAPIExportsWorkloadBindOption(synctargetWsName.String()+":"+workloadv1alpha1.ImportedAPISExportName),
 	).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)

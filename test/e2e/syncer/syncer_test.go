@@ -90,8 +90,19 @@ func TestSyncerLifecycle(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
+	kcpClient, err := kcpclientset.NewForConfig(upstreamServer.BaseConfig(t))
+	require.NoError(t, err)
+	t.Logf("Waiting for negotiaged api to be generated...")
+	require.Eventually(t, func() bool {
+		negotiatedAPIs, err := kcpClient.Cluster(wsPath).ApiresourceV1alpha1().NegotiatedAPIResources().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false
+		}
+		return len(negotiatedAPIs.Items) > 0
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "negotiaged apis are not generated")
+
 	t.Logf("Bind location workspace")
-	framework.NewBindCompute(t, wsPath, upstreamServer).Bind(t)
+	framework.NewBindCompute(t, wsPath, upstreamServer, framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes", workloadv1alpha1.ImportedAPISExportName)).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
@@ -619,9 +630,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// its sync target to go ready. This implicitly validates the syncer
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
-	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsPath,
-		framework.WithExtraResources("services"),
-	).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
+	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsPath).CreateSyncTargetAndApplyToDownstream(t).StartSyncer(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
