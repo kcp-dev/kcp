@@ -44,8 +44,8 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host/",
 					},
 				},
 			},
@@ -96,8 +96,8 @@ func TestReconciler(t *testing.T) {
 						Name: "root2",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-2/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-2/",
 					},
 				},
 				{
@@ -105,8 +105,8 @@ func TestReconciler(t *testing.T) {
 						Name: "root3",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-3/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-3/",
 					},
 				},
 				{
@@ -114,8 +114,8 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-1/",
 					},
 				},
 			},
@@ -167,24 +167,15 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"SyncTarget with multiple Shards with duplicated ExternalURLs results in a deduplicated list of URLs on the SyncTarget": {
+		"SyncTarget and multiple Shards, but root shard always first": {
 			workspaceShards: []*corev1alpha1.Shard{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "root",
-					},
-					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-1/",
-					},
-				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root2",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-2/",
 					},
 				},
 				{
@@ -192,8 +183,95 @@ func TestReconciler(t *testing.T) {
 						Name: "root3",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-3/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-3/",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root",
+					},
+					Spec: corev1alpha1.ShardSpec{
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-10/",
+					},
+				},
+			},
+			syncTarget: &workloadv1alpha1.SyncTarget{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
+					},
+				},
+				Spec: workloadv1alpha1.SyncTargetSpec{
+					Unschedulable: false,
+					EvictAfter:    nil,
+				},
+				Status: workloadv1alpha1.SyncTargetStatus{
+					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
+				},
+			},
+			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
+					},
+					Labels: map[string]string{
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+					},
+				},
+				Spec: workloadv1alpha1.SyncTargetSpec{
+					Unschedulable: false,
+					EvictAfter:    nil,
+				},
+				Status: workloadv1alpha1.SyncTargetStatus{
+					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
+						{
+							SyncerURL:   "http://external-host-10/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-10/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+						{
+							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+						{
+							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		"SyncTarget with multiple Shards with duplicated VirtualWorkspaceURLs results in a deduplicated list of URLs on the SyncTarget": {
+			workspaceShards: []*corev1alpha1.Shard{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root",
+					},
+					Spec: corev1alpha1.ShardSpec{
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-1/",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root2",
+					},
+					Spec: corev1alpha1.ShardSpec{
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-1/",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "root3",
+					},
+					Spec: corev1alpha1.ShardSpec{
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-3/",
 					},
 				},
 			},
@@ -282,8 +360,8 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     "http://1.2.3.4/",
-						ExternalURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4/",
+						VirtualWorkspaceURL: "http://external-host-1/",
 					},
 				},
 			},
