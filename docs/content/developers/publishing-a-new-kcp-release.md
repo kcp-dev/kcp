@@ -35,29 +35,19 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
     git tag --sign --message "$TAG" "$TAG" "$REF"
     ```
 
-3. Tag the `pkg/apis` module, following the same logic as above for `REF` and `TAG`
+3. Tag the `pkg/sdk` module, following the same logic as above for `REF` and `TAG`
 
     ```shell
     REF=upstream/main
     TAG=v1.2.3
-    git tag --sign --message "pkg/apis/$TAG" "pkg/apis/$TAG" "$REF"
+    git tag --sign --message "pkg/sdk/$TAG" "pkg/sdk/$TAG" "$REF"
     ```
-
-4. Tag the `pkg/client` module, following the same logic as above for `REF` and `TAG`
-
-    ```shell
-    REF=upstream/main
-    TAG=v1.2.3
-    git tag --sign --message "pkg/client/$TAG" "pkg/client/$TAG" "$REF"
-    ```
-
 ### Push the tags
 
 ```shell
 REMOTE=upstream
 TAG=v1.2.3
-git push "$REMOTE" "$TAG" "pkg/apis/$TAG"
-git push "$REMOTE" "$TAG" "pkg/client/$TAG"
+git push "$REMOTE" "$TAG" "pkg/sdk/$TAG"
 ```
 
 ## If it's a new minor version
