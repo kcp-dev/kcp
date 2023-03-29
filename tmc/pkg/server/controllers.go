@@ -62,6 +62,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 		dynamicClusterClient,
 		s.Core.DiscoveringDynamicSharedInformerFactory,
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.Core.CacheKcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.Core.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)

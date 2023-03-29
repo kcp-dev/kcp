@@ -64,7 +64,7 @@ const (
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	ddsif *informer.DiscoveringDynamicSharedInformerFactory,
-	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	syncTargetInformer, globalSyncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*Controller, error) {
@@ -98,18 +98,20 @@ func NewController(
 
 		getSyncTargetFromKey: func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error) {
 			syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, false, err
+			if errors.IsNotFound(err) || len(syncTargets) == 0 {
+				// check cache before deciding what to return
+				syncTargets, err = indexers.ByIndex[*workloadv1alpha1.SyncTarget](globalSyncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
+				if errors.IsNotFound(err) || len(syncTargets) == 0 {
+					// still no SyncTarget, so return empty results.
+					return nil, false, nil
+				}
 			}
-			if errors.IsNotFound(err) {
-				return nil, false, nil
+			if err != nil {
+				return nil, false, err
 			}
 			// This shouldn't happen, more than one SyncTarget with the same key means a hash collision.
 			if len(syncTargets) > 1 {
 				return nil, false, fmt.Errorf("possible collision: multiple sync targets found for key %q", syncTargetKey)
-			}
-			if len(syncTargets) == 0 {
-				return nil, false, nil
 			}
 			return syncTargets[0], true, nil
 		},
@@ -146,6 +148,10 @@ func NewController(
 	})
 
 	indexers.AddIfNotPresentOrDie(syncTargetInformer.Informer().GetIndexer(), cache.Indexers{
+		bySyncTargetKey: indexBySyncTargetKey,
+	})
+
+	indexers.AddIfNotPresentOrDie(globalSyncTargetInformer.Informer().GetIndexer(), cache.Indexers{
 		bySyncTargetKey: indexBySyncTargetKey,
 	})
 
