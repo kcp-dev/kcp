@@ -43,7 +43,7 @@ import (
 // It considers only valid SyncTargets and updates the internal.workload.kcp.io/synctarget
 // annotation with the selected one on the placement object.
 type placementSchedulingReconciler struct {
-	listSyncTarget          func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	listSyncTargets         func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 	listWorkloadAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	getLocation             func(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error)
 	patchPlacement          func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
@@ -112,7 +112,7 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx c
 	}
 
 	// find all synctargets in the location workspace
-	syncTargets, err := r.listSyncTarget(logicalcluster.From(location))
+	syncTargets, err := r.listSyncTargets(logicalcluster.From(location))
 	if err != nil {
 		return nil, "", "", err
 	}

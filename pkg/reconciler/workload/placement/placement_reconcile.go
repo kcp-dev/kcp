@@ -46,7 +46,7 @@ type reconciler interface {
 func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (bool, error) {
 	reconcilers := []reconciler{
 		&placementSchedulingReconciler{
-			listSyncTarget:          c.listSyncTarget,
+			listSyncTargets:         c.listSyncTargets,
 			getLocation:             c.getLocation,
 			patchPlacement:          c.patchPlacement,
 			listWorkloadAPIBindings: c.listWorkloadAPIBindings,
