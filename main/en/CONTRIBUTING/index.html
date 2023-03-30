@@ -377,6 +377,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#replicated-data-types" class="md-nav__link">
+    Replicated Data Types
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#getting-your-pr-merged" class="md-nav__link">
     Getting your PR Merged
   </a>
@@ -1836,6 +1843,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#replicated-data-types" class="md-nav__link">
+    Replicated Data Types
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#getting-your-pr-merged" class="md-nav__link">
     Getting your PR Merged
   </a>
@@ -2060,6 +2074,25 @@ contribution. See the <a href="https://github.com/kcp-dev/kcp/tree/main/DCO">DCO
 <h3 id="using-kubebuilder-crd-validation-annotations">Using Kubebuilder CRD Validation Annotations</h3>
 <p>All of the built-in types for <code>kcp</code> are <code>CustomResourceDefinitions</code>, and we generate YAML spec for them from our Go types using <a href="https://github.com/kubernetes-sigs/kubebuilder">kubebuilder</a>.</p>
 <p>When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. <a href="https://book.kubebuilder.io/reference/markers/crd-validation.html">This doc</a> gives an overview of possible validations. These annotations map directly to concepts in the <a href="https://swagger.io/specification/#data-type-format">OpenAPI Spec</a> so, for instance, the <code>format</code> of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project <a href="https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation">here</a> and extends more formats in the extensions-apiserver <a href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27">here</a>.</p>
+<h3 id="replicated-data-types">Replicated Data Types</h3>
+<p>Some objects are replicated and cached amongst shards when <code>kcp</code> is run in a sharded configuration. When writing code to list or get these objects, be sure to reference both shard-local and cache informers. To make this more convenient, wrap the look up in a function pointer.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewController</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nx">localAPIExportInformer</span><span class="p">,</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="w"> </span><span class="nx">apisinformers</span><span class="p">.</span><span class="nx">APIExportClusterInformer</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">controller</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">controller</span><span class="p">{</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nx">listAPIExports</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">clusterName</span><span class="w"> </span><span class="nx">logicalcluster</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="nx">apisv1apha1</span><span class="p">.</span><span class="nx">APIExport</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">localAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="p">}</span>
+</code></pre></div>
+<p>A full list of replicated resources is currently outlined in the <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/replication/replication_controller.go">replication controller</a>.</p>
 <h3 id="getting-your-pr-merged">Getting your PR Merged</h3>
 <p>The <code>kcp</code> project uses <code>OWNERS</code> files to denote the collaborators who can assist you in getting your PR merged.  There
 are two roles: reviewer and approver.  Merging a PR requires sign off from both a reviewer and an approver.</p>
@@ -2079,7 +2112,7 @@ other times, there is an actual bug in the main code. Regardless of the root cau
 as many flakes as possible.</p>
 <h3 id="unit-test-flakes">Unit test flakes</h3>
 <p>If you're trying to debug a unit test flake, you can try to do something like this:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./pkg/reconciler/apis/apibinding<span class="w"> </span>-run<span class="w"> </span>TestReconcileBinding<span class="w"> </span>-count<span class="w"> </span><span class="m">100</span><span class="w"> </span>-failfast
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./pkg/reconciler/apis/apibinding<span class="w"> </span>-run<span class="w"> </span>TestReconcileBinding<span class="w"> </span>-count<span class="w"> </span><span class="m">100</span><span class="w"> </span>-failfast
 </code></pre></div>
 <p>This tests one specific package, running only a single test case by name, 100 times in a row. It fails as soon as it
 encounters any failure. If this passes, it may still be possible there is a flake somewhere, so you may need to run
@@ -2101,10 +2134,10 @@ separate from the other kcp instance(s).</p>
 <p>You can use the same <code>run</code>, <code>-count</code>, and <code>-failfast</code> settings from the unit test section above for trying to reproduce
 e2e flakes locally. Additionally, if you would like to operate in mode 1 (all tests share a single kcp server), you can
 start a kcp instance locally in a separate terminal or tab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>bin/test-server
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>bin/test-server
 </code></pre></div>
 <p>Then, to have your test use that shared kcp server, you add <code>-args --use-default-kcp-server</code> to your <code>go test</code> run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./test/e2e/apibinding<span class="w"> </span>-count<span class="w"> </span><span class="m">20</span><span class="w"> </span>-failfast<span class="w"> </span>-args<span class="w"> </span>--use-default-kcp-server
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./test/e2e/apibinding<span class="w"> </span>-count<span class="w"> </span><span class="m">20</span><span class="w"> </span>-failfast<span class="w"> </span>-args<span class="w"> </span>--use-default-kcp-server
 </code></pre></div>
 <h2 id="community-roles">Community Roles</h2>
 <h3 id="reviewers">Reviewers</h3>
