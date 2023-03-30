@@ -323,11 +323,15 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 			labels[shared.TenantIDLabel] = desiredTenantID
 			unstrNamespace.SetLabels(labels)
 			_, err := namespaces.Update(ctx, unstrNamespace, metav1.UpdateOptions{})
-			return err
+
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	// Check the kcp tenant network policy exists
+
 	apiServerRule, err := shared.MakeAPIServerNetworkPolicyEgressRule(ctx, c.downstreamKubeClient)
 	if err != nil {
 		return err
@@ -335,24 +339,40 @@ func (c *Controller) ensureDownstreamObjectsExists(ctx context.Context, downstre
 
 	desiredNetworkPolicy := MakeTenantNetworkPolicy(downstreamNamespace, desiredTenantID, c.syncTargetKey, apiServerRule)
 
+	networkPolicyExist := true
 	networkPolicy, err := c.getNetworkPolicyLister().NetworkPolicies(downstreamNamespace).Get("kcp-tenant")
 	if apierrors.IsNotFound(err) {
-		networkPolicy, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Create(ctx, desiredNetworkPolicy, metav1.CreateOptions{})
+		_, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Create(ctx, desiredNetworkPolicy, metav1.CreateOptions{})
+		networkPolicyExist = false
 
 		if err == nil {
 			logger.Info("Created downstream tenant network policy")
 			return nil
 		}
+
+		if apierrors.IsAlreadyExists(err) {
+			// Get the latest version of the network policy
+			networkPolicy, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Get(ctx, "kcp-tenant", metav1.GetOptions{})
+			networkPolicyExist = true
+
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	if apierrors.IsAlreadyExists(err) && !equality.Semantic.DeepDerivative(desiredNetworkPolicy, networkPolicy) {
+	if networkPolicyExist && !equality.Semantic.DeepDerivative(desiredNetworkPolicy, networkPolicy) {
 		updatedNetworkPolicy := networkPolicy.DeepCopy()
 		updatedNetworkPolicy.Spec = desiredNetworkPolicy.Spec
 
 		_, err = c.downstreamKubeClient.NetworkingV1().NetworkPolicies(downstreamNamespace).Update(ctx, updatedNetworkPolicy, metav1.UpdateOptions{})
+
+		if err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 // TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic.

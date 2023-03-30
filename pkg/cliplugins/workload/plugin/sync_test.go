@@ -82,6 +82,8 @@ rules:
   - "create"
   - "list"
   - "watch"
+  - "get"
+  - "update"
 - apiGroups:
   - ""
   resources:
@@ -326,6 +328,8 @@ rules:
   - "create"
   - "list"
   - "watch"
+  - "get"
+  - "update"
 - apiGroups:
   - ""
   resources:
