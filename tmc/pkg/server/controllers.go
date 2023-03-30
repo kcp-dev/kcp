@@ -224,7 +224,9 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 		kcpClusterClient,
 		s.Core.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.Core.CacheKcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.Core.CacheKcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 		s.Core.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
