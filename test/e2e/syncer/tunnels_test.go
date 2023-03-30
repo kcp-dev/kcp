@@ -379,13 +379,12 @@ func TestSyncerTunnelFilter(t *testing.T) {
 
 	// Create a pod on the upstream namespace that looks like the downstream pod being upsynced.
 	upsyncerVirtualWorkspaceConfig := rest.CopyConfig(kcpServer.BaseConfig(t))
-	var upsyncerVirtualWorkspaceURL string
-	framework.Eventually(t, func() (found bool, message string) {
-		upsyncerVirtualWorkspaceURL, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
+	framework.Eventually(t, func() (found bool, _ string) {
+		var err error
+		upsyncerVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
 		require.NoError(t, err)
 		return found, "Upsyncer virtual workspace URL not found"
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
-	upsyncerVirtualWorkspaceConfig.Host = upsyncerVirtualWorkspaceURL
 	upsyncedClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
 
