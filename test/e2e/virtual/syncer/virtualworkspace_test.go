@@ -279,7 +279,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				rootComputeLogicalCluster := logicalcluster.From(export)
 
 				kubelikeVWDiscoverConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					kubelikeVWDiscoverConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, kubelikeLocationWorkspace, kubelikeSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -300,7 +301,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				wildwestVWDiscoverConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWDiscoverConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -405,7 +407,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
 
 				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -533,7 +536,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -691,7 +695,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -934,7 +939,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				wildwestNorthVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestNorthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestNorthSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -943,7 +949,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				wildwestSouthVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestSouthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSouthSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -1157,7 +1164,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				wildwestNorthVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestNorthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestNorthSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -1165,7 +1173,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthVWConfig)
 				require.NoError(t, err)
 				wildwestSouthVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestSouthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSouthSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -1441,7 +1450,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Len(t, kcpCowboys.Items, 1)
 
 				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -1547,7 +1557,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Syncer virtual workspace URL not found"
@@ -1688,7 +1699,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -1738,7 +1750,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -1791,7 +1804,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -1843,7 +1857,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -1885,7 +1900,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -1944,7 +1960,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -2006,7 +2023,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-				framework.Eventually(t, func() (found bool, message string) {
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
 					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
 					require.NoError(t, err)
 					return found, "Upsyncer virtual workspace URL not found"
@@ -2096,7 +2114,8 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
-			framework.Eventually(t, func() (found bool, message string) {
+			framework.Eventually(t, func() (found bool, _ string) {
+				var err error
 				upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, upsyncerWS, upsyncer.GetUpsyncerVirtualWorkspaceURLs())
 				require.NoError(t, err)
 				return found, "Upsyncer virtual workspace URL not found"

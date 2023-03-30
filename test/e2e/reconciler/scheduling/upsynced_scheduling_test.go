@@ -125,13 +125,12 @@ func TestUpsyncedScheduling(t *testing.T) {
 
 	// Create a client that uses the upsyncer URL
 	upsyncerVirtualWorkspaceConfig := rest.CopyConfig(upstreamConfig)
-	var upsyncerVirtualWorkspaceURL string
-	framework.Eventually(t, func() (found bool, message string) {
-		upsyncerVirtualWorkspaceURL, found, err = framework.VirtualWorkspaceURL(ctx, upstreamKcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
+	framework.Eventually(t, func() (found bool, _ string) {
+		var err error
+		upsyncerVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, upstreamKcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
 		require.NoError(t, err)
 		return found, "Upsyncer virtual workspace URL not found"
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
-	upsyncerVirtualWorkspaceConfig.Host = upsyncerVirtualWorkspaceURL
 	upsyncerKCPClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
 
