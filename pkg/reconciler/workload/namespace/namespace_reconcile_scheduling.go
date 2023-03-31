@@ -18,16 +18,12 @@ package namespace
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -37,20 +33,14 @@ import (
 
 const removingGracePeriod = 5 * time.Second
 
-// placementSchedulingReconciler reconciles the state.workload.kcp.io/<syncTarget> labels according the
+// reconcileScheduling reconciles the state.workload.kcp.io/<syncTarget> labels according the
 // selected synctarget stored in the internal.workload.kcp.io/synctarget annotation
 // on each placement.
-type placementSchedulingReconciler struct {
-	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
-
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
-
-	enqueueAfter func(*corev1.Namespace, time.Duration)
-
-	now func() time.Time
-}
-
-func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
+func (c *controller) reconcileScheduling(
+	ctx context.Context,
+	_ string,
+	ns *corev1.Namespace,
+) (reconcileResult, error) {
 	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.From(ns)
 
@@ -58,9 +48,9 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	_, foundPlacement := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
 
 	if foundPlacement {
-		placements, err := r.listPlacement(clusterName)
+		placements, err := c.listPlacements(clusterName)
 		if err != nil {
-			return reconcileStatusStop, ns, err
+			return reconcileResult{}, err
 		}
 
 		validPlacements = filterValidPlacements(ns, placements)
@@ -77,92 +67,73 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	}
 
 	// 2. find the scheduled synctarget to the ns, including synced, removing
-	synced, removing := syncedRemovingCluster(ns)
+	syncStatus := syncStatusFor(ns)
 
 	// 3. if the synced synctarget is not in the scheduled synctargets, mark it as removing.
-	expectedAnnotations := map[string]interface{}{} // nil means to remove the key
-	expectedLabels := map[string]interface{}{}      // nil means to remove the key
+	changed := false
+	annotations := ns.Annotations
+	labels := ns.Labels
 
-	for syncTarget := range synced {
+	for syncTarget := range syncStatus.active {
 		if !scheduledSyncTargets.Has(syncTarget) {
 			// it is no longer a synced synctarget, mark it as removing.
-			now := r.now().UTC().Format(time.RFC3339)
-			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget] = now
+			now := c.now().UTC().Format(time.RFC3339)
+			annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget] = now
+			changed = true
 			logger.WithValues("syncTarget", syncTarget).V(4).Info("setting SyncTarget as removing for Namespace since it is not a valid syncTarget anymore")
 		}
 	}
 
 	// 4. remove the synctarget after grace period
 	minEnqueueDuration := removingGracePeriod + 1
-	for cluster, removingTime := range removing {
-		if removingTime.Add(removingGracePeriod).Before(r.now()) {
-			expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster] = nil
-			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = nil
+	for cluster, removingTime := range syncStatus.pendingRemoval {
+		if removingTime.Add(removingGracePeriod).Before(c.now()) {
+			delete(labels, workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster)
+			delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster)
+			changed = true
 			logger.WithValues("syncTarget", cluster).V(4).Info("removing SyncTarget for Namespace")
 		} else {
-			enqueuDuration := time.Until(removingTime.Add(removingGracePeriod))
-			if enqueuDuration < minEnqueueDuration {
-				minEnqueueDuration = enqueuDuration
+			enqueueDuration := time.Until(removingTime.Add(removingGracePeriod))
+			if enqueueDuration < minEnqueueDuration {
+				minEnqueueDuration = enqueueDuration
 			}
 		}
 	}
 
 	// 5. if a scheduled synctarget is not in synced and removing, add it in to the label
 	for scheduledSyncTarget := range scheduledSyncTargets {
-		if synced.Has(scheduledSyncTarget) {
+		if syncStatus.active.Has(scheduledSyncTarget) {
 			continue
 		}
-		if _, ok := removing[scheduledSyncTarget]; ok {
+		if _, ok := syncStatus.pendingRemoval[scheduledSyncTarget]; ok {
 			continue
 		}
 
-		expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+scheduledSyncTarget] = string(workloadv1alpha1.ResourceStateSync)
+		if labels == nil {
+			labels = make(map[string]string)
+			ns.Labels = labels
+		}
+		labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+scheduledSyncTarget] = string(workloadv1alpha1.ResourceStateSync)
+		changed = true
 		logger.WithValues("syncTarget", scheduledSyncTarget).V(4).Info("setting syncTarget as sync for Namespace")
 	}
 
-	if len(expectedLabels) > 0 || len(expectedAnnotations) > 0 {
-		ns, err := r.patchNamespaceLabelAnnotation(ctx, clusterName.Path(), ns, expectedLabels, expectedAnnotations)
-		return reconcileStatusContinue, ns, err
-	}
-
 	// 6. Requeue at last to check if removing syncTarget should be removed later.
+	var requeueAfter time.Duration
 	if minEnqueueDuration <= removingGracePeriod {
 		logger.WithValues("after", minEnqueueDuration).V(2).Info("enqueue Namespace later")
-		r.enqueueAfter(ns, minEnqueueDuration)
+		requeueAfter = minEnqueueDuration
 	}
 
-	return reconcileStatusContinue, ns, nil
+	return reconcileResult{stop: changed, requeueAfter: requeueAfter}, nil
 }
 
-func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace, labels, annotations map[string]interface{}) (*corev1.Namespace, error) {
-	logger := klog.FromContext(ctx)
-	patch := map[string]interface{}{}
-	if len(annotations) > 0 {
-		if err := unstructured.SetNestedField(patch, annotations, "metadata", "annotations"); err != nil {
-			return ns, err
-		}
+func syncStatusFor(ns *corev1.Namespace) namespaceSyncStatus {
+	status := namespaceSyncStatus{
+		active:         sets.NewString(),
+		pendingRemoval: make(map[string]time.Time),
 	}
-	if len(labels) > 0 {
-		if err := unstructured.SetNestedField(patch, labels, "metadata", "labels"); err != nil {
-			return ns, err
-		}
-	}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return ns, err
-	}
-	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Namespace to update SyncTarget information")
-	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return ns, err
-	}
-	return updated, nil
-}
 
-// syncedRemovingCluster finds synced and removing clusters for this ns.
-func syncedRemovingCluster(ns *corev1.Namespace) (sets.String, map[string]time.Time) {
-	synced := sets.NewString()
-	removing := map[string]time.Time{}
 	for k := range ns.Labels {
 		if !strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
 			continue
@@ -174,12 +145,17 @@ func syncedRemovingCluster(ns *corev1.Namespace) (sets.String, map[string]time.T
 
 		if value, ok := ns.Annotations[deletionAnnotationKey]; ok {
 			removingTime, _ := time.Parse(time.RFC3339, value)
-			removing[syncTarget] = removingTime
+			status.pendingRemoval[syncTarget] = removingTime
 			continue
 		}
 
-		synced.Insert(syncTarget)
+		status.active.Insert(syncTarget)
 	}
 
-	return synced, removing
+	return status
+}
+
+type namespaceSyncStatus struct {
+	active         sets.String
+	pendingRemoval map[string]time.Time
 }

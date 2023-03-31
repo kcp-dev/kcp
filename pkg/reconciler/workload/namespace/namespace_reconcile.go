@@ -20,60 +20,37 @@ import (
 	"context"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	utilserrors "k8s.io/apimachinery/pkg/util/errors"
-
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 )
 
-type reconcileStatus int
-
-const (
-	reconcileStatusStop reconcileStatus = iota
-	reconcileStatusContinue
-)
-
-type reconciler interface {
-	reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error)
+type reconcileResult struct {
+	stop         bool
+	requeueAfter time.Duration
 }
 
-func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error {
-	reconcilers := []reconciler{
-		&bindNamespaceReconciler{
-			listPlacement:  c.listPlacement,
-			patchNamespace: c.patchNamespace,
-		},
-		&placementSchedulingReconciler{
-			listPlacement:  c.listPlacement,
-			enqueueAfter:   c.enqueueAfter,
-			patchNamespace: c.patchNamespace,
-			now:            time.Now,
-		},
-		&statusConditionReconciler{
-			patchNamespace: c.patchNamespace,
-		},
-	}
+type reconcileFunc func(ctx context.Context, key string, ns *corev1.Namespace) (reconcileResult, error)
 
-	var errs []error
+func (c *controller) reconcile(ctx context.Context, key string, ns *corev1.Namespace) error {
+	reconcilers := []reconcileFunc{
+		c.reconcilePlacementBind,
+		c.reconcileScheduling,
+		c.reconcileStatus,
+	}
 
 	for _, r := range reconcilers {
-		var err error
-		var status reconcileStatus
-		status, ns, err = r.reconcile(ctx, ns)
+		result, err := r(ctx, key, ns)
 		if err != nil {
-			errs = append(errs, err)
+			return err
 		}
-		if status == reconcileStatusStop {
+
+		if result.stop {
 			break
+		}
+
+		if result.requeueAfter > 0 {
+			c.queue.AddAfter(key, result.requeueAfter)
 		}
 	}
 
-	return utilserrors.NewAggregate(errs)
-}
-
-func (c *controller) listPlacement(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
-	return c.placementLister.Cluster(clusterName).List(labels.Everything())
+	return nil
 }

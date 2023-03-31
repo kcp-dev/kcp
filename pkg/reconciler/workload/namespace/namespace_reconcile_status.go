@@ -18,17 +18,8 @@ package namespace
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -51,59 +42,29 @@ const (
 	NamespaceReasonPlacementInvalid = "PlacementInvalid"
 )
 
-// statusReconciler updates conditions on the namespace.
-type statusConditionReconciler struct {
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
-}
-
-// ensureScheduledStatus ensures the status of the given namespace reflects the
+// reconcileStatus ensures the status of the given namespace reflects the
 // namespace's scheduled state.
-func (r *statusConditionReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
-	logger := klog.FromContext(ctx)
-	updatedNs := setScheduledCondition(ns)
+func (c *controller) reconcileStatus(_ context.Context, _ string, ns *corev1.Namespace) (reconcileResult, error) {
+	conditionsAdapter := &NamespaceConditionsAdapter{ns}
 
-	if equality.Semantic.DeepEqual(ns.Status, updatedNs.Status) {
-		return reconcileStatusContinue, ns, nil
+	_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
+	if !found {
+		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
+			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+			"No available placements")
+		return reconcileResult{}, nil
 	}
 
-	patchBytes, err := statusPatchBytes(ns, updatedNs)
-	if err != nil {
-		return reconcileStatusStop, ns, err
-	}
-	logger.WithValues("patch", string(patchBytes)).V(2).Info("updating status for namespace")
-	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns).Path(), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-	if err != nil {
-		return reconcileStatusStop, ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)
+	syncStatus := syncStatusFor(ns)
+	if len(syncStatus.active) == 0 {
+		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
+			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
+			"No available sync targets")
+		return reconcileResult{}, nil
 	}
 
-	return reconcileStatusContinue, patchedNamespace, nil
-}
-
-// statusPatchBytes returns the bytes required to patch status for the provided namespace from its old to new state.
-func statusPatchBytes(old, new *corev1.Namespace) ([]byte, error) {
-	oldData, err := json.Marshal(corev1.Namespace{
-		Status: old.Status,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing status for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
-	}
-
-	newData, err := json.Marshal(corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:             new.UID,
-			ResourceVersion: new.ResourceVersion,
-		}, // to ensure they appear in the patch as preconditions
-		Status: new.Status,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal new status for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create status patch for namespace %s|%s: %w", logicalcluster.From(new), new.Name, err)
-	}
-	return patchBytes, nil
+	conditions.MarkTrue(conditionsAdapter, NamespaceScheduled)
+	return reconcileResult{}, nil
 }
 
 // NamespaceConditionsAdapter enables the use of the conditions helper
@@ -141,28 +102,4 @@ func (ca *NamespaceConditionsAdapter) SetConditions(conditions conditionsv1alpha
 		})
 	}
 	ca.Status.Conditions = nsConditions
-}
-
-func setScheduledCondition(ns *corev1.Namespace) *corev1.Namespace {
-	updatedNs := ns.DeepCopy()
-	conditionsAdapter := &NamespaceConditionsAdapter{updatedNs}
-
-	_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
-	if !found {
-		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
-			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
-			"No available placements")
-		return updatedNs
-	}
-
-	synced, _ := syncedRemovingCluster(ns)
-	if len(synced) == 0 {
-		conditions.MarkFalse(conditionsAdapter, NamespaceScheduled, NamespaceReasonUnschedulable,
-			conditionsv1alpha1.ConditionSeverityNone, // NamespaceCondition doesn't support severity
-			"No available sync targets")
-		return updatedNs
-	}
-
-	conditions.MarkTrue(conditionsAdapter, NamespaceScheduled)
-	return updatedNs
 }

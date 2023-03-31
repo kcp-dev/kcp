@@ -18,16 +18,13 @@ package namespace
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -44,7 +41,7 @@ func TestBindPlacement(t *testing.T) {
 		namespaceSelector *metav1.LabelSelector
 
 		expectedAnnotation map[string]string
-		wantPatch          bool
+		expectStop         bool
 	}{
 		{
 			name:           "placement is pending",
@@ -72,7 +69,7 @@ func TestBindPlacement(t *testing.T) {
 			placementPhase:    schedulingv1alpha1.PlacementBound,
 			isReady:           true,
 			namespaceSelector: &metav1.LabelSelector{},
-			wantPatch:         true,
+			expectStop:        true,
 			expectedAnnotation: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -85,7 +82,6 @@ func TestBindPlacement(t *testing.T) {
 			},
 			isReady:           true,
 			namespaceSelector: &metav1.LabelSelector{},
-			wantPatch:         false,
 			expectedAnnotation: map[string]string{
 				schedulingv1alpha1.PlacementAnnotationKey: "",
 			},
@@ -98,7 +94,7 @@ func TestBindPlacement(t *testing.T) {
 			},
 			isReady:            false,
 			namespaceSelector:  &metav1.LabelSelector{},
-			wantPatch:          true,
+			expectStop:         true,
 			expectedAnnotation: map[string]string{},
 		},
 	}
@@ -135,36 +131,15 @@ func TestBindPlacement(t *testing.T) {
 				return []*schedulingv1alpha1.Placement{testPlacement}, nil
 			}
 
-			var patched bool
-			reconciler := &bindNamespaceReconciler{
-				listPlacement:  listPlacement,
-				patchNamespace: patchNamespaceFunc(&patched, ns),
+			c := &controller{
+				listPlacements: listPlacement,
 			}
 
-			_, updated, err := reconciler.reconcile(context.TODO(), ns)
+			result, err := c.reconcilePlacementBind(context.Background(), "key", ns)
 			require.NoError(t, err)
-			require.Equal(t, testCase.wantPatch, patched)
-			require.Equal(t, testCase.expectedAnnotation, updated.Annotations)
+			require.Equal(t, testCase.expectedAnnotation, ns.Annotations)
+			require.Equal(t, testCase.expectStop, result.stop)
+			require.Zero(t, result.requeueAfter)
 		})
-	}
-}
-
-func patchNamespaceFunc(patched *bool, ns *corev1.Namespace) func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
-	return func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
-		*patched = true
-
-		nsData, _ := json.Marshal(ns)
-		updatedData, err := jsonpatch.MergePatch(nsData, data)
-		if err != nil {
-			return nil, err
-		}
-
-		var patchedNS corev1.Namespace
-		err = json.Unmarshal(updatedData, &patchedNS)
-		if err != nil {
-			return ns, err
-		}
-
-		return &patchedNS, nil
 	}
 }
