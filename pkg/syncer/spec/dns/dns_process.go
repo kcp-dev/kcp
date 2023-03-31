@@ -33,6 +33,7 @@ import (
 	listersrbacv1 "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -135,8 +136,11 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator
 	if err := d.processService(ctx, dnsID); err != nil {
 		return false, err
 	}
-	if err := d.processNetworkPolicy(ctx, dnsID, namespaceLocator); err != nil {
-		return false, err
+
+	if features.DefaultFeatureGate.Enabled(features.SyncerNetworkPolicies) {
+		if err := d.processNetworkPolicy(ctx, dnsID, namespaceLocator); err != nil {
+			return false, err
+		}
 	}
 
 	// Since the Endpoints resource was not found, the DNS is not yet ready,
