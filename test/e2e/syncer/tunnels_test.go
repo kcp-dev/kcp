@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -377,7 +378,14 @@ func TestSyncerTunnelFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a pod on the upstream namespace that looks like the downstream pod being upsynced.
-	upsyncedClient, err := kcpkubernetesclientset.NewForConfig(syncerFixture.UpsyncerVirtualWorkspaceConfig)
+	upsyncerVirtualWorkspaceConfig := rest.CopyConfig(kcpServer.BaseConfig(t))
+	framework.Eventually(t, func() (found bool, _ string) {
+		var err error
+		upsyncerVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
+		require.NoError(t, err)
+		return found, "Upsyncer virtual workspace URL not found"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+	upsyncedClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
 
 	upsyncedPod, err := upsyncedClient.CoreV1().Pods().Cluster(userWsName.Path()).Namespace(upstreamNs.Name).Create(ctx, &corev1.Pod{

@@ -121,7 +121,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 
 	t.Logf("Bind to location workspace")
 	framework.NewBindCompute(t, computePath, source,
-		framework.WithAPIExportsWorkloadBindOption("kubernetes"),
+		framework.WithAPIExportsWorkloadBindOption(workloadv1alpha1.ImportedAPISExportName),
 	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")

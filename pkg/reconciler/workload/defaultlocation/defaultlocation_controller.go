@@ -18,7 +18,6 @@ package apiexport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,9 +26,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -37,21 +34,17 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
-	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/scheduling/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/workload/v1alpha1"
 )
 
 const (
-	ControllerName = "kcp-workload-apiexport-create"
+	ControllerName = "kcp-workload-default-location"
 
 	DefaultLocationName = "default"
 )
@@ -60,8 +53,6 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -78,31 +69,9 @@ func NewController(
 		},
 
 		kcpClusterClient: kcpClusterClient,
-
-		apiExportsLister: apiExportInformer.Lister(),
-		apiBindingLister: apiBindingInformer.Lister(),
 		syncTargetLister: syncTargetInformer.Lister(),
 		locationLister:   locationInformer.Lister(),
 	}
-
-	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			switch t := obj.(type) {
-			case *apisv1alpha1.APIExport:
-				return t.Name == reconcilerapiexport.TemporaryComputeServiceExportName
-			}
-			return false
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
-		},
-	})
-
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
-	})
 
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
@@ -134,8 +103,6 @@ type controller struct {
 	kcpClusterClient kcpclientset.ClusterInterface
 
 	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
-	apiExportsLister apisv1alpha1listers.APIExportClusterLister
-	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
 	locationLister   schedulingv1alpha1listers.LocationClusterLister
 }
 
@@ -222,34 +189,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	// check that export exists, and create it if not
-	export, err := c.apiExportsLister.Cluster(clusterName).Get(reconcilerapiexport.TemporaryComputeServiceExportName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	} else if apierrors.IsNotFound(err) {
-		export = &apisv1alpha1.APIExport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: reconcilerapiexport.TemporaryComputeServiceExportName,
-				Annotations: map[string]string{
-					logicalcluster.AnnotationKey:                   clusterName.String(),
-					workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
-				},
-			},
-			Spec: apisv1alpha1.APIExportSpec{},
-		}
-		logger = logging.WithObject(logger, export)
-		logger.Info("creating APIExport")
-		export, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			logger.Error(err, "failed to create APIExport")
-			return err
-		}
-	}
-
-	if value, found := export.Annotations[workloadv1alpha1.AnnotationSkipDefaultObjectCreation]; found && value == "true" {
-		return nil
-	}
-
 	// check that location exists, and create it if not
 	_, err = c.locationLister.Cluster(clusterName).Get(DefaultLocationName)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -278,66 +217,5 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 	}
 
-	// check that binding exists, and create it if not
-	bindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "failed to list APIBindings")
-		return err
-	}
-	for _, binding := range bindings {
-		if binding.Spec.Reference.Export == nil {
-			continue
-		}
-		if binding.Spec.Reference.Export.Path != "" {
-			continue
-		}
-		if binding.Spec.Reference.Export.Name != reconcilerapiexport.TemporaryComputeServiceExportName {
-			continue
-		}
-		logging.WithObject(logger, binding).V(3).Info("APIBinding found pointing to APIExport")
-		return nil // binding found
-	}
-
-	// bind to local export
-	binding := &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: reconcilerapiexport.TemporaryComputeServiceExportName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey:                   clusterName.String(),
-				workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
-			},
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
-					Name: reconcilerapiexport.TemporaryComputeServiceExportName,
-				},
-			},
-		},
-	}
-	logger = logging.WithObject(logger, binding)
-	logger.V(2).Info("creating APIBinding")
-	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		logger.Error(err, "failed to create APIBinding")
-		return err
-	}
-
-	// patch the apiexport, so we do not create the location/apibinding again even if it is deleted.
-	exportPatch := map[string]interface{}{}
-	expectedAnnotations := map[string]interface{}{
-		workloadv1alpha1.AnnotationSkipDefaultObjectCreation: "true",
-	}
-	if err := unstructured.SetNestedField(exportPatch, expectedAnnotations, "metadata", "annotations"); err != nil {
-		return err
-	}
-	patchData, err := json.Marshal(exportPatch)
-	if err != nil {
-		return err
-	}
-
-	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIExport")
-	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
-	return err
+	return nil
 }

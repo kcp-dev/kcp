@@ -129,7 +129,7 @@ func TestSchedulingReconcile(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+			listSyncTargets := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
 			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
@@ -158,7 +158,7 @@ func TestSchedulingReconcile(t *testing.T) {
 				return testCase.apiBindings, nil
 			}
 			reconciler := &placementSchedulingReconciler{
-				listSyncTarget:          listSyncTarget,
+				listSyncTargets:         listSyncTargets,
 				getLocation:             getLocation,
 				patchPlacement:          patchPlacement,
 				listWorkloadAPIBindings: listWorkloadAPIBindings,
@@ -235,7 +235,7 @@ func TestReconcileStatusConditions(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+			listSyncTargets := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
 			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
@@ -262,7 +262,7 @@ func TestReconcileStatusConditions(t *testing.T) {
 				return testCase.apiBindings, nil
 			}
 			reconciler := &placementSchedulingReconciler{
-				listSyncTarget:          listSyncTarget,
+				listSyncTargets:         listSyncTargets,
 				getLocation:             getLocation,
 				patchPlacement:          patchPlacement,
 				listWorkloadAPIBindings: listWorkloadAPIBindings,

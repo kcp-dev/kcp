@@ -19,7 +19,6 @@ package apireconciler
 import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/client"
@@ -41,10 +40,6 @@ func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 	syncTarget := obj.(*workloadv1alpha1.SyncTarget)
 
 	clusterName := logicalcluster.From(syncTarget)
-	if len(syncTarget.Spec.SupportedAPIExports) == 0 {
-		return []string{client.ToClusterAwareKey(clusterName.Path(), reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
-	}
-
 	keys := make([]string, 0, len(syncTarget.Spec.SupportedAPIExports))
 	for _, export := range syncTarget.Spec.SupportedAPIExports {
 		path := export.Path

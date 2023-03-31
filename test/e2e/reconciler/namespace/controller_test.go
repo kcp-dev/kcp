@@ -93,29 +93,11 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat")
 				// Create the SyncTarget and start both the Syncer APIImporter and Syncer HeartBeat against a workload cluster
 				// so that there's a ready cluster to schedule to.
-				syncerFixture := framework.NewSyncerFixture(t, server, server.path,
-					framework.WithExtraResources("services"),
-				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
+				syncerFixture := framework.NewSyncerFixture(t, server, server.path).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
 				framework.NewBindCompute(t, server.path, server).Bind(t)
-
-				t.Log("Wait for \"kubernetes\" apiexport")
-				require.Eventually(t, func() bool {
-					_, err := server.kcpClient.ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
-					return err == nil
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-				t.Log("Wait for \"kubernetes\" apibinding that is bound")
-				require.Eventually(t, func() bool {
-					binding, err := server.kcpClient.ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
-					if err != nil {
-						t.Log(err)
-						return false
-					}
-					return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncTargetClusterName, syncerFixture.SyncerConfig.SyncTargetName)
 
 				t.Log("Wait until the namespace is scheduled to the workload cluster")
@@ -167,7 +149,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					Spec: workloadv1alpha1.SyncTargetSpec{
 						SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 							{
-								Export: "kubernetes",
+								Export: workloadv1alpha1.ImportedAPISExportName,
 								Path:   server.path.String(),
 							},
 						},
@@ -175,6 +157,14 @@ func TestNamespaceScheduler(t *testing.T) {
 				}
 				cluster, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx, cluster, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster")
+
+				apiExport := &apisv1alpha1.APIExport{
+					ObjectMeta: metav1.ObjectMeta{Name: workloadv1alpha1.ImportedAPISExportName},
+					Spec:       apisv1alpha1.APIExportSpec{},
+				}
+				_, err = server.kcpClient.ApisV1alpha1().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create APIExport")
+
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(cluster), cluster.Name)
 
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
@@ -190,7 +180,7 @@ func TestNamespaceScheduler(t *testing.T) {
 
 				t.Logf("Bind to location workspace")
 				framework.NewBindCompute(t, server.path, server,
-					framework.WithAPIExportsWorkloadBindOption(server.path.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(workloadv1alpha1.ImportedAPISExportName),
 				).Bind(t)
 
 				t.Log("Create a new unique sheriff CRD")

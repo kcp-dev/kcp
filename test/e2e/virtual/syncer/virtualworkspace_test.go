@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/config/rootcompute"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -211,6 +212,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err)
+	kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
+	require.NoError(t, err)
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err)
 
@@ -222,6 +225,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			name: "isolated API domains per syncer",
 			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				t.Helper()
+
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
 				kubelikeLocationWorkspacePath, kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"), framework.TODO_WithoutMultiShardSupport())
 				kubelikeLocationWorkspaceClusterName := logicalcluster.Name(kubelikeLocationWorkspace.Spec.Cluster)
 				logWithTimestampf(t, "Deploying syncer into workspace %s", kubelikeLocationWorkspacePath)
@@ -265,16 +272,21 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}),
 				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
-				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncer.SyncerVirtualWorkspaceConfig)
-				require.NoError(t, err)
-
 				// We need to get a resource in the "root:compute" cluster to get the logical cluster name, in this case we use the
 				// kubernetes APIExport, as we know that it exists.
-				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
-				require.NoError(t, err)
 				export, err := kcpClusterClient.Cluster(rootcompute.RootComputeClusterName).ApisV1alpha1().APIExports().Get(context.Background(), "kubernetes", metav1.GetOptions{})
 				require.NoError(t, err)
 				rootComputeLogicalCluster := logicalcluster.From(export)
+
+				kubelikeVWDiscoverConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					kubelikeVWDiscoverConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, kubelikeLocationWorkspace, kubelikeSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeVWDiscoverConfig)
+				require.NoError(t, err)
 
 				logWithTimestampf(t, "Check discovery in kubelike virtual workspace")
 				framework.Eventually(t, func() (bool, string) {
@@ -288,8 +300,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return len(diff) == 0, diff
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+				wildwestVWDiscoverConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWDiscoverConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				wildwestVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(wildwestVWDiscoverConfig)
+
 				logWithTimestampf(t, "Check discovery in wildwest virtual workspace")
-				wildwestVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(wildwestSyncer.SyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 				framework.Eventually(t, func() (bool, string) {
 					_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.ServerGroupsAndResources()
@@ -335,7 +355,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				wildwestLocationPath, _ := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
+				wildwestLocationPath, wildwestLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("wildwest-locations"), framework.TODO_WithoutMultiShardSupport())
 				logWithTimestampf(t, "Deploying syncer into workspace %s", wildwestLocationPath)
 
 				wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestLocationPath,
@@ -352,6 +372,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					}),
 				).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
+
+				logWithTimestampf(t, "Bind wildwest location workspace to itself")
+				framework.NewBindCompute(t, wildwestLocationPath, server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
+				).Bind(t)
 
 				logWithTimestampf(t, "Create two service accounts")
 				_, err := kubeClusterClient.Cluster(wildwestLocationPath).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
@@ -381,9 +406,16 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return token1 != "" && token2 != "", fmt.Sprintf("token1=%q - token2=%q", token1, token2)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
 
-				configUser1 := framework.ConfigWithToken(token1, wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
 
-				configUser2 := framework.ConfigWithToken(token2, wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				configUser1 := framework.ConfigWithToken(token1, wildwestVWConfig)
+				configUser2 := framework.ConfigWithToken(token2, wildwestVWConfig)
 
 				vwClusterClientUser1, err := wildwestclientset.NewForConfig(configUser1)
 				require.NoError(t, err)
@@ -475,7 +507,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind wildwest location workspace to itself")
 				framework.NewBindCompute(t, wildwestLocationPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join("kubernetes").String()),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
@@ -503,7 +535,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, wildwestLocationWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Verify there is one cowboy via direct access")
@@ -626,7 +665,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -655,7 +694,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Verify there is one cowboy via direct access")
@@ -849,7 +895,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create 2 placements, one for each SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -860,7 +906,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -892,10 +938,24 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestNorthVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestNorthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestNorthSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthVWConfig)
 				require.NoError(t, err)
 
-				vwSouthClusterClient, err := wildwestclientset.NewForConfig(wildwestSouthSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestSouthVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestSouthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSouthSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwSouthClusterClient, err := wildwestclientset.NewForConfig(wildwestSouthVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Verify there is one cowboy via direct access")
@@ -1085,7 +1145,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create the north placement, for the north SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("north"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1103,9 +1163,23 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestNorthVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestNorthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestNorthSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwNorthClusterClient, err := wildwestclientset.NewForConfig(wildwestNorthVWConfig)
 				require.NoError(t, err)
-				vwSouthClusterClient, err := wildwestclientset.NewForConfig(wildwestSouthSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestSouthVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestSouthVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSouthSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwSouthClusterClient, err := wildwestclientset.NewForConfig(wildwestSouthVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait until the north virtual workspace has the resource type")
@@ -1193,7 +1267,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				logWithTimestampf(t, "Create the south placement, for the south SyncTarget")
 				framework.NewBindCompute(t, consumerPath, server,
 					framework.WithPlacementNameBindOption("south"),
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 					framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -1338,7 +1412,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join("kubernetes").String()),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -1375,7 +1449,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, kcpCowboys.Items, 1)
 
-				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Wait until the virtual workspace has the resource")
@@ -1446,7 +1527,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestampf(t, "Bind consumer workspace to wildwest location workspace")
 				framework.NewBindCompute(t, consumerPath, server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationPath),
 				).Bind(t)
 
@@ -1475,7 +1556,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncer.SyncerVirtualWorkspaceConfig)
+				wildwestVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					wildwestVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, wildwestSyncer.GetSyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Syncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Syncer virtual workspace URL not found")
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Verify there is one cowboy via direct access")
@@ -1595,19 +1683,29 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err)
 
+	kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
+	require.NoError(t, err)
+
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string)
+		work func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string)
 	}{
 		{
 			name: "list kcp resources through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				pv := &corev1.PersistentVolume{
@@ -1645,13 +1743,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				pv := &corev1.PersistentVolume{
@@ -1692,13 +1797,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace with a resource transformation",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				pv := &corev1.PersistentVolume{
@@ -1738,13 +1850,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "try to create a persistentvolume in kcp through upsyncer virtual workspace, without the statelabel set to Upsync, should fail",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				pv := &corev1.PersistentVolume{
@@ -1774,13 +1893,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Creating a persistentvolume in the kubelike source cluster...")
@@ -1827,13 +1953,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace, try to remove the upsync state label, expect error.",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Creating a persistentvolume in the kubelike source cluster...")
@@ -1883,13 +2016,20 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Delete a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, path logicalcluster.Path, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, clusterName logicalcluster.Name, ws *tenancyv1alpha1.Workspace, path logicalcluster.Path, syncTargetKey string) {
 				t.Helper()
 
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(syncer.UpsyncerVirtualWorkspaceConfig)
+				upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+				framework.Eventually(t, func() (found bool, _ string) {
+					var err error
+					upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, ws, syncer.GetUpsyncerVirtualWorkspaceURLs())
+					require.NoError(t, err)
+					return found, "Upsyncer virtual workspace URL not found"
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 				require.NoError(t, err)
 
 				logWithTimestampf(t, "Creating a persistentvolume in the kubelike source cluster...")
@@ -1961,7 +2101,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 			logWithTimestampf(t, "Bind upsyncer workspace")
 			framework.NewBindCompute(t, upsyncerPath, server,
-				framework.WithAPIExportsWorkloadBindOption(upsyncerPath.Join("kubernetes").String()),
+				framework.WithAPIExportsWorkloadBindOption(upsyncerPath.Join(workloadv1alpha1.ImportedAPISExportName).String()),
 			).Bind(t)
 
 			logWithTimestampf(t, "Waiting for the persistentvolumes crd to be imported and available in the upsyncer source cluster...")
@@ -1973,7 +2113,14 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				return true, ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-			kubelikeUpsyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncer.UpsyncerVirtualWorkspaceConfig)
+			upsyncerVWConfig := rest.CopyConfig(server.BaseConfig(t))
+			framework.Eventually(t, func() (found bool, _ string) {
+				var err error
+				upsyncerVWConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, upsyncerWS, upsyncer.GetUpsyncerVirtualWorkspaceURLs())
+				require.NoError(t, err)
+				return found, "Upsyncer virtual workspace URL not found"
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+			kubelikeUpsyncerVWClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVWConfig)
 			require.NoError(t, err)
 
 			logWithTimestampf(t, "Waiting for the persistentvolumes to be available in the upsyncer virtual workspace...")
@@ -1988,7 +2135,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			syncTargetKey := upsyncer.ToSyncTargetKey()
 
 			logWithTimestampf(t, "Starting test...")
-			testCase.work(t, upsyncer, upsyncerClusterName, upsyncerPath, syncTargetKey)
+			testCase.work(t, upsyncer, upsyncerClusterName, upsyncerWS, upsyncerPath, syncTargetKey)
 		})
 	}
 }

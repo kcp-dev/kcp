@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -67,14 +68,13 @@ func TestUpsyncedScheduling(t *testing.T) {
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, synctargetWsName.Path(),
 		framework.WithExtraResources("pods"),
 		framework.WithExtraResources("deployments.apps"),
-		framework.WithAPIExports("kubernetes"),
 		framework.WithSyncedUserWorkspaces(userWs),
 	).CreateSyncTargetAndApplyToDownstream(t).StartAPIImporter(t).StartHeartBeat(t)
 
 	t.Log("Binding the consumer workspace to the location workspace")
 	framework.NewBindCompute(t, userWsName.Path(), upstreamServer,
 		framework.WithLocationWorkspaceWorkloadBindOption(synctargetWsName.Path()),
-		framework.WithAPIExportsWorkloadBindOption(synctargetWsName.String()+":kubernetes"),
+		framework.WithAPIExportsWorkloadBindOption(synctargetWsName.String()+":"+workloadv1alpha1.ImportedAPISExportName),
 	).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
@@ -124,7 +124,14 @@ func TestUpsyncedScheduling(t *testing.T) {
 	}
 
 	// Create a client that uses the upsyncer URL
-	upsyncerKCPClient, err := kcpkubernetesclientset.NewForConfig(syncerFixture.UpsyncerVirtualWorkspaceConfig)
+	upsyncerVirtualWorkspaceConfig := rest.CopyConfig(upstreamConfig)
+	framework.Eventually(t, func() (found bool, _ string) {
+		var err error
+		upsyncerVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, upstreamKcpClient, userWs, syncerFixture.GetUpsyncerVirtualWorkspaceURLs())
+		require.NoError(t, err)
+		return found, "Upsyncer virtual workspace URL not found"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upsyncer virtual workspace URL not found")
+	upsyncerKCPClient, err := kcpkubernetesclientset.NewForConfig(upsyncerVirtualWorkspaceConfig)
 	require.NoError(t, err)
 
 	_, err = upsyncerKCPClient.Cluster(userWsName.Path()).CoreV1().Pods(upstreamNamespace.Name).Create(ctx, &pod, metav1.CreateOptions{})

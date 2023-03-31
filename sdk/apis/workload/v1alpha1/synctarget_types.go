@@ -73,8 +73,6 @@ type SyncTargetSpec struct {
 	// SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget
 	// will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible
 	// with the resource schema included in the exports.
-	// If it is not set, the kubernetes export in the same workspace will be used by default.
-	// +kubebuilder:default={{export: kubernetes}}
 	SupportedAPIExports []tenancyv1alpha1.APIExportReference `json:"supportedAPIExports,omitempty"`
 
 	// Cells is a set of labels to identify the cells the SyncTarget belongs to. SyncTargets with the same cells run as
@@ -179,6 +177,9 @@ type SyncTargetList struct {
 
 	Items []SyncTarget `json:"items"`
 }
+
+// ImportedAPISExportName is singleton name of compute service exports in location workspace.
+const ImportedAPISExportName = "imported-apis"
 
 // Conditions and ConditionReasons for the kcp SyncTarget object.
 const (
