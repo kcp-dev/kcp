@@ -129,9 +129,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 
 			// since version is ordered, so if the current version is comptaible, we can skip the check on other versions.
 			syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaAcceptedState
-			if syncTarget.Status.SyncedResources[i].Message != "" {
-				syncTarget.Status.SyncedResources[i].Message = ""
-			}
+			syncTarget.Status.SyncedResources[i].Message = ""
 			break
 		}
 	}
