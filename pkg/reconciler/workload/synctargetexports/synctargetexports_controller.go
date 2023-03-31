@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -48,7 +49,6 @@ import (
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apiresource/v1alpha1"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/workload/v1alpha1"
 )
 
@@ -64,20 +64,42 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
-	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiResourceSchemaInformer, globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		kcpClusterClient:     kcpClusterClient,
-		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
-		syncTargetLister:     syncTargetInformer.Lister(),
-		apiExportsIndexer:    apiExportInformer.Informer().GetIndexer(),
-		apiExportLister:      apiExportInformer.Lister(),
-		resourceSchemaLister: apiResourceSchemaInformer.Lister(),
-		apiImportLister:      apiResourceImportInformer.Lister(),
-		commit:               committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		kcpClusterClient:  kcpClusterClient,
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		syncTargetLister:  syncTargetInformer.Lister(),
+		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			// Try local informer first
+			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
+			if err == nil {
+				// Quick happy path - found it locally
+				return export, nil
+			}
+			if !apierrors.IsNotFound(err) {
+				// Unrecoverable error
+				return nil, err
+			}
+			// Didn't find it locally - try remote
+			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		},
+		getAPIResourceSchema: func(path logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			schema, err := apiResourceSchemaInformer.Cluster(path).Lister().Get(name)
+			if apierrors.IsNotFound(err) {
+				return globalAPIResourceSchemaInformer.Cluster(path).Lister().Get(name)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return schema, nil
+		},
+		apiImportLister: apiResourceImportInformer.Lister(),
+		commit:          committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
 	}
 
 	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
@@ -154,8 +176,8 @@ type Controller struct {
 	syncTargetIndexer    cache.Indexer
 	syncTargetLister     workloadv1alpha1listers.SyncTargetClusterLister
 	apiExportsIndexer    cache.Indexer
-	apiExportLister      apisv1alpha1listers.APIExportClusterLister
-	resourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
+	getAPIExport         func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(path logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	apiImportLister      apiresourcev1alpha1listers.APIResourceImportClusterLister
 
 	commit CommitFunc
@@ -314,7 +336,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	exportReconciler := &exportReconciler{
 		getAPIExport:      c.getAPIExport,
-		getResourceSchema: c.getResourceSchema,
+		getResourceSchema: c.getAPIResourceSchema,
 	}
 	currentSyncTarget, err = exportReconciler.reconcile(ctx, currentSyncTarget)
 	if err != nil {
@@ -323,7 +345,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	apiCompatibleReconciler := &apiCompatibleReconciler{
 		getAPIExport:           c.getAPIExport,
-		getResourceSchema:      c.getResourceSchema,
+		getResourceSchema:      c.getAPIResourceSchema,
 		listAPIResourceImports: c.listAPIResourceImports,
 	}
 	currentSyncTarget, err = apiCompatibleReconciler.reconcile(ctx, currentSyncTarget)
@@ -339,14 +361,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 
 	return errors.NewAggregate(errs)
-}
-
-func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-	return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), c.apiExportsIndexer, path, name)
-}
-
-func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.resourceSchemaLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {

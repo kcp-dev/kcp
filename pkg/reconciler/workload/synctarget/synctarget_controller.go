@@ -42,7 +42,6 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
-	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
 
 const ControllerName = "kcp-synctarget-controller"
@@ -50,13 +49,22 @@ const ControllerName = "kcp-synctarget-controller"
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
-	workspaceShardInformer corev1alpha1informers.ShardClusterInformer,
+	workspaceShardInformer, globalWorkspaceShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
 	c := &Controller{
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		kcpClusterClient:     kcpClusterClient,
-		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
-		workspaceShardLister: workspaceShardInformer.Lister(),
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		kcpClusterClient:  kcpClusterClient,
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		listWorkspaceShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
+			shards, err := workspaceShardInformer.Lister().List(selector)
+			if len(shards) == 0 {
+				return globalWorkspaceShardInformer.Lister().List(selector)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return shards, nil
+		},
 	}
 
 	// Watch for events related to SyncTargets
@@ -80,8 +88,8 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	workspaceShardLister corev1alpha1listers.ShardClusterLister
-	syncTargetIndexer    cache.Indexer
+	listWorkspaceShards func(labels.Selector) ([]*corev1alpha1.Shard, error)
+	syncTargetIndexer   cache.Indexer
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
@@ -174,7 +182,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	logger = logging.WithObject(klog.FromContext(ctx), currentSyncTarget)
 	ctx = klog.NewContext(ctx, logger)
 
-	workspacesShards, err := c.workspaceShardLister.List(labels.Everything())
+	workspacesShards, err := c.listWorkspaceShards(labels.Everything())
 	if err != nil {
 		return err
 	}
