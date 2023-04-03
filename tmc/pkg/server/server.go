@@ -110,6 +110,10 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkloadReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
 			return err
 		}
+
+		if err := s.installWorkloadReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Core.Controllers.EnableAll || enabled.Has("resource-scheduler") {
