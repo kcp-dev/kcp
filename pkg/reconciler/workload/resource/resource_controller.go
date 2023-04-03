@@ -161,6 +161,12 @@ func NewController(
 		},
 	})
 
+	globalSyncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueSyncTarget(obj)
+		},
+	})
+
 	return c, nil
 }
 
