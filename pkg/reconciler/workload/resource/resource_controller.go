@@ -97,19 +97,14 @@ func NewController(
 		},
 
 		getSyncTargetFromKey: func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error) {
-			syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
-			if errors.IsNotFound(err) || len(syncTargets) == 0 {
-				// check cache before deciding what to return
-				syncTargets, err = indexers.ByIndex[*workloadv1alpha1.SyncTarget](globalSyncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
-				if errors.IsNotFound(err) || len(syncTargets) == 0 {
-					// still no SyncTarget, so return empty results.
-					return nil, false, nil
-				}
-			}
+			syncTargets, err := indexers.ByIndexWithFallback[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(),
+				globalSyncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
 			if err != nil {
 				return nil, false, err
 			}
-			// This shouldn't happen, more than one SyncTarget with the same key means a hash collision.
+			if len(syncTargets) == 0 {
+				return nil, false, nil
+			}
 			if len(syncTargets) > 1 {
 				return nil, false, fmt.Errorf("possible collision: multiple sync targets found for key %q", syncTargetKey)
 			}
