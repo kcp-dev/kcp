@@ -281,7 +281,7 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 	})
 }
 
-func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkloadAPIExportController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, workloadsapiexport.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -313,7 +313,7 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 	})
 }
 
-func (s *Server) installWorkloadsDefaultLocationController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkloadDefaultLocationController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, workloadsdefaultlocation.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -343,7 +343,7 @@ func (s *Server) installWorkloadsDefaultLocationController(ctx context.Context, 
 	})
 }
 
-func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkloadSyncTargetExportController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, synctargetexports.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
