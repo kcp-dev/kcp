@@ -169,7 +169,7 @@ spec:
                             items:
                               description: ResourceSelectorName validates a string
                                 for use with a PermissionClaim.
-                              pattern: ^(\*|[a-z][-a-z0-9]*[a-z0-9])$
+                              minLength: 1
                               type: string
                             type: array
                           namespaces:
@@ -186,7 +186,7 @@ spec:
                             items:
                               description: ResourceSelectorName validates a string
                                 for use with a PermissionClaim.
-                              pattern: ^(\*|[a-z][-a-z0-9]*[a-z0-9])$
+                              minLength: 1
                               type: string
                             type: array
                         type: object

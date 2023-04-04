@@ -52,12 +52,12 @@ type permissionClaimAdmitter struct {
 var _ admission.ValidationInterface = &permissionClaimAdmitter{}
 var _ admission.InitializationValidator = &permissionClaimAdmitter{}
 
-// NewPermissionClaimAdmitter creates a mutating admission plugin that is responsible for admitting objects
+// NewPermissionClaimAdmitter creates a validating admission plugin that is responsible for admitting objects
 // according to permission claims. On every creation and update request, we will determine the bindings
 // in the workspace and if the object is claimed by an accepted permission claim we will allow it.
 func NewPermissionClaimAdmitter() *permissionClaimAdmitter {
 	p := &permissionClaimAdmitter{
-		Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete, admission.Connect),
+		Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
 	}
 
 	p.SetReadyFunc(
@@ -70,8 +70,8 @@ func NewPermissionClaimAdmitter() *permissionClaimAdmitter {
 }
 
 func (m *permissionClaimAdmitter) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	// The request is not for a virtual workspace, so we can safely admit.
 	if _, hasVirtualWorkspaceName := virtualcontext.VirtualWorkspaceNameFrom(ctx); !hasVirtualWorkspaceName {
+		// The request is not for a virtual workspace, so we can safely admit.
 		return nil
 	}
 

@@ -221,7 +221,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			if found {
 				oldDef := oldDef.(apiResourceSchemaApiDefinition)
 				if oldDef.UID == apiResourceSchema.UID && oldDef.IdentityHash == apiExport.Status.IdentityHash && oldDef.ClaimLabels == newClaimLabels {
-					// this is the same schema and identity as before. no need to update.
+					// this is the same schema + identity + claim labels as before. no need to update.
 					newSet[gvr] = oldDef
 					preservedGVR = append(preservedGVR, gvrString(gvr))
 					continue

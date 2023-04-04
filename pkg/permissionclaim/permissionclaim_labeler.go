@@ -86,6 +86,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				path = logicalcluster.From(binding).Path()
 			}
 			export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
+			logger.Error(err, "error getting API export", "path", path, "exportName", binding.Spec.Reference.Export.Name)
 			if err != nil {
 				return
 			}

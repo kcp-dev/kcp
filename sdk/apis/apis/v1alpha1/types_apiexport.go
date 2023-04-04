@@ -227,7 +227,7 @@ const (
 // ResourceSelectorName validates a string for use with a PermissionClaim.
 //
 // +kubebuilder:validation:Type=string
-// +kubebuilder:validation:Pattern=`^(\*|[a-z][-a-z0-9]*[a-z0-9])$`
+// +kubebuilder:validation:MinLength=1
 type ResourceSelectorName string
 
 // ResourceSelector identifies the objects to be included within a PermissionClaim either by names and/or namespaces.
