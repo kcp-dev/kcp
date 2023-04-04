@@ -99,7 +99,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSyncTargetController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installWorkloadsSyncTargetExportController(ctx, controllerConfig); err != nil {
+		if err := s.installWorkloadSyncTargetExportController(ctx, controllerConfig); err != nil {
 			return err
 		}
 
@@ -136,10 +136,10 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installSchedulingPlacementController(ctx, controllerConfig); err != nil {
 				return err
 			}
-			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig); err != nil {
+			if err := s.installWorkloadAPIExportController(ctx, controllerConfig); err != nil {
 				return err
 			}
-			if err := s.installWorkloadsDefaultLocationController(ctx, controllerConfig); err != nil {
+			if err := s.installWorkloadDefaultLocationController(ctx, controllerConfig); err != nil {
 				return err
 			}
 		}
