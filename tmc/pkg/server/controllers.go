@@ -37,6 +37,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
+	workloadreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/workload/replicateclusterrole"
+	workloadreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/workload/replicateclusterrolebinding"
+	workloadreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/workload/replicatelogicalcluster"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
@@ -393,6 +396,87 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 
 	return s.Core.AddPostStartHook(postStartHookName(synctargetcontroller.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(synctargetcontroller.ControllerName))
+		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installWorkloadReplicateClusterRoleControllers(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, workloadreplicateclusterrole.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c := workloadreplicateclusterrole.NewController(
+		kubeClusterClient,
+		s.Core.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.Core.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+
+	return s.Core.AddPostStartHook(postStartHookName(workloadreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadreplicateclusterrole.ControllerName))
+		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installWorkloadReplicateClusterRoleBindingControllers(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, workloadreplicateclusterrolebinding.ControllerName)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c := workloadreplicateclusterrolebinding.NewController(
+		kubeClusterClient,
+		s.Core.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.Core.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+	)
+
+	return s.Core.AddPostStartHook(postStartHookName(workloadreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadreplicateclusterrolebinding.ControllerName))
+		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installWorkloadReplicateLogicalClusterControllers(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, workloadreplicatelogicalcluster.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c := workloadreplicatelogicalcluster.NewController(
+		kcpClusterClient,
+		s.Core.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+	)
+
+	return s.Core.AddPostStartHook(postStartHookName(workloadreplicatelogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadreplicatelogicalcluster.ControllerName))
 		if err := s.Core.WaitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
