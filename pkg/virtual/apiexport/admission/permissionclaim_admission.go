@@ -57,7 +57,7 @@ var _ admission.InitializationValidator = &permissionClaimAdmitter{}
 // in the workspace and if the object is claimed by an accepted permission claim we will allow it.
 func NewPermissionClaimAdmitter() *permissionClaimAdmitter {
 	p := &permissionClaimAdmitter{
-		Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
+		Handler: admission.NewHandler(admission.Create, admission.Update),
 	}
 
 	p.SetReadyFunc(

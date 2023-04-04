@@ -438,7 +438,7 @@ func TestPermissionClaimsByName(t *testing.T) {
 		t.Logf("trying to delete single unclaimed configmap through APIExport VirtualWorkspace URL should fail")
 		framework.Eventually(t, func() (done bool, str string) {
 			err := apiExportClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps(claimedNamespace).Delete(ctx, "confmap1", metav1.DeleteOptions{})
-			if apierrors.IsForbidden(err) {
+			if apierrors.IsNotFound(err) {
 				return true, ""
 			}
 
