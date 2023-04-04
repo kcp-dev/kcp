@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -282,21 +283,38 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			}
 
 			// Start and sync informer factories
+
+			waitForCacheSyncContext, cancelWaitForCacheSync := context.WithCancel(ctx)
+			defer cancelWaitForCacheSync()
+			// track the watch/list errors during the upcoming waitForCacheSync.
+			errorTracker := &watchCacheErrorTracker{
+				cancelWait: cancelWaitForCacheSync,
+
+				// 10 is quite arbitrary here.
+				// We don't want to block the embedding reconciliation loop too long,
+				// but still want to ensure the watch/list errors are repeated and signal
+				// a real problem.
+				maxErrorCount: 10,
+			}
 			var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
 			for _, alwaysRequiredGVR := range alwaysRequiredGVRs {
 				if informer, err := ddsifForUpstreamSyncer.ForResource(alwaysRequiredGVR); err != nil {
 					return nil, err
 				} else {
+					errorTracker.TrackErrors(alwaysRequiredGVR, informer.Informer())
 					cacheSyncsForAlwaysRequiredGVRs = append(cacheSyncsForAlwaysRequiredGVRs, informer.Informer().HasSynced)
 				}
 			}
 
-			// Start and sync informer factories
-
 			ddsifForUpstreamSyncer.Start(ctx.Done())
 			ddsifForUpstreamUpsyncer.Start(ctx.Done())
 
-			cache.WaitForCacheSync(ctx.Done(), cacheSyncsForAlwaysRequiredGVRs...)
+			// Invalid shard URL, which cannot be watched by informers, will be
+			// detected, skipped, correctly logged and reported as an error
+			// to the embedding reconciler that manages shard URLs.
+			if ok := cache.WaitForCacheSync(waitForCacheSyncContext.Done(), cacheSyncsForAlwaysRequiredGVRs...); !ok {
+				return nil, fmt.Errorf("unable to sync watch caches for virtual workspace %q: %s", shardURLs.SyncerURL, errorTracker.ErrorSummary())
+			}
 
 			go ddsifForUpstreamSyncer.StartWorker(ctx)
 			go ddsifForUpstreamUpsyncer.StartWorker(ctx)
@@ -544,4 +562,61 @@ func (s *delegatingCleaner) CancelCleaning(key string) {
 		return
 	}
 	s.delegate.CancelCleaning(key)
+}
+
+// watchCacheErrorTracker tracks the watch/list errors that occur during
+// informer watch cache syncs, and stores them per GVR and per error message.
+// It allows cancelling the wait for cache sync if the total number of tracked
+// errors is higher than a maximum number of errors.
+type watchCacheErrorTracker struct {
+	// maxErrorCount is the maximum total number of list/watch errors after which the
+	// waitForCacheSync call should be canceled.
+	maxErrorCount int
+
+	// cancelWait is the method that will cancel the waitForCacheSync call.
+	cancelWait func()
+
+	errors          map[schema.GroupVersionResource]map[string]int
+	totalErrorCount int
+
+	mutex sync.Mutex
+}
+
+// TrackErrors will track watch/list errors for this informer with a WatchErrorHandler.
+func (h *watchCacheErrorTracker) TrackErrors(gvr schema.GroupVersionResource, informer cache.SharedIndexInformer) {
+	_ = informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		h.mutex.Lock()
+		defer h.mutex.Unlock()
+		errStr := err.Error()
+
+		if h.errors == nil {
+			h.errors = make(map[schema.GroupVersionResource]map[string]int)
+		}
+
+		gvrErrors := h.errors[gvr]
+		if gvrErrors == nil {
+			gvrErrors = make(map[string]int)
+			h.errors[gvr] = gvrErrors
+		}
+
+		h.errors[gvr][errStr]++
+		h.totalErrorCount++
+		if h.totalErrorCount > h.maxErrorCount {
+			h.cancelWait()
+		}
+	})
+}
+
+// ErrorSummary returns a summary of the various watch/list errors
+// tracked during a wait for cache sync, per GVR and per error message.
+func (h *watchCacheErrorTracker) ErrorSummary() string {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	var summary string
+	for gvr, gvrErrors := range h.errors {
+		for errorStr, count := range gvrErrors {
+			summary += fmt.Sprintf("\n%s: %d x %s", gvr.String(), count, errorStr)
+		}
+	}
+	return summary
 }
