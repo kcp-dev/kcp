@@ -225,6 +225,20 @@ spec:
                   - versions
                   type: object
                 type: array
+              tunnelWorkspaces:
+                description: TunnelWorkspaces contains all URLs (one per shard) that
+                  point to the SyncTarget workspace in order to setup the tunneler.
+                items:
+                  properties:
+                    url:
+                      description: url is the URL the Syncer should use to connect
+                        to the Syncer tunnel for a given shard.
+                      minLength: 1
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
               virtualWorkspaces:
                 description: VirtualWorkspaces contains all virtual workspace URLs.
                 items:

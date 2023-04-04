@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230329-c41ff68c.synctargets.workload.kcp.io
+  name: v230405-65634c292.synctargets.workload.kcp.io
 spec:
   group: workload.kcp.io
   names:
@@ -217,6 +217,20 @@ spec:
                 required:
                 - resource
                 - versions
+                type: object
+              type: array
+            tunnelWorkspaces:
+              description: TunnelWorkspaces contains all URLs (one per shard) that
+                point to the SyncTarget workspace in order to setup the tunneler.
+              items:
+                properties:
+                  url:
+                    description: url is the URL the Syncer should use to connect to
+                      the Syncer tunnel for a given shard.
+                    minLength: 1
+                    type: string
+                required:
+                - url
                 type: object
               type: array
             virtualWorkspaces:

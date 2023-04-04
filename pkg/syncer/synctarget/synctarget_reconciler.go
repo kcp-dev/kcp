@@ -36,15 +36,10 @@ type reconciler interface {
 }
 
 func (c *controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (bool, error) {
-	reconcilers := []reconciler{
-		c.gvrSource,
-		c.shardManager,
-	}
-
 	var errs []error
 
 	requeue := false
-	for _, r := range reconcilers {
+	for _, r := range c.reconcilers {
 		var err error
 		var status reconcileStatus
 		status, err = r.reconcile(ctx, syncTarget)

@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -52,14 +53,22 @@ func TestSyncerTunnel(t *testing.T) {
 		t.Skip("Test requires a pcluster")
 	}
 
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	upstreamServer := framework.PrivateKcpServer(t, framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
+	upstreamServer := framework.SharedKcpServer(t)
+
 	t.Log("Creating an organization")
 	orgPath, _ := framework.NewOrganizationFixture(t, upstreamServer, framework.TODO_WithoutMultiShardSupport())
-	t.Log("Creating two workspaces, one for the synctarget and the other for the user workloads")
-	synctargetWsPath, synctargetWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
+	t.Logf("Creating one workspace for the synctarget on shard %q ", corev1alpha1.RootShard)
+	synctargetWsPath, synctargetWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithRootShard())
 	synctargetWsName := logicalcluster.Name(synctargetWs.Spec.Cluster)
-	userWsPath, userWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.TODO_WithoutMultiShardSupport())
+
+	userWSShardName := corev1alpha1.RootShard
+	shardNames := upstreamServer.ShardNames()
+	if len(shardNames) > 1 {
+		userWSShardName = shardNames[1]
+	}
+
+	t.Logf("Creating one workspace for the synctarget on shard %q ", userWSShardName)
+	userWsPath, userWs := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithShard(userWSShardName))
 	userWsName := logicalcluster.Name(userWs.Spec.Cluster)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
