@@ -69,11 +69,7 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers kcp
 			return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
-			if apierrors.IsNotFound(err) {
-				return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
-			}
-			return export, err
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
 		},
 		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
 			return rbac.New(

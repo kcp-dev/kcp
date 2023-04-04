@@ -56,11 +56,7 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				apiExport, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.localApiExportIndexer, path, name)
-				if apierrors.IsNotFound(err) {
-					apiExport, err = indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.globalApiExportIndexer, path, name)
-				}
-				return apiExport, err
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.localApiExportIndexer, p.globalApiExportIndexer, path, name)
 			}
 
 			return p, nil

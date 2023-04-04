@@ -133,32 +133,14 @@ func NewController(
 		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			// Try local informer first
-			export, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
-			if err == nil {
-				// Quick happy path - found it locally
-				return export, nil
-			}
-			if !apierrors.IsNotFound(err) {
-				// Unrecoverable error
-				return nil, err
-			}
-			// Didn't find it locally - try remote
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 		getAPIExportsBySchema: func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(schema)
 			if err != nil {
 				return nil, err
 			}
-			exports, err := indexers.ByIndex[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
-			if err != nil {
-				return nil, err
-			}
-			if len(exports) > 0 {
-				return exports, nil
-			}
-			return indexers.ByIndex[*apisv1alpha1.APIExport](globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
+			return indexers.ByIndexWithFallback[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
 		},
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {

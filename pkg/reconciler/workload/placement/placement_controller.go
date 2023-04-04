@@ -100,11 +100,7 @@ func NewController(
 		},
 
 		getLocation: func(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
-			location, err := indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), locationInformer.Informer().GetIndexer(), path, name)
-			if errors.IsNotFound(err) {
-				return indexers.ByPathAndName[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), globalLocationInformer.Informer().GetIndexer(), path, name)
-			}
-			return location, nil
+			return indexers.ByPathAndNameWithFallback[*schedulingv1alpha1.Location](schedulingv1alpha1.Resource("locations"), locationInformer.Informer().GetIndexer(), globalLocationInformer.Informer().GetIndexer(), path, name)
 		},
 
 		placementLister:  placementInformer.Lister(),
