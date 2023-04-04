@@ -37,6 +37,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
@@ -49,6 +50,7 @@ import (
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload/v1alpha1"
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apiresource/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/workload/v1alpha1"
 )
 
@@ -88,18 +90,9 @@ func NewController(
 			// Didn't find it locally - try remote
 			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
-		getAPIResourceSchema: func(path logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			schema, err := apiResourceSchemaInformer.Cluster(path).Lister().Get(name)
-			if apierrors.IsNotFound(err) {
-				return globalAPIResourceSchemaInformer.Cluster(path).Lister().Get(name)
-			}
-			if err != nil {
-				return nil, err
-			}
-			return schema, nil
-		},
-		apiImportLister: apiResourceImportInformer.Lister(),
-		commit:          committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
+		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
+		apiImportLister:      apiResourceImportInformer.Lister(),
+		commit:               committer.NewCommitter[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](kcpClusterClient.WorkloadV1alpha1().SyncTargets()),
 	}
 
 	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
@@ -177,7 +170,7 @@ type Controller struct {
 	syncTargetLister     workloadv1alpha1listers.SyncTargetClusterLister
 	apiExportsIndexer    cache.Indexer
 	getAPIExport         func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(path logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema informer.ScopedFallbackGetFunc[*apisv1alpha1.APIResourceSchema]
 	apiImportLister      apiresourcev1alpha1listers.APIResourceImportClusterLister
 
 	commit CommitFunc

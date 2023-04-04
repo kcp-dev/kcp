@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -52,19 +53,10 @@ func NewController(
 	workspaceShardInformer, globalWorkspaceShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
 	c := &Controller{
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		kcpClusterClient:  kcpClusterClient,
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
-		listWorkspaceShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
-			shards, err := workspaceShardInformer.Lister().List(selector)
-			if len(shards) == 0 {
-				return globalWorkspaceShardInformer.Lister().List(selector)
-			}
-			if err != nil {
-				return nil, err
-			}
-			return shards, nil
-		},
+		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		kcpClusterClient:    kcpClusterClient,
+		syncTargetIndexer:   syncTargetInformer.Informer().GetIndexer(),
+		listWorkspaceShards: informer.NewListerWithFallback[*corev1alpha1.Shard](workspaceShardInformer.Lister(), globalWorkspaceShardInformer.Lister()),
 	}
 
 	// Watch for events related to SyncTargets
@@ -88,7 +80,7 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	listWorkspaceShards func(labels.Selector) ([]*corev1alpha1.Shard, error)
+	listWorkspaceShards informer.FallbackListFunc[*corev1alpha1.Shard]
 	syncTargetIndexer   cache.Indexer
 }
 
