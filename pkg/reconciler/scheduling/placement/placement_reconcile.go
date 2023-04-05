@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 )
 
@@ -65,18 +64,6 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 	}
 
 	return utilserrors.NewAggregate(errs)
-}
-
-func (c *controller) listLocationsByPath(path logicalcluster.Path) ([]*schedulingv1alpha1.Location, error) {
-	objs, err := c.locationIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*schedulingv1alpha1.Location, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*schedulingv1alpha1.Location))
-	}
-	return ret, nil
 }
 
 func (c *controller) listNamespacesWithAnnotation(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
