@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -49,6 +50,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 )
 
 const (
@@ -143,21 +145,9 @@ func NewController(
 			return indexers.ByIndexWithFallback[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
 		},
 
-		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
-			if apierrors.IsNotFound(err) {
-				return globalAPIResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
-			}
-			return apiResourceSchema, err
-		},
+		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
 
-		getAPIConversion: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIConversion, error) {
-			apiConversion, err := apiConversionInformer.Cluster(clusterName).Lister().Get(name)
-			if apierrors.IsNotFound(err) {
-				return globalAPIConversionInformer.Lister().Cluster(clusterName).Get(name)
-			}
-			return apiConversion, err
-		},
+		getAPIConversion: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIConversion, apisv1alpha1listers.APIConversionLister](apiConversionInformer.Lister(), globalAPIConversionInformer.Lister()),
 
 		createCRD: func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})

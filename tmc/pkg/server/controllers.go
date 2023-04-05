@@ -62,6 +62,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 		dynamicClusterClient,
 		s.Core.DiscoveringDynamicSharedInformerFactory,
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.Core.CacheKcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.Core.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
@@ -355,7 +356,9 @@ func (s *Server) installWorkloadSyncTargetExportController(ctx context.Context, 
 		kcpClusterClient,
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.Core.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.Core.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.Core.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.Core.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.Core.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 	)
 	if err != nil {
@@ -386,9 +389,8 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 	c := synctargetcontroller.NewController(
 		kcpClusterClient,
 		s.Core.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		// TODO: change to s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		// once https://github.com/kcp-dev/kcp/issues/2649 is resolved
 		s.Core.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.Core.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
