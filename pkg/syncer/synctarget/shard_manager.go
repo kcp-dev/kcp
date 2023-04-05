@@ -150,7 +150,8 @@ type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, bool
 // upstream virtual workspace URLs, based on a SyncTarget resource passed to the updateShards() method.
 //
 // When a shard is found (identified by the couple of virtual workspace URLs - for both syncer and upsyncer),
-// then the startShardControllers() method is called, and the resulting [ShardAccess] is stored.
+// then the newShardControllers() method is called, the resulting [ShardAccess] is stored,
+// and the resulting start() function is called in a goroutine.
 //
 // When a shard is removed, the context initially passed to the
 // startShardControllers() method is cancelled.
@@ -158,17 +159,17 @@ type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, bool
 // The ShardAccessForCluster() method will be used by some downstream controllers in order to
 // be able to get / list upstream resources in the right shard.
 func NewShardManager(
-	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)) *shardManager {
+	newShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (acces *ShardAccess, start func() error, err error)) *shardManager {
 	return &shardManager{
-		controllers:           map[workloadv1alpha1.VirtualWorkspace]shardControllers{},
-		startShardControllers: startShardControllers,
+		controllers:         map[workloadv1alpha1.VirtualWorkspace]shardControllers{},
+		newShardControllers: newShardControllers,
 	}
 }
 
 type shardManager struct {
-	controllersLock       sync.RWMutex
-	controllers           map[workloadv1alpha1.VirtualWorkspace]shardControllers
-	startShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*ShardAccess, error)
+	controllersLock     sync.RWMutex
+	controllers         map[workloadv1alpha1.VirtualWorkspace]shardControllers
+	newShardControllers func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (acces *ShardAccess, start func() error, err error)
 }
 
 func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (ShardAccess, bool, error) {
@@ -211,6 +212,7 @@ func (c *shardManager) reconcile(ctx context.Context, syncTarget *workloadv1alph
 	var errs []error
 	// Create and start missing controllers that have Virtual Workspace URLs for a shard
 	for shardURLs := range requiredShards {
+		shardURLs := shardURLs
 		if _, ok := c.controllers[shardURLs]; ok {
 			// The controllers are already started
 			continue
@@ -219,7 +221,7 @@ func (c *shardManager) reconcile(ctx context.Context, syncTarget *workloadv1alph
 		// Start the controllers
 		shardControllersContext, cancelFunc := context.WithCancel(ctx)
 		// Create the controllers
-		shardAccess, err := c.startShardControllers(shardControllersContext, shardURLs)
+		shardAccess, start, err := c.newShardControllers(shardControllersContext, shardURLs)
 		if err != nil {
 			logger.Error(err, "failed creating controllers for shard", "shard", shardURLs)
 			errs = append(errs, err)
@@ -227,13 +229,28 @@ func (c *shardManager) reconcile(ctx context.Context, syncTarget *workloadv1alph
 			continue
 		}
 		c.controllers[shardURLs] = shardControllers{
-			*shardAccess, cancelFunc,
+			*shardAccess, cancelFunc, false,
 		}
+		go func() {
+			err := start()
+			c.controllersLock.Lock()
+			defer c.controllersLock.Unlock()
+
+			if err != nil {
+				delete(c.controllers, shardURLs)
+				cancelFunc()
+			} else {
+				controllers := c.controllers[shardURLs]
+				controllers.ready = true
+				c.controllers[shardURLs] = controllers
+			}
+		}()
 	}
 	return reconcileStatusContinue, utilserrors.NewAggregate(errs)
 }
 
 type shardControllers struct {
 	ShardAccess
-	stop func()
+	stop  func()
+	ready bool
 }
