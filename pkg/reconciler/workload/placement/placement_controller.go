@@ -121,6 +121,10 @@ func NewController(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
+	indexers.AddIfNotPresentOrDie(globalLocationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	locationInformer.Informer().AddEventHandler(
