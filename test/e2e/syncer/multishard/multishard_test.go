@@ -62,9 +62,7 @@ func TestSyncingFromMultipleShards(t *testing.T) {
 	workloadWorkspace1Path, workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithShard(shardNames[0]))
 	workloadWorkspace1Name := logicalcluster.Name(workloadWorkspace1.Spec.Cluster)
 
-	// TODO(davidfestal): use the shardNames[1] as soon as PR https://github.com/kcp-dev/kcp/issues/2900 is merged.
-	// Before that, it is not possible to `bind compute` across shards.
-	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithShard(shardNames[0]))
+	workloadWorkspace2Path, workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgPath, framework.WithShard(shardNames[1]))
 	workloadWorkspace2Name := logicalcluster.Name(workloadWorkspace2.Spec.Cluster)
 
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
