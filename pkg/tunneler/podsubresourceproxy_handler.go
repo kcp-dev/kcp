@@ -48,9 +48,19 @@ var (
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
 )
 
+func init() {
+	errorScheme.AddUnversionedTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
+}
+
 // WithPodSubresourceProxying proxies the POD subresource requests using the syncer tunneler.
-func (tn *tunneler) WithPodSubresourceProxying(apiHandler http.Handler, kcpclient dynamic.ClusterInterface, kcpInformer kcpinformers.SharedInformerFactory) http.Handler {
+func (tn *tunneler) WithPodSubresourceProxying(apiHandler http.Handler, kcpclient dynamic.ClusterInterface, kcpInformer kcpinformers.SharedInformerFactory, globalKcpInformer kcpinformers.SharedInformerFactory) http.Handler {
 	syncTargetInformer, err := kcpInformer.ForResource(workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"))
+	if err != nil {
+		panic(err)
+	}
+	globalSyncTargetInformer, err := globalKcpInformer.ForResource(workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"))
 	if err != nil {
 		panic(err)
 	}
@@ -70,18 +80,14 @@ func (tn *tunneler) WithPodSubresourceProxying(apiHandler http.Handler, kcpclien
 			return pod, nil
 		},
 		getSyncTargetBySynctargetKey: func(ctx context.Context, synctargetKey string) (*workloadv1alpha1.SyncTarget, error) {
-			synctargets, err := syncTargetInformer.Informer().GetIndexer().ByIndex(indexers.SyncTargetsBySyncTargetKey, synctargetKey)
+			synctargets, err := indexers.ByIndexWithFallback[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), globalSyncTargetInformer.Informer().GetIndexer(), indexers.SyncTargetsBySyncTargetKey, synctargetKey)
 			if err != nil {
 				return nil, err
 			}
 			if len(synctargets) != 1 {
 				return nil, fmt.Errorf("expected 1 synctarget for key %q, got %d", synctargetKey, len(synctargets))
 			}
-			synctarget, ok := synctargets[0].(*workloadv1alpha1.SyncTarget)
-			if !ok {
-				return nil, fmt.Errorf("expected synctarget to be of type %T, got %T", &workloadv1alpha1.SyncTarget{}, synctargets[0])
-			}
-			return synctarget, nil
+			return synctargets[0], nil
 		},
 	}
 }
@@ -135,7 +141,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewBadRequest(fmt.Sprintf("invalid subresource or not implemented %q", subresource)),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 
@@ -148,7 +153,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "pods"}, podName),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 	if err != nil {
@@ -156,7 +160,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewInternalError(err),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 
@@ -175,7 +178,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewBadRequest(fmt.Sprintf("pod %q is not upsynced", podName)),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 
@@ -186,7 +188,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewServiceUnavailable(fmt.Sprintf("subresource %q is not available right now for pod %q", subresource, podName)),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 	if err != nil {
@@ -194,7 +195,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewInternalError(err),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 
@@ -216,7 +216,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewInternalError(err),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 
@@ -228,7 +227,6 @@ func (b *podSubresourceProxyHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			apierrors.NewInternalError(err),
 			errorCodecs, schema.GroupVersion{}, w, req,
 		)
-		b.apiHandler.ServeHTTP(w, req)
 		return
 	}
 	// Set the URL path to the calculated
