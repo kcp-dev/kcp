@@ -42,9 +42,10 @@ const DefaultRootPathPrefix string = "/services"
 type Options struct {
 	Output io.Writer
 
-	KubeconfigFile string
-	Context        string
-	RootPathPrefix string
+	KubeconfigFile   string
+	Context          string
+	RootPathPrefix   string
+	ShardExternalURL string
 
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
@@ -64,7 +65,8 @@ func NewOptions() *Options {
 	opts := &Options{
 		Output: nil,
 
-		RootPathPrefix: DefaultRootPathPrefix,
+		RootPathPrefix:   DefaultRootPathPrefix,
+		ShardExternalURL: "",
 
 		Cache:          *cacheoptions.NewCache(),
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
@@ -94,6 +96,8 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.CoreVirtualWorkspaces.AddFlags(flags)
 	o.TmcVirtualWorkspaces.AddFlags(flags)
 
+	flags.StringVar(&o.ShardExternalURL, "shard-external-url", o.ShardExternalURL, "URL used by outside clients to talk to the kcp shard this virtual workspace is related to")
+
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
@@ -109,6 +113,10 @@ func (o *Options) Validate() error {
 	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.CoreVirtualWorkspaces.Validate()...)
 	errs = append(errs, o.TmcVirtualWorkspaces.Validate()...)
+
+	if len(o.ShardExternalURL) == 0 {
+		errs = append(errs, fmt.Errorf(("--shard-external-url is required")))
+	}
 
 	if len(o.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))

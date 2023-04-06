@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -49,6 +48,7 @@ import (
 	syncerindexers "github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
+	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
@@ -70,10 +70,10 @@ type Controller struct {
 	mutators     map[schema.GroupVersionResource]Mutator
 	dnsProcessor *dns.DNSProcessor
 
-	upstreamClient   kcpdynamic.ClusterInterface
-	downstreamClient dynamic.Interface
+	getUpstreamClient func(clusterName logicalcluster.Name) (dynamic.Interface, error)
+	downstreamClient  dynamic.Interface
 
-	getUpstreamLister                 func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getUpstreamLister                 func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
 
@@ -86,20 +86,22 @@ type Controller struct {
 }
 
 func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string,
-	upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	downstreamNSCleaner shared.Cleaner,
 	syncTargetUID types.UID,
 	dnsNamespace string,
-	syncerNamespaceInformerFactory informers.SharedInformerFactory,
+	dnsProcessor *dns.DNSProcessor,
 	dnsImage string,
 	mutators ...Mutator) (*Controller, error) {
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:      upstreamClient,
+		getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
+			return upstreamClient.Cluster(clusterName.Path()), nil
+		},
 		downstreamClient:    downstreamClient,
 		downstreamNSCleaner: downstreamNSCleaner,
 
@@ -114,7 +116,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 			}
 			return informer.Lister(), nil
 		},
-		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
+		getUpstreamLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
 			informers, notSynced := ddsifForUpstreamSyncer.Informers()
 			informer, ok := informers[gvr]
 			if !ok {
@@ -123,7 +125,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 				}
 				return nil, fmt.Errorf("gvr %v should be known in the upstream informer factory", gvr)
 			}
-			return informer.Lister(), nil
+			return informer.Lister().ByCluster(clusterName), nil
 		},
 
 		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
@@ -139,7 +141,14 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 
-		mutators: make(map[schema.GroupVersionResource]Mutator, 2),
+		mutators:     make(map[schema.GroupVersionResource]Mutator, 2),
+		dnsProcessor: dnsProcessor,
+	}
+
+	for _, mutator := range mutators {
+		for _, gvr := range mutator.GVRs() {
+			c.mutators[gvr] = mutator
+		}
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
@@ -174,88 +183,84 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		},
 	)
 
-	ddsifForDownstream.AddEventHandler(
-		ddsif.GVREventHandlerFuncs{
-			DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-				if gvr == namespaceGVR {
-					return
-				}
-				if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					obj = d.Obj
-				}
-				unstrObj, ok := obj.(*unstructured.Unstructured)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
-					return
-				}
-				if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
-					return
-				}
+	return &c, nil
+}
 
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
-					return
-				}
-				namespace, name, err := cache.SplitMetaNamespaceKey(key)
-				if err != nil {
-					utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
-				}
-				logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, DownstreamNamespace, namespace, DownstreamName, name)
-				logger.V(3).Info("processing delete event")
+func NewSpecSyncerForDownstream(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string,
+	advancedSchedulingEnabled bool,
+	getShardAccess synctarget.GetShardAccessFunc,
+	downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
+	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
+	downstreamNSCleaner shared.Cleaner,
+	syncTargetUID types.UID,
+	dnsNamespace string,
+	dnsProcessor *dns.DNSProcessor,
+	dnsImage string,
+	mutators ...Mutator) (*Controller, error) {
+	c := Controller{
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-				var nsLocatorHolder *unstructured.Unstructured
-				// Handle namespaced resources
-				if namespace != "" {
-					// Use namespace lister
-					namespaceLister, err := c.getDownstreamLister(namespaceGVR)
-					if err != nil {
-						utilruntime.HandleError(err)
-						return
-					}
+		getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
+			shardAccess, ok, err := getShardAccess(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+			return shardAccess.SyncerClient.Cluster(clusterName.Path()), nil
+		},
+		downstreamClient:    downstreamClient,
+		downstreamNSCleaner: downstreamNSCleaner,
 
-					nsObj, err := namespaceLister.Get(namespace)
-					if apierrors.IsNotFound(err) {
-						return
-					}
-					if err != nil {
-						utilruntime.HandleError(err)
-						return
-					}
-					c.downstreamNSCleaner.PlanCleaning(namespace)
-					nsLocatorHolder, ok = nsObj.(*unstructured.Unstructured)
-					if !ok {
-						utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
-						return
-					}
-				} else {
-					// The nsLocatorHolder is in the resource itself for cluster-scoped resources.
-					nsLocatorHolder = unstrObj
+		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			informers, notSynced := ddsifForDownstream.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
 				}
-				logger = logging.WithObject(logger, nsLocatorHolder)
+				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+			}
+			return informer.Lister(), nil
+		},
+		getUpstreamLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			shardAccess, ok, err := getShardAccess(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
 
-				locator, ok := nsLocatorHolder.GetAnnotations()[shared.NamespaceLocatorAnnotation]
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in resource %s", nsLocatorHolder.GetName()))
-					return
+			informers, notSynced := shardAccess.SyncerDDSIF.Informers()
+			informer, ok := informers[gvr]
+			if !ok {
+				if shared.ContainsGVR(notSynced, gvr) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the upstream informer factory", gvr)
 				}
-				nsLocator := &shared.NamespaceLocator{}
-				err = json.Unmarshal([]byte(locator), nsLocator)
-				if err != nil {
-					utilruntime.HandleError(err)
-					return
-				}
-				logger.V(4).Info("found", "NamespaceLocator", nsLocator)
-				m := &metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: nsLocator.ClusterName.String(),
-					},
-					Namespace: nsLocator.Namespace,
-					Name:      shared.GetUpstreamResourceName(gvr, name),
-				}
-				c.AddToQueue(gvr, m, logger)
-			},
-		})
+				return nil, fmt.Errorf("gvr %v should be known in the upstream informer factory", gvr)
+			}
+			return informer.Lister().ByCluster(clusterName), nil
+		},
+
+		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
+			nsInformer, err := ddsifForDownstream.ForResource(namespaceGVR)
+			if err != nil {
+				return nil, err
+			}
+			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
+		},
+		syncTargetName:            syncTargetName,
+		syncTargetClusterName:     syncTargetClusterName,
+		syncTargetUID:             syncTargetUID,
+		syncTargetKey:             syncTargetKey,
+		advancedSchedulingEnabled: advancedSchedulingEnabled,
+
+		mutators: make(map[schema.GroupVersionResource]Mutator, 2),
+
+		dnsProcessor: dnsProcessor,
+	}
 
 	for _, mutator := range mutators {
 		for _, gvr := range mutator.GVRs() {
@@ -263,15 +268,91 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		}
 	}
 
-	c.dnsProcessor = dns.NewDNSProcessor(downstreamKubeClient,
-		syncerNamespaceInformerFactory.Core().V1().ServiceAccounts().Lister(),
-		syncerNamespaceInformerFactory.Rbac().V1().Roles().Lister(),
-		syncerNamespaceInformerFactory.Rbac().V1().RoleBindings().Lister(),
-		syncerNamespaceInformerFactory.Apps().V1().Deployments().Lister(),
-		syncerNamespaceInformerFactory.Core().V1().Services().Lister(),
-		syncerNamespaceInformerFactory.Core().V1().Endpoints().Lister(),
-		syncerNamespaceInformerFactory.Networking().V1().NetworkPolicies().Lister(),
-		syncTargetUID, syncTargetName, dnsNamespace, dnsImage)
+	logger := logging.WithReconciler(syncerLogger, controllerName)
+
+	namespaceGVR := corev1.SchemeGroupVersion.WithResource("namespaces")
+
+	ddsifForDownstream.AddEventHandler(ddsif.GVREventHandlerFuncs{
+		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			if gvr == namespaceGVR {
+				return
+			}
+			if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = d.Obj
+			}
+			unstrObj, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstrObj))
+				return
+			}
+			if unstrObj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
+				return
+			}
+
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
+				return
+			}
+			namespace, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
+			}
+			logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, DownstreamNamespace, namespace, DownstreamName, name)
+			logger.V(3).Info("processing delete event")
+
+			var nsLocatorHolder *unstructured.Unstructured
+			// Handle namespaced resources
+			if namespace != "" {
+				// Use namespace lister
+				namespaceLister, err := c.getDownstreamLister(namespaceGVR)
+				if err != nil {
+					utilruntime.HandleError(err)
+					return
+				}
+
+				nsObj, err := namespaceLister.Get(namespace)
+				if apierrors.IsNotFound(err) {
+					return
+				}
+				if err != nil {
+					utilruntime.HandleError(err)
+					return
+				}
+				c.downstreamNSCleaner.PlanCleaning(namespace)
+				nsLocatorHolder, ok = nsObj.(*unstructured.Unstructured)
+				if !ok {
+					utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
+					return
+				}
+			} else {
+				// The nsLocatorHolder is in the resource itself for cluster-scoped resources.
+				nsLocatorHolder = unstrObj
+			}
+			logger = logging.WithObject(logger, nsLocatorHolder)
+
+			locator, ok := nsLocatorHolder.GetAnnotations()[shared.NamespaceLocatorAnnotation]
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in resource %s", nsLocatorHolder.GetName()))
+				return
+			}
+			nsLocator := &shared.NamespaceLocator{}
+			err = json.Unmarshal([]byte(locator), nsLocator)
+			if err != nil {
+				utilruntime.HandleError(err)
+				return
+			}
+			logger.V(4).Info("found", "NamespaceLocator", nsLocator)
+			m := &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: nsLocator.ClusterName.String(),
+				},
+				Namespace: nsLocator.Namespace,
+				Name:      shared.GetUpstreamResourceName(gvr, name),
+			}
+			c.AddToQueue(gvr, m, logger)
+		},
+	})
 
 	return &c, nil
 }

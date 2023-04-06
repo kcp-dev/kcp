@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +39,7 @@ import (
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
@@ -53,10 +52,10 @@ var namespaceGVR schema.GroupVersionResource = schema.GroupVersionResource{Group
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	upstreamClient   kcpdynamic.ClusterInterface
-	downstreamClient dynamic.Interface
+	getUpstreamClient func(clusterName logicalcluster.Name) (dynamic.Interface, error)
+	downstreamClient  dynamic.Interface
 
-	getUpstreamLister   func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
+	getUpstreamLister   func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	getDownstreamLister func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 
 	syncTargetName            string
@@ -67,14 +66,23 @@ type Controller struct {
 }
 
 func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
-	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface,
-	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
+	getShardAccess synctarget.GetShardAccessFunc,
+	downstreamClient dynamic.Interface,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	syncTargetUID types.UID) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:   upstreamClient,
+		getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
+			shardAccess, ok, err := getShardAccess(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+			return shardAccess.SyncerClient.Cluster(clusterName.Path()), nil
+		},
 		downstreamClient: downstreamClient,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
@@ -88,8 +96,16 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 			}
 			return informer.Lister(), nil
 		},
-		getUpstreamLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
-			informers, notSynced := ddsifForUpstreamSyncer.Informers()
+		getUpstreamLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			shardAccess, ok, err := getShardAccess(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+
+			informers, notSynced := shardAccess.SyncerDDSIF.Informers()
 			informer, ok := informers[gvr]
 			if !ok {
 				if shared.ContainsGVR(notSynced, gvr) {
@@ -97,7 +113,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				}
 				return nil, fmt.Errorf("gvr %v should be known in the upstream syncer informer factory", gvr)
 			}
-			return informer.Lister(), nil
+			return informer.Lister().ByCluster(clusterName), nil
 		},
 
 		syncTargetName:            syncTargetName,

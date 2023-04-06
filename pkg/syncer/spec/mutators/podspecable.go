@@ -25,20 +25,24 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	utilspointer "k8s.io/utils/pointer"
 
+	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
+type GetWorkspaceURLFunc func(obj *unstructured.Unstructured) (*url.URL, error)
+type GetClusterDDSIFFunc func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error)
 
 type PodSpecableMutator struct {
-	upstreamURL           *url.URL
+	getWorkspaceURL       GetWorkspaceURLFunc
 	listSecrets           ListSecretFunc
 	serviceLister         listerscorev1.ServiceLister
 	syncTargetClusterName logicalcluster.Name
@@ -68,12 +72,33 @@ func (dm *PodSpecableMutator) GVRs() []schema.GroupVersionResource {
 	}
 }
 
-func NewPodspecableMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
-	syncTargetClusterName logicalcluster.Name,
-	syncTargetUID types.UID, syncTargetName, dnsNamespace string, upsyncPods bool) *PodSpecableMutator {
+func NewPodspecableMutator(ddsifForUpstreamSyncer GetClusterDDSIFFunc, serviceLister listerscorev1.ServiceLister,
+	syncTargetClusterName logicalcluster.Name, syncTargetName string, syncTargetUID types.UID,
+	dnsNamespace string, upsyncPods bool) *PodSpecableMutator {
+	secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
 	return &PodSpecableMutator{
-		upstreamURL:           upstreamURL,
-		listSecrets:           secretLister,
+		getWorkspaceURL: func(obj *unstructured.Unstructured) (*url.URL, error) {
+			workspaceURL, ok := obj.GetAnnotations()[workloadv1alpha1.InternalWorkspaceURLAnnotationKey]
+			if !ok {
+				return nil, fmt.Errorf("annotation %q not found on %s|%s/%s", workloadv1alpha1.InternalWorkspaceURLAnnotationKey, logicalcluster.From(obj), obj.GetNamespace(), obj.GetName())
+			}
+			return url.Parse(workspaceURL)
+		},
+		listSecrets: func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+			ddsif, err := ddsifForUpstreamSyncer(clusterName)
+			if err != nil {
+				return nil, err
+			}
+			informers, notSynced := ddsif.Informers()
+			informer, ok := informers[secretsGVR]
+			if !ok {
+				if shared.ContainsGVR(notSynced, secretsGVR) {
+					return nil, fmt.Errorf("informer for gvr %v not synced in the upstream syncer informer factory", secretsGVR)
+				}
+				return nil, fmt.Errorf("gvr %v should be known in the upstream syncer informer factory", secretsGVR)
+			}
+			return informer.Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
+		},
 		serviceLister:         serviceLister,
 		syncTargetClusterName: syncTargetClusterName,
 		syncTargetUID:         syncTargetUID,
@@ -149,8 +174,13 @@ func (dm *PodSpecableMutator) Mutate(obj *unstructured.Unstructured) error {
 	// Set to empty the serviceAccountName on podTemplate as we are not syncing the serviceAccount down to the workload cluster.
 	podTemplate.Spec.ServiceAccountName = ""
 
-	kcpExternalHost := dm.upstreamURL.Hostname()
-	kcpExternalPort := dm.upstreamURL.Port()
+	workspaceURL, err := dm.getWorkspaceURL(obj)
+	if err != nil {
+		return err
+	}
+
+	kcpExternalHost := workspaceURL.Hostname()
+	kcpExternalPort := workspaceURL.Port()
 
 	overrideEnvs := []corev1.EnvVar{
 		{Name: "KUBERNETES_SERVICE_PORT", Value: kcpExternalPort},

@@ -19,9 +19,6 @@ package spec
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -40,7 +37,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,9 +52,9 @@ import (
 
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
+	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
@@ -68,6 +64,7 @@ func init() {
 	scheme = runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
+	_ = kcpcorev1alpha1.AddToScheme(scheme)
 }
 
 type mockedCleaner struct {
@@ -576,7 +573,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, nil),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, nil),
 			},
 			toResources: []runtime.Object{
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -595,7 +594,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
 							"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-						}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+						}, map[string]string{
+							"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+						}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 					))),
 			},
 			expectActionsOnTo: []clienttesting.Action{
@@ -631,7 +632,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -669,7 +672,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-							}, nil, nil)),
+							}, map[string]string{
+								"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+							}, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
 							setPodSpec("spec", "template", "spec"),
 						),
@@ -701,7 +706,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "kcp-33jbiactwhg0", "root:org:ws", map[string]string{
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -756,7 +763,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
 					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
-					map[string]string{"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
+					map[string]string{
+						"internal.workload.kcp.io/workspace-url":                                   "https://kcp.io/clusters/clusterName",
+						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+					},
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -803,8 +813,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
 					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
-					map[string]string{"another.valid.annotation/this": "value",
-						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
+					map[string]string{
+						"another.valid.annotation/this":                                            "value",
+						"internal.workload.kcp.io/workspace-url":                                   "https://kcp.io/clusters/clusterName",
+						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+					},
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -814,7 +827,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{"another.valid.annotation/this": "value"}, nil),
+							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
+								"another.valid.annotation/this":          "value",
+								"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+							}, nil),
 						),
 						),
 						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
@@ -867,6 +883,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{
 						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+						"internal.workload.kcp.io/workspace-url":                                   "https://kcp.io/clusters/clusterName",
 						"finalizers.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
 					},
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
@@ -887,6 +904,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							}, map[string]string{
 								"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+								"internal.workload.kcp.io/workspace-url":                                   "https://kcp.io/clusters/clusterName",
 								"finalizers.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
 							}, nil)),
 							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
@@ -926,7 +944,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					map[string]string{
 						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 					},
-					map[string]string{"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"},
+					map[string]string{
+						"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]",
+						"internal.workload.kcp.io/workspace-url":                                        "https://kcp.io/clusters/clusterName",
+					},
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
@@ -966,7 +987,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-							}, map[string]string{"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
+							}, map[string]string{
+								"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]",
+								"internal.workload.kcp.io/workspace-url":                                        "https://kcp.io/clusters/clusterName",
+							}, nil)),
 							setNestedField(map[string]interface{}{
 								"replicas": int64(3),
 							}, "spec"),
@@ -1004,7 +1028,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
@@ -1036,7 +1062,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
@@ -1061,8 +1089,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				secretWithFinalizers("foo", "test", "root:org:ws",
 					map[string]string{
 						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-						"something": "else"},
-					nil,
+						"something": "else",
+					},
+					map[string]string{
+						"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+					},
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
 					map[string][]byte{
 						"a": []byte("b"),
@@ -1098,7 +1129,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"foo",
 					"kcp-01c0zzvlqsi7n",
 					types.ApplyPatchType,
-					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.io/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
+					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"annotations":{"internal.workload.kcp.io/workspace-url":"https://kcp.io/clusters/clusterName"},"creationTimestamp":null,"labels":{"internal.workload.kcp.io/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
 				),
 			},
 		},
@@ -1118,7 +1149,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+				}, map[string]string{
+					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
@@ -1154,7 +1187,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-01c0zzvlqsi7n", "", map[string]string{
 								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-							}, nil, nil)),
+							}, map[string]string{
+								"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
+							}, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
 							setPodSpec("spec", "template", "spec"),
 						),
@@ -1214,7 +1249,6 @@ func TestSpecSyncerProcess(t *testing.T) {
 			toInformerFactory := informers.NewSharedInformerFactoryWithOptions(toKubeClient, time.Hour,
 				informers.WithNamespace("kcp-01c0zzvlqsi7n"))
 
-			upstreamURL, err := url.Parse("https://kcp.io:6443")
 			require.NoError(t, err)
 
 			mockedCleaner := &mockedCleaner{
@@ -1222,25 +1256,15 @@ func TestSpecSyncerProcess(t *testing.T) {
 			}
 
 			secretMutator := mutators.NewSecretMutator()
-			secretsGVR := corev1.SchemeGroupVersion.WithResource("secrets")
-			podspecableMutator := mutators.NewPodspecableMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
-				informers, notSynced := ddsifForUpstreamSyncer.Informers()
-				informer, ok := informers[secretsGVR]
-				if !ok {
-					if shared.ContainsGVR(notSynced, secretsGVR) {
-						return nil, fmt.Errorf("informer for gvr %v not synced in the upstream informer factory", secretsGVR)
-					}
-					return nil, fmt.Errorf("gvr %v should be known in the downstream upstream factory", secretsGVR)
-				}
-				if err != nil {
-					return nil, errors.New("informer should be up and synced for namespaces in the upstream syncer informer factory")
-				}
-				return informer.Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-			}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, syncTargetUID, tc.syncTargetName, "kcp-01c0zzvlqsi7n", false)
+			podspecableMutator := mutators.NewPodspecableMutator(
+				func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error) {
+					return ddsifForUpstreamSyncer, nil
+				}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", false)
 
-			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
+			dnsProcessor := dns.NewDNSProcessor(toKubeClient, toInformerFactory, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", "dnsimage")
+			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled,
 				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
-				"kcp-01c0zzvlqsi7n", toInformerFactory, "dnsimage", secretMutator, podspecableMutator)
+				"kcp-01c0zzvlqsi7n", dnsProcessor, "dnsimage", secretMutator, podspecableMutator)
 			require.NoError(t, err)
 
 			toInformerFactory.Start(ctx.Done())
@@ -1289,9 +1313,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 				key,
 			)
 			if tc.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))

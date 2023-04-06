@@ -44,6 +44,7 @@ import (
 
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 )
 
 const (
@@ -81,8 +82,8 @@ func NewDownstreamController(
 	syncTargetUID types.UID,
 	downstreamConfig *rest.Config,
 	downstreamClient dynamic.Interface,
-	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
+	getShardAccess synctarget.GetShardAccessFunc,
 	dnsNamespace string,
 	namespaceCleanDelay time.Duration,
 ) (*DownstreamController, error) {
@@ -98,7 +99,15 @@ func NewDownstreamController(
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
-			informer, err := ddsifForUpstreamSyncer.ForResource(namespaceGVR)
+			shardAccess, ok, err := getShardAccess(clusterName)
+			if err != nil {
+				return false, err
+			}
+			if !ok {
+				return false, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+			}
+
+			informer, err := shardAccess.SyncerDDSIF.ForResource(namespaceGVR)
 			if err != nil {
 				return false, err
 			}

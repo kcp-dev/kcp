@@ -99,6 +99,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--shard-client-cert-file=%s", shardClientCert),
 		fmt.Sprintf("--shard-client-key-file=%s", shardClientCertKey),
 		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(workDirPath, ".kcp", "serving-ca.crt")),
+		"--service-account-lookup=false",
 	)
 	if len(cacheServerConfigPath) > 0 {
 		args = append(args, fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath))

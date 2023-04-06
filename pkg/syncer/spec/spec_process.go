@@ -153,12 +153,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
 
 	// get the upstream object
-	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
+	upstreamSyncerLister, err := c.getUpstreamLister(clusterName, gvr)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := upstreamSyncerLister.ByCluster(clusterName).ByNamespace(upstreamNamespace).Get(name)
+	obj, err := upstreamSyncerLister.ByNamespace(upstreamNamespace).Get(name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -380,7 +380,11 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.upstreamClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+		upstreamClient, err := c.getUpstreamClient(clusterName)
+		if err != nil {
+			return false, err
+		}
+		if _, err := upstreamClient.Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "Failed adding finalizer on upstream upstreamresource")
 			return false, err
 		}
@@ -407,7 +411,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
 	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
-	upstreamSyncerLister, err := c.getUpstreamLister(gvr)
+	upstreamSyncerLister, err := c.getUpstreamLister(upstreamObjLogicalCluster, gvr)
 	if err != nil {
 		return err
 	}
@@ -427,7 +431,11 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName())
+				upstreamClient, err := c.getUpstreamClient(upstreamObjLogicalCluster)
+				if err != nil {
+					return err
+				}
+				return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, upstreamSyncerLister, upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObj.GetName())
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err

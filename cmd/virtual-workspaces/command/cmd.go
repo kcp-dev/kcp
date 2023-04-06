@@ -175,11 +175,16 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	sharedExternalURLGetter := func() string {
+		return o.ShardExternalURL
+	}
+
+	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}
-	tmcVWs, err := o.TmcVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, cacheKcpInformers)
+
+	tmcVWs, err := o.TmcVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, cacheKcpInformers)
 	if err != nil {
 		return err
 	}

@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	syncerindexers "github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
@@ -66,59 +66,86 @@ var namespaceGVR schema.GroupVersionResource = corev1.SchemeGroupVersion.WithRes
 // filled with the information necessary identify the upstream workspace to upsync to.
 func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
-	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface,
-	ddsifForUpstreamUpsyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
+	getShardAccess synctarget.GetShardAccessFunc, downstreamClient dynamic.Interface,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	syncTargetUID types.UID) (*controller, error) {
 	c := &controller{
-		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		upstreamClient:   upstreamClient,
-		downstreamClient: downstreamClient,
-		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			informers, notSynced := ddsifForDownstream.Informers()
-			informer, ok := informers[gvr]
-			if !ok {
-				if shared.ContainsGVR(notSynced, gvr) {
-					return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
-				}
-				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
-			}
-			return informer.Lister(), nil
-		},
-		listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
-			nsInformer, err := ddsifForDownstream.ForResource(namespaceGVR)
-			if err != nil {
-				return nil, err
-			}
-			return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
-		},
-		getUpstreamUpsyncerLister: func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error) {
-			informers, notSynced := ddsifForUpstreamUpsyncer.Informers()
-			informer, ok := informers[gvr]
-			if !ok {
-				if shared.ContainsGVR(notSynced, gvr) {
-					return nil, fmt.Errorf("informer for gvr %v not synced in the upstream upsyncer informer factory", gvr)
-				}
-				return nil, fmt.Errorf("gvr %v should be known in the downstream upstream upsyncer informer factory", gvr)
-			}
-			return informer.Lister(), nil
-		},
-		getUpsyncedGVRs: func() ([]schema.GroupVersionResource, error) {
-			informers, notSynced := ddsifForUpstreamUpsyncer.Informers()
-			var result []schema.GroupVersionResource
-			for k := range informers {
-				result = append(result, k)
-			}
-			if len(notSynced) > 0 {
-				return result, fmt.Errorf("informers not synced in the upstream upsyncer informer factory for gvrs %v", notSynced)
-			}
-			return result, nil
-		},
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		reconciler: reconciler{
+			cleanupReconciler: cleanupReconciler{
+				getUpstreamClient: func(clusterName logicalcluster.Name) (dynamic.Interface, error) {
+					shardAccess, ok, err := getShardAccess(clusterName)
+					if err != nil {
+						return nil, err
+					}
+					if !ok {
+						return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+					}
+					return shardAccess.UpsyncerClient.Cluster(clusterName.Path()), nil
+				},
+				getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+					informers, notSynced := ddsifForDownstream.Informers()
+					informer, ok := informers[gvr]
+					if !ok {
+						if shared.ContainsGVR(notSynced, gvr) {
+							return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+						}
+						return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
+					}
+					return informer.Lister(), nil
+				},
+				listDownstreamNamespacesByLocator: func(jsonLocator string) ([]*unstructured.Unstructured, error) {
+					nsInformer, err := ddsifForDownstream.ForResource(namespaceGVR)
+					if err != nil {
+						return nil, err
+					}
+					return indexers.ByIndex[*unstructured.Unstructured](nsInformer.Informer().GetIndexer(), syncerindexers.ByNamespaceLocatorIndexName, jsonLocator)
+				},
 
-		syncTargetName:        syncTargetName,
-		syncTargetClusterName: syncTargetClusterName,
-		syncTargetUID:         syncTargetUID,
-		syncTargetKey:         syncTargetKey,
+				syncTargetName:        syncTargetName,
+				syncTargetClusterName: syncTargetClusterName,
+				syncTargetUID:         syncTargetUID,
+			},
+			getUpstreamUpsyncerLister: func(clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+				shardAccess, ok, err := getShardAccess(clusterName)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+				}
+
+				informers, notSynced := shardAccess.UpsyncerDDSIF.Informers()
+				informer, ok := informers[gvr]
+				if !ok {
+					if shared.ContainsGVR(notSynced, gvr) {
+						return nil, fmt.Errorf("informer for gvr %v not synced in the upstream upsyncer informer factory -  should retry", gvr)
+					}
+					return nil, fmt.Errorf("gvr %v should be known in the upstream upsyncer informer factory", gvr)
+				}
+				return informer.Lister().ByCluster(clusterName), nil
+			},
+			getUpsyncedGVRs: func(clusterName logicalcluster.Name) ([]schema.GroupVersionResource, error) {
+				shardAccess, ok, err := getShardAccess(clusterName)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					return nil, fmt.Errorf("shard-related clients not found for cluster %q", clusterName)
+				}
+
+				informers, notSynced := shardAccess.UpsyncerDDSIF.Informers()
+				var result []schema.GroupVersionResource
+				for k := range informers {
+					result = append(result, k)
+				}
+				if len(notSynced) > 0 {
+					return result, fmt.Errorf("informers not synced in the upstream upsyncer informer factory for gvrs %v", notSynced)
+				}
+				return result, nil
+			},
+			syncTargetKey: syncTargetKey,
+		},
 	}
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
@@ -180,44 +207,15 @@ func NewUpSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.
 			c.enqueueDownstream(gvr, unstr, logger, false)
 		},
 	})
-
-	ddsifForUpstreamUpsyncer.AddEventHandler(ddsif.GVREventHandlerFuncs{
-		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
-			if gvr == namespaceGVR {
-				return
-			}
-			unstr, ok := obj.(*unstructured.Unstructured)
-			if !ok {
-				utilruntime.HandleError(fmt.Errorf("resource should be a *unstructured.Unstructured, but was %T", unstr))
-				return
-			}
-			if unstr.GetAnnotations()[ResourceVersionAnnotation] == "" {
-				// The upstream resource hasn't been completely upsynced, and is being created.
-				// Cleanup doesn't make sense here.
-				return
-			}
-			c.enqueueUpstream(gvr, obj, logger, false)
-		},
-	})
 	return c, nil
 }
 
 type controller struct {
-	queue           workqueue.RateLimitingInterface
+	queue workqueue.RateLimitingInterface
+
 	dirtyStatusKeys sync.Map
 
-	upstreamClient   kcpdynamic.ClusterInterface
-	downstreamClient dynamic.Interface
-
-	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
-	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
-	getUpstreamUpsyncerLister         func(gvr schema.GroupVersionResource) (kcpcache.GenericClusterLister, error)
-	getUpsyncedGVRs                   func() ([]schema.GroupVersionResource, error)
-
-	syncTargetName        string
-	syncTargetClusterName logicalcluster.Name
-	syncTargetUID         types.UID
-	syncTargetKey         string
+	reconciler
 }
 
 // queueKey is a composite queue key that combines the gvr and the key of the upstream
@@ -261,20 +259,20 @@ func (c *controller) enqueueDeletedDownstreamNamespace(deletedNamespace *unstruc
 		return
 	}
 
-	upsyncedGVRs, err := c.getUpsyncedGVRs()
+	upsyncedGVRs, err := c.getUpsyncedGVRs(upstreamLocator.ClusterName)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
 	for _, gvr := range upsyncedGVRs {
-		upstreamLister, err := c.getUpstreamUpsyncerLister(gvr)
+		upstreamLister, err := c.getUpstreamUpsyncerLister(upstreamLocator.ClusterName, gvr)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 
-		upstreamUpsyncedResources, err := upstreamLister.ByCluster(upstreamLocator.ClusterName).ByNamespace(upstreamLocator.Namespace).List(labels.Everything())
+		upstreamUpsyncedResources, err := upstreamLister.ByNamespace(upstreamLocator.Namespace).List(labels.Everything())
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -412,13 +410,13 @@ func (c *controller) process(ctx context.Context, key string, gvr schema.GroupVe
 		return requeue, err
 	}
 
-	upstreamLister, err := c.getUpstreamUpsyncerLister(gvr)
+	upstreamLister, err := c.getUpstreamUpsyncerLister(clusterName, gvr)
 	if err != nil {
 		return resetDirty(false, err)
 	}
-	getter := upstreamLister.ByCluster(clusterName).Get
+	getter := upstreamLister.Get
 	if namespace != "" {
-		getter = upstreamLister.ByCluster(clusterName).ByNamespace(namespace).Get
+		getter = upstreamLister.ByNamespace(namespace).Get
 	}
 
 	upstreamObj, err := getter(name)

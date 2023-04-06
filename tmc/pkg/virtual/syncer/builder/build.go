@@ -46,6 +46,7 @@ const (
 // combined with a ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
+	shardExternalURL func() string,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	cachedKCPInformers kcpinformers.SharedInformerFactory,
@@ -91,6 +92,7 @@ func BuildVirtualWorkspace(
 					return true
 				},
 				transformer: &transformations.SyncerResourceTransformer{
+					ShardExternalURL:         shardExternalURL(),
 					TransformationProvider:   &transformations.SpecDiffTransformation{},
 					SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
 				},

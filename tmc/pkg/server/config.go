@@ -76,7 +76,7 @@ func NewConfig(opts options.CompletedOptions) (*Config, error) {
 		virtualWorkspacesConfig := rest.CopyConfig(core.GenericConfig.LoopbackClientConfig)
 		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
 
-		tmcVWs, err := opts.TmcVirtualWorkspaces.NewVirtualWorkspaces(virtualWorkspacesConfig, virtualcommandoptions.DefaultRootPathPrefix, core.CacheKcpSharedInformerFactory)
+		tmcVWs, err := opts.TmcVirtualWorkspaces.NewVirtualWorkspaces(virtualWorkspacesConfig, virtualcommandoptions.DefaultRootPathPrefix, core.ShardExternalURL, core.CacheKcpSharedInformerFactory)
 		if err != nil {
 			return nil, err
 		}
