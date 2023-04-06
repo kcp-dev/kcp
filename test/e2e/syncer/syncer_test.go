@@ -487,6 +487,20 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		return false, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not deleted downstream", upstreamPersistentVolume.Name)
+
+	dnsID := shared.GetDNSID(logicalcluster.Name(ws.Spec.Cluster), syncTarget.UID, syncTarget.Name)
+	t.Logf("Waiting DNS-related resources related to the workspace to be deleted")
+	framework.Eventually(t, func() (bool, string) {
+		dnsDeployment, err := downstreamKubeClient.AppsV1().Deployments(syncerFixture.SyncerID).Get(ctx, dnsID, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, "DNS Deployment was deleted"
+		}
+		require.NoError(t, err)
+		if dnsDeployment.DeletionTimestamp != nil {
+			return true, "deletionTimestamp is set."
+		}
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream DNS deployment %s/%s related to the workspace was not marked for deletion or deleted", syncerFixture.SyncerID, dnsID)
 }
 
 func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) time.Time {
