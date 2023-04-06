@@ -39,7 +39,8 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/syncer/multishard/workspace2"
 )
 
-// TestSyncerTunnelFilter ensures that the syncer tunnel will reject trying to access a Pod that is crafted and not actually upsynced.
+// TestSyncingFromMultipleShards ensures that the syncer can effectively sync from several workspaces hosted on distinct shards
+// with distinct virtual workspace URLs.
 func TestSyncingFromMultipleShards(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster")
@@ -152,7 +153,7 @@ func TestSyncingFromMultipleShards(t *testing.T) {
 		}
 		require.NoError(t, err)
 		diff := cmp.Diff(test1Downstream.Status, test1Upstream.Status)
-		return len(diff) == 0, fmt.Sprintf("status different between upstream and downstream: %s", diff)
+		return len(diff) == 0, fmt.Sprintf("status different between downstream and upstream: %s", diff)
 	}, wait.ForeverTestTimeout, time.Millisecond*500, "status of deployment test1 not synced back upstream")
 
 	framework.Eventually(t, func() (success bool, reason string) {
@@ -168,7 +169,7 @@ func TestSyncingFromMultipleShards(t *testing.T) {
 		}
 		require.NoError(t, err)
 		diff := cmp.Diff(test2Downstream.Status, test2Upstream.Status)
-		return len(diff) == 0, fmt.Sprintf("status different between upstream and downstream: %s", diff)
+		return len(diff) == 0, fmt.Sprintf("status different between downstream and upstream: %s", diff)
 	}, wait.ForeverTestTimeout, time.Millisecond*500, "status of deployment test2 not synced back upstream")
 }
 
