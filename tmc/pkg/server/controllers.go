@@ -263,6 +263,7 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 		kcpClusterClient,
 		s.Core.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.Core.CacheKcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.Core.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {

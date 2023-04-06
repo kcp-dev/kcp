@@ -59,7 +59,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
+	locationInformer, globalLocationInformer schedulingv1alpha1informers.LocationClusterInformer,
 	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -78,8 +78,13 @@ func NewController(
 
 		namespaceLister: namespaceInformer.Lister(),
 
-		locationLister:  locationInformer.Lister(),
-		locationIndexer: locationInformer.Informer().GetIndexer(),
+		listLocationsByPath: func(path logicalcluster.Path) ([]*schedulingv1alpha1.Location, error) {
+			objs, err := indexers.ByIndexWithFallback[*schedulingv1alpha1.Location](locationInformer.Informer().GetIndexer(), globalLocationInformer.Informer().GetIndexer(), indexers.ByLogicalClusterPath, path.String())
+			if err != nil {
+				return nil, err
+			}
+			return objs, nil
+		},
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
@@ -94,6 +99,9 @@ func NewController(
 	}
 
 	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+	})
+	indexers.AddIfNotPresentOrDie(globalLocationInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
 	})
 
@@ -163,8 +171,7 @@ type controller struct {
 
 	namespaceLister corev1listers.NamespaceClusterLister
 
-	locationLister  schedulingv1alpha1listers.LocationClusterLister
-	locationIndexer cache.Indexer
+	listLocationsByPath func(path logicalcluster.Path) ([]*schedulingv1alpha1.Location, error)
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
