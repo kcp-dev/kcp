@@ -395,6 +395,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 				apiHandler,
 				c.DynamicClusterClient,
 				c.KcpSharedInformerFactory,
+				c.CacheKcpSharedInformerFactory,
 			)
 		}
 
@@ -523,9 +524,10 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// make sure the informer gets started, otherwise conversions will not work!
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
-	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})       //nolint:errcheck
-	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck
-	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
+	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})            //nolint:errcheck
+	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                        //nolint:errcheck
+	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey})      //nolint:errcheck
+	c.CacheKcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
 
 	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,

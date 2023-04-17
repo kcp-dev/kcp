@@ -53,8 +53,7 @@ type controller struct {
 	syncTargetLister workloadv1alpha1listers.SyncTargetLister
 	commit           CommitFunc
 
-	shardManager *shardManager
-	gvrSource    *syncTargetGVRSource
+	reconcilers []reconciler
 }
 
 // NewSyncTargetController returns a controller that watches the [workloadv1alpha1.SyncTarget]
@@ -71,6 +70,7 @@ func NewSyncTargetController(
 	syncTargetUID types.UID,
 	gvrSource *syncTargetGVRSource,
 	shardManager *shardManager,
+	startShardTunneler func(ctx context.Context, shardURL workloadv1alpha1.TunnelWorkspace),
 ) (*controller, error) {
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
@@ -78,8 +78,14 @@ func NewSyncTargetController(
 		syncTargetLister: syncTargetInformer.Lister(),
 		commit:           committer.NewCommitterScoped[*SyncTarget, Patcher, *SyncTargetSpec, *SyncTargetStatus](syncTargetClient),
 
-		gvrSource:    gvrSource,
-		shardManager: shardManager,
+		reconcilers: []reconciler{
+			gvrSource,
+			shardManager,
+			&tunnelerReconciler{
+				startedTunnelers:   make(map[workloadv1alpha1.TunnelWorkspace]tunnelerStopper),
+				startShardTunneler: startShardTunneler,
+			},
+		},
 	}
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)

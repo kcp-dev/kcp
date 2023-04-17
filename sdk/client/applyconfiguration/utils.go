@@ -270,6 +270,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationworkloadv1alpha1.SyncTargetSpecApplyConfiguration{}
 	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetStatus"):
 		return &applyconfigurationworkloadv1alpha1.SyncTargetStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("TunnelWorkspace"):
+		return &applyconfigurationworkloadv1alpha1.TunnelWorkspaceApplyConfiguration{}
 	case workloadv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &applyconfigurationworkloadv1alpha1.VirtualWorkspaceApplyConfiguration{}
 

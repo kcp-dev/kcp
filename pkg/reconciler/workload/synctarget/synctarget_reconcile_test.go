@@ -44,8 +44,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace/",
 					},
 				},
 			},
@@ -81,8 +82,13 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+					},
+					TunnelWorkspaces: []workloadv1alpha1.TunnelWorkspace{
+						{
+							URL: "http://1.2.3.4:6443/clusters/demo:root:yourworkspace",
 						},
 					},
 				},
@@ -96,8 +102,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root2",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-2/",
+						BaseURL:             "http://1.2.3.4:6444/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-2/",
 					},
 				},
 				{
@@ -105,8 +112,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root3",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-3/",
+						BaseURL:             "http://1.2.3.4:6445/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-3/",
 					},
 				},
 				{
@@ -114,8 +122,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-1/",
 					},
 				},
 			},
@@ -151,16 +160,27 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+					},
+					TunnelWorkspaces: []workloadv1alpha1.TunnelWorkspace{
+						{
+							URL: "http://1.2.3.4:6443/clusters/demo:root:yourworkspace",
+						},
+						{
+							URL: "http://1.2.3.4:6444/clusters/demo:root:yourworkspace",
+						},
+						{
+							URL: "http://1.2.3.4:6445/clusters/demo:root:yourworkspace",
 						},
 					},
 				},
@@ -174,8 +194,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root2",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-2/",
+						BaseURL:             "http://1.2.3.4:6444/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-2/",
 					},
 				},
 				{
@@ -183,8 +204,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root3",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-3/",
+						BaseURL:             "http://1.2.3.4:6445/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-3/",
 					},
 				},
 				{
@@ -192,8 +214,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-10/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-10/",
 					},
 				},
 			},
@@ -229,16 +252,27 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host-10/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-10/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-10/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-10/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+					},
+					TunnelWorkspaces: []workloadv1alpha1.TunnelWorkspace{
+						{
+							URL: "http://1.2.3.4:6443/clusters/demo:root:yourworkspace",
+						},
+						{
+							URL: "http://1.2.3.4:6444/clusters/demo:root:yourworkspace",
+						},
+						{
+							URL: "http://1.2.3.4:6445/clusters/demo:root:yourworkspace",
 						},
 					},
 				},
@@ -252,8 +286,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-1/",
 					},
 				},
 				{
@@ -261,8 +296,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root2",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-1/",
 					},
 				},
 				{
@@ -270,8 +306,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root3",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-3/",
+						BaseURL:             "http://1.2.3.4:6445/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-3/",
 					},
 				},
 			},
@@ -307,14 +344,18 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 
 						{
-							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
+					},
+					TunnelWorkspaces: []workloadv1alpha1.TunnelWorkspace{
+						{URL: "http://1.2.3.4:6443/clusters/demo:root:yourworkspace"},
+						{URL: "http://1.2.3.4:6445/clusters/demo:root:yourworkspace"},
 					},
 				},
 			},
@@ -360,8 +401,9 @@ func TestReconciler(t *testing.T) {
 						Name: "root",
 					},
 					Spec: corev1alpha1.ShardSpec{
-						BaseURL:             "http://1.2.3.4/",
-						VirtualWorkspaceURL: "http://external-host-1/",
+						BaseURL:             "http://1.2.3.4:6443/",
+						ExternalURL:         "http://external-host/",
+						VirtualWorkspaceURL: "http://virtualworkspace-1/",
 					},
 				},
 			},
@@ -379,16 +421,16 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-2/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-2/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-2/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 						{
-							SyncerURL:   "http://external-host-3/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-3/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-3/services/upsyncer/demo:root:yourworkspace/test-cluster",
 						},
 					},
 				},
@@ -410,8 +452,13 @@ func TestReconciler(t *testing.T) {
 				Status: workloadv1alpha1.SyncTargetStatus{
 					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{
 						{
-							SyncerURL:   "http://external-host-1/services/syncer/demo:root:yourworkspace/test-cluster",
-							UpsyncerURL: "http://external-host-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
+							SyncerURL:   "http://virtualworkspace-1/services/syncer/demo:root:yourworkspace/test-cluster",
+							UpsyncerURL: "http://virtualworkspace-1/services/upsyncer/demo:root:yourworkspace/test-cluster",
+						},
+					},
+					TunnelWorkspaces: []workloadv1alpha1.TunnelWorkspace{
+						{
+							URL: "http://1.2.3.4:6443/clusters/demo:root:yourworkspace",
 						},
 					},
 				},

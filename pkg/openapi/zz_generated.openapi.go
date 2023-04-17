@@ -126,6 +126,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetList":                          schema_sdk_apis_workload_v1alpha1_SyncTargetList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetSpec":                          schema_sdk_apis_workload_v1alpha1_SyncTargetSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.SyncTargetStatus":                        schema_sdk_apis_workload_v1alpha1_SyncTargetStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.TunnelWorkspace":                         schema_sdk_apis_workload_v1alpha1_TunnelWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace":                        schema_sdk_apis_workload_v1alpha1_VirtualWorkspace(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -4683,11 +4684,46 @@ func schema_sdk_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 							},
 						},
 					},
+					"tunnelWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TunnelWorkspaces contains all URLs (one per shard) that point to the SyncTarget workspace in order to setup the tunneler.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.TunnelWorkspace"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.ResourceToSync", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.ResourceToSync", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.TunnelWorkspace", "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_sdk_apis_workload_v1alpha1_TunnelWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is the URL the Syncer should use to connect to the Syncer tunnel for a given shard.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
 	}
 }
 

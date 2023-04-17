@@ -108,6 +108,11 @@ type SyncTargetStatus struct {
 	// VirtualWorkspaces contains all virtual workspace URLs.
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
+
+	// TunnelWorkspaces contains all URLs (one per shard) that point to the SyncTarget
+	// workspace in order to setup the tunneler.
+	// +optional
+	TunnelWorkspaces []TunnelWorkspace `json:"tunnelWorkspaces,omitempty"`
 }
 
 type ResourceToSync struct {
@@ -161,6 +166,16 @@ type VirtualWorkspace struct {
 	// +kubebuilder:format:URL
 	// +required
 	UpsyncerURL string `json:"upsyncerURL"`
+}
+
+type TunnelWorkspace struct {
+	// url is the URL the Syncer should use to connect
+	// to the Syncer tunnel for a given shard.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"url"`
 }
 
 // SyncTargetList is a list of SyncTarget resources

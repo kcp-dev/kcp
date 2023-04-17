@@ -43,7 +43,7 @@ import (
 // with distinct virtual workspace URLs.
 func TestSyncingFromMultipleShards(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "transparent-multi-cluster")
+	framework.Suite(t, "transparent-multi-cluster:requires-kind")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

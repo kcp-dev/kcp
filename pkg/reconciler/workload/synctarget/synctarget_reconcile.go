@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -44,7 +43,9 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 	labels[workloadv1alpha1.InternalSyncTargetKeyLabel] = workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTargetCopy), syncTargetCopy.Name)
 	syncTargetCopy.SetLabels(labels)
 
-	desiredURLs := map[string]workloadv1alpha1.VirtualWorkspace{}
+	desiredVWURLs := map[string]workloadv1alpha1.VirtualWorkspace{}
+	desiredTunnelWorkspaceURLs := map[string]workloadv1alpha1.TunnelWorkspace{}
+	syncTargetClusterName := logicalcluster.From(syncTarget)
 
 	var rootShardKey string
 	for _, workspaceShard := range workspaceShards {
@@ -81,9 +82,17 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 			if workspaceShard.Name == corev1alpha1.RootShard {
 				rootShardKey = shardVWURL.String()
 			}
-			desiredURLs[shardVWURL.String()] = workloadv1alpha1.VirtualWorkspace{
+			desiredVWURLs[shardVWURL.String()] = workloadv1alpha1.VirtualWorkspace{
 				SyncerURL:   syncerURL,
 				UpsyncerURL: upsyncerURL,
+			}
+
+			tunnelWorkspaceURL, err := url.JoinPath(workspaceShard.Spec.BaseURL, syncTargetClusterName.Path().RequestPath())
+			if err != nil {
+				return nil, err
+			}
+			desiredTunnelWorkspaceURLs[shardVWURL.String()] = workloadv1alpha1.TunnelWorkspace{
+				URL: tunnelWorkspaceURL,
 			}
 		}
 	}
@@ -94,20 +103,23 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1
 	// - urls for other shards which will be added in the lexical order of the
 	// corresponding shard URLs.
 	var desiredVirtualWorkspaces []workloadv1alpha1.VirtualWorkspace //nolint:prealloc
-	if rootShardVWURLs, ok := desiredURLs[rootShardKey]; ok {
-		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, rootShardVWURLs)
-		delete(desiredURLs, rootShardKey)
+	if rootShardVirtualWorkspace, ok := desiredVWURLs[rootShardKey]; ok {
+		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, rootShardVirtualWorkspace)
+		delete(desiredVWURLs, rootShardKey)
 	}
-	for _, shardURL := range sets.StringKeySet(desiredURLs).List() {
-		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, desiredURLs[shardURL])
+	for _, shardURL := range sets.StringKeySet(desiredVWURLs).List() {
+		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, desiredVWURLs[shardURL])
 	}
-
-	if syncTargetCopy.Status.VirtualWorkspaces != nil {
-		if equality.Semantic.DeepEqual(syncTargetCopy.Status.VirtualWorkspaces, desiredVirtualWorkspaces) {
-			return syncTargetCopy, nil
-		}
+	var desiredTunnelWorkspaces []workloadv1alpha1.TunnelWorkspace //nolint:prealloc
+	if rootShardTunnelWorkspace, ok := desiredTunnelWorkspaceURLs[rootShardKey]; ok {
+		desiredTunnelWorkspaces = append(desiredTunnelWorkspaces, rootShardTunnelWorkspace)
+		delete(desiredTunnelWorkspaceURLs, rootShardKey)
+	}
+	for _, shardURL := range sets.StringKeySet(desiredTunnelWorkspaceURLs).List() {
+		desiredTunnelWorkspaces = append(desiredTunnelWorkspaces, desiredTunnelWorkspaceURLs[shardURL])
 	}
 
 	syncTargetCopy.Status.VirtualWorkspaces = desiredVirtualWorkspaces
+	syncTargetCopy.Status.TunnelWorkspaces = desiredTunnelWorkspaces
 	return syncTargetCopy, nil
 }

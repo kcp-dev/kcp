@@ -34,6 +34,7 @@ type SyncTargetStatusApplyConfiguration struct {
 	SyncedResources         []ResourceToSyncApplyConfiguration   `json:"syncedResources,omitempty"`
 	LastSyncerHeartbeatTime *metav1.Time                         `json:"lastSyncerHeartbeatTime,omitempty"`
 	VirtualWorkspaces       []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
+	TunnelWorkspaces        []TunnelWorkspaceApplyConfiguration  `json:"tunnelWorkspaces,omitempty"`
 }
 
 // SyncTargetStatusApplyConfiguration constructs an declarative configuration of the SyncTargetStatus type for use with
@@ -96,6 +97,19 @@ func (b *SyncTargetStatusApplyConfiguration) WithVirtualWorkspaces(values ...*Vi
 			panic("nil value passed to WithVirtualWorkspaces")
 		}
 		b.VirtualWorkspaces = append(b.VirtualWorkspaces, *values[i])
+	}
+	return b
+}
+
+// WithTunnelWorkspaces adds the given value to the TunnelWorkspaces field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TunnelWorkspaces field.
+func (b *SyncTargetStatusApplyConfiguration) WithTunnelWorkspaces(values ...*TunnelWorkspaceApplyConfiguration) *SyncTargetStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithTunnelWorkspaces")
+		}
+		b.TunnelWorkspaces = append(b.TunnelWorkspaces, *values[i])
 	}
 	return b
 }

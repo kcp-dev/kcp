@@ -364,6 +364,23 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		syncTarget.GetUID(),
 		syncTargetGVRSource,
 		shardManager,
+		func(ctx context.Context, shardURL workloadv1alpha1.TunnelWorkspace) {
+			// Start tunneler for POD access
+			if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
+				upstreamTunnelConfig := rest.CopyConfig(cfg.UpstreamConfig)
+				rest.AddUserAgent(upstreamTunnelConfig, "kcp#tunneler/"+kcpVersion)
+				upstreamTunnelConfig.Host = shardURL.URL
+
+				StartSyncerTunnel(ctx, upstreamTunnelConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName, cfg.SyncTargetUID, func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+					informers, _ := ddsifForDownstream.Informers()
+					informer, ok := informers[gvr]
+					if !ok {
+						return nil, fmt.Errorf("failed to get informer for gvr: %s", gvr)
+					}
+					return informer.Lister(), nil
+				})
+			}
+		},
 	)
 	if err != nil {
 		return err
@@ -471,20 +488,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	go syncTargetController.Start(ctx)
 	go downstreamSyncerControllerManager.Start(ctx)
-
-	// Start tunneler for POD access
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-		upstreamTunnelConfig := rest.CopyConfig(cfg.UpstreamConfig)
-		rest.AddUserAgent(upstreamTunnelConfig, "kcp#tunneler/"+kcpVersion)
-		StartSyncerTunnel(ctx, upstreamTunnelConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName, cfg.SyncTargetUID, func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			informers, _ := ddsifForDownstream.Informers()
-			informer, ok := informers[gvr]
-			if !ok {
-				return nil, fmt.Errorf("failed to get informer for gvr: %s", gvr)
-			}
-			return informer.Lister(), nil
-		})
-	}
 
 	StartHeartbeat(ctx, kcpSyncTargetClient, cfg.SyncTargetName, cfg.SyncTargetUID)
 
