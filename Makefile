@@ -71,7 +71,7 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
-CODE_GENERATOR_VER := v2.0.0
+CODE_GENERATOR_VER := v2.1.0
 CODE_GENERATOR_BIN := code-generator
 CODE_GENERATOR := $(TOOLS_GOBIN_DIR)/$(CODE_GENERATOR_BIN)-$(CODE_GENERATOR_VER)
 export CODE_GENERATOR # so hack scripts can use it
