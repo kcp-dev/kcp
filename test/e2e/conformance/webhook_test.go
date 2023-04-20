@@ -129,7 +129,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 		}},
 	}
 	_, err = kubeClusterClient.Cluster(workspaces[0]).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to add validating webhook configurations")
+	require.NoError(t, err, "failed to add mutating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{

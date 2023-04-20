@@ -27,12 +27,13 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	api "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd/api"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/version"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/coordination/deployment"
-	options "github.com/kcp-dev/kcp/tmc/cmd/deployment-coordinator/options"
+	"github.com/kcp-dev/kcp/tmc/cmd/deployment-coordinator/options"
 )
 
 const numThreads = 2
@@ -45,7 +46,7 @@ func NewDeploymentCoordinatorCommand() *cobra.Command {
 		Use:   "deployment-coordinator",
 		Short: "Coordination controller for deployments. Spreads replicas across locations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := logsapiv1.ValidateAndApply(options.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := options.Complete(); err != nil {

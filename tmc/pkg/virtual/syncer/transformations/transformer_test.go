@@ -197,6 +197,14 @@ func (c *resourceClient) Patch(ctx context.Context, name string, pt types.PatchT
 	c.lclusterRecorder(c.lcluster.String())
 	return c.resourceInterface.Patch(ctx, name, pt, data, options, subresources...)
 }
+func (c *resourceClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	c.lclusterRecorder(c.lcluster.String())
+	return c.resourceInterface.Apply(ctx, name, obj, options, subresources...)
+}
+func (c *resourceClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	c.lclusterRecorder(c.lcluster.String())
+	return c.resourceInterface.ApplyStatus(ctx, name, obj, options)
+}
 
 func gvr(group, version, resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{

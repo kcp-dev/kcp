@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
@@ -110,6 +109,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
+	if err := opts.Etcd.Complete(serverConfig.Config.StorageObjectCountTracker, serverConfig.Config.DrainedNotify(), serverConfig.Config.AddPostStartHook); err != nil {
+		return nil, err
+	}
 	if err := opts.Etcd.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
@@ -150,7 +152,10 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	opts.Etcd.StorageConfig.Codec = apiextensionsapiserver.Codecs.LegacyCodec(apiextensionsv1beta1.SchemeGroupVersion, apiextensionsv1.SchemeGroupVersion)
 	// prefer the more compact serialization (v1beta1) for storage until http://issue.k8s.io/82292 is resolved for objects whose v1 serialization is too big but whose v1beta1 serialization can be stored
 	opts.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(apiextensionsv1beta1.SchemeGroupVersion, schema.GroupKind{Group: apiextensionsv1beta1.GroupName})
-	serverConfig.RESTOptionsGetter = &genericoptions.SimpleRestOptionsFactory{Options: *opts.Etcd}
+	opts.Etcd.SkipHealthEndpoints = true // avoid double wiring of health checks
+	if err := opts.Etcd.ApplyTo(&serverConfig.Config); err != nil {
+		return nil, err
+	}
 
 	// an ordered list of HTTP round trippers that add
 	// shard and cluster awareness to all clients that use
@@ -198,10 +203,15 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		resyncPeriod,
 	)
 
+	crdRESTOptionsGetter, err := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd)
+	if err != nil {
+		return nil, err
+	}
+
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiextensionsapiserver.ExtraConfig{
-			CRDRESTOptionsGetter:   apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd),
+			CRDRESTOptionsGetter:   crdRESTOptionsGetter,
 			MasterCount:            1,
 			Client:                 c.ApiExtensionsClusterClient,
 			Informers:              c.ApiExtensionsSharedInformerFactory,

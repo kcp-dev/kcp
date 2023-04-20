@@ -24,8 +24,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
@@ -51,14 +51,14 @@ type Options struct {
 
 func NewOptions() *Options {
 	// Default to -v=2
-	logs := logs.NewOptions()
-	logs.Config.Verbosity = config.VerbosityLevel(2)
+	logsOptions := logs.NewOptions()
+	logsOptions.Verbosity = logsapiv1.VerbosityLevel(2)
 
 	return &Options{
 		QPS:                           30,
 		Burst:                         20,
 		SyncedResourceTypes:           []string{},
-		Logs:                          logs,
+		Logs:                          logsOptions,
 		APIImportPollInterval:         1 * time.Minute,
 		DownstreamNamespaceCleanDelay: 30 * time.Second,
 	}
@@ -83,7 +83,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.DNSImage, "dns-image", options.DNSImage, "kcp DNS server image.")
 	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespace, defaults to 30s.")
 
-	options.Logs.AddFlags(fs)
+	logsapiv1.AddFlags(options.Logs, fs)
 }
 
 func (options *Options) Complete() error {
