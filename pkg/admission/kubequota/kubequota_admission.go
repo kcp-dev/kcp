@@ -98,7 +98,7 @@ type KubeResourceQuota struct {
 	lock      sync.RWMutex
 	delegates map[logicalcluster.Name]*stoppableQuotaAdmission
 
-	workspaceDeletionMonitorStarter sync.Once
+	logicalClusterDeletionMonitorStarter sync.Once
 }
 
 // ValidateInitialization validates all the expected fields are set.
@@ -143,8 +143,8 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 		}
 	}
 
-	k.workspaceDeletionMonitorStarter.Do(func() {
-		m := newLogicalClusterDeletionMonitor(k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
+	k.logicalClusterDeletionMonitorStarter.Do(func() {
+		m := NewLogicalClusterDeletionMonitor("kubequota-logicalcluster-deletion-monitor", k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
 		go m.Start(k.serverDone)
 	})
 
@@ -191,7 +191,7 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 	}()
 
 	const evaluatorWorkersPerWorkspace = 5
-	quotaAdmission, err := resourcequota.NewResourceQuota(k.userSuppliedConfiguration, evaluatorWorkersPerWorkspace, ctx.Done())
+	quotaAdmission, err := resourcequota.NewResourceQuota(k.userSuppliedConfiguration, evaluatorWorkersPerWorkspace)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -202,6 +202,7 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 		stop:           cancel,
 	}
 
+	delegate.SetDrainedNotification(ctx.Done())
 	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.Cluster(clusterName).Lister())
 	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)

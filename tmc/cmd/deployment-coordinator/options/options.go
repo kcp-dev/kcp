@@ -19,8 +19,8 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 )
 
 type Options struct {
@@ -32,11 +32,11 @@ type Options struct {
 
 func NewOptions() *Options {
 	// Default to -v=2
-	logs := logs.NewOptions()
-	logs.Config.Verbosity = config.VerbosityLevel(2)
+	logsOptions := logs.NewOptions()
+	logsOptions.Verbosity = logsapiv1.VerbosityLevel(2)
 
 	return &Options{
-		Logs: logs,
+		Logs: logsOptions,
 	}
 }
 
@@ -44,7 +44,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.Kubeconfig, "kubeconfig", options.Kubeconfig, "Kubeconfig file.")
 	fs.StringVar(&options.Context, "context", options.Context, "Context to use in the Kubeconfig file, instead of the current context.")
 	fs.StringVar(&options.Server, "server", options.Server, "APIServer URL to use in the Kubeconfig file, instead of the one in the current context.")
-	options.Logs.AddFlags(fs)
+	logsapiv1.AddFlags(options.Logs, fs)
 }
 
 func (options *Options) Complete() error {

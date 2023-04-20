@@ -19,6 +19,7 @@ package forwardingregistry_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -473,7 +474,7 @@ func TestPatch(t *testing.T) {
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
-		if oldObj == nil {
+		if reflect.DeepEqual(&unstructured.Unstructured{}, oldObj.(*unstructured.Unstructured)) {
 			return nil, errors.NewNotFound(schema.ParseGroupResource("noxus.mygroup.example.com"), "foo")
 		}
 		updated := oldObj.DeepCopyObject().(*unstructured.Unstructured)

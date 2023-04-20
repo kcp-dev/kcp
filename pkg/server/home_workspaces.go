@@ -316,7 +316,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			Initializers: logicalCluster.Status.Initializers,
 		},
 	}
-	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1alpha1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
+	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1alpha1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace, false)
 }
 
 func (h *homeWorkspaceHandler) getWorkspaceType(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {

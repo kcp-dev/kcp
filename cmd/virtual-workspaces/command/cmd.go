@@ -36,7 +36,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/component-base/config"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -52,7 +52,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 	opts := options.NewOptions()
 
 	// Default to -v=2
-	opts.Logs.Config.Verbosity = config.VerbosityLevel(2)
+	opts.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
 
 	cmd := &cobra.Command{
 		Use:   "workspaces",
@@ -60,7 +60,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 		Long:  "Start the root virtual workspace apiserver to enable virtual workspace management.",
 
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := logsapiv1.ValidateAndApply(opts.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := opts.Validate(); err != nil {

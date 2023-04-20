@@ -313,7 +313,7 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		}
 		groupList = append(groupList, g)
 	}
-	responsewriters.WriteObjectNegotiated(aggregator.DiscoveryCodecs, negotiation.DefaultEndpointRestrictions, schema.GroupVersion{}, w, req, http.StatusOK, &metav1.APIGroupList{Groups: groupList})
+	responsewriters.WriteObjectNegotiated(aggregator.DiscoveryCodecs, negotiation.DefaultEndpointRestrictions, schema.GroupVersion{}, w, req, http.StatusOK, &metav1.APIGroupList{Groups: groupList}, false)
 }
 
 // splitPath returns the segments for a URL path.

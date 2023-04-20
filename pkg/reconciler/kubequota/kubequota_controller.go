@@ -34,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/resourcequota"
@@ -269,15 +268,9 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     c.informersStarted,
 		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
-		ClusterName:          clusterName,
-	}
-	if resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter() != nil {
-		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(clusterName.String()+"-resource_quota_controller", resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter()); err != nil {
-			return err
-		}
 	}
 
-	resourceQuotaController, err := resourcequota.NewController(resourceQuotaControllerOptions)
+	resourceQuotaController, err := resourcequota.NewController(ctx, resourceQuotaControllerOptions)
 	if err != nil {
 		return err
 	}

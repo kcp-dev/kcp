@@ -217,7 +217,11 @@ func TestDecorator(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			ctx := audit.WithAuditContext(context.Background(), newAuditContext(auditapis.LevelMetadata))
+			ctx := audit.WithAuditContext(context.Background())
+			auditCtx := audit.AuditContextFrom(ctx)
+			auditCtx.Event = &auditapis.Event{
+				Level: auditapis.LevelMetadata,
+			}
 			attr := authorizer.AttributesRecord{}
 			dec, reason, _ := tc.authz.Authorize(ctx, attr)
 			if dec != tc.wantDecision {
@@ -231,13 +235,5 @@ func TestDecorator(t *testing.T) {
 				t.Errorf("want reason %q, got %q", tc.wantReason, reason)
 			}
 		})
-	}
-}
-
-func newAuditContext(l auditapis.Level) *audit.AuditContext {
-	return &audit.AuditContext{
-		Event: &auditapis.Event{
-			Level: l,
-		},
 	}
 }

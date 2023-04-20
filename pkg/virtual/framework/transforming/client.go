@@ -332,6 +332,37 @@ func (tc *transformingResourceClient) Update(ctx context.Context, obj *unstructu
 	return result, err
 }
 
+func (tc *transformingResourceClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	var err error
+	logger := getLogger(ctx).WithValues("subresources", subresources).WithValues("action", "apply")
+	if obj != nil {
+		logger = logging.WithObject(logger, obj)
+	}
+	beforeLogger := logger.WithValues("moment", before)
+	beforeLogger.Info(startingMessage)
+	obj, err = tc.transformer.BeforeWrite(tc.delegate, ctx, tc.resource, obj, subresources...)
+	if err != nil {
+		beforeLogger.Error(err, errorMessage)
+		return nil, err
+	}
+	result, err := tc.delegate.Apply(ctx, name, obj, options, subresources...)
+	if err != nil {
+		return result, err
+	}
+	afterLogger := logger.WithValues("moment", after)
+	afterLogger.Info(startingMessage)
+	result, err = tc.transformer.AfterRead(tc.delegate, ctx, tc.resource, result, nil, subresources...)
+	if err != nil {
+		afterLogger.Error(err, errorMessage)
+		return result, err
+	}
+	return result, err
+}
+
+func (tc *transformingResourceClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return tc.Apply(ctx, name, obj, options, "status")
+}
+
 // Get implements dynamic.ResourceInterface.
 // It delegates the Get call to the underlying kubernetes client,
 // and transforms back the result of the Get call by calling the transformer AfterRead method.
