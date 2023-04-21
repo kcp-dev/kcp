@@ -80,7 +80,7 @@ func NewController(
 		commit: committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

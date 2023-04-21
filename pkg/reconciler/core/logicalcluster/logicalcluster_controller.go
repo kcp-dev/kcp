@@ -59,7 +59,7 @@ func NewController(
 		logicalClusterLister:  logicalClusterInformer.Lister(),
 		commit:                committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
-	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },

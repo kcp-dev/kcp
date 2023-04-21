@@ -73,7 +73,7 @@ func NewController(
 		crdLister:                        crdInformer.Lister(),
 	}
 
-	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
@@ -89,7 +89,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to add indexer for NegotiatedAPIResource: %w", err)
 	}
 
-	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
@@ -105,7 +105,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
 	}
 
-	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },

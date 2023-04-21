@@ -97,12 +97,12 @@ func NewController(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	globalShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },

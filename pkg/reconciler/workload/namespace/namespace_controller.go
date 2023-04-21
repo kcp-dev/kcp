@@ -78,7 +78,7 @@ func NewController(
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
-	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {
 			case *corev1.Namespace:
@@ -96,7 +96,7 @@ func NewController(
 		},
 	})
 
-	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj) },

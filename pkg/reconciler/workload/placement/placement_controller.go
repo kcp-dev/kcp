@@ -127,7 +127,7 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	locationInformer.Informer().AddEventHandler(
+	_, _ = locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.enqueueLocation(obj, logger) },
 			UpdateFunc: func(old, obj interface{}) {
@@ -141,7 +141,7 @@ func NewController(
 		},
 	)
 
-	syncTargetInformer.Informer().AddEventHandler(
+	_, _ = syncTargetInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
 			UpdateFunc: func(old, obj interface{}) {
@@ -170,13 +170,13 @@ func NewController(
 		},
 	)
 
-	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj, logger) },
 		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj, logger) },
 	})
 
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },

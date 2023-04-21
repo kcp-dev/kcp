@@ -78,7 +78,7 @@ func NewController(
 		},
 	)
 
-	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
@@ -96,7 +96,7 @@ func NewController(
 		},
 	})
 
-	apiBindingInformer.Informer().AddEventHandler(
+	_, _ = apiBindingInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))

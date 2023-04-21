@@ -123,7 +123,7 @@ func NewEndpointController(
 		return nil, errors.New("endpoints informer should be available")
 	}
 
-	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueEndpoints(obj)
 		},
@@ -137,7 +137,7 @@ func NewEndpointController(
 		return nil, errors.New("endpoints informer should be available")
 	}
 
-	servicesInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = servicesInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
 			c.enqueueService(new)
 		},

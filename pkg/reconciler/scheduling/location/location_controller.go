@@ -73,13 +73,13 @@ func NewController(
 		commit:           committer.NewCommitter[*Location, Patcher, *LocationSpec, *LocationStatus](kcpClusterClient.SchedulingV1alpha1().Locations()),
 	}
 
-	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueLocation(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueLocation(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueLocation(obj) },
 	})
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj) },
 		UpdateFunc: func(old, obj interface{}) {
 			oldCluster, ok := old.(*workloadv1alpha1.SyncTarget)

@@ -91,7 +91,7 @@ func NewAPIReconciler(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger, "") },
 		UpdateFunc: func(old, obj interface{}) {
 			oldCluster := old.(*workloadv1alpha1.SyncTarget)
@@ -105,12 +105,12 @@ func NewAPIReconciler(
 		DeleteFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger, "") },
 	})
 
-	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 	})
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },

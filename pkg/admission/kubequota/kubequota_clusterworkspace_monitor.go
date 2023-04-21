@@ -51,7 +51,7 @@ func NewLogicalClusterDeletionMonitor(
 		stopFunc: stopFunc,
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			m.enqueue(obj)
 		},

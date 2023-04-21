@@ -156,7 +156,7 @@ func NewController(
 		// shadow gvr to get the right value in the closure
 		gvr := gvr
 
-		info.local.AddEventHandler(cache.FilteringResourceEventHandler{
+		_, _ = info.local.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName,
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
@@ -165,7 +165,7 @@ func NewController(
 			},
 		})
 
-		info.global.AddEventHandler(cache.FilteringResourceEventHandler{
+		_, _ = info.global.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName, // not really needed, but cannot harm
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },

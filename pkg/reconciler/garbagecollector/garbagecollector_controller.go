@@ -91,7 +91,7 @@ func NewController(
 		ignoredResources: defaultIgnoredResources(),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {

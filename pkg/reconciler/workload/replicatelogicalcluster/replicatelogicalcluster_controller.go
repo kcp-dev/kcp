@@ -89,7 +89,7 @@ func NewController(
 		c.EnqueueLogicalCluster(cluster, "reason", "SyncTarget changed", "synctarget", syncTarget.Name)
 	}
 
-	syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
