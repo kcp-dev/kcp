@@ -84,7 +84,7 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			enqueue(obj, c.upstreamViewQueue, logger.WithValues("view", "upstream"))
 			enqueue(obj, c.syncerViewQueue, logger.WithValues("view", "syncer"))

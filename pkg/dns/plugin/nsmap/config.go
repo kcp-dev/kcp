@@ -61,7 +61,7 @@ func StartWatcher(ctx context.Context, callback OnUpdateFn) error {
 
 	informer := factory.Core().V1().ConfigMaps().Informer()
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			callback(ctx, obj.(*corev1.ConfigMap))
 		},

@@ -89,7 +89,7 @@ func NewController(
 		c.EnqueueLogicalCluster(cluster, "reason", "WorkspaceType changed", "workspacetype", workspaceType.Name)
 	}
 
-	workspaceTypeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

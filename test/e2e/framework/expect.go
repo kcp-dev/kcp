@@ -57,7 +57,7 @@ func NewExpecter(informer cache.SharedIndexInformer) *ExpectationController {
 		lock:         sync.RWMutex{},
 	}
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(_ interface{}) {
 			controller.triggerExpectations()
 		},

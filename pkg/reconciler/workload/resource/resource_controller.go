@@ -114,7 +114,7 @@ func NewController(
 		ddsif: ddsif,
 	}
 
-	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterNamespace,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.enqueueNamespace(obj) },
@@ -130,7 +130,7 @@ func NewController(
 		},
 	})
 
-	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.enqueuePlacement,
 		UpdateFunc: func(oldObj, _ interface{}) { c.enqueuePlacement(oldObj) },
 		DeleteFunc: c.enqueuePlacement,
@@ -150,13 +150,13 @@ func NewController(
 		bySyncTargetKey: indexBySyncTargetKey,
 	})
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueSyncTarget(obj)
 		},
 	})
 
-	globalSyncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalSyncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueSyncTarget(obj)
 		},

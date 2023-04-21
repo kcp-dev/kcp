@@ -83,7 +83,7 @@ func NewController(
 		commit:                            committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch obj := obj.(type) {
 			case *corev1alpha1.LogicalCluster:

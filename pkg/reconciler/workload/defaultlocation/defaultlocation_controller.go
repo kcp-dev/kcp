@@ -73,12 +73,12 @@ func NewController(
 		locationLister:   locationInformer.Lister(),
 	}
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
-	locationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = locationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch t := obj.(type) {
 			case *schedulingv1alpha1.Location:

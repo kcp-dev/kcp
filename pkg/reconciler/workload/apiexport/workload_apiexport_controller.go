@@ -75,7 +75,7 @@ func NewController(
 		syncTargetClusterLister:     syncTargetInformer.Lister(),
 	}
 
-	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch t := obj.(type) {
 			case *apisv1alpha1.APIExport:
@@ -90,13 +90,13 @@ func NewController(
 		},
 	})
 
-	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueNegotiatedAPIResource(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueNegotiatedAPIResource(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueNegotiatedAPIResource(obj) },
 	})
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj) },
 	})

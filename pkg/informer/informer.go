@@ -326,7 +326,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	// Definitely need to create it
 	inf = d.newInformer(gvr, resyncPeriod, indexers)
 
-	inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -908,7 +908,7 @@ func (s *crdGVRSource) Subscribe() <-chan struct{} {
 	}
 
 	// When CRDs change, send a notification that we might need to add/remove informers.
-	s.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = s.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if crdIsEstablished(obj) {
 				notifyChange()

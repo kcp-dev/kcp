@@ -108,7 +108,7 @@ func NewController(
 		indexAPIExportEndpointSliceByAPIExport: indexAPIExportEndpointSliceByAPIExportFunc,
 	})
 
-	apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExportEndpointSlice(obj)
 		},
@@ -120,7 +120,7 @@ func NewController(
 		},
 	})
 
-	globalAPIExportClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExportEndpointSlicesForAPIExport(obj)
 		},
@@ -129,7 +129,7 @@ func NewController(
 		},
 	})
 
-	globalShardClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalShardClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAllAPIExportEndpointSlices(obj)
 		},
@@ -144,7 +144,7 @@ func NewController(
 	},
 	)
 
-	partitionClusterInformer.Informer().AddEventHandler(
+	_, _ = partitionClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueuePartition(obj)

@@ -86,7 +86,7 @@ func NewController(
 		ClusterRoleBindingByClusterRoleName: IndexClusterRoleBindingByClusterRoleName,
 	})
 
-	clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -101,7 +101,7 @@ func NewController(
 		},
 	})
 
-	clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

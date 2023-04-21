@@ -82,7 +82,7 @@ func NewController(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 		UpdateFunc: func(_, newObj interface{}) {
 			c.enqueueAPIBinding(newObj, logger)

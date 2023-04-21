@@ -89,7 +89,7 @@ func NewController(
 		c.EnqueueLogicalCluster(cluster, "reason", "APIExport changed", "apiexport", export.Name)
 	}
 
-	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

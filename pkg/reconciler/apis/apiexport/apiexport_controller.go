@@ -129,7 +129,7 @@ func NewController(
 		},
 	)
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
 		},
@@ -141,7 +141,7 @@ func NewController(
 		},
 	})
 
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueSecret(obj.(*corev1.Secret))
 		},
@@ -153,7 +153,7 @@ func NewController(
 		},
 	})
 
-	globalShardInformer.Informer().AddEventHandler(
+	_, _ = globalShardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))

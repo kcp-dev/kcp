@@ -78,7 +78,7 @@ func NewController(
 		}),
 	}
 
-	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			shard := obj.(*corev1alpha1.Shard)
 			c.state.UpsertShard(shard.Name, shard.Spec.BaseURL)
@@ -221,7 +221,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		}
 
 		wsInformer := tenancyv1alpha1informers.NewWorkspaceClusterInformer(client, resyncPeriod, nil)
-		wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		_, _ = wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				ws := obj.(*tenancyv1alpha1.Workspace)
 				c.state.UpsertWorkspace(shard.Name, ws)
@@ -240,7 +240,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		})
 
 		twInformer := corev1alpha1informers.NewLogicalClusterClusterInformer(client, resyncPeriod, nil)
-		twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		_, _ = twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				logicalCluster := obj.(*corev1alpha1.LogicalCluster)
 				c.state.UpsertLogicalCluster(shard.Name, logicalCluster)

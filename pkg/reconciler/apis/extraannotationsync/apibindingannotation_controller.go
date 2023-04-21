@@ -114,12 +114,12 @@ func NewController(
 		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
 	})
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger) },
 	})
 
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 	})

@@ -67,13 +67,13 @@ func NewController(
 		clusterRoleBindingLister: clusterRoleBindingInformer.Lister(),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
-	clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crb, ok := obj.(*rbacv1.ClusterRoleBinding)
 			if !ok {

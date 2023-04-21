@@ -90,7 +90,7 @@ func NewSyncTargetController(
 
 	logger := logging.WithReconciler(syncerLogger, controllerName)
 
-	syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
