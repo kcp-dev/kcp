@@ -110,7 +110,7 @@ func NewOptions(rootDir string) *Options {
 			ExperimentalBindFreePort:           false,
 			ConversionCELTransformationTimeout: time.Second,
 
-			BatteriesIncluded: batteries.Defaults.List(),
+			BatteriesIncluded: sets.List[string](batteries.Defaults),
 		},
 	}
 
@@ -130,7 +130,7 @@ func NewOptions(rootDir string) *Options {
 
 	// override set of admission plugins
 	kcpadmission.RegisterAllKcpAdmissionPlugins(o.GenericControlPlane.Admission.Plugins)
-	o.GenericControlPlane.Admission.DisablePlugins = kcpadmission.DefaultOffAdmissionPlugins().List()
+	o.GenericControlPlane.Admission.DisablePlugins = sets.List[string](kcpadmission.DefaultOffAdmissionPlugins())
 	o.GenericControlPlane.Admission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
 
 	// turn on the watch cache
@@ -182,7 +182,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 - user:                    creates an additional non-admin user and context named "user" in the admin.kubeconfig
 
 Prefixing with - or + means to remove from the default set or add to the default set.`,
-		strings.Join(batteries.All.List(), ","),
+		strings.Join(sets.List[string](batteries.All), ","),
 	))
 
 	// add flags that are filtered out from upstream, but overridden here with our own version
@@ -321,7 +321,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 		}
 	}
 	if differential {
-		bats := sets.NewString(batteries.Defaults.List()...)
+		bats := sets.New[string](sets.List[string](batteries.Defaults)...)
 		for _, b := range o.Extra.BatteriesIncluded {
 			if strings.HasPrefix(b, "+") {
 				bats.Insert(b[1:])
@@ -329,7 +329,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 				bats.Delete(b[1:])
 			}
 		}
-		o.Extra.BatteriesIncluded = bats.List()
+		o.Extra.BatteriesIncluded = sets.List[string](bats)
 	}
 
 	completedEmbeddedEtcd := o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd)
@@ -362,7 +362,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	}, nil
 }
 
-func filter(name string, fs *pflag.FlagSet, allowed sets.String) *pflag.FlagSet {
+func filter(name string, fs *pflag.FlagSet, allowed sets.Set[string]) *pflag.FlagSet {
 	filtered := pflag.NewFlagSet(name, pflag.ContinueOnError)
 	fs.VisitAll(func(f *pflag.Flag) {
 		if allowed.Has(f.Name) {

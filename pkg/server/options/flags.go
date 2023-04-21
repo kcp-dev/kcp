@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	allowedFlags = sets.NewString(
+	allowedFlags = sets.New[string](
 		// auditing flags
 		"audit-log-batch-buffer-size",           // The size of the buffer to store events before batching and writing. Only used in batch mode.
 		"audit-log-batch-max-size",              // The maximum size of a batch. Only used in batch mode.
@@ -152,7 +152,7 @@ var (
 		"proxy-client-key-file",        // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
 	)
 
-	disallowedFlags = sets.NewString(
+	disallowedFlags = sets.New[string](
 		// generic flags
 		"advertise-address",              // The IP address on which to advertise the apiserver to members of the cluster. This address must be reachable by the rest of the cluster. If blank, the --bind-address will be used. If --bind-address is unspecified, the host's default interface will be used.
 		"enable-priority-and-fairness",   // If true and the APIPriorityAndFairness feature gate is enabled, replace the max-in-flight handler with an enhanced one that queues and dispatches with priority and fairness

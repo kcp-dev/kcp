@@ -36,7 +36,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 	logger := klog.FromContext(ctx).WithValues("shard", n)
 
 	// create serving cert
-	hostnames := sets.NewString("localhost", hostIP)
+	hostnames := sets.New[string]("localhost", hostIP)
 	logger.WithValues("hostnames", hostnames).Info("creating shard server serving cert with hostnames")
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {

@@ -148,7 +148,7 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 				return
 			}
 
-			if requestInfo.IsResourceRequest && !sets.NewString("list", "watch").Has(requestInfo.Verb) {
+			if requestInfo.IsResourceRequest && !sets.New[string]("list", "watch").Has(requestInfo.Verb) {
 				statusErr := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
 				statusErr.ErrStatus.Message += " in the `*` logical cluster"
 

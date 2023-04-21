@@ -73,7 +73,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		logicalcluster.Name(ws1.Spec.Cluster),
 		logicalcluster.Name(ws2.Spec.Cluster),
 	}
-	expectedWorkspaces := sets.NewString()
+	expectedWorkspaces := sets.New[string]()
 	for i, clusterName := range logicalClusters {
 		clusterName := clusterName // shadow
 
@@ -102,11 +102,11 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	client := dynamicClusterClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("workspaces:%s", tenancyExport.Status.IdentityHash)))
 	workspaces, err := client.List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
-	got := sets.NewString()
+	got := sets.New[string]()
 	for _, ws := range workspaces.Items {
 		got.Insert(logicalcluster.From(&ws).String())
 	}
-	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected, got: %v, expected: %v", got.List(), expectedWorkspaces.List())
+	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected, got: %v, expected: %v", sets.List[string](got), sets.List[string](expectedWorkspaces))
 }
 
 func bootstrapCRD(
@@ -312,12 +312,12 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	list, err := metadataClusterClient.Resource(configMapGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work")
 
-	names := sets.NewString()
+	names := sets.New[string]()
 	for i := range list.Items {
 		names.Insert(list.Items[i].GetName())
 	}
 
 	expected := []string{"test-cm-0", "test-cm-1", "test-cm-2"}
 
-	require.Subset(t, names.List(), expected)
+	require.Subset(t, sets.List[string](names), expected)
 }

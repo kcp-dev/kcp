@@ -175,7 +175,7 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 	// wait for readiness
 	logger := klog.FromContext(ctx)
 	logger.Info("Waiting for shard /readyz to succeed")
-	lastSeenUnready := sets.NewString()
+	lastSeenUnready := sets.New[string]()
 	for {
 		time.Sleep(100 * time.Millisecond)
 
@@ -212,7 +212,7 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 		if _, err := res.Raw(); err != nil {
 			unreadyComponents := unreadyComponentsFromError(err)
 			if !lastSeenUnready.Equal(unreadyComponents) {
-				logger.V(3).Info("kcp shard not ready", "unreadyComponents", unreadyComponents.List())
+				logger.V(3).Info("kcp shard not ready", "unreadyComponents", sets.List[string](unreadyComponents))
 				lastSeenUnready = unreadyComponents
 			}
 		}
@@ -298,9 +298,9 @@ func ScrapeMetrics(ctx context.Context, s *Shard, workDir string) error {
 
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
 // the content in a string-formatted error, unfortunately.
-func unreadyComponentsFromError(err error) sets.String {
+func unreadyComponentsFromError(err error) sets.Set[string] {
 	innerErr := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `") has prevented the request from succeeding`), `an error on the server ("`)
-	unreadyComponents := sets.NewString()
+	unreadyComponents := sets.New[string]()
 	for _, line := range strings.Split(innerErr, `\n`) {
 		if name := strings.TrimPrefix(strings.TrimSuffix(line, ` failed: reason withheld`), `[-]`); name != line {
 			// NB: sometimes the error we get is truncated (server-side?) to something like: `\n[-]poststar") has prevented the request from succeeding`

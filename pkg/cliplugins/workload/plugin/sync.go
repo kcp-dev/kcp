@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -52,7 +53,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
@@ -299,7 +299,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		DownstreamNamespaceCleanDelayString: o.DownstreamNamespaceCleanDelay.String(),
 	}
 
-	resources, err := renderSyncerResources(input, syncerID, expectedResourcesForPermission.List())
+	resources, err := renderSyncerResources(input, syncerID, sets.List[string](expectedResourcesForPermission))
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		}
 
 		// if ResourcesToSync is not empty, add export in synctarget workspace.
-		if !sets.NewString(o.APIExports...).Has(workloadv1alpha1.ImportedAPISExportName) {
+		if !sets.New[string](o.APIExports...).Has(workloadv1alpha1.ImportedAPISExportName) {
 			supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
 				Export: workloadv1alpha1.ImportedAPISExportName,
 			})
@@ -445,7 +445,7 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 
 // getResourcesForPermission get all resources to sync from syncTarget status and resources flags. It is used to generate the rbac on
 // physical cluster for syncer.
-func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *rest.Config, syncTargetName string) (sets.String, error) {
+func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *rest.Config, syncTargetName string) (sets.Set[string], error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kcp client: %w", err)
@@ -453,7 +453,7 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 
 	// Poll synctarget to get all resources to sync, the ResourcesToSync set from the flag should be also added, since
 	// its related APIResourceSchemas will not be added until the syncer is started.
-	expectedResourcesForPermission := sets.NewString(o.ResourcesToSync...)
+	expectedResourcesForPermission := sets.New[string](o.ResourcesToSync...)
 	// secrets and configmaps are always needed.
 	expectedResourcesForPermission.Insert("secrets", "configmaps")
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, 30*time.Second, func(ctx context.Context) (bool, error) {
@@ -719,7 +719,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 }
 
 func mergeLatestResourceSchema(apiExport *apisv1alpha1.APIExport, resourceToSync []string) (*apisv1alpha1.APIExport, bool) {
-	desiredResourceGroup := sets.NewString()
+	desiredResourceGroup := sets.New[string]()
 	var modified bool
 	for _, schema := range apiExport.Spec.LatestResourceSchemas {
 		gr, valid := apiexport.ParseAPIResourceSchemaName(schema)

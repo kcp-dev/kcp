@@ -313,7 +313,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if sets.NewString(opts.Extra.BatteriesIncluded...).Has(batteries.User) {
+	if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.User) {
 		c.userToken = userToken
 	}
 

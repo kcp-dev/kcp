@@ -554,13 +554,13 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 		name    string
 		types   map[string]*tenancyv1alpha1.WorkspaceType
 		input   *tenancyv1alpha1.WorkspaceType
-		want    sets.String
+		want    sets.Set[string]
 		wantErr bool
 	}{
 		{
 			name:  "no other types",
 			input: newType("root:org:ws").WorkspaceType,
-			want:  sets.NewString("root:org:ws"),
+			want:  sets.New[string]("root:org:ws"),
 		},
 		{
 			name:    "error on self-reference",
@@ -574,12 +574,12 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				"root:organization": newType("root:organization").WorkspaceType,
 			},
 			input: newType("root:org:type").extending("root:universal").extending("root:organization").WorkspaceType,
-			want:  sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:  sets.New[string]("root:universal", "root:organization", "root:org:type"),
 		},
 		{
 			name:    "missing types",
 			input:   newType("root:org:type").extending("root:universal").extending("root:organization").WorkspaceType,
-			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:    sets.New[string]("root:universal", "root:organization", "root:org:type"),
 			wantErr: true,
 		},
 		{
@@ -589,7 +589,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				"root:organization": newType("root:organization").extending("root:universal").WorkspaceType,
 			},
 			input: newType("root:org:type").extending("root:organization").WorkspaceType,
-			want:  sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:  sets.New[string]("root:universal", "root:organization", "root:org:type"),
 		},
 		{
 			name: "extending types transitively, one missing",
@@ -597,7 +597,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				"root:organization": newType("root:organization").extending("root:universal").WorkspaceType,
 			},
 			input:   newType("root:org:type").extending("root:organization").WorkspaceType,
-			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:    sets.New[string]("root:universal", "root:organization", "root:org:type"),
 			wantErr: true,
 		},
 		{
@@ -608,7 +608,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				"root:c": newType("root:c").extending("root:a").WorkspaceType,
 			},
 			input:   newType("root:org:type").extending("root:a").WorkspaceType,
-			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:    sets.New[string]("root:universal", "root:organization", "root:org:type"),
 			wantErr: true,
 		},
 		{
@@ -618,7 +618,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				"root:c": newType("root:c").extending("root:a").WorkspaceType,
 			},
 			input:   newType("root:org:a").extending("root:b").WorkspaceType,
-			want:    sets.NewString("root:universal", "root:organization", "root:org:type"),
+			want:    sets.New[string]("root:universal", "root:organization", "root:org:type"),
 			wantErr: true,
 		},
 	}
@@ -638,12 +638,12 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 				return
 			}
 			if err == nil {
-				got := sets.NewString()
+				got := sets.New[string]()
 				for _, t := range gotTypes {
 					got.Insert(canonicalPathFrom(t).Join(t.Name).String())
 				}
 				if !got.Equal(tt.want) {
-					t.Errorf("Missing: %s\nUnexpected: %s", tt.want.Difference(got).List(), got.Difference(tt.want).List())
+					t.Errorf("Missing: %s\nUnexpected: %s", sets.List[string](tt.want.Difference(got)), sets.List[string](got.Difference(tt.want)))
 				}
 			}
 		})

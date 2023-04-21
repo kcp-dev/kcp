@@ -64,12 +64,12 @@ func TestEnqueueAPIResourceSchema(t *testing.T) {
 	require.Equal(t, c.queue.Len(), 2)
 
 	// get the queue keys
-	actual := sets.NewString()
+	actual := sets.New[string]()
 	item, _ := c.queue.Get()
 	actual.Insert(item.(string))
 	item, _ = c.queue.Get()
 	actual.Insert(item.(string))
 
-	expected := sets.NewString("export1", "export2")
+	expected := sets.New[string]("export1", "export2")
 	require.True(t, expected.Equal(actual))
 }

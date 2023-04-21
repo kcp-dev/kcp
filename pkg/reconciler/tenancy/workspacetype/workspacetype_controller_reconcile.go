@@ -59,7 +59,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
-	desiredURLs := sets.NewString()
+	desiredURLs := sets.New[string]()
 	for _, shard := range shards {
 		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
@@ -84,7 +84,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 
 	wt.Status.VirtualWorkspaces = nil
 
-	for _, u := range desiredURLs.List() {
+	for _, u := range sets.List[string](desiredURLs) {
 		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
 			URL: u,
 		})

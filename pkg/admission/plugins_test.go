@@ -25,12 +25,12 @@ import (
 
 func TestPluginDrift(t *testing.T) {
 	kubeOffPlugins := kubeapiserveroptions.DefaultOffAdmissionPlugins()
-	kubeOnPlugins := sets.NewString(kubeapiserveroptions.AllOrderedPlugins...).Difference(kubeOffPlugins)
+	kubeOnPlugins := sets.New[string](kubeapiserveroptions.AllOrderedPlugins...).Difference(sets.Set[string](kubeOffPlugins))
 
 	if newInKube := kubeOnPlugins.Difference(defaultOnKubePluginsInKube); newInKube.Len() > 0 {
-		t.Errorf("Default-on plugins got added in kube. Add to defaultOnKubePluginsInKube, and decide whether to add to defaultOnPluginsInKcp: %v", newInKube.List())
+		t.Errorf("Default-on plugins got added in kube. Add to defaultOnKubePluginsInKube, and decide whether to add to defaultOnPluginsInKcp: %v", sets.List[string](newInKube))
 	}
 	if goneInKube := defaultOnKubePluginsInKube.Difference(kubeOnPlugins); goneInKube.Len() > 0 {
-		t.Errorf("Default-on plugins got removed in kube. Remove in defaultOnKubePluginsInKube, and decide whether to remove from defaultOnPluginsInKcp: %v", goneInKube.List())
+		t.Errorf("Default-on plugins got removed in kube. Remove in defaultOnKubePluginsInKube, and decide whether to remove from defaultOnPluginsInKcp: %v", sets.List[string](goneInKube))
 	}
 }

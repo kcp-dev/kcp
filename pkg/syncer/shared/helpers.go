@@ -25,16 +25,16 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 // SyncableClusterScopedResources holds a set of cluster-wide GVR that are allowed to be synced.
-var SyncableClusterScopedResources = sets.NewString(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}.String())
+var SyncableClusterScopedResources = sets.New[string](schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}.String())
 
 // DeprecatedGetAssignedSyncTarget returns one assigned sync target in Sync state. It will
 // likely lead to broken behaviour when there is one of those labels on a resource.

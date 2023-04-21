@@ -1196,7 +1196,7 @@ func monitorEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient,
 		t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
 	}
 	var errCount int
-	errs := sets.NewString()
+	errs := sets.New[string]()
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		_, err := rest.NewRequest(client).RequestURI(endpoint).Do(ctx).Raw()
 		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
@@ -1207,13 +1207,13 @@ func monitorEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient,
 			errCount++
 			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
 			if errCount == 2 {
-				t.Errorf("error contacting %s: %v", endpoint, errs.List())
+				t.Errorf("error contacting %s: %v", endpoint, sets.List[string](errs))
 			}
 		}
 		// otherwise, reset the counters
 		errCount = 0
 		if errs.Len() > 0 {
-			errs = sets.NewString()
+			errs = sets.New[string]()
 		}
 	}, 100*time.Millisecond)
 }

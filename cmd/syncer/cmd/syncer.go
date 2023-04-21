@@ -122,7 +122,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		&syncer.SyncerConfig{
 			UpstreamConfig:                upstreamConfig,
 			DownstreamConfig:              downstreamConfig,
-			ResourcesToSync:               sets.NewString(options.SyncedResourceTypes...),
+			ResourcesToSync:               sets.New[string](options.SyncedResourceTypes...),
 			SyncTargetPath:                logicalcluster.NewPath(options.FromClusterPath),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,

@@ -70,7 +70,7 @@ type SyncerOption func(t *testing.T, fs *syncerFixture)
 func NewSyncerFixture(t *testing.T, server RunningServer, path logicalcluster.Path, opts ...SyncerOption) *syncerFixture {
 	t.Helper()
 
-	if !sets.NewString(TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
+	if !sets.New[string](TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
 		t.Fatalf("invalid to use a syncer fixture when only the following suites were requested: %v", TestConfig.Suites())
 	}
 	sf := &syncerFixture{
@@ -650,7 +650,7 @@ func (sf *appliedSyncerFixture) StartAPIImporter(t *testing.T) *appliedSyncerFix
 	kcpSyncTargetClient := kcpBootstrapClusterClient.Cluster(sf.SyncerConfig.SyncTargetPath)
 
 	// Import the resource schemas of the resources to sync from the physical cludster, to enable compatibility check in KCP.
-	resources := sf.SyncerConfig.ResourcesToSync.List()
+	resources := sets.List[string](sf.SyncerConfig.ResourcesToSync)
 	kcpSyncTargetInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpSyncTargetClient, 10*time.Hour, kcpinformers.WithTweakListOptions(
 		func(listOptions *metav1.ListOptions) {
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", sf.SyncerConfig.SyncTargetName).String()
@@ -786,7 +786,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	return &syncer.SyncerConfig{
 		UpstreamConfig:                upstreamConfig,
 		DownstreamConfig:              downstreamConfigWithToken,
-		ResourcesToSync:               sets.NewString(resourcesToSync...),
+		ResourcesToSync:               sets.New[string](resourcesToSync...),
 		SyncTargetPath:                syncTargetPath,
 		SyncTargetName:                syncTargetName,
 		SyncTargetUID:                 syncTargetUID,

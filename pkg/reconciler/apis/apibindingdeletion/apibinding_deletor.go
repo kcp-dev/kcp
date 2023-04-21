@@ -98,7 +98,7 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 		return gvrDeletionMetadata{}, err
 	}
 
-	deletedNamespaces := sets.String{}
+	deletedNamespaces := sets.New[string]()
 	deleteErrors := []error{}
 
 	for _, item := range partialList.Items {

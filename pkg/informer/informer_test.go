@@ -39,7 +39,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	builtInGVRs := map[schema.GroupVersionResource]struct{}{}
 
 	// In the scheme, but not actual resources
-	kindsToIgnore := sets.NewString(
+	kindsToIgnore := sets.New[string](
 		"List",
 		"CreateOptions",
 		"DeleteOptions",

@@ -129,8 +129,8 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 	if len(c.PassOnGroups) > 0 || len(c.DropGroups) > 0 {
 		filter := &kcpauthentication.GroupFilter{
 			Authenticator: authenticationInfo.Authenticator,
-			PassOnGroups:  sets.NewString(),
-			DropGroups:    sets.NewString(),
+			PassOnGroups:  sets.New[string](),
+			DropGroups:    sets.New[string](),
 		}
 		authenticationInfo.Authenticator = filter
 

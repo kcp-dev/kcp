@@ -69,7 +69,7 @@ func NewController(
 
 		getAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 			// APIBinding keys by full path
-			keys := sets.NewString()
+			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
 				pathKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
 				if err != nil {
@@ -85,7 +85,7 @@ func NewController(
 			keys.Insert(clusterKeys...)
 
 			ret := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
-			for _, key := range keys.List() {
+			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
 					runtime.HandleError(err)

@@ -137,7 +137,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 		return nil
 	}
 	if a.GetResource() == rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings") {
-		allowedNames := sets.NewString("workspace-admin")
+		allowedNames := sets.New[string]("workspace-admin")
 		if allowedNames.Has(a.GetName()) {
 			return nil
 		}

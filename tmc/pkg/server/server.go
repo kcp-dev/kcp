@@ -58,7 +58,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	controllerConfig := rest.CopyConfig(s.Core.IdentityConfig)
 
-	enabled := sets.NewString(s.Options.Core.Controllers.IndividuallyEnabled...)
+	enabled := sets.New[string](s.Options.Core.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		logger.WithValues("controllers", enabled).Info("starting controllers individually")
 	}
@@ -77,7 +77,7 @@ func (s *Server) Run(ctx context.Context) error {
 				if err := configrootcompute.Bootstrap(goContext(hookContext),
 					s.Core.BootstrapApiExtensionsClusterClient,
 					s.Core.BootstrapDynamicClusterClient,
-					sets.NewString(s.Core.Options.Extra.BatteriesIncluded...),
+					sets.New[string](s.Core.Options.Extra.BatteriesIncluded...),
 				); err != nil {
 					logger.Error(err, "failed to bootstrap root compute workspace")
 					return nil // don't klog.Fatal. This only happens when context is cancelled.

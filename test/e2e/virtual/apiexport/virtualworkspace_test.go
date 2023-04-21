@@ -476,7 +476,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Logf("Verifying APIExport 1 serves APIBindings 1|1, 1|2, and 2|1")
 	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
 		// "workspace1|binding1", "workspace2|binding1", "workspace1|binding2")
-		actualWorkspace1 := sets.NewString()
+		actualWorkspace1 := sets.New[string]()
 
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
@@ -491,7 +491,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 			actualWorkspace1.Insert(b.Name)
 		}
 
-		expectedWorkspace1 := sets.NewString("binding1", "binding2")
+		expectedWorkspace1 := sets.New[string]("binding1", "binding2")
 		if !actualWorkspace1.IsSuperset(expectedWorkspace1) {
 			return fmt.Errorf("mismatch %s", cmp.Diff(expectedWorkspace1, actualWorkspace1))
 		}

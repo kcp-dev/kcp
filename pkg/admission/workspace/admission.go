@@ -92,7 +92,7 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	if a.GetOperation() == admission.Create {
-		isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+		isSystemPrivileged := sets.New[string](a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 
 		// create owner anntoation
 		if !isSystemPrivileged {
@@ -151,7 +151,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
-	isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+	isSystemPrivileged := sets.New[string](a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 
 	switch a.GetOperation() {
 	case admission.Update:

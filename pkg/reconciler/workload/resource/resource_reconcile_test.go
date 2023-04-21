@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -374,7 +375,7 @@ func TestGetLocations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotKeys := getLocations(tt.labels, tt.skipPending); !reflect.DeepEqual(gotKeys.List(), tt.wantKeys) {
+			if gotKeys := getLocations(tt.labels, tt.skipPending); !reflect.DeepEqual(sets.List[string](gotKeys), tt.wantKeys) {
 				t.Errorf("getLocations() = %v, want %v", gotKeys, tt.wantKeys)
 			}
 		})

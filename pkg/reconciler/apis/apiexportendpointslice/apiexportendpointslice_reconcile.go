@@ -210,7 +210,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 	apiExport *apisv1alpha1.APIExport,
 	shards []*corev1alpha1.Shard) error {
 	logger := klog.FromContext(ctx)
-	desiredURLs := sets.NewString()
+	desiredURLs := sets.New[string]()
 	for _, shard := range shards {
 		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
@@ -240,7 +240,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 	}
 
 	apiExportEndpointSlice.Status.APIExportEndpoints = nil
-	for _, u := range desiredURLs.List() {
+	for _, u := range sets.List[string](desiredURLs) {
 		apiExportEndpointSlice.Status.APIExportEndpoints = append(apiExportEndpointSlice.Status.APIExportEndpoints, apisv1alpha1.APIExportEndpoint{
 			URL: u,
 		})

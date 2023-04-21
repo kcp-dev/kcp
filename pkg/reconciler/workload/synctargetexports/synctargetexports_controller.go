@@ -201,7 +201,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 	}
 
 	// synctarget keys by full path
-	keys := sets.NewString()
+	keys := sets.New[string]()
 	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
 		pathKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.NewPath(path).Join(export.Name).String())
 		if err != nil {
@@ -218,7 +218,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 	}
 	keys.Insert(clusterKeys...)
 
-	for _, key := range keys.List() {
+	for _, key := range sets.List[string](keys) {
 		syncTarget, _, err := c.syncTargetIndexer.GetByKey(key)
 		if err != nil {
 			runtime.HandleError(err)

@@ -21,10 +21,10 @@ import (
 	"math/rand"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -108,9 +108,9 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 	return reconcileStatusContinue, placement, nil
 }
 
-func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Path) (logicalcluster.Path, sets.String, error) {
+func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Path) (logicalcluster.Path, sets.Set[string], error) {
 	var locationCluster logicalcluster.Path
-	selectedLocations := sets.NewString()
+	selectedLocations := sets.New[string]()
 
 	locations, err := r.listLocationsByPath(locationWorkspace)
 	if err != nil {
@@ -140,7 +140,7 @@ func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.P
 	return locationCluster, selectedLocations, nil
 }
 
-func isValidLocationSelected(placement *schedulingv1alpha1.Placement, cluster logicalcluster.Path, validLocationNames sets.String) bool {
+func isValidLocationSelected(placement *schedulingv1alpha1.Placement, cluster logicalcluster.Path, validLocationNames sets.Set[string]) bool {
 	if placement.Status.SelectedLocation == nil {
 		return false
 	}

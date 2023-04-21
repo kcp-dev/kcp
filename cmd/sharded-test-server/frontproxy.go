@@ -120,7 +120,7 @@ func startFrontProxy(
 	}
 
 	// create serving cert
-	hostnames := sets.NewString("localhost", hostIP)
+	hostnames := sets.New[string]("localhost", hostIP)
 	logger.Info("creating kcp-front-proxy serving cert with hostnames", "hostnames", hostnames)
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {

@@ -68,7 +68,7 @@ type pathAnnotationPlugin struct {
 	getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 }
 
-var pathAnnotationResources = sets.NewString(
+var pathAnnotationResources = sets.New[string](
 	apisv1alpha1.Resource("apiexports").String(),
 	schedulingv1alpha1.Resource("locations").String(),
 	tenancyv1alpha1.Resource("workspacetypes").String(),

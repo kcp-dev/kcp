@@ -25,6 +25,7 @@ import (
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -77,7 +77,7 @@ func NewController(
 	}
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
+	var namespaceBlocklist = sets.New[string]("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
 	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {

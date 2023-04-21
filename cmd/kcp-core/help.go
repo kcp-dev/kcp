@@ -48,7 +48,7 @@ func setPartialUsageAndHelpFunc(cmd *cobra.Command, fss cliflag.NamedFlagSets, c
 }
 
 func printMostImportantFlags(w io.Writer, fss cliflag.NamedFlagSets, cols int, visibleFlags []string) {
-	visibleFlagsSet := sets.NewString(visibleFlags...)
+	visibleFlagsSet := sets.New[string](visibleFlags...)
 	filteredFFS := cliflag.NamedFlagSets{}
 	filteredFS := filteredFFS.FlagSet("Most important")
 

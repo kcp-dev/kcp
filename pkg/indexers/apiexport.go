@@ -66,9 +66,9 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 // hashes.
 func IndexAPIExportByClaimedIdentities(obj interface{}) ([]string, error) {
 	apiExport := obj.(*apisv1alpha1.APIExport)
-	claimedIdentities := sets.NewString()
+	claimedIdentities := sets.New[string]()
 	for _, claim := range apiExport.Spec.PermissionClaims {
 		claimedIdentities.Insert(claim.IdentityHash)
 	}
-	return claimedIdentities.List(), nil
+	return sets.List[string](claimedIdentities), nil
 }

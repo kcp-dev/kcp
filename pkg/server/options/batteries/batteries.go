@@ -34,13 +34,13 @@ const (
 	RootComputeWorkspace = "root-compute-workspace"
 )
 
-var All = sets.NewString(
+var All = sets.New[string](
 	WorkspaceTypes,
 	User,
 	RootComputeWorkspace,
 )
 
-var Defaults = sets.NewString(
+var Defaults = sets.New[string](
 	WorkspaceTypes,
 	RootComputeWorkspace,
 )

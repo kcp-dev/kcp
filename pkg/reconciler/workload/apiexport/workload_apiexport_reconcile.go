@@ -94,8 +94,8 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	// reconcile schemas in export
 	// we check all schemas reference in the apiexport. if it is missing, we should create the schema
 	// if it is outdated, we should create the schema and delete the outdated schema.
-	upToDateResourceGroups := sets.NewString()
-	expectedResourceGroups := sets.NewString()
+	upToDateResourceGroups := sets.New[string]()
+	expectedResourceGroups := sets.New[string]()
 
 	// schemaNamesByResourceGroup records the up-to-date APIResourceSchemaName for the resourceGroup, and the
 	// APIExport will be updated accordingly
@@ -132,8 +132,8 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 
 	// create missing or outdated schemas
 	outdatedOrMissing := expectedResourceGroups.Difference(upToDateResourceGroups)
-	outDatedSchemaNames := sets.NewString()
-	for _, resourceGroup := range outdatedOrMissing.List() {
+	outDatedSchemaNames := sets.New[string]()
+	for _, resourceGroup := range sets.List[string](outdatedOrMissing) {
 		logger.WithValues("schema", resourceGroup).V(2).Info("missing or outdated schema on APIExport, adding")
 		gr := schema.ParseGroupResource(resourceGroup)
 		resource, ok := resourcesByResourceGroup[gr]

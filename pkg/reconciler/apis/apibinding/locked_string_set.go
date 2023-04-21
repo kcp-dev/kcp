@@ -22,15 +22,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// lockedStringSet guards a sets.String with an RWMutex.
+// lockedStringSet guards a sets.Set[string] with an RWMutex.
 type lockedStringSet struct {
 	lock sync.RWMutex
-	s    sets.String
+	s    sets.Set[string]
 }
 
 func newLockedStringSet(s ...string) *lockedStringSet {
 	return &lockedStringSet{
-		s: sets.NewString(s...),
+		s: sets.New[string](s...),
 	}
 }
 

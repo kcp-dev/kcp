@@ -106,7 +106,7 @@ func NewController(
 	})
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
+	var namespaceBlocklist = sets.New[string]("kube-system", "kube-public", "kube-node-lease")
 	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {

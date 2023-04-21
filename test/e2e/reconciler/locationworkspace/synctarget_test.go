@@ -76,7 +76,7 @@ func TestSyncTargetExport(t *testing.T) {
 
 	t.Logf("Install today service APIResourceSchema into schema workspace %q", schemaPath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(schemaPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaPath), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaPath), mapper, sets.New[string]("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)

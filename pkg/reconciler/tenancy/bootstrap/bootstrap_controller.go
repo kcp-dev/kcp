@@ -55,8 +55,8 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	workspaceType tenancyv1alpha1.WorkspaceTypeReference,
-	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error,
-	batteriesIncluded sets.String,
+	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.Set[string]) error,
+	batteriesIncluded sets.Set[string],
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", ControllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -101,8 +101,8 @@ type controller struct {
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
 	workspaceType     tenancyv1alpha1.WorkspaceTypeReference
-	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
-	batteriesIncluded sets.String
+	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.Set[string]) error
+	batteriesIncluded sets.Set[string]
 
 	commit CommitFunc
 }
