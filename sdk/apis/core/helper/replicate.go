@@ -29,7 +29,7 @@ func ReplicateForValue(replicateValue, controller string) (result string, change
 	if replicateValue == "" {
 		return controller, true
 	}
-	existing := sets.NewString(strings.Split(replicateValue, ",")...)
+	existing := sets.New[string](strings.Split(replicateValue, ",")...)
 	if !existing.Has(controller) {
 		existing.Insert(controller)
 		return strings.Join(existing.List(), ","), true
@@ -42,7 +42,7 @@ func DontReplicateForValue(replicateValue, controller string) (result string, ch
 	if replicateValue == controller || replicateValue == "" {
 		return "", replicateValue == controller
 	}
-	existing := sets.NewString(strings.Split(replicateValue, ",")...)
+	existing := sets.New[string](strings.Split(replicateValue, ",")...)
 	if existing.Has(controller) {
 		existing.Delete(controller)
 		return strings.Join(existing.List(), ","), true
@@ -58,7 +58,7 @@ func ReplicateFor(annotations map[string]string, controller string) (result map[
 			continue
 		}
 
-		existing := sets.NewString(strings.Split(v, ",")...)
+		existing := sets.New[string](strings.Split(v, ",")...)
 		if !existing.Has(controller) {
 			existing.Insert(controller)
 			annotations[k] = strings.Join(existing.List(), ",")
@@ -86,7 +86,7 @@ func DontReplicateFor(annotations map[string]string, controller string) (result 
 			delete(annotations, k)
 			return annotations, true
 		}
-		existing := sets.NewString(strings.Split(v, ",")...)
+		existing := sets.New[string](strings.Split(v, ",")...)
 		if existing.Has(controller) {
 			existing.Delete(controller)
 			annotations[k] = strings.Join(existing.List(), ",")

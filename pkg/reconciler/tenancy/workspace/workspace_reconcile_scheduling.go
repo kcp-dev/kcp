@@ -92,7 +92,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
-		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
+		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
 
 		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
 		if err != nil && !apierrors.IsNotFound(err) {

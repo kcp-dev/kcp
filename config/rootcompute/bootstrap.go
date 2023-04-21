@@ -40,7 +40,7 @@ var RootComputeClusterName = logicalcluster.NewPath("root:compute")
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, apiExtensionClusterClient kcpapiextensionsclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, apiExtensionClusterClient kcpapiextensionsclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface, batteriesIncluded sets.Set[string]) error {
 	rootDiscoveryClient := apiExtensionClusterClient.Cluster(core.RootCluster.Path()).Discovery()
 	rootDynamicClient := dynamicClusterClient.Cluster(core.RootCluster.Path())
 	if err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs); err != nil {

@@ -75,7 +75,7 @@ const (
 type SyncerConfig struct {
 	UpstreamConfig                *rest.Config
 	DownstreamConfig              *rest.Config
-	ResourcesToSync               sets.String
+	ResourcesToSync               sets.Set[string]
 	SyncTargetPath                logicalcluster.Path
 	SyncTargetName                string
 	SyncTargetUID                 string
@@ -132,7 +132,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
 	// slice whose entries are assumed to be unique.
-	resources := cfg.ResourcesToSync.List()
+	resources := sets.List[string](cfg.ResourcesToSync)
 
 	// Start api import first because spec and status syncers are blocked by
 	// gvr discovery finding all the configured resource types in the kcp

@@ -479,12 +479,12 @@ func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.Works
 		qualifiedChild := canonicalPathFrom(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name)))
 
 		if !allOfTheFormerExistInTheLater(parentAliases, childAlias.Spec.LimitAllowedParents.Types) {
-			allowedSet := sets.NewString()
+			allowedSet := sets.New[string]()
 			for _, allowedParent := range childAlias.Spec.LimitAllowedParents.Types {
 				allowedSet.Insert(logicalcluster.NewPath(allowedParent.Path).Join(string(allowedParent.Name)).String())
 			}
 
-			implementedSet := sets.NewString()
+			implementedSet := sets.New[string]()
 			for _, parentAlias := range parentAliases {
 				implementedSet.Insert(canonicalPathFrom(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name))).String())
 			}
@@ -495,7 +495,7 @@ func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.Works
 			}
 
 			errs = append(errs, fmt.Errorf("workspace type %s%s only allows %v parent workspaces, but parent type %s only implements %v",
-				childType, extending, allowedSet.List(), parentType, implementedSet.List()),
+				childType, extending, sets.List[string](allowedSet), parentType, sets.List[string](implementedSet)),
 			)
 		}
 	}
@@ -520,12 +520,12 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 		qualifiedParent := canonicalPathFrom(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name)))
 
 		if !allOfTheFormerExistInTheLater(childAliases, parentAlias.Spec.LimitAllowedChildren.Types) {
-			allowedSet := sets.NewString()
+			allowedSet := sets.New[string]()
 			for _, allowedChild := range parentAlias.Spec.LimitAllowedChildren.Types {
 				allowedSet.Insert(logicalcluster.NewPath(allowedChild.Path).Join(string(allowedChild.Name)).String())
 			}
 
-			implementedSet := sets.NewString()
+			implementedSet := sets.New[string]()
 			for _, childAlias := range childAliases {
 				implementedSet.Insert(canonicalPathFrom(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name))).String())
 			}
@@ -536,7 +536,7 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 			}
 
 			errs = append(errs, fmt.Errorf("workspace type %s%s only allows %v child workspaces, but child type %s only implements %v",
-				parentType, extending, allowedSet.List(), childType, implementedSet.List()),
+				parentType, extending, sets.List[string](allowedSet), childType, sets.List[string](implementedSet)),
 			)
 		}
 	}
@@ -545,7 +545,7 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 }
 
 func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceType, allowedTypes []tenancyv1alpha1.WorkspaceTypeReference) bool {
-	allowedAliasSet := sets.NewString()
+	allowedAliasSet := sets.New[string]()
 	for _, allowed := range allowedTypes {
 		qualified := logicalcluster.NewPath(allowed.Path).Join(tenancyv1alpha1.ObjectName(allowed.Name)).String()
 		allowedAliasSet.Insert(qualified)

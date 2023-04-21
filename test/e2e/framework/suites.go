@@ -26,7 +26,7 @@ import (
 // run when the suite containing it is selected by the user running tests.
 func Suite(t *testing.T, suite string) {
 	t.Helper()
-	if !sets.NewString(TestConfig.Suites()...).Has(suite) {
+	if !sets.New[string](TestConfig.Suites()...).Has(suite) {
 		t.Skipf("suite %s disabled", suite)
 	}
 }

@@ -20,9 +20,9 @@ import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/sdk/apis/workload"
@@ -51,12 +51,12 @@ func NewController(
 
 func HasSyncRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		apiGroups := sets.NewString(rule.APIGroups...)
+		apiGroups := sets.New[string](rule.APIGroups...)
 		if !apiGroups.Has(workload.GroupName) && !apiGroups.Has("*") {
 			continue
 		}
-		resources := sets.NewString(rule.Resources...)
-		verbs := sets.NewString(rule.Verbs...)
+		resources := sets.New[string](rule.Resources...)
+		verbs := sets.New[string](rule.Verbs...)
 		if (resources.Has("synctargets") || resources.Has("*")) && (verbs.Has("sync") || verbs.Has("*")) {
 			return true
 		}

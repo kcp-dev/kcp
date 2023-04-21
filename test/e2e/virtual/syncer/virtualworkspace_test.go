@@ -1233,7 +1233,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
+					syncTargetsWithFinalizer := sets.New[string]()
 					for _, name := range kcpCowboy.Finalizers {
 						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
 							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
@@ -1612,7 +1612,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						}
 					}
 
-					syncTargetsWithFinalizer := sets.NewString()
+					syncTargetsWithFinalizer := sets.New[string]()
 					for _, name := range kcpCowboy.Finalizers {
 						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
 							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))

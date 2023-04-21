@@ -633,7 +633,7 @@ func TestStatusSyncerProcess(t *testing.T) {
 
 			// The only GVRs we care about are the 4 listed below
 			t.Logf("waiting for upstream and downstream dynamic informer factories to be synced")
-			gvrs := sets.NewString(
+			gvrs := sets.New[string](
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}.String(),
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}.String(),
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}.String(),
@@ -641,13 +641,13 @@ func TestStatusSyncerProcess(t *testing.T) {
 			)
 			require.Eventually(t, func() bool {
 				syncedUpstream, _ := ddsifForUpstreamSyncer.Informers()
-				foundUpstream := sets.NewString()
+				foundUpstream := sets.New[string]()
 				for gvr := range syncedUpstream {
 					foundUpstream.Insert(gvr.String())
 				}
 
 				syncedDownstream, _ := ddsifForDownstream.Informers()
-				foundDownstream := sets.NewString()
+				foundDownstream := sets.New[string]()
 				for gvr := range syncedDownstream {
 					foundDownstream.Insert(gvr.String())
 				}

@@ -383,7 +383,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		}
 
-		lclusters, expectedClusters := sets.NewString(), sets.NewString()
+		lclusters, expectedClusters := sets.New[string](), sets.New[string]()
 		for i := range actual.Items {
 			lclusters.Insert(logicalcluster.From(&actual.Items[i]).String())
 		}
@@ -393,7 +393,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		sort.Slice(actual.Items, func(i, j int) bool {
 			return actual.Items[i].UID < actual.Items[j].UID
 		})
-		require.Equal(t, expectedClusters.List(), lclusters.List(), "unexpected clusters for initializers %q", initializers)
+		require.Equal(t, sets.List[string](expectedClusters), sets.List[string](lclusters), "unexpected clusters for initializers %q", initializers)
 	}
 
 	t.Log("Start WATCH streams to confirm behavior on changes")

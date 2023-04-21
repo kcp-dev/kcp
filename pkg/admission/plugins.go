@@ -138,7 +138,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubequota.Register(plugins)
 }
 
-var defaultOnPluginsInKcp = sets.NewString(
+var defaultOnPluginsInKcp = sets.New[string](
 	workspacenamespacelifecycle.PluginName, // WorkspaceNamespaceLifecycle
 	kcplimitranger.PluginName,              // WorkspaceLimitRanger
 	certapproval.PluginName,                // CertificateApproval
@@ -173,7 +173,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 // Always keep this in sync with upstream. It is meant to detect during rebase which
 // new plugins got added upstream and to react (enable or disable by default). We
 // have a unit test in place to avoid drift.
-var defaultOnKubePluginsInKube = sets.NewString(
+var defaultOnKubePluginsInKube = sets.New[string](
 	lifecycle.PluginName,                    // NamespaceLifecycle
 	limitranger.PluginName,                  // LimitRanger
 	serviceaccount.PluginName,               // ServiceAccount
@@ -196,6 +196,6 @@ var defaultOnKubePluginsInKube = sets.NewString(
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.
-func DefaultOffAdmissionPlugins() sets.String {
-	return sets.NewString(AllOrderedPlugins...).Difference(defaultOnPluginsInKcp)
+func DefaultOffAdmissionPlugins() sets.Set[string] {
+	return sets.New[string](AllOrderedPlugins...).Difference(defaultOnPluginsInKcp)
 }

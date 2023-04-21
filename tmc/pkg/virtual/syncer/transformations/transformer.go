@@ -106,7 +106,7 @@ func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfa
 
 	syncerFinalizerName := shared.SyncerFinalizerNamePrefix + syncTargetKey
 
-	syncerViewHasSyncerFinalizer := sets.NewString(syncerViewResource.GetFinalizers()...).Has(syncerFinalizerName)
+	syncerViewHasSyncerFinalizer := sets.New[string](syncerViewResource.GetFinalizers()...).Has(syncerFinalizerName)
 	syncerViewDeletionTimestamp := syncerViewResource.GetDeletionTimestamp()
 	syncerViewResourceVersion := syncerViewResource.GetResourceVersion()
 
@@ -163,7 +163,7 @@ func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfa
 			}
 
 			if existingSyncing[singleSyncTarget].ResourceState == "Sync" &&
-				sets.NewString(existingUpstreamResource.GetFinalizers()...).Has(shared.SyncerFinalizerNamePrefix+singleSyncTarget) {
+				sets.New[string](existingUpstreamResource.GetFinalizers()...).Has(shared.SyncerFinalizerNamePrefix+singleSyncTarget) {
 				// If removing the current SyncTarget leaves only one SyncTarget,
 				// and the remaining syncTarget has the Sync label,
 				// then let's promote syncer view overriding field values of this remaining SyncTarget
@@ -223,10 +223,10 @@ func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfa
 			existingUpstreamResource.SetLabels(labels)
 		}
 
-		finalizers := sets.NewString(existingUpstreamResource.GetFinalizers()...)
+		finalizers := sets.New[string](existingUpstreamResource.GetFinalizers()...)
 		if finalizers.Has(syncerFinalizerName) {
 			finalizers.Delete(syncerFinalizerName)
-			existingUpstreamResource.SetFinalizers(finalizers.List())
+			existingUpstreamResource.SetFinalizers(sets.List[string](finalizers))
 		}
 
 		if annotations := existingUpstreamResource.GetAnnotations(); annotations != nil {
@@ -261,7 +261,7 @@ func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfa
 			existingUpstreamResource.GetName()))
 	}
 
-	upstreamObjectSyncerFinalizers := sets.NewString()
+	upstreamObjectSyncerFinalizers := sets.New[string]()
 	for _, finalizer := range existingUpstreamResource.GetFinalizers() {
 		if strings.HasPrefix(finalizer, shared.SyncerFinalizerNamePrefix) {
 			upstreamObjectSyncerFinalizers.Insert(finalizer)
@@ -370,7 +370,8 @@ func (srt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterfa
 
 	if syncerViewHasSyncerFinalizer && !upstreamObjectSyncerFinalizers.Has(syncerFinalizerName) {
 		logger.Info("adding the syncer finalizer to the upstream resource")
-		existingUpstreamResource.SetFinalizers(sets.NewString(append(existingUpstreamResource.GetFinalizers(), syncerFinalizerName)...).List())
+		s := sets.New[string](append(existingUpstreamResource.GetFinalizers(), syncerFinalizerName)...)
+		existingUpstreamResource.SetFinalizers(sets.List[string](s))
 	}
 
 	logger.Info("resource transformed")
@@ -501,12 +502,12 @@ func (srt *SyncerResourceTransformer) AfterRead(_ dynamic.ResourceInterface, ctx
 		}
 	}
 
-	upstreamResourceFinalizers := sets.NewString(upstreamResource.GetFinalizers()...)
-	syncerViewFinalizers := sets.NewString(transformedSyncerViewResource.GetFinalizers()...)
+	upstreamResourceFinalizers := sets.New[string](upstreamResource.GetFinalizers()...)
+	syncerViewFinalizers := sets.New[string](transformedSyncerViewResource.GetFinalizers()...)
 	if upstreamResourceFinalizers.Has(syncerFinalizerName) {
 		logger.Info("propagating the syncer finalizer from the upstream resource to the transformed syncer view")
 		syncerViewFinalizers.Insert(syncerFinalizerName)
-		transformedSyncerViewResource.SetFinalizers(syncerViewFinalizers.List())
+		transformedSyncerViewResource.SetFinalizers(sets.List[string](syncerViewFinalizers))
 	}
 
 	if deletionTimestamp := syncing[syncTargetKey].DeletionTimestamp; deletionTimestamp != nil && syncing[syncTargetKey].Finalizers == "" {

@@ -213,7 +213,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	}
 
 	// binding keys by full path
-	keys := sets.NewString()
+	keys := sets.New[string]()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
 		pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
 		if err != nil {
@@ -230,7 +230,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	}
 	keys.Insert(clusterKeys...)
 
-	for _, key := range keys.List() {
+	for _, key := range sets.List[string](keys) {
 		slice, exists, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
 		if err != nil {
 			runtime.HandleError(err)

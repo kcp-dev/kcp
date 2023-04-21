@@ -156,7 +156,7 @@ const (
 // it only handles cluster scoped resource.
 // it returns true if the operation was supported on the server.
 // it returns an error if the operation was supported on the server but was unable to complete.
-func (d *logicalClusterResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
+func (d *logicalClusterResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.Set[string]) (bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -182,7 +182,7 @@ func (d *logicalClusterResourcesDeleter) deleteCollection(ctx context.Context, c
 //	the list of items in the collection (if found)
 //	a boolean if the operation is supported
 //	an error if the operation is supported but could not be completed.
-func (d *logicalClusterResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
+func (d *logicalClusterResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.Set[string]) (*metav1.PartialObjectMetadataList, bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "listCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -210,7 +210,7 @@ func (d *logicalClusterResourcesDeleter) listCollection(ctx context.Context, clu
 }
 
 // deleteEachItem is a helper function that will list the collection of resources and delete each item 1 by 1.
-func (d *logicalClusterResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) error {
+func (d *logicalClusterResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.Set[string]) error {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteEachItem", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -249,7 +249,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContentForGroupVersionResource
 	ctx context.Context,
 	clusterName logicalcluster.Name,
 	gvr schema.GroupVersionResource,
-	verbs sets.String,
+	verbs sets.Set[string],
 	clusterDeletedAt metav1.Time) (gvrDeletionMetadata, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteAllContentForGroupVersionResource", "gvr", gvr)
 	logger.V(5).Info("running operation")
@@ -473,15 +473,15 @@ func (d *logicalClusterResourcesDeleter) estimateGracefulTermination(ctx context
 }
 
 // GroupVersionResources converts APIResourceLists to the GroupVersionResources with verbs as value.
-func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersionResource]sets.String, error) {
-	gvrs := map[schema.GroupVersionResource]sets.String{}
+func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersionResource]sets.Set[string], error) {
+	gvrs := map[schema.GroupVersionResource]sets.Set[string]{}
 	for _, rl := range rls {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
 			return nil, err
 		}
 		for i := range rl.APIResources {
-			gvrs[schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: rl.APIResources[i].Name}] = sets.NewString(rl.APIResources[i].Verbs...)
+			gvrs[schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: rl.APIResources[i].Name}] = sets.New[string](rl.APIResources[i].Verbs...)
 		}
 	}
 	return gvrs, nil

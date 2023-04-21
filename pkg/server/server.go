@@ -167,7 +167,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()),
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()).Discovery(),
 				s.DynamicClusterClient.Cluster(SystemCRDClusterName.Path()),
-				sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				logger.Error(err, "failed to bootstrap system CRDs, retrying")
 				return false, nil // keep trying
@@ -184,7 +184,7 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := configshard.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster.Path()).Discovery(),
 				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster.Path()),
-				sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
 				s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path())); err != nil {
 				logger.Error(err, "failed to bootstrap the shard workspace")
 				return false, nil // keep trying
@@ -221,7 +221,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.KcpClusterClient.Cluster(core.RootCluster.Path()),
 				s.ApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
 				s.DynamicClusterClient.Cluster(core.RootCluster.Path()),
-				sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				logger.Error(err, "failed to bootstrap root workspace phase 0")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -326,7 +326,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
 				s.BootstrapDynamicClusterClient.Cluster(core.RootCluster.Path()),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
-				sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				logger.Error(err, "failed to bootstrap root workspace phase 1")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -372,7 +372,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	enabled := sets.NewString(s.Options.Controllers.IndividuallyEnabled...)
+	enabled := sets.New[string](s.Options.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		logger.WithValues("controllers", enabled).Info("starting controllers individually")
 	}

@@ -218,12 +218,12 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	}
 
 	// merge resourceToSync from synctarget with resourcesToSync set on the syncer's flag.
-	resourceToSyncSet := sets.NewString(i.resourcesToSync...)
+	resourceToSyncSet := sets.New[string](i.resourcesToSync...)
 	for _, rs := range syncTarget.Status.SyncedResources {
 		resourceToSyncSet.Insert(fmt.Sprintf("%s.%s", rs.Resource, rs.Group))
 	}
 	// return if no resources to import
-	resourcesToSync := resourceToSyncSet.List()
+	resourcesToSync := sets.List[string](resourceToSyncSet)
 	logger.V(2).Info("Importing APIs", "resourcesToImport", resourcesToSync)
 	if resourceToSyncSet.Len() == 0 {
 		return

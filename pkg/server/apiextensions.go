@@ -95,7 +95,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	}
 
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
-	seen := sets.NewString()
+	seen := sets.New[string]()
 
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
 	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDClusterName).List(labels.Everything())

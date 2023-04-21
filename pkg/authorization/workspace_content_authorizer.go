@@ -92,7 +92,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		subjectClusters[logicalcluster.Name(sc)] = true
 	}
 
-	isAuthenticated := sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated")
+	isAuthenticated := sets.New[string](attr.GetUser().GetGroups()...).Has("system:authenticated")
 	isUser := len(subjectClusters) == 0
 	isServiceAccountFromCluster := subjectClusters[cluster.Name]
 
@@ -112,7 +112,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// always let logical-cluster-admins through
-	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	if isUser && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 

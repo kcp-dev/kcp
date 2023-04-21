@@ -184,7 +184,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
-	desiredURLs := sets.NewString()
+	desiredURLs := sets.New[string]()
 	for _, shard := range shards {
 		logger = logging.WithObject(logger, shard)
 		if shard.Spec.VirtualWorkspaceURL == "" {
@@ -216,7 +216,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	apiExport.Status.VirtualWorkspaces = nil
 
-	for _, u := range desiredURLs.List() {
+	for _, u := range sets.List[string](desiredURLs) {
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha1.VirtualWorkspace{
 			URL: u,

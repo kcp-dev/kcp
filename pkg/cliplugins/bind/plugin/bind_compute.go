@@ -150,7 +150,7 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 	}
 
 	// apply APIBindings
-	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.NewString(o.APIExports...))
+	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.New[string](o.APIExports...))
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func apiBindingName(clusterName logicalcluster.Path, apiExportName string) strin
 	return fmt.Sprintf("%s-%s", bindingNamePrefix, base36hash[:8])
 }
 
-func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclient.Interface, desiredAPIExports sets.String) ([]*apisv1alpha1.APIBinding, error) {
+func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclient.Interface, desiredAPIExports sets.Set[string]) ([]*apisv1alpha1.APIBinding, error) {
 	apiBindings, err := client.ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	var localClusterName logicalcluster.Name
 	var localPath logicalcluster.Path
 
-	existingAPIExports := sets.NewString()
+	existingAPIExports := sets.New[string]()
 	for i := range apiBindings.Items {
 		binding := apiBindings.Items[i]
 		if binding.Spec.Reference.Export == nil {
@@ -303,8 +303,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	if localClusterName != "" {
 		// add clusterName when missing such that our set logic works
 		old := desiredAPIExports
-		desiredAPIExports = sets.NewString()
-		for _, export := range old.List() {
+		desiredAPIExports = sets.New[string]()
+		for _, export := range sets.List[string](old) {
 			path, name := logicalcluster.NewPath(export).Split()
 			if path.Empty() {
 				path = localClusterName.Path()

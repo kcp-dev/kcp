@@ -82,7 +82,7 @@ func (f *FinalizerPlugin) Validate(ctx context.Context, a admission.Attributes, 
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
 
-		isSystem := sets.NewString(a.GetUserInfo().GetGroups()...).Has(user.SystemPrivilegedGroup)
+		isSystem := sets.New[string](a.GetUserInfo().GetGroups()...).Has(user.SystemPrivilegedGroup)
 		isDeleting := !u.GetDeletionTimestamp().IsZero()
 		isRemoving := finalizerExists(old.GetFinalizers(), f.FinalizerName) && !finalizerExists(u.GetFinalizers(), f.FinalizerName)
 		exists := finalizerExists(u.GetFinalizers(), f.FinalizerName)

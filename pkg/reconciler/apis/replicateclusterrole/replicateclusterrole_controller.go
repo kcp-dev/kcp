@@ -54,12 +54,12 @@ func NewController(
 
 func HasBindOrContentRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		apiGroups := sets.NewString(rule.APIGroups...)
+		apiGroups := sets.New[string](rule.APIGroups...)
 		if !apiGroups.Has(apis.GroupName) && !apiGroups.Has("*") {
 			continue
 		}
-		resources := sets.NewString(rule.Resources...)
-		verbs := sets.NewString(rule.Verbs...)
+		resources := sets.New[string](rule.Resources...)
+		verbs := sets.New[string](rule.Verbs...)
 		if (resources.Has("apiexports") || resources.Has("*")) && (verbs.Has("bind") || verbs.Has("*")) {
 			return true
 		}

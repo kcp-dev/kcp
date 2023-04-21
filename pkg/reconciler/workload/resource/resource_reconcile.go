@@ -72,7 +72,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 
 	var err error
-	var expectedSyncTargetKeys sets.String
+	var expectedSyncTargetKeys sets.Set[string]
 	expectedDeletedSynctargetKeys := make(map[string]string)
 	namespaceName := obj.GetNamespace()
 	// We need to handle namespaced and non-namespaced resources differently, as namespaced resources
@@ -118,7 +118,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		deletionTimestamp := time.Now().Format(time.RFC3339)
 		currentLocations := getLocations(obj.GetLabels(), false)
 
-		for _, location := range currentLocations.Difference(expectedSyncTargetKeys).List() {
+		for _, location := range sets.List[string](currentLocations.Difference(expectedSyncTargetKeys)) {
 			expectedDeletedSynctargetKeys[location] = deletionTimestamp
 		}
 	}
@@ -221,7 +221,7 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 }
 
 // computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending.
-func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
+func computePlacement(expectedSyncTargetKeys sets.Set[string], expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
 	currentSynctargetKeys := getLocations(obj.GetLabels(), false)
 	currentSynctargetKeysDeleting := getDeletingLocations(obj.GetAnnotations())
 	if currentSynctargetKeys.Equal(expectedSyncTargetKeys) && reflect.DeepEqual(currentSynctargetKeysDeleting, expectedDeletedSynctargetKeys) {
@@ -234,7 +234,7 @@ func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctar
 	labelPatch = map[string]interface{}{}
 
 	// unschedule objects from SyncTargets that are no longer expected.
-	for _, loc := range currentSynctargetKeys.Difference(expectedSyncTargetKeys).List() {
+	for _, loc := range sets.List[string](currentSynctargetKeys.Difference(expectedSyncTargetKeys)) {
 		// That's an inconsistent state, in case of namespaced resources, it's probably due to the namespace deletion reaching its grace period => let's repair it
 		var hasSyncerFinalizer, hasClusterFinalizer bool
 		// Check if there's still the syncer or the cluster finalizer.
@@ -259,7 +259,7 @@ func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctar
 	}
 
 	// sync deletion timestamps if the location is expected to be deleted.
-	for _, loc := range expectedSyncTargetKeys.Intersection(currentSynctargetKeys).List() {
+	for _, loc := range sets.List[string](expectedSyncTargetKeys.Intersection(currentSynctargetKeys)) {
 		if expectedTimestamp, ok := expectedDeletedSynctargetKeys[loc]; ok {
 			if _, ok := currentSynctargetKeysDeleting[loc]; !ok {
 				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = expectedTimestamp
@@ -279,7 +279,7 @@ func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctar
 	}
 
 	// set label on unscheduled objects if resource is scheduled and not deleting
-	for _, loc := range expectedSyncTargetKeys.Difference(currentSynctargetKeys).List() {
+	for _, loc := range sets.List[string](expectedSyncTargetKeys.Difference(currentSynctargetKeys)) {
 		if _, ok := expectedDeletedSynctargetKeys[loc]; ok {
 			continue
 		}

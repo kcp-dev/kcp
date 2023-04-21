@@ -139,7 +139,7 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha1.
 	// In that case, the last APIBinding to have the schema removed will trigger the CRD delete,
 	// but only the old version will have the reference to the schema.
 
-	uidSet := sets.String{}
+	uidSet := sets.New[string]()
 
 	if oldBinding != nil {
 		for _, boundResource := range oldBinding.Status.BoundResources {
