@@ -370,7 +370,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	}
 	encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha1.SchemeGroupVersion)
 
-	writtenExports := sets.String{}
+	writtenExports := sets.New[string]()
 	for _, export := range exports {
 		out, err := runtime.Encode(encoder, export)
 		if err != nil {

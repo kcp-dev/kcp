@@ -167,8 +167,8 @@ func NewShardNameFromObjectRoundTripper(delegate http.RoundTripper, requestInfoR
 	return &ShardNameFromObjectRoundTripper{
 		delegate:            delegate,
 		requestInfoResolver: requestInfoResolver,
-		supportedResources:  sets.NewString(supportedResources...),
-		supportedVerbs:      sets.NewString("create", "update", "patch"),
+		supportedResources:  sets.New[string](supportedResources...),
+		supportedVerbs:      sets.New[string]("create", "update", "patch"),
 	}
 }
 
@@ -178,8 +178,8 @@ func NewShardNameFromObjectRoundTripper(delegate http.RoundTripper, requestInfoR
 type ShardNameFromObjectRoundTripper struct {
 	delegate            http.RoundTripper
 	requestInfoResolver func(*http.Request) (string, string, error) /*res, verb, err*/
-	supportedResources  sets.String
-	supportedVerbs      sets.String
+	supportedResources  sets.Set[string]
+	supportedVerbs      sets.Set[string]
 }
 
 func (c *ShardNameFromObjectRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
