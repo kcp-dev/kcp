@@ -187,8 +187,7 @@ func createCELEnv(structuralSchema *structuralschema.Structural) (*cel.Env, erro
 	propDecls = append(propDecls, cel.Variable("self", root.CelType()))
 
 	opts = append(opts, propDecls...)
-	opts = append(opts, cel.HomogeneousAggregateLiterals())
-	opts = append(opts, cel.EagerlyValidateDeclarations(true), cel.DefaultUTCTimeZone(true))
+	opts = append(opts, cel.HomogeneousAggregateLiterals(), cel.EagerlyValidateDeclarations(true), cel.DefaultUTCTimeZone(true))
 	opts = append(opts, library.ExtensionLibs...)
 	return env.Extend(opts...)
 }
