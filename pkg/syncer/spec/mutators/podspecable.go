@@ -170,7 +170,7 @@ func (dm *PodSpecableMutator) Mutate(obj *unstructured.Unstructured) error {
 
 	// Setting AutomountServiceAccountToken to false allow us to control the ServiceAccount
 	// VolumeMount and Volume definitions.
-	podTemplate.Spec.AutomountServiceAccountToken = utilspointer.BoolPtr(false)
+	podTemplate.Spec.AutomountServiceAccountToken = utilspointer.Bool(false)
 	// Set to empty the serviceAccountName on podTemplate as we are not syncing the serviceAccount down to the workload cluster.
 	podTemplate.Spec.ServiceAccountName = ""
 
@@ -202,7 +202,7 @@ func (dm *PodSpecableMutator) Mutate(obj *unstructured.Unstructured) error {
 		Name: "kcp-api-access",
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
-				DefaultMode: utilspointer.Int32Ptr(420),
+				DefaultMode: utilspointer.Int32(420),
 				Sources: []corev1.VolumeProjection{
 					{
 						Secret: &corev1.SecretProjection{

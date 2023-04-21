@@ -138,7 +138,7 @@ func TestServiceAccounts(t *testing.T) {
 			boundToken, err := kubeClusterClient.Cluster(wsPath).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences:         []string{"https://kcp.default.svc"},
-					ExpirationSeconds: pointer.Int64Ptr(3600),
+					ExpirationSeconds: pointer.Int64(3600),
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
 						APIVersion: "v1",
 						Kind:       "Secret",

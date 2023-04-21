@@ -68,7 +68,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 			v.Schema = &apiextensionsv1.CustomResourceValidation{
 				OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 					Type:                   "object",
-					XPreserveUnknownFields: pointer.BoolPtr(true),
+					XPreserveUnknownFields: pointer.Bool(true),
 				},
 			} // wipe the schema, we don't need validation
 			v.Subresources = nil // wipe subresources so that updates don't have to be made against the status endpoint

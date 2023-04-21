@@ -88,13 +88,13 @@ func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1
 		return reconcileStatusStop, err
 	}
 	available := len(FilterReady(locationClusters))
-	location.Status.Instances = uint32Ptr(uint32(len(locationClusters)))
-	location.Status.AvailableInstances = uint32Ptr(uint32(available))
+	location.Status.Instances = uInt32(uint32(len(locationClusters)))
+	location.Status.AvailableInstances = uInt32(uint32(available))
 
 	return reconcileStatusContinue, nil
 }
 
-func uint32Ptr(i uint32) *uint32 {
+func uInt32(i uint32) *uint32 {
 	return &i
 }
 

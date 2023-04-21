@@ -150,7 +150,7 @@ func TestSchemaReconciler(t *testing.T) {
 											Description: "Number of replicas",
 											Priority:    0,
 										},
-										JSONPath: pointer.StringPtr(".status.replicas"),
+										JSONPath: pointer.String(".status.replicas"),
 									},
 									{
 										TableColumnDefinition: metav1.TableColumnDefinition{
@@ -159,7 +159,7 @@ func TestSchemaReconciler(t *testing.T) {
 											Description: "Number of available replicas",
 											Priority:    0,
 										},
-										JSONPath: pointer.StringPtr(".status.availableReplicas"),
+										JSONPath: pointer.String(".status.availableReplicas"),
 									},
 								},
 							},
@@ -177,8 +177,8 @@ func TestSchemaReconciler(t *testing.T) {
 								APIVersion:         "apis.kcp.io/v1alpha1",
 								Kind:               "APIExport",
 								Name:               workloadv1alpha1.ImportedAPISExportName,
-								Controller:         pointer.BoolPtr(true),
-								BlockOwnerDeletion: pointer.BoolPtr(true),
+								Controller:         pointer.Bool(true),
+								BlockOwnerDeletion: pointer.Bool(true),
 							},
 						},
 					},
@@ -476,8 +476,8 @@ func withExportOwner(schema *apisv1alpha1.APIResourceSchema, exportName string) 
 		APIVersion:         apisv1alpha1.SchemeGroupVersion.String(),
 		Kind:               "APIExport",
 		Name:               exportName,
-		Controller:         pointer.BoolPtr(true),
-		BlockOwnerDeletion: pointer.BoolPtr(true),
+		Controller:         pointer.Bool(true),
+		BlockOwnerDeletion: pointer.Bool(true),
 	})
 	return schema
 }
