@@ -25,10 +25,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
