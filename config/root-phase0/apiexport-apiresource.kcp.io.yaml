@@ -6,7 +6,7 @@ metadata:
 spec:
   latestResourceSchemas:
   - v220628-546034da.apiresourceimports.apiresource.kcp.io
-  - v220628-546034da.negotiatedapiresources.apiresource.kcp.io
+  - v230424-27803b083.negotiatedapiresources.apiresource.kcp.io
   maximalPermissionPolicy:
     local: {}
 status: {}

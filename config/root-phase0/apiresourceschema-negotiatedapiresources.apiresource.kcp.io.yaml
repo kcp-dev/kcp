@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220628-546034da.negotiatedapiresources.apiresource.kcp.io
+  name: v230424-27803b083.negotiatedapiresources.apiresource.kcp.io
 spec:
   group: apiresource.kcp.io
   names:
@@ -39,8 +39,8 @@ spec:
     schema:
       description: NegotiatedAPIResource describes the result of either the normalization
         of any number of imports of an API resource from external clusters (either
-        physical or logical), or the the manual application of a CRD version for the
-        corresponding GVR.
+        physical or logical), or the manual application of a CRD version for the corresponding
+        GVR.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

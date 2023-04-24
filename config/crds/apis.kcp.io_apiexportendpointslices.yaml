@@ -48,8 +48,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: 'spec holds the desired state: - the targetted APIExport
-              - an optional partition for filtering'
+            description: 'spec holds the desired state: - the targeted APIExport -
+              an optional partition for filtering'
             properties:
               export:
                 description: export points to the API export.

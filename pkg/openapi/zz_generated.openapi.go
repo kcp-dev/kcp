@@ -740,7 +740,7 @@ func schema_sdk_apis_apiresource_v1alpha1_NegotiatedAPIResource(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NegotiatedAPIResource describes the result of either the normalization of any number of imports of an API resource from external clusters (either physical or logical), or the the manual application of a CRD version for the corresponding GVR.",
+				Description: "NegotiatedAPIResource describes the result of either the normalization of any number of imports of an API resource from external clusters (either physical or logical), or the manual application of a CRD version for the corresponding GVR.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1574,7 +1574,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCa
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "spec holds the desired state: - the targetted APIExport - an optional partition for filtering",
+							Description: "spec holds the desired state: - the targeted APIExport - an optional partition for filtering",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec"),
 						},
@@ -1598,7 +1598,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "APIExportEndpointSliceList is a list of APIExportEndpointSlice resources",
+				Description: "APIExportEndpointSliceList is a list of APIExportEndpointSlice resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -4163,7 +4163,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PartitionList is a list of Partition resources",
+				Description: "PartitionList is a list of Partition resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -4261,7 +4261,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PartitionSetList is a list of PartitionSet resources",
+				Description: "PartitionSetList is a list of PartitionSet resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
