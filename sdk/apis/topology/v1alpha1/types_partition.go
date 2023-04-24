@@ -54,7 +54,7 @@ type PartitionSpec struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PartitionList is a list of Partition resources
+// PartitionList is a list of Partition resources.
 type PartitionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

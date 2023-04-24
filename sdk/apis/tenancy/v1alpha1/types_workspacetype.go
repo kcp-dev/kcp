@@ -168,7 +168,8 @@ type WorkspaceTypeExtension struct {
 // These are valid conditions of WorkspaceType.
 const (
 	WorkspaceTypeVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
-	ErrorGeneratingURLsReason                                               = "ErrorGeneratingURLs"
+
+	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
 )
 
 // WorkspaceTypeStatus defines the observed state of WorkspaceType.
@@ -225,7 +226,7 @@ const (
 )
 
 const (
-	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no workspace type
+	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no workspace type.
 	RootWorkspaceTypeName = WorkspaceTypeName("root")
 )
 

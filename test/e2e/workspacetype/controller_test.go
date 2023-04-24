@@ -63,7 +63,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				t.Logf("Create a workspace without explicit type")
 				workspace, err := server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(server.orgPath).Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "myapp"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(server.orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
@@ -108,7 +108,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
@@ -132,7 +132,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type, tenancyv1alpha1.WorkspaceTypeReference{
@@ -158,7 +158,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				typeSourcePath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
-				cfg := server.BaseConfig(t)
+				cfg := server.RunningServer.BaseConfig(t)
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 				require.NoError(t, err, "failed to construct kube cluster client for server")
 
@@ -197,7 +197,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(typeSourcePath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "bar", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Bar to be usable in typesource workspace %q", typeSourcePath)
@@ -226,7 +226,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().Workspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type,
@@ -259,7 +259,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
@@ -286,7 +286,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					}
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, "myapp", metav1.GetOptions{})
 				})
 

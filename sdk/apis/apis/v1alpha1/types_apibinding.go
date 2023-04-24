@@ -212,7 +212,7 @@ const (
 	NamingConflictsReason = "NamingConflicts"
 
 	// BindingResourceDeleteSuccess is a condition for APIBinding that indicates the resources relating this binding are deleted
-	// successfully when the APIBinding is deleting
+	// successfully when the APIBinding is deleting.
 	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 
 	// PermissionClaimsValid is a condition for APIBinding that indicates that the permission claims were valid or not.
@@ -227,7 +227,7 @@ const (
 	PermissionClaimsApplied conditionsv1alpha1.ConditionType = "PermissionClaimsApplied"
 )
 
-// These are annotations for bound CRDs
+// These are annotations for bound CRDs.
 const (
 	// AnnotationBoundCRDKey is the annotation key that indicates a CRD is for an APIExport (a "bound CRD").
 	AnnotationBoundCRDKey = "apis.kcp.io/bound-crd"

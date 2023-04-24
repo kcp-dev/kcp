@@ -40,7 +40,7 @@ type APIExportEndpointSlice struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds the desired state:
-	// - the targetted APIExport
+	// - the targeted APIExport
 	// - an optional partition for filtering
 	Spec APIExportEndpointSliceSpec `json:"spec,omitempty"`
 
@@ -115,7 +115,7 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// APIExportEndpointSliceList is a list of APIExportEndpointSlice resources
+// APIExportEndpointSliceList is a list of APIExportEndpointSlice resources.
 type APIExportEndpointSliceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

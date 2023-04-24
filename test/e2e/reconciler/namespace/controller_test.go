@@ -82,7 +82,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace1")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
 				})
 				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
@@ -134,13 +134,13 @@ func TestNamespaceScheduler(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.BaseConfig(t))
+				crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.RunningServer.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
-				dynamicClusterClient, err := kcpdynamic.NewForConfig(server.BaseConfig(t))
+				dynamicClusterClient, err := kcpdynamic.NewForConfig(server.RunningServer.BaseConfig(t))
 				require.NoError(t, err, "failed to construct dynamic client for server")
 
-				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
+				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.BaseConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
 				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer

@@ -62,9 +62,9 @@ func (cd *ColumnDefinitions) ImportFromCRDVersion(crdVersion *apiextensionsv1.Cu
 	return cd
 }
 
-func (cds *ColumnDefinitions) ToCustomResourceColumnDefinitions() []apiextensionsv1.CustomResourceColumnDefinition {
-	var crdcds []apiextensionsv1.CustomResourceColumnDefinition
-	for _, cd := range *cds {
+func (cd *ColumnDefinitions) ToCustomResourceColumnDefinitions() []apiextensionsv1.CustomResourceColumnDefinition {
+	crdcds := make([]apiextensionsv1.CustomResourceColumnDefinition, 0, len(*cd))
+	for _, cd := range *cd {
 		if cd.JSONPath == nil {
 			continue
 		}

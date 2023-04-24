@@ -50,7 +50,7 @@ func FieldValidatorsFromFile(t *testing.T, crdFilePath string) (validatorsByVers
 		structuralSchema, err := schema.NewStructural(&internalSchema)
 		require.NoError(t, err, "failed to create StructuralSchema for version %s: %v", v.Name, err)
 
-		versionVals, err := findCEL(t, structuralSchema, field.NewPath("openAPIV3Schema"))
+		versionVals, err := findCEL(t, structuralSchema, true, field.NewPath("openAPIV3Schema"))
 		require.NoError(t, err, "failed to find CEL for version %s: %v", v.Name, err)
 		ret[v.Name] = versionVals
 	}
@@ -76,7 +76,7 @@ func VersionValidatorsFromFile(t *testing.T, crdFilePath string) map[string]CELV
 		structuralSchema, err := schema.NewStructural(&internalSchema)
 		require.NoError(t, err, "failed to create StructuralSchema for version %s: %v", v.Name, err)
 		ret[v.Name] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(structuralSchema, cel.RuntimeCELCostBudget).Validate(context.TODO(), nil, structuralSchema, obj, old, cel.PerCallLimit)
+			errs, _ := cel.NewValidator(structuralSchema, true, cel.RuntimeCELCostBudget).Validate(context.TODO(), nil, structuralSchema, obj, old, cel.PerCallLimit)
 			return errs
 		}
 	}
@@ -97,20 +97,21 @@ func VersionValidatorFromFile(t *testing.T, crdFilePath string, version string) 
 // CELValidateFunc tests a sample object against a CEL validator.
 type CELValidateFunc func(obj, old interface{}) field.ErrorList
 
-func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CELValidateFunc, error) {
+func findCEL(t *testing.T, s *schema.Structural, root bool, pth *field.Path) (map[string]CELValidateFunc, error) {
 	ret := map[string]CELValidateFunc{}
 
 	if len(s.XValidations) > 0 {
 		s := *s
 		pth := *pth
 		ret[pth.String()] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(&s, cel.RuntimeCELCostBudget).Validate(context.TODO(), &pth, &s, obj, old, cel.PerCallLimit)
+			errs, _ := cel.NewValidator(&s, root, cel.RuntimeCELCostBudget).Validate(context.TODO(), &pth, &s, obj, old, cel.PerCallLimit)
 			return errs
 		}
 	}
 
 	for k, v := range s.Properties {
-		sub, err := findCEL(t, &v, pth.Child("properties").Child(k))
+		v := v
+		sub, err := findCEL(t, &v, false, pth.Child("properties").Child(k))
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +121,7 @@ func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CE
 		}
 	}
 	if s.Items != nil {
-		sub, err := findCEL(t, s.Items, pth.Child("items"))
+		sub, err := findCEL(t, s.Items, false, pth.Child("items"))
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +130,7 @@ func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CE
 		}
 	}
 	if s.AdditionalProperties != nil && s.AdditionalProperties.Structural != nil {
-		sub, err := findCEL(t, s.AdditionalProperties.Structural, pth.Child("additionalProperties"))
+		sub, err := findCEL(t, s.AdditionalProperties.Structural, false, pth.Child("additionalProperties"))
 		if err != nil {
 			return nil, err
 		}
