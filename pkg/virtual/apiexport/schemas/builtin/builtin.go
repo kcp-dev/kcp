@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -242,5 +243,25 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "events.k8s.io", Version: "v1"},
 		Instance:      &eventsv1.Event{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "validatingadmissionpolicies",
+			Singular: "validatingadmissionpolicy",
+			Kind:     "ValidatingAdmissionPolicy",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
+		Instance:      &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "validatingadmissionpolicybindings",
+			Singular: "validatingadmissionpolicybinding",
+			Kind:     "ValidatingAdmissionPolicyBinding",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
+		Instance:      &admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
 	},
 }
