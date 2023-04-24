@@ -480,6 +480,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		// with the default secure port, when the config is later completed.
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
+		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
 	}
 
 	c.ShardBaseURL = func() string {

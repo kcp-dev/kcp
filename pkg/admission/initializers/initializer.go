@@ -17,6 +17,7 @@ limitations under the License.
 package initializers
 
 import (
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
@@ -163,5 +164,21 @@ type serverShutdownChannelInitializer struct {
 func (i *serverShutdownChannelInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsServerShutdownChannel); ok {
 		wants.SetServerShutdownChannel(i.ch)
+	}
+}
+
+type dynamicClusterClientInitializer struct {
+	dynamicClusterClient kcpdynamic.ClusterInterface
+}
+
+func NewDynamicClusterClientInitializer(dynamicClusterClient kcpdynamic.ClusterInterface) *dynamicClusterClientInitializer {
+	return &dynamicClusterClientInitializer{
+		dynamicClusterClient: dynamicClusterClient,
+	}
+}
+
+func (i *dynamicClusterClientInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsDynamicClusterClient); ok {
+		wants.SetDynamicClusterClient(i.dynamicClusterClient)
 	}
 }
