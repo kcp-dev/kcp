@@ -28,7 +28,7 @@ const (
 	LogicalClusterPathAnnotationKey = "kcp.io/path"
 
 	// ReplicateAnnotationKey is the annotation key used to indicate that a ClusterRole should be replicated.
-	// Its value is a comma-seperated list of words. Every controller setting this has to choose
+	// Its value is a comma-separated list of words. Every controller setting this has to choose
 	// a unique word, and preserve other controllers' words in the comma separated list.
 	ReplicateAnnotationKey = "internal.kcp.io/replicate"
 )

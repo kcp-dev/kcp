@@ -22,7 +22,7 @@ import (
 
 // NegotiatedAPIResource describes the result of either the normalization of
 // any number of imports of an API resource from external clusters (either physical or logical),
-// or the the manual application of a CRD version for the corresponding GVR.
+// or the manual application of a CRD version for the corresponding GVR.
 //
 // +crd
 // +genclient
@@ -53,12 +53,12 @@ type NegotiatedAPIResourceSpec struct {
 	Publish               bool `json:"publish,omitempty"`
 }
 
-// NegotiatedAPIResourceConditionType is a valid value for NegotiatedAPIResourceCondition.Type
+// NegotiatedAPIResourceConditionType is a valid value for NegotiatedAPIResourceCondition.Type.
 type NegotiatedAPIResourceConditionType string
 
 const (
 	// Submitted means that this negotiated API Resource has been submitted
-	// to the logical cluster as an applied CRD
+	// to the logical cluster as an applied CRD.
 	Submitted NegotiatedAPIResourceConditionType = "Submitted"
 
 	// Published means that this negotiated API Resource has been published
@@ -66,7 +66,7 @@ const (
 	// If the API Resource has been submitted
 	// to the logical cluster as an applied CRD, but the CRD could not be published
 	// correctly due to various reasons (non-structural schema, non-accepted names, ...)
-	// then the Published condition will be false
+	// then the Published condition will be false.
 	Published NegotiatedAPIResourceConditionType = "Published"
 
 	// Enforced means that a CRD version for the same GVR has been manually applied,

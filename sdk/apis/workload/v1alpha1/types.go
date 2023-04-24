@@ -45,7 +45,7 @@ const (
 	//
 	// The format is RFC3339.
 	//
-	// TODO(sttts): use sync-target-uid instead of sync-target-name
+	// TODO(sttts): use sync-target-uid instead of sync-target-name.
 	InternalClusterDeletionTimestampAnnotationPrefix = "deletion.internal.workload.kcp.io/"
 
 	// ClusterFinalizerAnnotationPrefix is the prefix of the annotation
@@ -57,7 +57,7 @@ const (
 	// resource on that sync target. External (custom) controllers can set this annotation
 	// create back-pressure on the resource.
 	//
-	// TODO(sttts): use sync-target-uid instead of sync-target-name
+	// TODO(sttts): use sync-target-uid instead of sync-target-name.
 	ClusterFinalizerAnnotationPrefix = "finalizers.workload.kcp.io/"
 
 	// ClusterResourceStateLabelPrefix is the prefix of the label
