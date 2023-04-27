@@ -117,6 +117,8 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	return preparedServer{s}, nil
 }
 
+const workerCount = 10
+
 func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
@@ -131,7 +133,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 	}
 
 	// start index
-	go s.IndexController.Start(ctx, 2)
+	go s.IndexController.Start(ctx, workerCount)
 
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
