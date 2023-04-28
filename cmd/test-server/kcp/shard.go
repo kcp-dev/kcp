@@ -27,12 +27,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
@@ -57,6 +59,7 @@ type Shard struct {
 
 	terminatedCh <-chan error
 	writer       headWriter
+	AllDone      chan struct{}
 }
 
 func NewShard(name, runtimeDir, logFilePath string, args []string) *Shard {
@@ -65,6 +68,7 @@ func NewShard(name, runtimeDir, logFilePath string, args []string) *Shard {
 		runtimeDir:  runtimeDir,
 		logFilePath: logFilePath,
 		args:        args,
+		AllDone:     make(chan struct{}),
 	}
 }
 
@@ -108,7 +112,18 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
+	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
+	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
+	cmd := exec.Command(commandLine[0], commandLine[1:]...) //nolint:gosec
+
+	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
+	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
+	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
+	// Thanks to
+	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
+	// the idea!
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
 		return err
 	}
@@ -122,6 +137,12 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = s.writer
 
+	pprofDir := filepath.Dir(s.logFilePath)
+	cmdEnv := make([]string, len(os.Environ()))
+	copy(cmdEnv, os.Environ())
+	cmd.Env = cmdEnv
+	cmd.Env = append(cmd.Env, "PPROFDIR="+pprofDir)
+
 	if quiet {
 		s.writer.StopOut()
 	}
@@ -130,18 +151,36 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 		return err
 	}
 
-	go func() {
-		<-ctx.Done()
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Error(err, "failed to kill process")
-		}
-	}()
-
 	// Start a goroutine that will notify when the process has exited
 	terminatedCh := make(chan error, 1)
 	s.terminatedCh = terminatedCh
 	go func() {
 		terminatedCh <- cmd.Wait()
+		logger.Info("DONE WAITING")
+		close(terminatedCh)
+	}()
+
+	go func() {
+		<-ctx.Done()
+		logger.Info("CTX CLOSED")
+
+		// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
+		// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
+			panic(err)
+		}
+
+		select {
+		case <-terminatedCh:
+			logger.Info("NOT KILLING SHARD")
+		case <-time.After(wait.ForeverTestTimeout):
+			logger.Info("KILLING SHARD")
+			if err := cmd.Process.Kill(); err != nil {
+				logger.Error(err, "failed to kill process")
+			}
+		}
+
+		close(s.AllDone)
 	}()
 
 	// wait for admin.kubeconfig

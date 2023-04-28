@@ -140,6 +140,7 @@ func start(shardFlags []string, quiet bool) error {
 	defer metricsCancel()
 
 	s.GatherMetrics(metricsCtx)
-
+	cancel()
+	<-s.AllDone
 	return nil
 }

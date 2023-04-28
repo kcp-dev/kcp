@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -144,7 +147,43 @@ func main() {
 			if err != nil {
 				return err
 			}
-			return s.Run(ctx)
+
+			pprofDir := os.Getenv("PPROFDIR")
+			if pprofDir != "" {
+				cpuFilePath := filepath.Join(pprofDir, "cpu.pprof")
+				cpu, err := os.Create(cpuFilePath)
+				if err != nil {
+					return fmt.Errorf("error creating cpu profiling file %q: %w", cpuFilePath, err)
+				}
+				pprof.StartCPUProfile(cpu)
+
+				memFilePath := filepath.Join(pprofDir, "mem.pprof")
+				mem, err := os.Create(memFilePath)
+				if err != nil {
+					return fmt.Errorf("error creating mem profiling file %q: %w", memFilePath, err)
+				}
+
+				s.Core.AddPreShutdownHook("pprof", func() error {
+					logger.Info("Stopping CPU profile")
+					pprof.StopCPUProfile()
+					cpu.Close()
+
+					logger.Info("Performing GC")
+					runtime.GC()
+
+					logger.Info("Writing heap profile")
+					pprof.WriteHeapProfile(mem)
+
+					logger.Info("Closing mem.pprof")
+					mem.Close()
+
+					return nil
+				})
+			}
+
+			err = s.Run(ctx)
+			<-ctx.Done()
+			return err
 		},
 	}
 
