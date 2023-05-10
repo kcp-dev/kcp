@@ -66,7 +66,7 @@ func NewController(
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				cluster := obj.(*corev1alpha1.LogicalCluster)
-				c.EnqueueClusterRoleBindings("reason", "LogicalCluster added", "logicalcluster", logicalcluster.From(cluster).String())
+				c.EnqueueClusterRoleBindings(logicalcluster.From(cluster), "reason", "LogicalCluster added", "logicalcluster", logicalcluster.From(cluster).String())
 			},
 			UpdateFunc: func(old, obj interface{}) {
 				oldCluster, ok := old.(*corev1alpha1.LogicalCluster)
@@ -78,7 +78,7 @@ func NewController(
 					return
 				}
 				if (oldCluster.Annotations[core.ReplicateAnnotationKey] == "") != (newCluster.Annotations[core.ReplicateAnnotationKey] == "") {
-					c.EnqueueClusterRoleBindings("reason", "LogicalCluster changed replication status", "logicalcluster", logicalcluster.From(newCluster).String())
+					c.EnqueueClusterRoleBindings(logicalcluster.From(newCluster), "reason", "LogicalCluster changed replication status", "logicalcluster", logicalcluster.From(newCluster).String())
 				}
 			},
 		},
