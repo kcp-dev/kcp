@@ -90,7 +90,7 @@ func NewController(
 			if oldShard.Spec.BaseURL == shard.Spec.BaseURL {
 				return
 			}
-			c.stopShard(oldShard)
+			c.stopShard(oldShard.Name)
 			c.enqueueShard(ctx, shard)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -99,7 +99,7 @@ func NewController(
 			}
 			shard := obj.(*corev1alpha1.Shard)
 
-			c.stopShard(shard)
+			c.stopShard(shard.Name)
 		},
 	})
 
@@ -203,7 +203,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.V(2).Info("Shard not found, stopping informers")
-			c.stopShard(shard)
+			c.stopShard(name)
 			return nil
 		}
 		return err
@@ -272,18 +272,18 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) stopShard(shard *corev1alpha1.Shard) {
-	c.state.DeleteShard(shard.Name)
+func (c *Controller) stopShard(shardName string) {
+	c.state.DeleteShard(shardName)
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if stopCh, found := c.shardWorkspaceStopCh[shard.Name]; found {
+	if stopCh, found := c.shardWorkspaceStopCh[shardName]; found {
 		close(stopCh)
 	}
-	delete(c.shardWorkspaceStopCh, shard.Name)
-	delete(c.shardWorkspaceInformers, shard.Name)
-	delete(c.shardLogicalClusterInformers, shard.Name)
+	delete(c.shardWorkspaceStopCh, shardName)
+	delete(c.shardWorkspaceInformers, shardName)
+	delete(c.shardLogicalClusterInformers, shardName)
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (url string, found bool) {
