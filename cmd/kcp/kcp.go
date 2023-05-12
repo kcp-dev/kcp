@@ -70,7 +70,7 @@ func main() {
 
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 
-	// manually extract root directory from flags first as it influence all other flags
+	// manually extract root directory from flags first as it influence all other flags test
 	rootDir := ".kcp"
 	for i, f := range os.Args {
 		if f == "--root-directory" {
