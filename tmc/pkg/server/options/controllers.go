@@ -20,26 +20,21 @@ import (
 	"github.com/spf13/pflag"
 
 	apiresource "github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource/options"
-	heartbeat "github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat/options"
 )
 
 type Controllers struct {
-	ApiResource         ApiResourceController
-	SyncTargetHeartbeat SyncTargetHeartbeatController
+	ApiResource ApiResourceController
 }
 
 type ApiResourceController = apiresource.Options
-type SyncTargetHeartbeatController = heartbeat.Options
 
 func NewTmcControllers() *Controllers {
 	return &Controllers{
-		ApiResource:         *apiresource.NewOptions(),
-		SyncTargetHeartbeat: *heartbeat.NewOptions(),
+		ApiResource: *apiresource.NewOptions(),
 	}
 }
 
 func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
-	c.SyncTargetHeartbeat.AddFlags(fs)
 	c.ApiResource.AddFlags(fs)
 }
 
@@ -51,9 +46,6 @@ func (c *Controllers) Validate() []error {
 	var errs []error
 
 	if err := c.ApiResource.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.SyncTargetHeartbeat.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 

@@ -26,7 +26,6 @@ import (
 	"k8s.io/klog/v2"
 
 	configrootcompute "github.com/kcp-dev/kcp/config/rootcompute"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	coreserver "github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
@@ -92,56 +91,6 @@ func (s *Server) Run(ctx context.Context) error {
 		// TODO(marun) Consider enabling each controller via a separate flag
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
-		}
-		if err := s.installSyncTargetHeartbeatController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installSyncTargetController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installWorkloadSyncTargetExportController(ctx, controllerConfig); err != nil {
-			return err
-		}
-
-		if err := s.installWorkloadReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-
-		if err := s.installWorkloadReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-
-		if err := s.installWorkloadReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Core.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		if s.Options.Core.Controllers.EnableAll || enabled.Has("scheduling") {
-			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig); err != nil {
-				return err
-			}
-			if err := s.installWorkloadPlacementScheduler(ctx, controllerConfig); err != nil {
-				return err
-			}
-			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig); err != nil {
-				return err
-			}
-			if err := s.installSchedulingPlacementController(ctx, controllerConfig); err != nil {
-				return err
-			}
-			if err := s.installWorkloadAPIExportController(ctx, controllerConfig); err != nil {
-				return err
-			}
-			if err := s.installWorkloadDefaultLocationController(ctx, controllerConfig); err != nil {
-				return err
-			}
 		}
 	}
 

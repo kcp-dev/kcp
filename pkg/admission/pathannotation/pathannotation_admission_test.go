@@ -33,7 +33,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
@@ -126,10 +125,10 @@ func TestPathAnnotationAdmit(t *testing.T) {
 		},
 
 		{
-			name:                    "happy path: a Location is annotated with a path",
+			name:                    "happy path: a WorkspaceType is annotated with a path",
 			admissionVerb:           admission.Create,
-			admissionResource:       schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"),
-			admissionObject:         &schedulingv1alpha1.Location{},
+			admissionResource:       tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
+			admissionObject:         &tenancyv1alpha1.WorkspaceType{},
 			admissionContext:        admissionContextFor("foo"),
 			getLogicalCluster:       getCluster("foo"),
 			validateAdmissionObject: objectHasPathAnnotation("root:foo"),

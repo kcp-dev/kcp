@@ -1,0 +1,178 @@
+metadata:
+  creationTimestamp: null
+  name: internal.workspaces.tenancy.kcp.io
+spec:
+  group: tenancy.kcp.io
+  names:
+    kind: Workspace
+    plural: workspaces
+    singular: workspace
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      description: |-
+        Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.
+
+        A workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: WorkspaceSpec holds the desired state of the Workspace.
+          properties:
+            URL:
+              description: |-
+                URL is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the workspace with standard Kubernetes client libraries and command line tools.
+
+                Set by the system.
+              type: string
+            cluster:
+              description: |-
+                cluster is the name of the logical cluster this workspace is stored under.
+
+                Set by the system.
+              type: string
+            location:
+              description: |-
+                location constraints where this workspace can be scheduled to.
+
+                If the no location is specified, an arbitrary location is chosen.
+              properties:
+                selector:
+                  description: selector is a label selector that filters workspace
+                    scheduling targets.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+              type: object
+            type:
+              description: |-
+                type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.
+
+                The type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.
+              properties:
+                name:
+                  description: name is the name of the WorkspaceType
+                  type: string
+                path:
+                  description: path is an absolute reference to the workspace that
+                    owns this type, e.g. root:org:ws.
+                  type: string
+              required:
+              - name
+              type: object
+          type: object
+        status:
+          description: WorkspaceStatus communicates the observed state of the Workspace.
+          properties:
+            conditions:
+              description: Current processing state of the Workspace.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status
+                      to another. This should be when the underlying condition changed.
+                      If that is not known, then using the time when the API field
+                      changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition. This field may be empty.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition in
+                      CamelCase. The specific API may choose whether or not this field
+                      is considered a guaranteed API. This field may not be empty.
+                    type: string
+                  severity:
+                    description: Severity provides an explicit classification of Reason
+                      code, so the users or machines can immediately understand the
+                      current situation and act accordingly. The Severity field MUST
+                      be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources
+                      like Available, but because arbitrary conditions can be useful
+                      (see .node.status.conditions), the ability to deconflict is
+                      important.
+                    type: string
+                required:
+                - type
+                - status
+                - lastTransitionTime
+                type: object
+              type: array
+            initializers:
+              description: initializers must be cleared by a controller before the
+                workspace is ready and can be used.
+              items:
+                type: string
+              type: array
+            phase:
+              description: Phase of the workspace (Scheduling, Initializing, Ready).
+              type: string
+          type: object
+      required:
+      - spec
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -36,10 +36,8 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/workload/v1alpha1"
 )
 
 type ClusterInterface interface {
@@ -48,10 +46,8 @@ type ClusterInterface interface {
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
-	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface
-	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1ClusterInterface
 }
 
 // ClusterClientset contains the clients for groups.
@@ -61,10 +57,8 @@ type ClusterClientset struct {
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1ClusterClient
 	apisV1alpha1        *apisv1alpha1.ApisV1alpha1ClusterClient
 	coreV1alpha1        *corev1alpha1.CoreV1alpha1ClusterClient
-	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1ClusterClient
 	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1ClusterClient
-	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1ClusterClient
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -90,11 +84,6 @@ func (c *ClusterClientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterf
 	return c.coreV1alpha1
 }
 
-// SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
-func (c *ClusterClientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface {
-	return c.schedulingV1alpha1
-}
-
 // TenancyV1alpha1 retrieves the TenancyV1alpha1ClusterClient.
 func (c *ClusterClientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface {
 	return c.tenancyV1alpha1
@@ -103,11 +92,6 @@ func (c *ClusterClientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Clus
 // TopologyV1alpha1 retrieves the TopologyV1alpha1ClusterClient.
 func (c *ClusterClientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface {
 	return c.topologyV1alpha1
-}
-
-// WorkloadV1alpha1 retrieves the WorkloadV1alpha1ClusterClient.
-func (c *ClusterClientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1ClusterInterface {
-	return c.workloadV1alpha1
 }
 
 // Cluster scopes this clientset to one cluster.
@@ -174,19 +158,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
-	cs.schedulingV1alpha1, err = schedulingv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
 	cs.topologyV1alpha1, err = topologyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	cs.workloadV1alpha1, err = workloadv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

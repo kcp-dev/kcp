@@ -31,17 +31,6 @@ var (
 	# Create an APIBinding named "my-binding" that binds to the APIExport "my-export" in the "root:my-service" workspace.
 	%[1]s bind apiexport root:my-service:my-export --name my-binding
 	`
-
-	bindComputeExampleUses = `
-    # Create a placement to deploy standard kubernetes workloads to synctargets in the "root:mylocations" location workspace.
-    %[1]s bind compute root:mylocations
-
-    # Create a placement to deploy custom workloads to synctargets in the "root:mylocations" location workspace.
-    %[1]s bind compute root:mylocations --apiexports=root:myapis:customapiexport
-
-    # Create a placement to deploy standard kubernetes workloads to synctargets in the "root:mylocations" location workspace, and select only locations in the us-east region.
-    %[1]s bind compute root:mylocations --location-selectors=region=us-east1
-	`
 )
 
 func New(streams genericclioptions.IOStreams) *cobra.Command {
@@ -76,27 +65,5 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 	bindOpts.BindFlags(bindCmd)
 
 	cmd.AddCommand(bindCmd)
-
-	bindComputeOpts := plugin.NewBindComputeOptions(streams)
-	bindComputeCmd := &cobra.Command{
-		Use:          "compute <location workspace>",
-		Short:        "Bind to a location workspace",
-		Example:      fmt.Sprintf(bindComputeExampleUses, "kubectl kcp"),
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := bindComputeOpts.Complete(args); err != nil {
-				return err
-			}
-
-			if err := bindComputeOpts.Validate(); err != nil {
-				return err
-			}
-
-			return bindComputeOpts.Run(cmd.Context())
-		},
-	}
-	bindComputeOpts.BindFlags(bindComputeCmd)
-
-	cmd.AddCommand(bindComputeCmd)
 	return cmd
 }

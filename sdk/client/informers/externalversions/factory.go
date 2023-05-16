@@ -40,10 +40,8 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis"
 	coreinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core"
 	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
-	schedulinginformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/scheduling"
 	tenancyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy"
 	topologyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/topology"
-	workloadinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/workload"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -267,10 +265,8 @@ type SharedInformerFactory interface {
 	Apiresource() apiresourceinformers.ClusterInterface
 	Apis() apisinformers.ClusterInterface
 	Core() coreinformers.ClusterInterface
-	Scheduling() schedulinginformers.ClusterInterface
 	Tenancy() tenancyinformers.ClusterInterface
 	Topology() topologyinformers.ClusterInterface
-	Workload() workloadinformers.ClusterInterface
 }
 
 func (f *sharedInformerFactory) Apiresource() apiresourceinformers.ClusterInterface {
@@ -285,20 +281,12 @@ func (f *sharedInformerFactory) Core() coreinformers.ClusterInterface {
 	return coreinformers.New(f, f.tweakListOptions)
 }
 
-func (f *sharedInformerFactory) Scheduling() schedulinginformers.ClusterInterface {
-	return schedulinginformers.New(f, f.tweakListOptions)
-}
-
 func (f *sharedInformerFactory) Tenancy() tenancyinformers.ClusterInterface {
 	return tenancyinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Topology() topologyinformers.ClusterInterface {
 	return topologyinformers.New(f, f.tweakListOptions)
-}
-
-func (f *sharedInformerFactory) Workload() workloadinformers.ClusterInterface {
-	return workloadinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Cluster(clusterName logicalcluster.Name) ScopedDynamicSharedInformerFactory {
@@ -446,10 +434,8 @@ type SharedScopedInformerFactory interface {
 	Apiresource() apiresourceinformers.Interface
 	Apis() apisinformers.Interface
 	Core() coreinformers.Interface
-	Scheduling() schedulinginformers.Interface
 	Tenancy() tenancyinformers.Interface
 	Topology() topologyinformers.Interface
-	Workload() workloadinformers.Interface
 }
 
 func (f *sharedScopedInformerFactory) Apiresource() apiresourceinformers.Interface {
@@ -464,18 +450,10 @@ func (f *sharedScopedInformerFactory) Core() coreinformers.Interface {
 	return coreinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
-func (f *sharedScopedInformerFactory) Scheduling() schedulinginformers.Interface {
-	return schedulinginformers.NewScoped(f, f.namespace, f.tweakListOptions)
-}
-
 func (f *sharedScopedInformerFactory) Tenancy() tenancyinformers.Interface {
 	return tenancyinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Topology() topologyinformers.Interface {
 	return topologyinformers.NewScoped(f, f.namespace, f.tweakListOptions)
-}
-
-func (f *sharedScopedInformerFactory) Workload() workloadinformers.Interface {
-	return workloadinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }

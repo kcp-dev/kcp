@@ -26,21 +26,17 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	apiextensionsv1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiextensions/v1"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiresource/v1alpha1"
 	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	applyconfigurationmetav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
-	applyconfigurationschedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/scheduling/v1alpha1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
-	applyconfigurationworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/workload/v1alpha1"
 )
 
 // ForKind returns an apply configuration type for the given GroupVersionKind, or nil if no
@@ -203,26 +199,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	case metav1.SchemeGroupVersion.WithKind("TypeMeta"):
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
-		// Group=scheduling.kcp.io, Version=v1alpha1
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("AvailableSelectorLabel"):
-		return &applyconfigurationschedulingv1alpha1.AvailableSelectorLabelApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("GroupVersionResource"):
-		return &applyconfigurationschedulingv1alpha1.GroupVersionResourceApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("Location"):
-		return &applyconfigurationschedulingv1alpha1.LocationApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("LocationReference"):
-		return &applyconfigurationschedulingv1alpha1.LocationReferenceApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("LocationSpec"):
-		return &applyconfigurationschedulingv1alpha1.LocationSpecApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("LocationStatus"):
-		return &applyconfigurationschedulingv1alpha1.LocationStatusApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("Placement"):
-		return &applyconfigurationschedulingv1alpha1.PlacementApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("PlacementSpec"):
-		return &applyconfigurationschedulingv1alpha1.PlacementSpecApplyConfiguration{}
-	case schedulingv1alpha1.SchemeGroupVersion.WithKind("PlacementStatus"):
-		return &applyconfigurationschedulingv1alpha1.PlacementStatusApplyConfiguration{}
-
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
 		return &applyconfigurationtenancyv1alpha1.APIExportReferenceApplyConfiguration{}
@@ -260,20 +236,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationtopologyv1alpha1.PartitionSetStatusApplyConfiguration{}
 	case topologyv1alpha1.SchemeGroupVersion.WithKind("PartitionSpec"):
 		return &applyconfigurationtopologyv1alpha1.PartitionSpecApplyConfiguration{}
-
-		// Group=workload.kcp.io, Version=v1alpha1
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceToSync"):
-		return &applyconfigurationworkloadv1alpha1.ResourceToSyncApplyConfiguration{}
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTarget"):
-		return &applyconfigurationworkloadv1alpha1.SyncTargetApplyConfiguration{}
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetSpec"):
-		return &applyconfigurationworkloadv1alpha1.SyncTargetSpecApplyConfiguration{}
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetStatus"):
-		return &applyconfigurationworkloadv1alpha1.SyncTargetStatusApplyConfiguration{}
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("TunnelWorkspace"):
-		return &applyconfigurationworkloadv1alpha1.TunnelWorkspaceApplyConfiguration{}
-	case workloadv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
-		return &applyconfigurationworkloadv1alpha1.VirtualWorkspaceApplyConfiguration{}
 
 	}
 	return nil

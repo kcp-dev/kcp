@@ -43,7 +43,6 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -179,16 +178,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return o.ShardExternalURL
 	}
 
-	coreVWs, err := o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
-	if err != nil {
-		return err
-	}
-
-	tmcVWs, err := o.TmcVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, cacheKcpInformers)
-	if err != nil {
-		return err
-	}
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = corevwoptions.Merge(coreVWs, tmcVWs)
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}

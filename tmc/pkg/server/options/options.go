@@ -20,13 +20,11 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 
 	kcpcoreoptions "github.com/kcp-dev/kcp/pkg/server/options"
-	tmcvirtualoptions "github.com/kcp-dev/kcp/tmc/pkg/virtual/options"
 )
 
 type Options struct {
-	Core                 kcpcoreoptions.Options
-	TmcControllers       Controllers
-	TmcVirtualWorkspaces tmcvirtualoptions.Options
+	Core           kcpcoreoptions.Options
+	TmcControllers Controllers
 
 	Extra ExtraOptions
 }
@@ -35,9 +33,8 @@ type ExtraOptions struct {
 }
 
 type completedOptions struct {
-	Core                 kcpcoreoptions.CompletedOptions
-	Controllers          Controllers
-	TmcVirtualWorkspaces tmcvirtualoptions.Options
+	Core        kcpcoreoptions.CompletedOptions
+	Controllers Controllers
 
 	Extra ExtraOptions
 }
@@ -49,9 +46,8 @@ type CompletedOptions struct {
 // NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
-		Core:                 *kcpcoreoptions.NewOptions(rootDir),
-		TmcControllers:       *NewTmcControllers(),
-		TmcVirtualWorkspaces: *tmcvirtualoptions.NewOptions(),
+		Core:           *kcpcoreoptions.NewOptions(rootDir),
+		TmcControllers: *NewTmcControllers(),
 
 		Extra: ExtraOptions{},
 	}
@@ -62,7 +58,6 @@ func NewOptions(rootDir string) *Options {
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	o.Core.AddFlags(fss)
 	o.TmcControllers.AddFlags(fss.FlagSet("KCP Controllers"))
-	o.TmcVirtualWorkspaces.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
 }
 
 func (o *CompletedOptions) Validate() []error {
@@ -85,10 +80,9 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
-			Core:                 *core,
-			Controllers:          o.TmcControllers,
-			TmcVirtualWorkspaces: o.TmcVirtualWorkspaces,
-			Extra:                o.Extra,
+			Core:        *core,
+			Controllers: o.TmcControllers,
+			Extra:       o.Extra,
 		},
 	}, nil
 }

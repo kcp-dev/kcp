@@ -33,7 +33,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
@@ -70,7 +69,6 @@ type pathAnnotationPlugin struct {
 
 var pathAnnotationResources = sets.New[string](
 	apisv1alpha1.Resource("apiexports").String(),
-	schedulingv1alpha1.Resource("locations").String(),
 	tenancyv1alpha1.Resource("workspacetypes").String(),
 )
 

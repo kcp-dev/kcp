@@ -44,9 +44,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -126,16 +124,6 @@ func NewController(
 				kind:   "WorkspaceType",
 				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 				global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
-			},
-			workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"): {
-				kind:   "SyncTarget",
-				local:  localKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
-				global: globalKcpInformers.Workload().V1alpha1().SyncTargets().Informer(),
-			},
-			schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"): {
-				kind:   "Location",
-				local:  localKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
-				global: globalKcpInformers.Scheduling().V1alpha1().Locations().Informer(),
 			},
 			rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
 				kind: "ClusterRole",

@@ -29,25 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 // SyncableClusterScopedResources holds a set of cluster-wide GVR that are allowed to be synced.
 var SyncableClusterScopedResources = sets.New[string](schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}.String())
-
-// DeprecatedGetAssignedSyncTarget returns one assigned sync target in Sync state. It will
-// likely lead to broken behaviour when there is one of those labels on a resource.
-//
-// Deprecated: use GetResourceState per cluster instead.
-func DeprecatedGetAssignedSyncTarget(labels map[string]string) string {
-	for k, v := range labels {
-		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && v == string(workloadv1alpha1.ResourceStateSync) {
-			return strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix)
-		}
-	}
-	return ""
-}
 
 // GetUpstreamResourceName returns the name with which the resource is known upstream.
 func GetUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, downstreamResourceName string) string {
