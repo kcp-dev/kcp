@@ -162,8 +162,7 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
-
-			if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
+			if (genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
 				logger.Info("ignoring a resource since it is part of the core KCP resources")
 				continue
 			}
