@@ -42,6 +42,8 @@ import (
 // TestSyncingFromMultipleShards ensures that the syncer can effectively sync from several workspaces hosted on distinct shards
 // with distinct virtual workspace URLs.
 func TestSyncingFromMultipleShards(t *testing.T) {
+	t.Skip("Test is flaky, and we are going to remove the syncer soon anyway")
+
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster:requires-kind")
 

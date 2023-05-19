@@ -53,7 +53,7 @@ const (
 	LogicalClusterName = "cluster"
 
 	// LogicalClusterFinalizer attached to the owner of thw LogicalCluster resource (usually a Workspace) so that we can control
-	// deletion of LogicalCluster resources
+	// deletion of LogicalCluster resources.
 	LogicalClusterFinalizer = "core.kcp.io/logicalcluster"
 )
 

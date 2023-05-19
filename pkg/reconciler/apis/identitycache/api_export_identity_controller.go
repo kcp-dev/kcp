@@ -79,7 +79,7 @@ func NewApiExportIdentityProviderController(
 		},
 	}
 
-	globalAPIExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
@@ -101,7 +101,7 @@ func NewApiExportIdentityProviderController(
 		},
 	})
 
-	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {

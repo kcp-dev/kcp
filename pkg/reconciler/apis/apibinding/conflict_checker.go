@@ -75,7 +75,7 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 			return err
 		}
 
-		boundSchemaUIDs := sets.NewString()
+		boundSchemaUIDs := sets.New[string]()
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			boundSchemaUIDs.Insert(boundResource.Schema.UID)
 		}
@@ -145,7 +145,7 @@ func namesConflict(existing *apiextensionsv1.CustomResourceDefinition, incoming 
 	if existing.Spec.Group != incoming.Spec.Group {
 		return false, ""
 	}
-	existingNames := sets.NewString()
+	existingNames := sets.New[string]()
 	existingNames.Insert(existing.Status.AcceptedNames.Plural)
 	existingNames.Insert(existing.Status.AcceptedNames.Singular)
 	existingNames.Insert(existing.Status.AcceptedNames.ShortNames...)
@@ -164,7 +164,7 @@ func namesConflict(existing *apiextensionsv1.CustomResourceDefinition, incoming 
 		}
 	}
 
-	existingKinds := sets.NewString()
+	existingKinds := sets.New[string]()
 	existingKinds.Insert(existing.Status.AcceptedNames.Kind)
 	existingKinds.Insert(existing.Status.AcceptedNames.ListKind)
 

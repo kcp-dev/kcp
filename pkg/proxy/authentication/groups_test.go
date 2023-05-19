@@ -43,7 +43,7 @@ func (a *requestAuthenticator) AuthenticateRequest(*http.Request) (*authenticato
 func TestGroupFilter(t *testing.T) {
 	for _, tc := range []struct {
 		name                                     string
-		passOnGroups, dropGroups                 sets.String
+		passOnGroups, dropGroups                 sets.Set[string]
 		passOnGroupsPrefixes, dropGroupsPrefixes []string
 		requestedGroups                          []string
 		wantGroups                               []string
@@ -60,7 +60,7 @@ func TestGroupFilter(t *testing.T) {
 		},
 		{
 			name:         "pass groups",
-			passOnGroups: sets.NewString("foo"),
+			passOnGroups: sets.New[string]("foo"),
 
 			requestedGroups: []string{"foo", "bar", "baz"},
 			wantGroups:      []string{"foo"},
@@ -74,7 +74,7 @@ func TestGroupFilter(t *testing.T) {
 		},
 		{
 			name:                 "pass groups and pass groups prefixes",
-			passOnGroups:         sets.NewString("foo"),
+			passOnGroups:         sets.New[string]("foo"),
 			passOnGroupsPrefixes: []string{"bar"},
 
 			requestedGroups: []string{"foo", "foo2", "bar1", "bar2", "baz"},
@@ -82,7 +82,7 @@ func TestGroupFilter(t *testing.T) {
 		},
 		{
 			name:       "drop groups",
-			dropGroups: sets.NewString("foo"),
+			dropGroups: sets.New[string]("foo"),
 
 			requestedGroups: []string{"foo", "foo2", "bar1", "bar2", "baz"},
 			wantGroups:      []string{"bar1", "bar2", "baz", "foo2"},
@@ -96,7 +96,7 @@ func TestGroupFilter(t *testing.T) {
 		},
 		{
 			name:               "drop groups and drop groups prefixes",
-			dropGroups:         sets.NewString("foo"),
+			dropGroups:         sets.New[string]("foo"),
 			dropGroupsPrefixes: []string{"baz"},
 
 			requestedGroups: []string{"foo", "foo2", "bar1", "bar2", "baz", "baz1", "baz2"},
@@ -104,9 +104,9 @@ func TestGroupFilter(t *testing.T) {
 		},
 		{
 			name:                 "drop takes precedence",
-			passOnGroups:         sets.NewString("foo"),
+			passOnGroups:         sets.New[string]("foo"),
 			passOnGroupsPrefixes: []string{"bar", "foo"},
-			dropGroups:           sets.NewString("foo"),
+			dropGroups:           sets.New[string]("foo"),
 			dropGroupsPrefixes:   []string{"baz"},
 
 			requestedGroups: []string{"foo", "foo2", "bar1", "bar2", "baz", "baz1", "baz2"},

@@ -58,6 +58,8 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		{"rbac.authorization.k8s.io", "clusterrolebindings"},
 		{"admissionregistration.k8s.io", "mutatingwebhookconfigurations"},
 		{"admissionregistration.k8s.io", "validatingwebhookconfigurations"},
+		{"admissionregistration.k8s.io", "validatingadmissionpolicies"},
+		{"admissionregistration.k8s.io", "validatingadmissionpolicybindings"},
 	} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		if err := configcrds.Unmarshal(fmt.Sprintf("%s_%s.yaml", gr.group, gr.resource), crd); err != nil {
@@ -68,7 +70,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 			v.Schema = &apiextensionsv1.CustomResourceValidation{
 				OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 					Type:                   "object",
-					XPreserveUnknownFields: pointer.BoolPtr(true),
+					XPreserveUnknownFields: pointer.Bool(true),
 				},
 			} // wipe the schema, we don't need validation
 			v.Subresources = nil // wipe subresources so that updates don't have to be made against the status endpoint

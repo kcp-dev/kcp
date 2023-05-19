@@ -663,7 +663,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							Served:             true,
 							Storage:            false,
 							Deprecated:         true,
-							DeprecationWarning: pointer.StringPtr("deprecated!"),
+							DeprecationWarning: pointer.String("deprecated!"),
 							Schema: runtime.RawExtension{
 								Raw: []byte(`
 {
@@ -677,7 +677,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.StringPtr(".status.selector"),
+									LabelSelectorPath:  pointer.String(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -709,7 +709,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.StringPtr(".status.selector"),
+									LabelSelectorPath:  pointer.String(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -753,7 +753,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							Served:             true,
 							Storage:            false,
 							Deprecated:         true,
-							DeprecationWarning: pointer.StringPtr("deprecated!"),
+							DeprecationWarning: pointer.String("deprecated!"),
 							Schema: &apiextensionsv1.CustomResourceValidation{
 								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 									Description: "foo",
@@ -765,7 +765,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.StringPtr(".status.selector"),
+									LabelSelectorPath:  pointer.String(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -795,7 +795,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.StringPtr(".status.selector"),
+									LabelSelectorPath:  pointer.String(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{

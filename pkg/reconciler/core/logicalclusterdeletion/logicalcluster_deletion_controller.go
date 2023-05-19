@@ -83,7 +83,7 @@ func NewController(
 		commit:                            committer.NewCommitter[*LogicalCluster, Patcher, *LogicalClusterSpec, *LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch obj := obj.(type) {
 			case *corev1alpha1.LogicalCluster:
@@ -299,11 +299,11 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 					logger.Info("owner has changed, skipping finalizer removal")
 					return fmt.Errorf("could not get owner %s %s/%s in cluster %s is of wrong UID: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 				} else if err == nil {
-					finalizers := sets.NewString(obj.GetFinalizers()...)
+					finalizers := sets.New[string](obj.GetFinalizers()...)
 					if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
 						logger.Info("removing finalizer from owner")
 						finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
-						obj.SetFinalizers(finalizers.List())
+						obj.SetFinalizers(sets.List[string](finalizers))
 						if obj, err = c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
 							return fmt.Errorf("could not remove finalizer from owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 						}

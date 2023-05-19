@@ -233,8 +233,8 @@ func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 	if new.Pattern != existing.Pattern {
 		multierr.AppendInto(&err, checkUnsupportedValidation(fldPath, existing.Pattern, new.Pattern, "pattern", "string"))
 	}
-	toEnumSets := func(enum []schema.JSON) sets.String {
-		enumSet := sets.NewString()
+	toEnumSets := func(enum []schema.JSON) sets.Set[string] {
+		enumSet := sets.New[string]()
 		for _, val := range enum {
 			strVal, isString := val.Object.(string)
 			if !isString {
@@ -249,10 +249,10 @@ func lcdForStringValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 	newEnumValues := toEnumSets(new.Enum)
 	if !newEnumValues.IsSuperset(existingEnumValues) {
 		if !narrowExisting {
-			multierr.AppendInto(&err, field.Invalid(fldPath.Child("enum"), newEnumValues.Difference(existingEnumValues).List(), "enum value has been changed in an incompatible way"))
+			multierr.AppendInto(&err, field.Invalid(fldPath.Child("enum"), sets.List[string](newEnumValues.Difference(existingEnumValues)), "enum value has been changed in an incompatible way"))
 		}
 		lcd.Enum = nil
-		lcdEnumValues := existingEnumValues.Intersection(newEnumValues).List()
+		lcdEnumValues := sets.List[string](existingEnumValues.Intersection(newEnumValues))
 		for _, val := range lcdEnumValues {
 			lcd.Enum = append(lcd.Enum, schema.JSON{Object: val})
 		}
@@ -315,7 +315,7 @@ func lcdForArray(fldPath *field.Path, existing, new *schema.Structural, lcd *sch
 	if !stringPointersEqual(existing.Extensions.XListType, new.Extensions.XListType) {
 		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-type"), new.Extensions.XListType, "x-kubernetes-list-type value has been changed in an incompatible way"))
 	}
-	if !sets.NewString(existing.Extensions.XListMapKeys...).Equal(sets.NewString(new.Extensions.XListMapKeys...)) {
+	if !sets.New[string](existing.Extensions.XListMapKeys...).Equal(sets.New[string](new.Extensions.XListMapKeys...)) {
 		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-map-keys"), new.Extensions.XListType, "x-kubernetes-list-map-keys value has been changed in an incompatible way"))
 	}
 	return err

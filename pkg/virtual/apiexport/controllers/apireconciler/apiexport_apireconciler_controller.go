@@ -91,7 +91,7 @@ func NewAPIReconciler(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
 		},
@@ -103,7 +103,7 @@ func NewAPIReconciler(
 		},
 	})
 
-	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},

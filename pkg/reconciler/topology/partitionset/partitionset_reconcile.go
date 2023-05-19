@@ -26,8 +26,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -91,7 +91,7 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 
 	var matchLabelsMap map[string]map[string]string
 	// remove duplicates
-	dimensions := sets.NewString(partitionSet.Spec.Dimensions...).List()
+	dimensions := sets.List[string](sets.New[string](partitionSet.Spec.Dimensions...))
 	if partitionSet.Spec.ShardSelector != nil {
 		matchLabelsMap = partition(shards, dimensions, partitionSet.Spec.ShardSelector.MatchLabels)
 	} else {

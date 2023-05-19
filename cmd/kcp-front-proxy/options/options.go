@@ -19,8 +19,8 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
@@ -37,13 +37,13 @@ func NewOptions() *Options {
 	}
 
 	// Default to -v=2
-	o.Logs.Config.Verbosity = config.VerbosityLevel(2)
+	o.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
 	return o
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.Proxy.AddFlags(fs)
-	o.Logs.AddFlags(fs)
+	logsapiv1.AddFlags(o.Logs, fs)
 }
 
 func (o *Options) Complete() error {

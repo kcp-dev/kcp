@@ -71,7 +71,7 @@ func TestWorkspaceController(t *testing.T) {
 				t.Logf("Create a workspace with a shard")
 				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
@@ -100,7 +100,7 @@ func TestWorkspaceController(t *testing.T) {
 				t.Logf("Create a workspace without shards")
 				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
@@ -121,7 +121,7 @@ func TestWorkspaceController(t *testing.T) {
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
-				server.Artifact(t, func() (runtime.Object, error) {
+				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
 				})
 

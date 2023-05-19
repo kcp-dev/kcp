@@ -49,7 +49,7 @@ type APIResourceImport struct {
 
 // SchemaUpdateStrategy defines the strategy for updating the
 // correspondoing negotiated API resource
-// based on the schema of this API Resource Import
+// based on the schema of this API Resource Import.
 type SchemaUpdateStrategyType string
 
 const (
@@ -67,7 +67,7 @@ const (
 	// The modifications to the negotiated API resource will be based (if possible) on a LCD schema between
 	// the schema of the resource import and the schema of the already-existing negotiated API resource.
 	// Of course this is not valid if the negotiated API resource has been "enforced" by applying a CRD for
-	// the same GVR manually
+	// the same GVR manually.
 	UpdateUnpublished SchemaUpdateStrategyType = "UpdateUnpublished"
 
 	// UpdateUnpublished means that the corresponding negotiated API Resource will be modified
@@ -76,7 +76,7 @@ const (
 	// The modifications to the negotiated API resource will be based (if possible) on a LCD schema between
 	// the schema of the resource import and the schema of the already-existing negotiated API resource.
 	// Of course this is not valid if the negotiated API resource has been "enforced" by applying a CRD for
-	// the same GVR manually
+	// the same GVR manually.
 	UpdatePublished SchemaUpdateStrategyType = "UpdatePublished"
 )
 
@@ -107,15 +107,15 @@ type APIResourceImportSpec struct {
 	Location string `json:"location"`
 }
 
-// APIResourceImportConditionType is a valid value for APIResourceImportCondition.Type
+// APIResourceImportConditionType is a valid value for APIResourceImportCondition.Type.
 type APIResourceImportConditionType string
 
 const (
 	// Compatible means that this API Resource import is compatible with the current
-	// Negotiated API Resource
+	// Negotiated API Resource.
 	Compatible APIResourceImportConditionType = "Compatible"
 	// Available means that this API Resource import is compatible with the current
-	// Negotiated API Resource, which has been published as a CRD
+	// Negotiated API Resource, which has been published as a CRD.
 	Available APIResourceImportConditionType = "Available"
 )
 

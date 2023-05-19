@@ -92,7 +92,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	derivedResourcesToUpsync := strings.Split(service.GetAnnotations()[workloadv1alpha1.ExperimentalUpsyncDerivedResourcesAnnotationKey], ",")
 	if len(derivedResourcesToUpsync) == 0 ||
-		!sets.NewString(derivedResourcesToUpsync...).Has(endpointsGVR.GroupResource().String()) {
+		!sets.New[string](derivedResourcesToUpsync...).Has(endpointsGVR.GroupResource().String()) {
 		logger.V(3).Info("ignoring endpoint since it is not mentioned in the service 'workload.kcp.io/upsync-derived-resources' annotation")
 		return nil
 	}

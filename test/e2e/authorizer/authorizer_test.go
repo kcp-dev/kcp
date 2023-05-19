@@ -130,7 +130,7 @@ func TestAuthorizer(t *testing.T) {
 			cl := user2KubeClusterClient.RESTClient()
 			requestPath := org1.RequestPath()
 			{
-				for endpoint := range sets.NewString("/healthz", "/readyz", "/livez") {
+				for endpoint := range sets.New[string]("/healthz", "/readyz", "/livez") {
 					req := cl.Get().AbsPath(requestPath + endpoint)
 					respBytes, err := req.DoRaw(ctx)
 					require.NoError(t, err, "should be able to GET %s", endpoint)

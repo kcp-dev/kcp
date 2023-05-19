@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestAllowedFlagList(t *testing.T) {
@@ -62,12 +64,12 @@ func TestAllowedFlagListCleanup(t *testing.T) {
 		})
 	}
 
-	for _, flag := range allowedFlags.List() {
+	for _, flag := range sets.List[string](allowedFlags) {
 		if _, ok := allFlags[flag]; !ok {
 			t.Errorf("flag --%s is allowed but not in any flag set", flag)
 		}
 	}
-	for _, flag := range disallowedFlags.List() {
+	for _, flag := range sets.List[string](disallowedFlags) {
 		if _, ok := allFlags[flag]; !ok {
 			t.Errorf("flag --%s is allowed but not in any flag set", flag)
 		}

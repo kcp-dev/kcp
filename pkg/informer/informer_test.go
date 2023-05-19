@@ -39,7 +39,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	builtInGVRs := map[schema.GroupVersionResource]struct{}{}
 
 	// In the scheme, but not actual resources
-	kindsToIgnore := sets.NewString(
+	kindsToIgnore := sets.New[string](
 		"List",
 		"CreateOptions",
 		"DeleteOptions",
@@ -57,6 +57,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Version: "v1", Kind: "RangeAllocation"}:                                         {},
 		{Version: "v1", Kind: "SerializedReference"}:                                     {},
 		{Version: "v1", Kind: "Status"}:                                                  {},
+		{Group: "authentication.k8s.io", Version: "v1alpha1", Kind: "SelfSubjectReview"}: {},
 		{Group: "authentication.k8s.io", Version: "v1", Kind: "TokenRequest"}:            {},
 		{Group: "authentication.k8s.io", Version: "v1", Kind: "TokenReview"}:             {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "LocalSubjectAccessReview"}: {},
@@ -107,6 +108,12 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		}
 
 		resourceName := strings.ToLower(gvk.Kind) + "s"
+
+		// Handle e.g. ValidatingAdmissionPolicy -> validatingadmissionpolicies
+		if strings.HasSuffix(gvk.Kind, "y") {
+			resourceName = resourceName[:len(resourceName)-2] + "ies"
+		}
+
 		gvr := gvk.GroupVersion().WithResource(resourceName)
 
 		builtInGVRs[gvr] = struct{}{}

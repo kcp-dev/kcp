@@ -312,12 +312,12 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 		if len(metadataList.Items) != 2 {
 			return false, fmt.Sprintf("expected 2 items, got %d: %#v", len(metadataList.Items), metadataList.Items)
 		}
-		expectedUIDs := sets.NewString(string(cr1.GetUID()), string(cr2.GetUID()))
-		actualUIDs := sets.NewString()
+		expectedUIDs := sets.New[string](string(cr1.GetUID()), string(cr2.GetUID()))
+		actualUIDs := sets.New[string]()
 		for _, item := range metadataList.Items {
 			actualUIDs.Insert(string(item.UID))
 		}
-		if diff := cmp.Diff(expectedUIDs.List(), actualUIDs.List()); diff != "" {
+		if diff := cmp.Diff(sets.List[string](expectedUIDs), sets.List[string](actualUIDs)); diff != "" {
 			return false, fmt.Sprintf("didn't get expected UIDs: diff: %s", diff)
 		}
 		return true, ""
@@ -333,12 +333,12 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 		if len(metadataList.Items) != 2 {
 			return false, fmt.Sprintf("expected 2 items, got %d: %#v", len(metadataList.Items), metadataList.Items)
 		}
-		expectedUIDs := sets.NewString(string(cr1.GetUID()), string(cr2.GetUID()))
-		actualUIDs := sets.NewString()
+		expectedUIDs := sets.New[string](string(cr1.GetUID()), string(cr2.GetUID()))
+		actualUIDs := sets.New[string]()
 		for _, item := range metadataList.Items {
 			actualUIDs.Insert(string(item.UID))
 		}
-		if diff := cmp.Diff(expectedUIDs.List(), actualUIDs.List()); diff != "" {
+		if diff := cmp.Diff(sets.List[string](expectedUIDs), sets.List[string](actualUIDs)); diff != "" {
 			return false, fmt.Sprintf("didn't get expected UIDs: diff: %s", diff)
 		}
 		return true, ""

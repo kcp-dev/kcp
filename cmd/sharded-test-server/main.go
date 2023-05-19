@@ -198,7 +198,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
-	standaloneVW := sets.NewString(shardFlags...).Has("--run-virtual-workspaces=false")
+	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""

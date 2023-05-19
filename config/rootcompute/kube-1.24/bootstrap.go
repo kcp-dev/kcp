@@ -35,6 +35,6 @@ var KubeComputeFS embed.FS
 // the bootstrapping is successfully completed.
 // Note: Any change to the list of resources in the kubernetes apiexport has to be kept consistent with:
 //   - pkg/reconciler/workload/apiexport/workload_apiexport_reconcile.go
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, KubeComputeFS)
 }

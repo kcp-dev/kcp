@@ -44,7 +44,7 @@ var kcpApiAccessVolume = corev1.Volume{
 	Name: "kcp-api-access",
 	VolumeSource: corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
-			DefaultMode: utilspointer.Int32Ptr(420),
+			DefaultMode: utilspointer.Int32(420),
 			Sources: []corev1.VolumeProjection{
 				{
 					Secret: &corev1.SecretProjection{
@@ -158,7 +158,7 @@ func TestDeploymentMutate(t *testing.T) {
 				Replicas: new(int32),
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
-						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+						AutomountServiceAccountToken: utilspointer.Bool(false),
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -269,7 +269,7 @@ func TestDeploymentMutate(t *testing.T) {
 						},
 					},
 					Spec: corev1.PodSpec{
-						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+						AutomountServiceAccountToken: utilspointer.Bool(false),
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -379,7 +379,7 @@ func TestDeploymentMutate(t *testing.T) {
 				Replicas: new(int32),
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
-						AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+						AutomountServiceAccountToken: utilspointer.Bool(false),
 						Containers: []corev1.Container{
 							{
 								Name:  "test-container",
@@ -493,7 +493,7 @@ func TestDeploymentMutate(t *testing.T) {
 					Replicas: new(int32),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							AutomountServiceAccountToken: utilspointer.Bool(false),
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -609,7 +609,7 @@ func TestDeploymentMutate(t *testing.T) {
 					Replicas: new(int32),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							AutomountServiceAccountToken: utilspointer.Bool(false),
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -735,7 +735,7 @@ func TestDeploymentMutate(t *testing.T) {
 					Replicas: new(int32),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							AutomountServiceAccountToken: utilspointer.Bool(false),
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",
@@ -860,7 +860,7 @@ func TestDeploymentMutate(t *testing.T) {
 					Replicas: new(int32),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							AutomountServiceAccountToken: utilspointer.Bool(false),
 							Containers: []corev1.Container{
 								{
 									Name:  "test-container",

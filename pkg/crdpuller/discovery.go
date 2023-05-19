@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -42,7 +43,6 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
-	"k8s.io/kube-openapi/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
@@ -102,7 +102,7 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 	logger := klog.FromContext(ctx)
 
 	pullAllResources := len(resourceNames) == 0
-	resourcesToPull := sets.NewString()
+	resourcesToPull := sets.New[string]()
 	for _, resourceToPull := range resourceNames {
 		gr := schema.ParseGroupResource(resourceToPull)
 		grToPull, err := sp.resourceFor(gr)
@@ -117,14 +117,14 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 	if err != nil {
 		return nil, err
 	}
-	apiResourceNames := map[schema.GroupVersion]sets.String{}
+	apiResourceNames := map[schema.GroupVersion]sets.Set[string]{}
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		if err != nil {
 			continue
 		}
 
-		apiResourceNames[gv] = sets.NewString()
+		apiResourceNames[gv] = sets.New[string]()
 		for _, apiResource := range apiResourcesList.APIResources {
 			apiResourceNames[gv].Insert(apiResource.Name)
 		}
@@ -162,8 +162,7 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
-
-			if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
+			if (genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
 				logger.Info("ignoring a resource since it is part of the core KCP resources")
 				continue
 			}
@@ -228,7 +227,7 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 				converter := &SchemaConverter{
 					schemaProps: &schemaProps,
 					schemaName:  swaggerSpecDefinitionName,
-					visited:     sets.NewString(),
+					visited:     sets.New[string](),
 					errors:      &errors,
 				}
 				protoSchema.Accept(converter)
@@ -329,7 +328,7 @@ type SchemaConverter struct {
 	schemaName  string
 	description string
 	errors      *[]error
-	visited     sets.String
+	visited     sets.Set[string]
 }
 
 func Convert(protoSchema proto.Schema, schemaProps *apiextensionsv1.JSONSchemaProps) []error {
@@ -339,7 +338,7 @@ func Convert(protoSchema proto.Schema, schemaProps *apiextensionsv1.JSONSchemaPr
 	converter := &SchemaConverter{
 		schemaProps: schemaProps,
 		schemaName:  swaggerSpecDefinitionName,
-		visited:     sets.NewString(),
+		visited:     sets.New[string](),
 		errors:      &errors,
 	}
 	protoSchema.Accept(converter)
@@ -431,14 +430,14 @@ func (sc *SchemaConverter) VisitArray(a *proto.Array) {
 	a.SubType.Accept(sc.SubConverter(&subtypeSchemaProps, a.SubType.GetDescription()))
 
 	if len(subtypeSchemaProps.Properties) > 0 && len(sc.schemaProps.XListMapKeys) > 0 {
-		required := sets.NewString(subtypeSchemaProps.Required...)
+		required := sets.New[string](subtypeSchemaProps.Required...)
 		required.Insert(sc.schemaProps.XListMapKeys...)
 		for fieldName, field := range subtypeSchemaProps.Properties {
 			if field.Default != nil {
 				required.Delete(fieldName)
 			}
 		}
-		subtypeSchemaProps.Required = required.List()
+		subtypeSchemaProps.Required = sets.List[string](required)
 	}
 
 	sc.schemaProps.Items = &apiextensionsv1.JSONSchemaPropsOrArray{

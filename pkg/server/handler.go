@@ -27,7 +27,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kaudit "k8s.io/apiserver/pkg/audit"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -89,16 +88,6 @@ func UserAgentFrom(ctx context.Context) string {
 		return v.(string)
 	}
 	return ""
-}
-
-// WithAuditAnnotation initializes audit annotations in the context. Without
-// initialization kaudit.AddAuditAnnotation isn't preserved.
-func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		handler.ServeHTTP(w, req.WithContext(
-			kaudit.WithAuditAnnotations(req.Context()),
-		))
-	})
 }
 
 // WithVirtualWorkspacesProxy proxies internal requests to virtual workspaces (i.e., requests that did
@@ -159,7 +148,7 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 				return
 			}
 
-			if requestInfo.IsResourceRequest && !sets.NewString("list", "watch").Has(requestInfo.Verb) {
+			if requestInfo.IsResourceRequest && !sets.New[string]("list", "watch").Has(requestInfo.Verb) {
 				statusErr := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
 				statusErr.ErrStatus.Message += " in the `*` logical cluster"
 

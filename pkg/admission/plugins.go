@@ -21,6 +21,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle"
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota"
+	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	mutatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	validatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	kubeapiserveroptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
@@ -59,6 +60,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
 	"github.com/kcp-dev/kcp/pkg/admission/shard"
+	kcpvalidatingadmissionpolicy "github.com/kcp-dev/kcp/pkg/admission/validatingadmissionpolicy"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 	"github.com/kcp-dev/kcp/pkg/admission/workspacetype"
@@ -80,8 +82,9 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
-	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpvalidatingadmissionpolicy.PluginName,
+	kcpvalidatingwebhook.PluginName,
 	kcplimitranger.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
@@ -121,8 +124,9 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	apibindingfinalizer.Register(plugins)
 	apiexportendpointslice.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
-	kcpvalidatingwebhook.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
+	kcpvalidatingadmissionpolicy.Register(plugins)
+	kcpvalidatingwebhook.Register(plugins)
 	kcplimitranger.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
@@ -134,7 +138,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubequota.Register(plugins)
 }
 
-var defaultOnPluginsInKcp = sets.NewString(
+var defaultOnPluginsInKcp = sets.New[string](
 	workspacenamespacelifecycle.PluginName, // WorkspaceNamespaceLifecycle
 	kcplimitranger.PluginName,              // WorkspaceLimitRanger
 	certapproval.PluginName,                // CertificateApproval
@@ -154,8 +158,9 @@ var defaultOnPluginsInKcp = sets.NewString(
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
-	kcpvalidatingwebhook.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpvalidatingadmissionpolicy.PluginName,
+	kcpvalidatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
@@ -168,7 +173,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 // Always keep this in sync with upstream. It is meant to detect during rebase which
 // new plugins got added upstream and to react (enable or disable by default). We
 // have a unit test in place to avoid drift.
-var defaultOnKubePluginsInKube = sets.NewString(
+var defaultOnKubePluginsInKube = sets.New[string](
 	lifecycle.PluginName,                    // NamespaceLifecycle
 	limitranger.PluginName,                  // LimitRanger
 	serviceaccount.PluginName,               // ServiceAccount
@@ -177,6 +182,7 @@ var defaultOnKubePluginsInKube = sets.NewString(
 	defaulttolerationseconds.PluginName,     // DefaultTolerationSeconds
 	mutatingwebhook.PluginName,              // MutatingAdmissionWebhook
 	validatingwebhook.PluginName,            // ValidatingAdmissionWebhook
+	validatingadmissionpolicy.PluginName,    // ValidatingAdmissionPolicy
 	resourcequota.PluginName,                // ResourceQuota
 	storageobjectinuseprotection.PluginName, // StorageObjectInUseProtection
 	podpriority.PluginName,                  // PodPriority
@@ -190,6 +196,6 @@ var defaultOnKubePluginsInKube = sets.NewString(
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.
-func DefaultOffAdmissionPlugins() sets.String {
-	return sets.NewString(AllOrderedPlugins...).Difference(defaultOnPluginsInKcp)
+func DefaultOffAdmissionPlugins() sets.Set[string] {
+	return sets.New[string](AllOrderedPlugins...).Difference(defaultOnPluginsInKcp)
 }

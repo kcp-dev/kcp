@@ -22,6 +22,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,7 +49,12 @@ func WithStaticLabelSelectorAndInWriteCallsCheck(labelSelector labels.Requiremen
 
 			delegateUpdater := storage.UpdaterFunc
 			storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-				obj, err := objInfo.UpdatedObject(ctx, nil)
+				// Note, we have to pass in a non-nil value for oldObj. Ideally it would be the zero value of the
+				// appropriate type (e.g a built-in type such as corev1.Namespace, or Unstructured for a custom resource).
+				// Unfortunately we don't know what the appropriate type is here, so we're using Unstructured. The
+				// transformers called by UpdatedObject should only be acting on things that satisfy the ObjectMeta
+				// interface, so this should be ok.
+				obj, err := objInfo.UpdatedObject(ctx, &unstructured.Unstructured{})
 				if apierrors.IsNotFound(err) {
 					return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
 				}

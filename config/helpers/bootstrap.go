@@ -77,7 +77,7 @@ func ReplaceOption(pairs ...string) Option {
 // Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String, fs embed.FS, opts ...Option) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], fs embed.FS, opts ...Option) error {
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
@@ -99,7 +99,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 }
 
 // CreateResourcesFromFS creates all resources from a filesystem.
-func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.String, fs embed.FS, transformers ...TransformFileFunc) error {
+func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], fs embed.FS, transformers ...TransformFileFunc) error {
 	files, err := fs.ReadDir(".")
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 }
 
 // CreateResourceFromFS creates given resource file.
-func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.String, filename string, fs embed.FS, transformers ...TransformFileFunc) error {
+func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, fs embed.FS, transformers ...TransformFileFunc) error {
 	raw, err := fs.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("could not read %s: %w", filename, err)
@@ -158,7 +158,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
 const annotationBattery = "bootstrap.kcp.io/battery"
 
-func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.String) error {
+func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.Set[string]) error {
 	logger := klog.FromContext(ctx)
 	type Input struct {
 		Batteries map[string]bool
@@ -166,7 +166,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	input := Input{
 		Batteries: map[string]bool{},
 	}
-	for _, b := range batteriesIncluded.List() {
+	for _, b := range sets.List[string](batteriesIncluded) {
 		input.Batteries[b] = true
 	}
 	tmpl, err := template.New("manifest").Parse(string(raw))

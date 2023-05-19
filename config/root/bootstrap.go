@@ -38,7 +38,7 @@ func Bootstrap(
 	rootDiscoveryClient discovery.DiscoveryInterface,
 	rootDynamicClient dynamic.Interface,
 	homeWorkspaceCreatorGroups []string,
-	batteriesIncluded sets.String,
+	batteriesIncluded sets.Set[string],
 ) error {
 	homeWorkspaceCreatorGroupReplacement := ""
 	for _, group := range homeWorkspaceCreatorGroups {

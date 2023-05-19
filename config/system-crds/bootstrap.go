@@ -42,7 +42,7 @@ var fs embed.FS
 // Bootstrap creates CRDs and the resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
 	logger := klog.FromContext(ctx)
 	// This is the full list of CRDs that kcp owns and manages in the system:system-crds logical cluster. Our custom CRD
 	// lister currently has a hard-coded list of which system CRDs are made available to which workspaces. See

@@ -110,8 +110,8 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	err := ncc.getBoundCRDs(newAPIBinding)
 	require.NoError(t, err)
 
-	expectedCRDs := sets.NewString("e1-s1", "e1-s2", "e2-s1", "e2-s2")
-	actualCRDs := sets.NewString()
+	expectedCRDs := sets.New[string]("e1-s1", "e1-s2", "e2-s1", "e2-s2")
+	actualCRDs := sets.New[string]()
 	for _, crd := range ncc.boundCRDs {
 		actualCRDs.Insert(crd.Name)
 	}

@@ -105,7 +105,7 @@ func NewController(
 		commit: committer.NewCommitter[*PartitionSet, Patcher, *PartitionSetSpec, *PartitionSetStatus](kcpClusterClient.TopologyV1alpha1().PartitionSets()),
 	}
 
-	globalShardClusterInformer.Informer().AddEventHandler(
+	_, _ = globalShardClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllPartitionSets(obj)
@@ -122,7 +122,7 @@ func NewController(
 		},
 	)
 
-	partitionSetClusterInformer.Informer().AddEventHandler(
+	_, _ = partitionSetClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueuePartitionSet(obj)
@@ -136,7 +136,7 @@ func NewController(
 		},
 	)
 
-	partitionClusterInformer.Informer().AddEventHandler(
+	_, _ = partitionClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueuePartition(obj)

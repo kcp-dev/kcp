@@ -74,7 +74,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("Install service APIResourceSchema into service schema workspace %q", serviceSchemaPath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceSchemaPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaPath), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaPath), mapper, sets.New[string]("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	serviceAPIExport := &apisv1alpha1.APIExport{
@@ -91,7 +91,7 @@ func TestMultipleExports(t *testing.T) {
 	ingressSchemaPath, ingressSchemaWorkspace := framework.NewWorkspaceFixture(t, source, orgPath, framework.TODO_WithoutMultiShardSupport())
 	t.Logf("Install ingress APIResourceSchema into ingress schema workspace %q", ingressSchemaPath)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaPath), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaPath), mapper, sets.New[string]("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	ingressAPIExport := &apisv1alpha1.APIExport{

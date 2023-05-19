@@ -78,7 +78,7 @@ func NewController(
 		},
 	)
 
-	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
@@ -96,7 +96,7 @@ func NewController(
 		},
 	})
 
-	apiBindingInformer.Informer().AddEventHandler(
+	_, _ = apiBindingInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))
@@ -139,7 +139,7 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha1.
 	// In that case, the last APIBinding to have the schema removed will trigger the CRD delete,
 	// but only the old version will have the reference to the schema.
 
-	uidSet := sets.String{}
+	uidSet := sets.New[string]()
 
 	if oldBinding != nil {
 		for _, boundResource := range oldBinding.Status.BoundResources {

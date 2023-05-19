@@ -707,7 +707,7 @@ func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) 
 	return signerConfig, nil
 }
 
-func (ca *CA) EnsureServerCert(certFile, keyFile string, hostnames sets.String, expireDays int) (*TLSCertificateConfig, bool, error) {
+func (ca *CA) EnsureServerCert(certFile, keyFile string, hostnames sets.Set[string], expireDays int) (*TLSCertificateConfig, bool, error) {
 	certConfig, err := GetServerCert(certFile, keyFile, hostnames)
 	if err != nil {
 		certConfig, err = ca.MakeAndWriteServerCert(certFile, keyFile, hostnames, expireDays)
@@ -717,14 +717,14 @@ func (ca *CA) EnsureServerCert(certFile, keyFile string, hostnames sets.String, 
 	return certConfig, false, nil
 }
 
-func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertificateConfig, error) {
+func GetServerCert(certFile, keyFile string, hostnames sets.Set[string]) (*TLSCertificateConfig, error) {
 	server, err := GetTLSCertificateConfig(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
 
 	cert := server.Certs[0]
-	ips, dns := IPAddressesDNSNames(hostnames.List())
+	ips, dns := IPAddressesDNSNames(sets.List[string](hostnames))
 	missingIps := ipsNotInSlice(ips, cert.IPAddresses)
 	missingDns := stringsNotInSlice(dns, cert.DNSNames)
 	if len(missingIps) == 0 && len(missingDns) == 0 {
@@ -735,7 +735,7 @@ func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertifi
 	return nil, fmt.Errorf("existing server certificate in %s was missing some hostnames (%v) or IP addresses (%v)", certFile, missingDns, missingIps)
 }
 
-func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.String, expireDays int) (*TLSCertificateConfig, error) {
+func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.Set[string], expireDays int) (*TLSCertificateConfig, error) {
 	klog.Background().V(4).WithValues("certFile", certFile, "keyFile", keyFile).Info("generating server certificate")
 
 	server, err := ca.MakeServerCert(hostnames, expireDays)
@@ -752,11 +752,11 @@ func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.St
 // if the extension attempt failed.
 type CertificateExtensionFunc func(*x509.Certificate) error
 
-func (ca *CA) MakeServerCert(hostnames sets.String, expireDays int, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+func (ca *CA) MakeServerCert(hostnames sets.Set[string], expireDays int, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
 	serverPublicKey, serverPrivateKey, publicKeyHash, _ := newKeyPairWithHash()
 	authorityKeyId := ca.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	serverTemplate := newServerCertificateTemplate(pkix.Name{CommonName: hostnames.List()[0]}, hostnames.List(), expireDays, time.Now, authorityKeyId, subjectKeyId)
+	serverTemplate := newServerCertificateTemplate(pkix.Name{CommonName: sets.List[string](hostnames)[0]}, sets.List[string](hostnames), expireDays, time.Now, authorityKeyId, subjectKeyId)
 	for _, fn := range fns {
 		if err := fn(serverTemplate); err != nil {
 			return nil, err
@@ -773,11 +773,11 @@ func (ca *CA) MakeServerCert(hostnames sets.String, expireDays int, fns ...Certi
 	return server, nil
 }
 
-func (ca *CA) MakeServerCertForDuration(hostnames sets.String, lifetime time.Duration, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+func (ca *CA) MakeServerCertForDuration(hostnames sets.Set[string], lifetime time.Duration, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
 	serverPublicKey, serverPrivateKey, publicKeyHash, _ := newKeyPairWithHash()
 	authorityKeyId := ca.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	serverTemplate := newServerCertificateTemplateForDuration(pkix.Name{CommonName: hostnames.List()[0]}, hostnames.List(), lifetime, time.Now, authorityKeyId, subjectKeyId)
+	serverTemplate := newServerCertificateTemplateForDuration(pkix.Name{CommonName: sets.List[string](hostnames)[0]}, sets.List[string](hostnames), lifetime, time.Now, authorityKeyId, subjectKeyId)
 	for _, fn := range fns {
 		if err := fn(serverTemplate); err != nil {
 			return nil, err

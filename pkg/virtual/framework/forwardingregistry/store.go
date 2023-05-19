@@ -183,6 +183,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 		requestInfo, _ := genericapirequest.RequestInfoFrom(ctx)
 
 		doUpdate := func() (*unstructured.Unstructured, error) {
+			needToCreate := false
 			oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
 			if err != nil {
 				// Continue on 404 when forceAllowCreate is enabled,
@@ -193,7 +194,12 @@ func DefaultDynamicDelegatedStoreFuncs(
 						!(requestInfo != nil && requestInfo.Verb == "patch") {
 					return nil, err
 				}
-				oldObj = nil
+
+				// This needs to be the zero value of the object and not nil. This matches the normal rest/storage
+				// flows. Additionally, if oldObj were nil, the call the objInfo.UpdatedObject below would return an
+				// error because one of the transformers wouldn't be able to extract metadata for oldObj.
+				oldObj = &unstructured.Unstructured{}
+				needToCreate = true
 			}
 
 			// The following call returns a 404 error for non server-side apply
@@ -212,7 +218,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 				return nil, fmt.Errorf("not an Unstructured: %T", obj)
 			}
 
-			if oldObj == nil {
+			if needToCreate {
 				// The object does not currently exist.
 				// We switch to calling a create operation on the forwarding registry.
 				// This enables support for server-side apply requests, to create non-existent objects.

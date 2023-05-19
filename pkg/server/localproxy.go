@@ -52,7 +52,7 @@ func WithLocalProxy(
 	})
 	indexState.UpsertShard(shardName, shardBaseURL)
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ws := obj.(*tenancyv1alpha1.Workspace)
 			indexState.UpsertWorkspace(shardName, ws)
@@ -70,7 +70,7 @@ func WithLocalProxy(
 		},
 	})
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logicalCluster := obj.(*corev1alpha1.LogicalCluster)
 			indexState.UpsertLogicalCluster(shardName, logicalCluster)

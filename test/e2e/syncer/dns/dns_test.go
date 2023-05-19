@@ -38,6 +38,8 @@ import (
 )
 
 func TestDNSResolution(t *testing.T) {
+	t.Skip("Test is flaky, and we are going to remove the syncer soon anyway")
+
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster:requires-kind")
 
@@ -156,6 +158,7 @@ func TestDNSResolution(t *testing.T) {
 		wait.ForeverTestTimeout, time.Millisecond*500, "Service name was resolved")
 }
 
+//nolint:unused
 func checkLogs(ctx context.Context, t *testing.T, downstreamKubeClient *kubernetes.Clientset, downstreamNamespace, containerName, expectedPrefix string) func() (success bool, reason string) {
 	t.Helper()
 

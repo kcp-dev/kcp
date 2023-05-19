@@ -69,7 +69,7 @@ func init() {
 
 type mockedCleaner struct {
 	lock    sync.Mutex
-	toClean sets.String
+	toClean sets.Set[string]
 }
 
 func (c *mockedCleaner) PlanCleaning(key string) {
@@ -1252,7 +1252,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			require.NoError(t, err)
 
 			mockedCleaner := &mockedCleaner{
-				toClean: sets.String{},
+				toClean: sets.New[string](),
 			}
 
 			secretMutator := mutators.NewSecretMutator()
@@ -1280,7 +1280,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 
 			// The only GVRs we care about are the 4 listed below
 			t.Logf("waiting for upstream and downstream dynamic informer factories to be synced")
-			gvrs := sets.NewString(
+			gvrs := sets.New[string](
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}.String(),
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}.String(),
 				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}.String(),
@@ -1288,13 +1288,13 @@ func TestSpecSyncerProcess(t *testing.T) {
 			)
 			require.Eventually(t, func() bool {
 				syncedUpstream, _ := ddsifForUpstreamSyncer.Informers()
-				foundUpstream := sets.NewString()
+				foundUpstream := sets.New[string]()
 				for gvr := range syncedUpstream {
 					foundUpstream.Insert(gvr.String())
 				}
 
 				syncedDownstream, _ := ddsifForDownstream.Informers()
-				foundDownstream := sets.NewString()
+				foundDownstream := sets.New[string]()
 				for gvr := range syncedDownstream {
 					foundDownstream.Insert(gvr.String())
 				}
@@ -1322,9 +1322,9 @@ func TestSpecSyncerProcess(t *testing.T) {
 			mockedCleaner.lock.Lock()
 			defer mockedCleaner.lock.Unlock()
 			if tc.expectNSCleaningPlanned != nil {
-				assert.Equal(t, tc.expectNSCleaningPlanned, mockedCleaner.toClean.List())
+				assert.Equal(t, tc.expectNSCleaningPlanned, sets.List[string](mockedCleaner.toClean))
 			} else {
-				assert.Equal(t, []string{}, mockedCleaner.toClean.List())
+				assert.Equal(t, []string{}, sets.List[string](mockedCleaner.toClean))
 			}
 		})
 	}

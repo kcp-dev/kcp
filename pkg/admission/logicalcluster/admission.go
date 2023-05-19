@@ -126,7 +126,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		return nil
 	}
 
-	groups := sets.NewString(a.GetUserInfo().GetGroups()...)
+	groups := sets.New[string](a.GetUserInfo().GetGroups()...)
 	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemExternalLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
 	}
@@ -216,8 +216,8 @@ func (o *plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactor
 	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 }
 
-func toSet(initializers []corev1alpha1.LogicalClusterInitializer) sets.String {
-	ret := sets.NewString()
+func toSet(initializers []corev1alpha1.LogicalClusterInitializer) sets.Set[string] {
+	ret := sets.New[string]()
 	for _, initializer := range initializers {
 		ret.Insert(string(initializer))
 	}

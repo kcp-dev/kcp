@@ -61,7 +61,7 @@ func NewController(
 	)
 
 	// requeue all ClusterRoleBindings when a LogicalCluster changes replication status
-	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {

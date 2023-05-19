@@ -70,7 +70,7 @@ func findPattern(t *testing.T, s *schema.Structural, pth *field.Path) (map[strin
 			if err != nil {
 				return err
 			}
-			if p.Match([]byte(obj.(string))) {
+			if p.MatchString(obj.(string)) {
 				return nil
 			}
 			return errors.New("pattern mismatch")
@@ -78,6 +78,7 @@ func findPattern(t *testing.T, s *schema.Structural, pth *field.Path) (map[strin
 	}
 
 	for k, v := range s.Properties {
+		v := v
 		sub, err := findPattern(t, &v, pth.Child("properties").Child(k))
 		if err != nil {
 			return nil, err

@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	allowedFlags = sets.NewString(
+	allowedFlags = sets.New[string](
 		// auditing flags
 		"audit-log-batch-buffer-size",           // The size of the buffer to store events before batching and writing. Only used in batch mode.
 		"audit-log-batch-max-size",              // The maximum size of a batch. Only used in batch mode.
@@ -78,7 +78,6 @@ var (
 		"token-auth-file",                    // If set, the file that will be used to secure the secure port of the API server via token authentication.
 
 		// Kubernetes ServiceAccount Authentication flags
-		"service-account-api-audiences",           // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences.
 		"service-account-extend-token-expiration", // Turns on projected service account expiration extension during token generation, which helps safe transition from legacy token to bound service account token feature. If this flag is enabled, admission injected tokens would be extended up to 1 year to prevent unexpected failure during transition, ignoring value of service-account-max-token-expiration.
 		"service-account-issuer",                  // Identifier of the service account token issuer. The issuer will assert this identifier in "iss" claim of issued tokens. This value is a string or URI. If this option is not a valid URI per the OpenID Discovery 1.0 spec, the ServiceAccountIssuerDiscovery feature will remain disabled, even if the feature gate is set to true. It is highly recommended that this value comply with the OpenID spec: https://openid.net/specs/openid-connect-discovery-1_0.html. In practice, this means that service-account-issuer must be an https URL. It is also highly recommended that this URL be capable of serving OpenID discovery documents at {service-account-issuer}/.well-known/openid-configuration. When this flag is specified multiple times, the first is used to generate tokens and all are used to determine which issuers are accepted.
 		"service-account-jwks-uri",                // Overrides the URI for the JSON Web Key Set in the discovery doc served at /.well-known/openid-configuration. This flag is useful if the discovery docand key set are served to relying parties from a URL other than the API server's external (as auto-detected or overridden with external-hostname).
@@ -118,6 +117,7 @@ var (
 		"external-hostname",                    // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
 
 		// etcd flags
+		"encryption-provider-config-automatic-reload", // Determines if the file set by --encryption-provider-config should be automatically reloaded if the disk contents change. Setting this to true disables the ability to uniquely identify distinct KMS plugins via the API server healthz endpoints.
 		"etcd-cafile",                   // SSL Certificate Authority file used to secure etcd communication.
 		"etcd-certfile",                 // SSL certification file used to secure etcd communication.
 		"etcd-compaction-interval",      // The interval of compaction requests. If 0, the compaction request from apiserver is disabled.
@@ -126,6 +126,7 @@ var (
 		"etcd-healthcheck-timeout",      // The timeout to use when checking etcd health.
 		"etcd-keyfile",                  // SSL key file used to secure etcd communication.
 		"etcd-prefix",                   // The prefix to prepend to all resource paths in etcd.
+		"etcd-readycheck-timeout",       // The timeout to use when checking etcd readiness
 		"etcd-servers",                  // List of etcd servers to connect with (scheme://ip:port), comma separated.
 		"etcd-servers-overrides",        // Per-resource etcd servers overrides, comma separated. The individual override format: group/resource#servers, where servers are URLs, semicolon separated. Note that this applies only to resources compiled into this server binary.
 		"lease-reuse-duration-seconds",  // The time in seconds that each lease is reused. A lower value could avoid large number of objects reusing the same lease. Notice that a too small value may cause performance problems at storage layer.
@@ -144,16 +145,14 @@ var (
 		"show-hidden-metrics-for-version", // The previous version for which you want to show hidden metrics. Only the previous minor version is meaningful, other values will not be allowed. The format is <major>.<minor>, e.g.: '1.16'. The purpose of this format is make sure you have the opportunity to notice if the next release hides additional metrics, rather than being surprised when they are permanently removed in the release after that.
 
 		// misc flags
-		"enable-logs-handler",                   // If true, install a /logs handler for the apiserver logs.
-		"event-ttl",                             // Amount of time to retain events.
-		"identity-lease-duration-seconds",       // The duration of kube-apiserver lease in seconds, must be a positive number. (In use when the APIServerIdentity feature gate is enabled.)
-		"identity-lease-renew-interval-seconds", // The interval of kube-apiserver renewing its lease in seconds, must be a positive number. (In use when the APIServerIdentity feature gate is enabled.)
-		"max-connection-bytes-per-sec",          // If non-zero, throttle each user connection to this number of bytes/sec. Currently only applies to long-running requests.
-		"proxy-client-cert-file",                // Client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins. It is expected that this cert includes a signature from the CA in the --requestheader-client-ca-file flag. That CA is published in the 'extension-apiserver-authentication' configmap in the kube-system namespace. Components receiving calls from kube-aggregator should use that CA to perform their half of the mutual TLS verification.
-		"proxy-client-key-file",                 // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
+		"enable-logs-handler",          // If true, install a /logs handler for the apiserver logs.
+		"event-ttl",                    // Amount of time to retain events.
+		"max-connection-bytes-per-sec", // If non-zero, throttle each user connection to this number of bytes/sec. Currently only applies to long-running requests.
+		"proxy-client-cert-file",       // Client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins. It is expected that this cert includes a signature from the CA in the --requestheader-client-ca-file flag. That CA is published in the 'extension-apiserver-authentication' configmap in the kube-system namespace. Components receiving calls from kube-aggregator should use that CA to perform their half of the mutual TLS verification.
+		"proxy-client-key-file",        // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
 	)
 
-	disallowedFlags = sets.NewString(
+	disallowedFlags = sets.New[string](
 		// generic flags
 		"advertise-address",              // The IP address on which to advertise the apiserver to members of the cluster. This address must be reachable by the rest of the cluster. If blank, the --bind-address will be used. If --bind-address is unspecified, the host's default interface will be used.
 		"enable-priority-and-fairness",   // If true and the APIPriorityAndFairness feature gate is enabled, replace the max-in-flight handler with an enhanced one that queues and dispatches with priority and fairness

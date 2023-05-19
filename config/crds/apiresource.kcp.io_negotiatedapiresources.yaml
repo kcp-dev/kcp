@@ -43,8 +43,8 @@ spec:
       openAPIV3Schema:
         description: NegotiatedAPIResource describes the result of either the normalization
           of any number of imports of an API resource from external clusters (either
-          physical or logical), or the the manual application of a CRD version for
-          the corresponding GVR.
+          physical or logical), or the manual application of a CRD version for the
+          corresponding GVR.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

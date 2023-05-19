@@ -91,7 +91,7 @@ func NewController(
 		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
-	apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch obj := obj.(type) {
 			case *apisv1alpha1.APIBinding:

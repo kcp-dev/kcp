@@ -53,7 +53,6 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceClusterInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
@@ -61,19 +60,18 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
 
 	c := &Controller{
-		queue:                            queue,
-		crdClusterClient:                 crdClusterClient,
-		kcpClusterClient:                 kcpClusterClient,
-		AutoPublishNegotiatedAPIResource: autoPublishNegotiatedAPIResource,
-		negotiatedApiResourceIndexer:     negotiatedAPIResourceInformer.Informer().GetIndexer(),
-		negotiatedApiResourceLister:      negotiatedAPIResourceInformer.Lister(),
-		apiResourceImportIndexer:         apiResourceImportInformer.Informer().GetIndexer(),
-		apiResourceImportLister:          apiResourceImportInformer.Lister(),
-		crdIndexer:                       crdInformer.Informer().GetIndexer(),
-		crdLister:                        crdInformer.Lister(),
+		queue:                        queue,
+		crdClusterClient:             crdClusterClient,
+		kcpClusterClient:             kcpClusterClient,
+		negotiatedApiResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
+		negotiatedApiResourceLister:  negotiatedAPIResourceInformer.Lister(),
+		apiResourceImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
+		apiResourceImportLister:      apiResourceImportInformer.Lister(),
+		crdIndexer:                   crdInformer.Informer().GetIndexer(),
+		crdLister:                    crdInformer.Lister(),
 	}
 
-	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
@@ -89,7 +87,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to add indexer for NegotiatedAPIResource: %w", err)
 	}
 
-	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
@@ -105,7 +103,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
 	}
 
-	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(addHandlerAction, nil, obj) },
 		UpdateFunc: func(oldObj, obj interface{}) { c.enqueue(updateHandlerAction, oldObj, obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(deleteHandlerAction, nil, obj) },
@@ -140,8 +138,6 @@ type Controller struct {
 
 	crdIndexer cache.Indexer
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
-
-	AutoPublishNegotiatedAPIResource bool
 }
 
 type queueElementType string

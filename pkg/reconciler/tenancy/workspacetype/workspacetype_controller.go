@@ -78,7 +78,7 @@ func NewController(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj)
 		},
@@ -90,7 +90,7 @@ func NewController(
 		},
 	})
 
-	shardInformer.Informer().AddEventHandler(
+	_, _ = shardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllWorkspaceTypes(obj)

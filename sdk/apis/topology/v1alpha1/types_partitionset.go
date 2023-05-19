@@ -93,13 +93,13 @@ const (
 	// PartitionSetInvalidSelectorReason indicates that the specified selector could not be
 	// marshalled into a valid one.
 	PartitionSetInvalidSelectorReason = "InvalidSelector"
-	// ErrorGeneratingPartitionsReason indicates that the partitions could not be generated
+	// ErrorGeneratingPartitionsReason indicates that the partitions could not be generated.
 	ErrorGeneratingPartitionsReason = "ErrorGeneratingPartitions"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PartitionSetList is a list of PartitionSet resources
+// PartitionSetList is a list of PartitionSet resources.
 type PartitionSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

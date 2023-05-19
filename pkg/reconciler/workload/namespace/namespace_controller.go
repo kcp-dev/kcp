@@ -31,12 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -77,8 +77,8 @@ func NewController(
 	}
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
-	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	var namespaceBlocklist = sets.New[string]("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
+	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {
 			case *corev1.Namespace:
@@ -96,7 +96,7 @@ func NewController(
 		},
 	})
 
-	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj) },

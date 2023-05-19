@@ -82,7 +82,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 	isServiceAccount := len(subjectClusters) > 0
 
 	// always let logical-cluster-admins through
-	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	if isUser && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
@@ -102,7 +102,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		}
 
 		// always let external-logical-cluster-admins through
-		if sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemExternalLogicalClusterAdmin) {
+		if sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemExternalLogicalClusterAdmin) {
 			return DelegateAuthorization("external logical cluster admin access", a.delegate).Authorize(ctx, attr)
 		}
 
@@ -114,7 +114,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		disjunctiveClauses := append(strings.Split(value, ";"), bootstrap.SystemKcpAdminGroup, bootstrap.SystemKcpWorkspaceBootstrapper)
 		for _, set := range disjunctiveClauses {
 			groups := strings.Split(set, ",")
-			if sets.NewString(attr.GetUser().GetGroups()...).HasAll(groups...) {
+			if sets.New[string](attr.GetUser().GetGroups()...).HasAll(groups...) {
 				return DelegateAuthorization(fmt.Sprintf("user is member of required groups: %s", logicalCluster.Annotations[RequiredGroupsAnnotationKey]), a.delegate).Authorize(ctx, attr)
 			}
 		}

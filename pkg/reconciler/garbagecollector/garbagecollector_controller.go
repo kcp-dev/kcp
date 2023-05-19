@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
@@ -92,7 +91,7 @@ func NewController(
 		ignoredResources: defaultIgnoredResources(),
 	}
 
-	logicalClusterInformer.Informer().AddEventHandler(
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -243,23 +242,16 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 
 	kubeClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
-	garbageCollector, err := garbagecollector.NewClusterAwareGarbageCollector(
+	garbageCollector, err := garbagecollector.NewGarbageCollector(
 		kubeClient,
 		c.metadataClient.Cluster(clusterName.Path()),
 		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
 		c.ignoredResources,
 		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
 		c.informersStarted,
-		clusterName,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create the garbage collector: %w", err)
-	}
-
-	if kubeClient.CoreV1().RESTClient().GetRateLimiter() != nil {
-		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(clusterName.String()+"-garbage_collector_controller", kubeClient.CoreV1().RESTClient().GetRateLimiter()); err != nil {
-			return err
-		}
 	}
 
 	// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,

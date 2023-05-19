@@ -28,6 +28,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/component-base/logs"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
@@ -53,7 +54,7 @@ type Options struct {
 	Authorization  corevwoptions.Authorization
 	Audit          genericapiserveroptions.AuditOptions
 
-	Logs logs.Options
+	Logs *logs.Options
 
 	CoreVirtualWorkspaces corevwoptions.Options
 	TmcVirtualWorkspaces  tmcvwoptions.Options
@@ -73,7 +74,7 @@ func NewOptions() *Options {
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
 		Authorization:  *corevwoptions.NewAuthorization(),
 		Audit:          *genericapiserveroptions.NewAuditOptions(),
-		Logs:           *logs.NewOptions(),
+		Logs:           logs.NewOptions(),
 
 		CoreVirtualWorkspaces: *corevwoptions.NewOptions(),
 		TmcVirtualWorkspaces:  *tmcvwoptions.NewOptions(),
@@ -92,7 +93,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.SecureServing.AddFlags(flags)
 	o.Authentication.AddFlags(flags)
 	o.Audit.AddFlags(flags)
-	o.Logs.AddFlags(flags)
+	logsapiv1.AddFlags(o.Logs, flags)
 	o.CoreVirtualWorkspaces.AddFlags(flags)
 	o.TmcVirtualWorkspaces.AddFlags(flags)
 

@@ -77,7 +77,7 @@ func BuildVirtualWorkspace(
 	}
 	bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
 		Type:                   "object",
-		XPreserveUnknownFields: pointer.BoolPtr(true),
+		XPreserveUnknownFields: pointer.Bool(true),
 	})
 	if err != nil {
 		return nil, err

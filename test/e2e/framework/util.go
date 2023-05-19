@@ -523,5 +523,5 @@ func CreateResources(ctx context.Context, fs embed.FS, upstreamConfig *rest.Conf
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
-	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.NewString(), fs, transformers...)
+	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.New[string](), fs, transformers...)
 }

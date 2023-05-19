@@ -121,6 +121,16 @@ type namespaceableResourceClient struct {
 	resourceClient
 }
 
+func (c *namespaceableResourceClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.resourceClient.Apply(ctx, name, obj, options, subresources...)
+}
+
+func (c *namespaceableResourceClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return c.resourceClient.ApplyStatus(ctx, name, obj, options)
+}
+
+var _ dynamic.NamespaceableResourceInterface = (*namespaceableResourceClient)(nil)
+
 func (c *namespaceableResourceClient) ClusterName() string { return c.lcluster.String() }
 
 func (c *namespaceableResourceClient) Namespace(namespace string) dynamic.ResourceInterface {
@@ -142,6 +152,8 @@ type resourceClient struct {
 	namespace         string
 	lclusterRecorder  func(lcluster string)
 }
+
+var _ dynamic.ResourceInterface = (*resourceClient)(nil)
 
 func (c *resourceClient) ClusterName() string { return c.lcluster.String() }
 
@@ -198,6 +210,14 @@ func (c *resourceClient) Watch(ctx context.Context, opts metav1.ListOptions) (wa
 func (c *resourceClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	c.lclusterRecorder(c.lcluster.String())
 	return c.resourceInterface.Patch(ctx, name, pt, data, options, subresources...)
+}
+func (c *resourceClient) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	c.lclusterRecorder(c.lcluster.String())
+	return c.resourceInterface.Apply(ctx, name, obj, options, subresources...)
+}
+func (c *resourceClient) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	c.lclusterRecorder(c.lcluster.String())
+	return c.resourceInterface.ApplyStatus(ctx, name, obj, options)
 }
 
 type transformerCall struct {
@@ -604,7 +624,7 @@ func TestResourceTransformer(t *testing.T) {
 				Object: map[string]interface{}{
 					"apiVersion": "group/version",
 					"kind":       "ResourceList",
-					"metadata":   map[string]interface{}{"resourceVersion": ""},
+					"metadata":   map[string]interface{}{"resourceVersion": "", "continue": ""},
 				},
 				Items: []unstructured.Unstructured{
 					*resource("group/version", "Resource", "aThing").cluster("cluster1").field("after", "added aThing")(),
@@ -657,7 +677,7 @@ func TestResourceTransformer(t *testing.T) {
 				Object: map[string]interface{}{
 					"apiVersion": "group/version",
 					"kind":       "ResourceList",
-					"metadata":   map[string]interface{}{"resourceVersion": ""},
+					"metadata":   map[string]interface{}{"resourceVersion": "", "continue": ""},
 				},
 				Items: []unstructured.Unstructured{
 					*resource("group/version", "Resource", "aThingMore").cluster("cluster2").field("after", "added aThingMore")(),
@@ -707,7 +727,7 @@ func TestResourceTransformer(t *testing.T) {
 				Object: map[string]interface{}{
 					"apiVersion": "group/version",
 					"kind":       "ResourceList",
-					"metadata":   map[string]interface{}{"resourceVersion": ""},
+					"metadata":   map[string]interface{}{"resourceVersion": "", "continue": ""},
 				},
 				Items: []unstructured.Unstructured{
 					*resource("group/version", "Resource", "aThing").field("after", "added aThing")(),
@@ -758,7 +778,7 @@ func TestResourceTransformer(t *testing.T) {
 				Object: map[string]interface{}{
 					"apiVersion": "group/version",
 					"kind":       "ResourceList",
-					"metadata":   map[string]interface{}{"resourceVersion": ""},
+					"metadata":   map[string]interface{}{"resourceVersion": "", "continue": ""},
 				},
 				Items: []unstructured.Unstructured{
 					*resource("group/version", "Resource", "aThing").field("after", "added aThing")(),
@@ -811,7 +831,7 @@ func TestResourceTransformer(t *testing.T) {
 				Object: map[string]interface{}{
 					"apiVersion": "group/version",
 					"kind":       "ResourceList",
-					"metadata":   map[string]interface{}{"resourceVersion": ""},
+					"metadata":   map[string]interface{}{"resourceVersion": "", "continue": ""},
 				},
 				Items: []unstructured.Unstructured{
 					*resource("group/version", "Resource", "aThing").ns("aNamespace").field("after", "added aThing")(),

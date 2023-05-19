@@ -49,7 +49,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		changed = true
 	}
 
-	initializerKeys := sets.NewString()
+	initializerKeys := sets.New[string]()
 	for _, initializer := range logicalCluster.Status.Initializers {
 		key, value := initialization.InitializerToLabel(initializer)
 		initializerKeys.Insert(key)

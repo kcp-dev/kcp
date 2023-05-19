@@ -370,7 +370,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	}
 	encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha1.SchemeGroupVersion)
 
-	writtenExports := sets.String{}
+	writtenExports := sets.New[string]()
 	for _, export := range exports {
 		out, err := runtime.Encode(encoder, export)
 		if err != nil {
@@ -384,7 +384,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 		logger.Info(fmt.Sprintf("Wrote APIExport %s to %s", export.Name, output))
 	}
 
-	writtenSchemas := sets.String{}
+	writtenSchemas := sets.New[string]()
 	for gr, apiResourceSchema := range schemas {
 		out, err := runtime.Encode(encoder, apiResourceSchema)
 		if err != nil {

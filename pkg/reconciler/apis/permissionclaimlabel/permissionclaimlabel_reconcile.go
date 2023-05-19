@@ -67,12 +67,12 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	logger = logging.WithObject(logger, apiExport)
 
-	exportedClaims := sets.NewString()
+	exportedClaims := sets.New[string]()
 	for _, claim := range apiExport.Spec.PermissionClaims {
 		exportedClaims.Insert(setKeyForClaim(claim))
 	}
 
-	acceptedClaims := sets.NewString()
+	acceptedClaims := sets.New[string]()
 	acceptedClaimsMap := make(map[string]apisv1alpha1.PermissionClaim)
 	for _, claim := range apiBinding.Spec.PermissionClaims {
 		if claim.State == apisv1alpha1.ClaimAccepted {
@@ -82,7 +82,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		}
 	}
 
-	appliedClaims := sets.NewString()
+	appliedClaims := sets.New[string]()
 	for _, claim := range apiBinding.Status.AppliedPermissionClaims {
 		appliedClaims.Insert(setKeyForClaim(claim))
 	}
@@ -102,9 +102,9 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	)
 
 	var allErrs []error
-	applyErrors := sets.NewString()
+	applyErrors := sets.New[string]()
 
-	for _, s := range allChanges.List() {
+	for _, s := range sets.List[string](allChanges) {
 		claim := claimFromSetKey(s)
 		claimLogger := logger.WithValues("claim", s)
 
@@ -181,7 +181,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	}
 
 	unexpectedOrInvalidErrors := make([]error, 0, unexpectedClaims.Len())
-	for _, s := range unexpectedClaims.List() {
+	for _, s := range sets.List[string](unexpectedClaims) {
 		claim := claimFromSetKey(s)
 		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))
 	}
@@ -208,7 +208,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	fullyApplied := expectedClaims.Difference(applyErrors)
 	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha1.PermissionClaim{}
-	for _, s := range fullyApplied.List() {
+	for _, s := range sets.List[string](fullyApplied) {
 		// fullyApplied = (exportedClaims ∩ acceptedClaims) ⊖ applyErrors,
 		// hence s must be in acceptedClaims (and exportedClaims).
 		apiBinding.Status.AppliedPermissionClaims = append(apiBinding.Status.AppliedPermissionClaims, acceptedClaimsMap[s])

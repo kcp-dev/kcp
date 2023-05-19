@@ -222,11 +222,11 @@ func TestScheduling(t *testing.T) {
 
 	require.Len(t, downstreamServices.Items, 2)
 
-	names := sets.NewString()
+	names := sets.New[string]()
 	for _, downstreamService := range downstreamServices.Items {
 		names.Insert(downstreamService.Name)
 	}
-	require.Equal(t, names.List(), []string{"first", "second"})
+	require.Equal(t, sets.List[string](names), []string{"first", "second"})
 
 	t.Logf("Wait for placement annotation on the default namespace")
 	framework.Eventually(t, func() (bool, string) {

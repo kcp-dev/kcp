@@ -30,8 +30,8 @@ import (
 type GroupFilter struct {
 	Authenticator authenticator.Request
 
-	PassOnGroups sets.String
-	DropGroups   sets.String
+	PassOnGroups sets.Set[string]
+	DropGroups   sets.Set[string]
 
 	PassOnGroupPrefixes []string
 	DropGroupPrefixes   []string
@@ -44,7 +44,7 @@ func (a *GroupFilter) AuthenticateRequest(req *http.Request) (*authenticator.Res
 	if resp == nil || resp.User == nil {
 		return resp, ok, err
 	}
-	groupsToPassOn := sets.NewString(resp.User.GetGroups()...)
+	groupsToPassOn := sets.New[string](resp.User.GetGroups()...)
 
 	info := user.DefaultInfo{
 		Name:  resp.User.GetName(),
@@ -69,7 +69,7 @@ func (a *GroupFilter) AuthenticateRequest(req *http.Request) (*authenticator.Res
 		}
 	}
 
-	info.Groups = groupsToPassOn.List()
+	info.Groups = sets.List[string](groupsToPassOn)
 
 	return resp, ok, err
 }

@@ -78,7 +78,7 @@ func NewController(
 		}),
 	}
 
-	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			shard := obj.(*corev1alpha1.Shard)
 			c.state.UpsertShard(shard.Name, shard.Spec.BaseURL)
@@ -90,7 +90,7 @@ func NewController(
 			if oldShard.Spec.BaseURL == shard.Spec.BaseURL {
 				return
 			}
-			c.stopShard(oldShard)
+			c.stopShard(oldShard.Name)
 			c.enqueueShard(ctx, shard)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -99,7 +99,7 @@ func NewController(
 			}
 			shard := obj.(*corev1alpha1.Shard)
 
-			c.stopShard(shard)
+			c.stopShard(shard.Name)
 		},
 	})
 
@@ -203,7 +203,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.V(2).Info("Shard not found, stopping informers")
-			c.stopShard(shard)
+			c.stopShard(name)
 			return nil
 		}
 		return err
@@ -221,7 +221,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		}
 
 		wsInformer := tenancyv1alpha1informers.NewWorkspaceClusterInformer(client, resyncPeriod, nil)
-		wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		_, _ = wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				ws := obj.(*tenancyv1alpha1.Workspace)
 				c.state.UpsertWorkspace(shard.Name, ws)
@@ -240,7 +240,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		})
 
 		twInformer := corev1alpha1informers.NewLogicalClusterClusterInformer(client, resyncPeriod, nil)
-		twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		_, _ = twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				logicalCluster := obj.(*corev1alpha1.LogicalCluster)
 				c.state.UpsertLogicalCluster(shard.Name, logicalCluster)
@@ -272,18 +272,18 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) stopShard(shard *corev1alpha1.Shard) {
-	c.state.DeleteShard(shard.Name)
+func (c *Controller) stopShard(shardName string) {
+	c.state.DeleteShard(shardName)
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if stopCh, found := c.shardWorkspaceStopCh[shard.Name]; found {
+	if stopCh, found := c.shardWorkspaceStopCh[shardName]; found {
 		close(stopCh)
 	}
-	delete(c.shardWorkspaceStopCh, shard.Name)
-	delete(c.shardWorkspaceInformers, shard.Name)
-	delete(c.shardLogicalClusterInformers, shard.Name)
+	delete(c.shardWorkspaceStopCh, shardName)
+	delete(c.shardWorkspaceInformers, shardName)
+	delete(c.shardLogicalClusterInformers, shardName)
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (url string, found bool) {

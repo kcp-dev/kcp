@@ -67,8 +67,8 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	logger := klog.FromContext(ctx)
 
 	// create serving cert
-	hostnames := sets.NewString("localhost", hostIP)
-	logger.Info("Creating vw server serving cert", "index", index, "hostnames", hostnames.List())
+	hostnames := sets.New[string]("localhost", hostIP)
+	logger.Info("Creating vw server serving cert", "index", index, "hostnames", sets.List[string](hostnames))
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)

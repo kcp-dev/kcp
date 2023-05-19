@@ -42,7 +42,7 @@ func init() {
 		}
 		bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
 			Type:                   "object",
-			XPreserveUnknownFields: pointer.BoolPtr(true),
+			XPreserveUnknownFields: pointer.Bool(true),
 		})
 		if err != nil {
 			panic(fmt.Sprintf("failed to marshal JSONSchemaProps: %v", err))

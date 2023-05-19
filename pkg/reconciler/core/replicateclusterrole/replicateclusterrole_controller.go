@@ -61,7 +61,7 @@ func NewController(
 	)
 
 	// requeue all ClusterRoles when a LogicalCluster changes replication status
-	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -89,8 +89,8 @@ func NewController(
 
 func HasAccessRule(cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		nonResources := sets.NewString(rule.NonResourceURLs...)
-		verbs := sets.NewString(rule.Verbs...)
+		nonResources := sets.New[string](rule.NonResourceURLs...)
+		verbs := sets.New[string](rule.Verbs...)
 		if (nonResources.Has("/") || nonResources.Has("*") || nonResources.Has("/*")) && (verbs.Has("access") || verbs.Has("*")) {
 			return true
 		}

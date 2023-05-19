@@ -101,7 +101,7 @@ func NewController(
 		},
 		listAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 			// binding keys by full path
-			keys := sets.NewString()
+			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
 				pathKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
 				if err != nil {
@@ -117,7 +117,7 @@ func NewController(
 			keys.Insert(clusterKeys...)
 
 			bindings := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
-			for _, key := range keys.List() {
+			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
 					utilruntime.HandleError(err)
@@ -180,7 +180,7 @@ func NewController(
 	})
 
 	// APIBinding handlers
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "")
@@ -189,7 +189,7 @@ func NewController(
 	})
 
 	// CRD handlers
-	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == SystemBoundCRDsClusterName
@@ -215,19 +215,19 @@ func NewController(
 	})
 
 	// APIExport handlers
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 	})
-	globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 	})
 
 	// APIResourceSchema handlers
-	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
@@ -238,7 +238,7 @@ func NewController(
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 	})
-	globalAPIResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalAPIResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
@@ -251,7 +251,7 @@ func NewController(
 	})
 
 	// APIConversion handlers
-	apiConversionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiConversionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
 		},

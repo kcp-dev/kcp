@@ -27,7 +27,7 @@ import (
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
-	"k8s.io/component-base/logs"
+	logsapi "k8s.io/component-base/logs/api/v1"
 )
 
 const (
@@ -104,10 +104,14 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	genericfeatures.AdvancedAuditing:                    {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIResponseCompression:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.APIListChunking:                     {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.DryRun:                              {Default: true, PreRelease: featuregate.GA},
-	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.CustomResourceValidationExpressions: {Default: false, PreRelease: featuregate.Alpha},
+	genericfeatures.CustomResourceValidationExpressions: {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.DryRun:                              {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.28
+	genericfeatures.OpenAPIEnums:                        {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.OpenAPIV3:                           {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.29
+	genericfeatures.ServerSideFieldValidation:           {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.ValidatingAdmissionPolicy:           {Default: false, PreRelease: featuregate.Alpha},
 
-	logs.ContextualLogging: {Default: true, PreRelease: featuregate.Alpha},
+	logsapi.ContextualLogging: {Default: true, PreRelease: featuregate.Alpha},
 }

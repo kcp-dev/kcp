@@ -57,7 +57,7 @@ func (c *controller) reconcileScheduling(
 	}
 
 	// 1. pick all synctargets in all bound placements
-	scheduledSyncTargets := sets.NewString()
+	scheduledSyncTargets := sets.New[string]()
 	for _, placement := range validPlacements {
 		currentScheduled, foundScheduled := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]
 		if !foundScheduled {
@@ -130,7 +130,7 @@ func (c *controller) reconcileScheduling(
 
 func syncStatusFor(ns *corev1.Namespace) namespaceSyncStatus {
 	status := namespaceSyncStatus{
-		active:         sets.NewString(),
+		active:         sets.New[string](),
 		pendingRemoval: make(map[string]time.Time),
 	}
 
@@ -156,6 +156,6 @@ func syncStatusFor(ns *corev1.Namespace) namespaceSyncStatus {
 }
 
 type namespaceSyncStatus struct {
-	active         sets.String
+	active         sets.Set[string]
 	pendingRemoval map[string]time.Time
 }

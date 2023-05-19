@@ -60,14 +60,14 @@ func NewController(
 	}
 
 	// Watch for events related to SyncTargets
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj) },
 		DeleteFunc: func(obj interface{}) {},
 	})
 
 	// Watch for events related to workspaceShards
-	workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueWorkspaceShard(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspaceShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueWorkspaceShard(obj) },

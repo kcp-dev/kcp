@@ -17,6 +17,7 @@ limitations under the License.
 package initializers
 
 import (
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
@@ -59,4 +60,10 @@ type WantsDeepSARClient interface {
 // activities when the main server context/channel is done.
 type WantsServerShutdownChannel interface {
 	SetServerShutdownChannel(<-chan struct{})
+}
+
+// WantsDynamicClusterClient is an interface that should be implemented by admission plugins that need a dynamic cluster
+// client.
+type WantsDynamicClusterClient interface {
+	SetDynamicClusterClient(clusterInterface kcpdynamic.ClusterInterface)
 }

@@ -164,7 +164,7 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	shardVirtualWorkspaceURLs := sets.NewString()
+	shardVirtualWorkspaceURLs := sets.New[string]()
 	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
 	shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
@@ -316,7 +316,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
 		var expectedURLs []string
-		for _, urlString := range shardVirtualWorkspaceURLs.List() {
+		for _, urlString := range sets.List[string](shardVirtualWorkspaceURLs) {
 			u, err := url.Parse(urlString)
 			require.NoError(t, err, "error parsing %q", urlString)
 			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderClusterName.String(), exportName)

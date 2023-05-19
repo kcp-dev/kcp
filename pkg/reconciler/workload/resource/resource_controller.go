@@ -81,13 +81,13 @@ func NewController(
 			return namespaceInformer.Lister().Cluster(clusterName).Get(namespaceName)
 		},
 
-		getSyncTargetPlacementAnnotations: func(clusterName logicalcluster.Name) (sets.String, error) {
+		getSyncTargetPlacementAnnotations: func(clusterName logicalcluster.Name) (sets.Set[string], error) {
 			placements, err := placementInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
 
-			expectedSyncTargetKeys := sets.String{}
+			expectedSyncTargetKeys := sets.New[string]()
 			for _, placement := range placements {
 				if val := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; val != "" {
 					expectedSyncTargetKeys.Insert(val)
@@ -114,7 +114,7 @@ func NewController(
 		ddsif: ddsif,
 	}
 
-	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterNamespace,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) { c.enqueueNamespace(obj) },
@@ -130,7 +130,7 @@ func NewController(
 		},
 	})
 
-	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.enqueuePlacement,
 		UpdateFunc: func(oldObj, _ interface{}) { c.enqueuePlacement(oldObj) },
 		DeleteFunc: c.enqueuePlacement,
@@ -150,13 +150,13 @@ func NewController(
 		bySyncTargetKey: indexBySyncTargetKey,
 	})
 
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueSyncTarget(obj)
 		},
 	})
 
-	globalSyncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalSyncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueSyncTarget(obj)
 		},
@@ -192,7 +192,7 @@ type Controller struct {
 	dynClusterClient kcpdynamic.ClusterInterface
 
 	getNamespace                      func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
-	getSyncTargetPlacementAnnotations func(clusterName logicalcluster.Name) (sets.String, error)
+	getSyncTargetPlacementAnnotations func(clusterName logicalcluster.Name) (sets.Set[string], error)
 	getSyncTargetFromKey              func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
 
 	ddsif *informer.DiscoveringDynamicSharedInformerFactory
@@ -387,7 +387,7 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 }
 
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
+var namespaceBlocklist = sets.New[string]("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
 
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
@@ -397,7 +397,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 	nsLocations := getLocations(ns.Labels, true)
 	nsDeleting := getDeletingLocations(ns.Annotations)
-	logger = logger.WithValues("nsLocations", nsLocations.List())
+	logger = logger.WithValues("nsLocations", sets.List[string](nsLocations))
 
 	logger.V(4).Info("getting listers")
 	informers, notSynced := c.ddsif.Informers()
@@ -513,8 +513,8 @@ func (c *Controller) enqueueSyncTargetKey(syncTargetKey string) {
 }
 
 // getLocations returns a set with of all the locations extracted from a resource labels, setting skipPending to true will ignore resources in not Sync state.
-func getLocations(labels map[string]string, skipPending bool) sets.String {
-	locations := sets.NewString()
+func getLocations(labels map[string]string, skipPending bool) sets.Set[string] {
+	locations := sets.New[string]()
 	for k, v := range labels {
 		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
 			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))

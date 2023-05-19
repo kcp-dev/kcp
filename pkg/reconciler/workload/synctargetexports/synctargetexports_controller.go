@@ -97,7 +97,7 @@ func NewController(
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	// Watch for events related to SyncTargets
-	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger, "") },
 		UpdateFunc: func(old, obj interface{}) {
 			oldCluster := old.(*workloadv1alpha1.SyncTarget)
@@ -112,19 +112,19 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {},
 	})
 
-	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 	})
 
-	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger) },
 	})
 
-	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceImport(obj, logger)
 		},
@@ -201,7 +201,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 	}
 
 	// synctarget keys by full path
-	keys := sets.NewString()
+	keys := sets.New[string]()
 	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
 		pathKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.NewPath(path).Join(export.Name).String())
 		if err != nil {
@@ -218,7 +218,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 	}
 	keys.Insert(clusterKeys...)
 
-	for _, key := range keys.List() {
+	for _, key := range sets.List[string](keys) {
 		syncTarget, _, err := c.syncTargetIndexer.GetByKey(key)
 		if err != nil {
 			runtime.HandleError(err)

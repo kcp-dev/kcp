@@ -411,7 +411,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// Merge any current storage versions with new ones
-		storageVersions := sets.NewString()
+		storageVersions := sets.New[string]()
 		if existingCRD != nil {
 			storageVersions.Insert(existingCRD.Status.StoredVersions...)
 		}
@@ -423,7 +423,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			}
 		}
 
-		sortedStorageVersions := storageVersions.List()
+		sortedStorageVersions := sets.List[string](storageVersions)
 		sort.Strings(sortedStorageVersions)
 
 		// Upsert the BoundAPIResource for this APIResourceSchema

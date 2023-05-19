@@ -46,8 +46,7 @@ type Interface interface {
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client

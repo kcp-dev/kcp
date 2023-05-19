@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook/rules"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -109,7 +109,7 @@ func (p *WebhookDispatcher) SetDispatcher(dispatch generic.Dispatcher) {
 func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
 	// If the object is a Webhook configuration, do not call webhooks
 	// This is because we need some way to recover if a webhook is preventing a cluster resources from being updated
-	if rules.IsWebhookConfigurationResource(attr) {
+	if rules.IsExemptAdmissionConfigurationResource(attr) {
 		return nil
 	}
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)

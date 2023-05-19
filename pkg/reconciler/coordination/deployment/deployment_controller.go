@@ -84,7 +84,7 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			enqueue(obj, c.upstreamViewQueue, logger.WithValues("view", "upstream"))
 			enqueue(obj, c.syncerViewQueue, logger.WithValues("view", "syncer"))
@@ -266,7 +266,7 @@ func (c *controller) processUpstreamView(ctx context.Context, key string) error 
 
 	updated := deployment.DeepCopy()
 
-	syncerViews := sets.NewString()
+	syncerViews := sets.New[string]()
 	for syncTarget, syncTargetSyncing := range syncIntents {
 		if syncTargetSyncing.ResourceState == v1alpha1.ResourceStateSync && syncTargetSyncing.DeletionTimestamp == nil {
 			syncerViews.Insert(syncTarget)
@@ -278,7 +278,7 @@ func (c *controller) processUpstreamView(ctx context.Context, key string) error 
 		replicasEach := int64(*updated.Spec.Replicas) / int64(syncerViews.Len())
 		rest := int64(*updated.Spec.Replicas) % int64(syncerViews.Len())
 
-		for index, syncTargetKey := range syncerViews.List() {
+		for index, syncTargetKey := range sets.List[string](syncerViews) {
 			replicasToSet := replicasEach
 			if index == 0 {
 				replicasToSet += rest
@@ -362,12 +362,12 @@ func (c *controller) processSyncerView(ctx context.Context, key string) error {
 		}
 	}
 
-	conditionTypes := sets.NewString()
+	conditionTypes := sets.New[string]()
 	for conditionType := range consolidatedConditions {
 		conditionTypes.Insert(string(conditionType))
 	}
 
-	for _, condition := range conditionTypes.List() {
+	for _, condition := range sets.List[string](conditionTypes) {
 		summarizedStatus.Conditions = append(summarizedStatus.Conditions, consolidatedConditions[appsv1.DeploymentConditionType(condition)])
 	}
 

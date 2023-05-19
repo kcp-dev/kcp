@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
@@ -47,7 +48,7 @@ func NewSyncerCommand() *cobra.Command {
 		Use:   "syncer",
 		Short: "Synchronizes resources in `kcp` assigned to the clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := logsapiv1.ValidateAndApply(options.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := options.Complete(); err != nil {
@@ -121,7 +122,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		&syncer.SyncerConfig{
 			UpstreamConfig:                upstreamConfig,
 			DownstreamConfig:              downstreamConfig,
-			ResourcesToSync:               sets.NewString(options.SyncedResourceTypes...),
+			ResourcesToSync:               sets.New[string](options.SyncedResourceTypes...),
 			SyncTargetPath:                logicalcluster.NewPath(options.FromClusterPath),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,

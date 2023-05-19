@@ -494,7 +494,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
-		sets.NewString(s.Options.Extra.BatteriesIncluded...),
+		sets.New[string](s.Options.Extra.BatteriesIncluded...),
 	)
 	if err != nil {
 		return err

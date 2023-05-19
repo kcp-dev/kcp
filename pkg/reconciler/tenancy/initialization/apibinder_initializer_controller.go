@@ -104,7 +104,7 @@ func NewAPIBinder(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueLogicalCluster(obj, logger)
 		},
@@ -113,7 +113,7 @@ func NewAPIBinder(
 		},
 	})
 
-	apiBindingsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIBinding(obj, logger)
 		},
@@ -122,7 +122,7 @@ func NewAPIBinder(
 		},
 	})
 
-	workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
@@ -131,7 +131,7 @@ func NewAPIBinder(
 		},
 	})
 
-	globalWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},

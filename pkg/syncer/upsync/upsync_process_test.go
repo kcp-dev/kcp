@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
@@ -44,7 +45,6 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
@@ -765,20 +765,20 @@ func TestUpsyncerprocess(t *testing.T) {
 
 			// The only GVRs we care about are the 3 listed below
 			t.Logf("waiting for upstream and downstream dynamic informer factories to be synced")
-			gvrs := sets.NewString(
+			gvrs := sets.New[string](
 				corev1.SchemeGroupVersion.WithResource("namespaces").String(),
 				corev1.SchemeGroupVersion.WithResource("pods").String(),
 				corev1.SchemeGroupVersion.WithResource("persistentvolumes").String(),
 			)
 			require.Eventually(t, func() bool {
 				syncedUpstream, _ := ddsifForUpstreamUpsyncer.Informers()
-				foundUpstream := sets.NewString()
+				foundUpstream := sets.New[string]()
 				for gvr := range syncedUpstream {
 					foundUpstream.Insert(gvr.String())
 				}
 
 				syncedDownstream, _ := ddsifForDownstream.Informers()
-				foundDownstream := sets.NewString()
+				foundDownstream := sets.New[string]()
 				for gvr := range syncedDownstream {
 					foundDownstream.Insert(gvr.String())
 				}

@@ -22,14 +22,13 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/library"
-	"k8s.io/apiextensions-apiserver/third_party/forked/celopenapi/model"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/model"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/library"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
@@ -158,12 +157,12 @@ func createCELEnv(structuralSchema *structuralschema.Structural) (*cel.Env, erro
 		return nil, fmt.Errorf("error creating CEL environment: %w", err)
 	}
 
-	registry := model.NewRegistry(env)
+	registry := apiservercel.NewRegistry(env)
 
 	// inline local copy of upstream's generateUniqueSelfTypeName()
 	scopedTypeName := fmt.Sprintf("selfType%d", time.Now().Nanosecond())
-
-	ruleTypes, err := model.NewRuleTypes(scopedTypeName, structuralSchema, true, registry)
+	declType := model.SchemaDeclType(structuralSchema, true)
+	ruleTypes, err := apiservercel.NewRuleTypes(scopedTypeName, declType, registry)
 	if err != nil {
 		return nil, fmt.Errorf("error creating rule types: %w", err)
 	}
@@ -178,17 +177,17 @@ func createCELEnv(structuralSchema *structuralschema.Structural) (*cel.Env, erro
 
 	root, ok := ruleTypes.FindDeclType(scopedTypeName)
 	if !ok {
-		rootDecl := model.SchemaDeclType(structuralSchema, true)
-		if rootDecl == nil {
-			return nil, fmt.Errorf("unable to find CEL decl type for %s", structuralSchema.Type)
+		if declType == nil {
+			return nil, fmt.Errorf("rule declared on schema that does not support validation rules type: '%s' x-kubernetes-preserve-unknown-fields: '%t'", structuralSchema.Type, structuralSchema.XPreserveUnknownFields)
 		}
-		root = rootDecl.MaybeAssignTypeName(scopedTypeName)
+		root = declType.MaybeAssignTypeName(scopedTypeName)
 	}
 
-	var propDecls []*expr.Decl
-	propDecls = append(propDecls, decls.NewVar("self", root.ExprType()))
+	var propDecls []cel.EnvOption
+	propDecls = append(propDecls, cel.Variable("self", root.CelType()))
 
-	opts = append(opts, cel.Declarations(propDecls...), cel.HomogeneousAggregateLiterals())
+	opts = append(opts, propDecls...)
+	opts = append(opts, cel.HomogeneousAggregateLiterals(), cel.EagerlyValidateDeclarations(true), cel.DefaultUTCTimeZone(true))
 	opts = append(opts, library.ExtensionLibs...)
 	return env.Extend(opts...)
 }
