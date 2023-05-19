@@ -27,6 +27,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -97,6 +98,16 @@ func NewController(
 				kind:   "ValidatingWebhookConfiguration",
 				local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 				global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+			},
+			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
+				kind:   "ValidatingAdmissionPolicy",
+				local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+			},
+			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
+				kind:   "ValidatingAdmissionPolicyBinding",
+				local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+				global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
 			},
 			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 				kind:   "Shard",
