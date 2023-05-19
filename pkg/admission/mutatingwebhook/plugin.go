@@ -49,8 +49,9 @@ type Plugin struct {
 	config []byte
 
 	// Injected/set via initializers
-	kubeClusterClient         kcpkubernetesclientset.ClusterInterface
-	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
+	kubeClusterClient               kcpkubernetesclientset.ClusterInterface
+	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
+	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 }
@@ -107,9 +108,9 @@ func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 	}
 
 	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
-	plugin.SetNamespaceInformer(p.kubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
+	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
 	plugin.SetHookSource(hookSource)
-	plugin.SetReadyFuncFromKCP(p.kubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
+	plugin.SetReadyFuncFromKCP(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		return fmt.Errorf("error validating MutatingWebhook initialization: %w", err)
@@ -125,7 +126,7 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 	}
 
 	return configuration.NewMutatingWebhookConfigurationManagerForInformer(
-		p.kubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
+		p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
 	), nil
 }
 
@@ -152,8 +153,11 @@ func (p *Plugin) ValidateInitialization() error {
 	if p.kubeClusterClient == nil {
 		return errors.New("missing kubeClusterClient")
 	}
-	if p.kubeSharedInformerFactory == nil {
-		return errors.New("missing kubeSharedInformerFactory")
+	if p.localKubeSharedInformerFactory == nil {
+		return errors.New("missing localKubeSharedInformerFactory")
+	}
+	if p.globalKubeSharedInformerFactory == nil {
+		return errors.New("missing globalKubeSharedInformerFactory")
 	}
 	return nil
 }
@@ -163,7 +167,8 @@ func (p *Plugin) SetKubeClusterClient(client kcpkubernetesclientset.ClusterInter
 }
 
 func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
-	p.kubeSharedInformerFactory = local
+	p.localKubeSharedInformerFactory = local
+	p.globalKubeSharedInformerFactory = global
 }
 
 func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
