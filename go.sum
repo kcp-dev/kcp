@@ -42,6 +42,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
+github.com/MikeSpreitzer/kubernetes v1.26.99 h1:Pe5lihiECpREeDrIVs1qJHWnPHabF7OV/v27kgvjI/0=
+github.com/MikeSpreitzer/kubernetes v1.26.99/go.mod h1:nyJTa0Fiq+nOYp4Eb1EeuVNDu1HFyj7BqFOXqNsl0Ic=
 github.com/NYTimes/gziphandler v1.1.1 h1:ZUDjpQae29j0ryrS0u/B8HZfJBtBQHjqw2rQ2cqUQ3I=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
@@ -341,8 +343,6 @@ github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0.0.20230419125703-767ac05aebce 
 github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0.0.20230419125703-767ac05aebce/go.mod h1:zjNivgz2FtvyUPPLNpx5yDxFoFHNQqFrP3FKKTSMvvw=
 github.com/kcp-dev/client-go v0.0.0-20230519100911-e16eb4c2bf18 h1:2DoPVFTfqQe9nq2msBs8oMhFxgsvGE6pOg15tqx9p28=
 github.com/kcp-dev/client-go v0.0.0-20230519100911-e16eb4c2bf18/go.mod h1:C4i5aU8Mufjgjjm+alv5c2hufNsMvO530Rq2sZ3KgHk=
-github.com/kcp-dev/kubernetes v0.0.0-20230427150721-f5a9bfdd1834 h1:u1NT+D4bTqSjjdb+ieH4E5gSAyHB4UWeNIWMy6THqas=
-github.com/kcp-dev/kubernetes v0.0.0-20230427150721-f5a9bfdd1834/go.mod h1:nyJTa0Fiq+nOYp4Eb1EeuVNDu1HFyj7BqFOXqNsl0Ic=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20230427150721-f5a9bfdd1834 h1:m2UxUejtqfjISUaQj5oAGCo9fCVE+x3fW6o6gRhJmMk=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20230427150721-f5a9bfdd1834/go.mod h1:eIheCVopU8kraTsv9cS1caP6mp/YBCwpY1U3OHdeyvM=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20230427150721-f5a9bfdd1834 h1:4DManyM0SR2BF3DQbAWt1BQhAT++g+LIUNi9gvxPtro=
