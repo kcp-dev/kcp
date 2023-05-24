@@ -51,11 +51,9 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
-	"github.com/kcp-dev/kcp/sdk/apis/scheduling"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -584,14 +582,14 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	err = helpers.CreateResourceFromFS(ctx, serviceDynamicClusterClient.Cluster(servicePath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
-	t.Logf("Get the root scheduling APIExport's identity hash")
+	t.Logf("Get the root tenancy APIExport's identity hash")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.io", metav1.GetOptions{})
+		return kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
 
-	schedulingAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.io", metav1.GetOptions{})
+	tenancyAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
 	require.NoError(t, err)
-	identityHash := schedulingAPIExport.Status.IdentityHash
+	identityHash := tenancyAPIExport.Status.IdentityHash
 	require.NotNil(t, identityHash)
 
 	t.Logf("Create an APIExport for APIResourceSchema in service provider %q", servicePath)
@@ -603,7 +601,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			PermissionClaims: []apisv1alpha1.PermissionClaim{
 				{
-					GroupResource: apisv1alpha1.GroupResource{Group: scheduling.GroupName, Resource: "placements"},
+					GroupResource: apisv1alpha1.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
 					IdentityHash:  identityHash,
 					All:           true,
 				},
@@ -640,7 +638,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
 				{
 					PermissionClaim: apisv1alpha1.PermissionClaim{
-						GroupResource: apisv1alpha1.GroupResource{Group: scheduling.GroupName, Resource: "placements"},
+						GroupResource: apisv1alpha1.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
 						IdentityHash:  identityHash,
 						All:           true,
 					},
@@ -666,18 +664,17 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Verify that service user can create a claimed resource in user workspace")
-	placement := &unstructured.Unstructured{
+	workspaceType := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": schedulingv1alpha1.SchemeGroupVersion.String(),
-			"kind":       "Placement",
+			"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
+			"kind":       "WorkspaceType",
 			"metadata": map[string]interface{}{
 				"name": "default",
 			},
 			"spec": map[string]interface{}{
-				"locationResource": map[string]interface{}{
-					"group":    workloadv1alpha1.SchemeGroupVersion.Group,
-					"resource": "synctargets",
-					"version":  workloadv1alpha1.SchemeGroupVersion.Version,
+				"defaultChildWorkspaceType": map[string]interface{}{
+					"name": "universal",
+					"path": "root",
 				},
 			},
 		},
@@ -685,13 +682,13 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err = serviceDynamicVWClient.Cluster(userClusterName.Path()).
-			Resource(schedulingv1alpha1.SchemeGroupVersion.WithResource("placements")).
-			Create(ctx, placement, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("error creating placement: %v", err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating placement")
+			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes")).
+			Create(ctx, workspaceType, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("error creating workspacetype: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating workspacetype")
 
 	t.Logf("Verify that consumer user can get the created resource in user workspace")
-	_, err = userKcpClient.Cluster(userClusterName.Path()).SchedulingV1alpha1().Placements().Get(ctx, placement.GetName(), metav1.GetOptions{})
+	_, err = userKcpClient.Cluster(userClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, workspaceType.GetName(), metav1.GetOptions{})
 	require.NoError(t, err)
 }
 
