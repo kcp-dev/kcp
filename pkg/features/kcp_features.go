@@ -30,6 +30,7 @@ import (
 	logsapi "k8s.io/component-base/logs/api/v1"
 )
 
+//nolint:gocritic
 const (
 // Every feature gate should add method here following this template:
 //
