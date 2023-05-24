@@ -33,8 +33,8 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	"github.com/kcp-dev/kcp/sdk/apis/workload"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -136,12 +136,12 @@ func TestProtectedAPIFromServiceExports(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	t.Logf("Get tenancy APIExport from root workspace")
-	workloadsRoot, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(rootWorkspace).Get(ctx, workload.GroupName, metav1.GetOptions{})
+	tenanciesRoot, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(rootWorkspace).Get(ctx, tenancy.GroupName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Construct VirtualWorkspace client")
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	vwURL := workloadsRoot.Status.VirtualWorkspaces[0].URL
+	vwURL := tenanciesRoot.Status.VirtualWorkspaces[0].URL
 	cfgVW := server.RootShardSystemMasterBaseConfig(t)
 	cfgVW.Host = vwURL
 
@@ -149,6 +149,6 @@ func TestProtectedAPIFromServiceExports(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Make sure we can access tenancy API from VirtualWorkspace")
-	_, err = vwClient.WorkloadV1alpha1().SyncTargets().List(ctx, metav1.ListOptions{})
+	_, err = vwClient.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 }
