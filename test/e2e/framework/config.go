@@ -43,7 +43,6 @@ func init() {
 }
 
 type testConfig struct {
-	syncerImage         string
 	kcpTestImage        string
 	pclusterKubeconfig  string
 	kcpKubeconfig       string
@@ -53,10 +52,6 @@ type testConfig struct {
 }
 
 var TestConfig *testConfig
-
-func (c *testConfig) SyncerImage() string {
-	return c.syncerImage
-}
 
 func (c *testConfig) KCPTestImage() string {
 	return c.kcpTestImage
@@ -100,7 +95,6 @@ func registerFlags(c *testConfig) {
 	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
 	flag.Var(cliflag.NewMapStringString(&c.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
 	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
-	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 	flag.StringVar(&c.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
