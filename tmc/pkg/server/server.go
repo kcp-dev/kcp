@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	configrootcompute "github.com/kcp-dev/kcp/config/rootcompute"
@@ -55,9 +54,7 @@ func (s *Server) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
 	ctx = klog.NewContext(ctx, logger)
 
-	controllerConfig := rest.CopyConfig(s.Core.IdentityConfig)
-
-	enabled := sets.New[string](s.Options.Core.Controllers.IndividuallyEnabled...)
+	enabled := sets.New(s.Options.Core.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		logger.WithValues("controllers", enabled).Info("starting controllers individually")
 	}
@@ -76,7 +73,7 @@ func (s *Server) Run(ctx context.Context) error {
 				if err := configrootcompute.Bootstrap(goContext(hookContext),
 					s.Core.BootstrapApiExtensionsClusterClient,
 					s.Core.BootstrapDynamicClusterClient,
-					sets.New[string](s.Core.Options.Extra.BatteriesIncluded...),
+					sets.New(s.Core.Options.Extra.BatteriesIncluded...),
 				); err != nil {
 					logger.Error(err, "failed to bootstrap root compute workspace")
 					return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -85,11 +82,6 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			return nil
 		}); err != nil {
-			return err
-		}
-
-		// TODO(marun) Consider enabling each controller via a separate flag
-		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}

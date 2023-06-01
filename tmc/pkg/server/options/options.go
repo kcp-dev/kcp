@@ -23,8 +23,7 @@ import (
 )
 
 type Options struct {
-	Core           kcpcoreoptions.Options
-	TmcControllers Controllers
+	Core kcpcoreoptions.Options
 
 	Extra ExtraOptions
 }
@@ -33,8 +32,7 @@ type ExtraOptions struct {
 }
 
 type completedOptions struct {
-	Core        kcpcoreoptions.CompletedOptions
-	Controllers Controllers
+	Core kcpcoreoptions.CompletedOptions
 
 	Extra ExtraOptions
 }
@@ -46,8 +44,7 @@ type CompletedOptions struct {
 // NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
-		Core:           *kcpcoreoptions.NewOptions(rootDir),
-		TmcControllers: *NewTmcControllers(),
+		Core: *kcpcoreoptions.NewOptions(rootDir),
 
 		Extra: ExtraOptions{},
 	}
@@ -57,16 +54,10 @@ func NewOptions(rootDir string) *Options {
 
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	o.Core.AddFlags(fss)
-	o.TmcControllers.AddFlags(fss.FlagSet("KCP Controllers"))
 }
 
 func (o *CompletedOptions) Validate() []error {
-	var errs []error
-
-	errs = append(errs, o.Core.Validate()...)
-	errs = append(errs, o.Controllers.Validate()...)
-
-	return errs
+	return o.Core.Validate()
 }
 
 func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
@@ -74,15 +65,11 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := o.TmcControllers.Complete(rootDir); err != nil {
-		return nil, err
-	}
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
-			Core:        *core,
-			Controllers: o.TmcControllers,
-			Extra:       o.Extra,
+			Core:  *core,
+			Extra: o.Extra,
 		},
 	}, nil
 }
