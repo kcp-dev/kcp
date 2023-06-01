@@ -43,8 +43,6 @@ func init() {
 }
 
 type testConfig struct {
-	kcpTestImage        string
-	pclusterKubeconfig  string
 	kcpKubeconfig       string
 	shardKubeconfigs    map[string]string
 	useDefaultKCPServer bool
@@ -52,14 +50,6 @@ type testConfig struct {
 }
 
 var TestConfig *testConfig
-
-func (c *testConfig) KCPTestImage() string {
-	return c.kcpTestImage
-}
-
-func (c *testConfig) PClusterKubeconfig() string {
-	return c.pclusterKubeconfig
-}
 
 func (c *testConfig) KCPKubeconfig() string {
 	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
@@ -94,8 +84,6 @@ func init() {
 func registerFlags(c *testConfig) {
 	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
 	flag.Var(cliflag.NewMapStringString(&c.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
-	flag.StringVar(&c.pclusterKubeconfig, "pcluster-kubeconfig", "", "Path to the kubeconfig for a kubernetes cluster to sync to. Requires --syncer-image.")
-	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 	flag.StringVar(&c.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
 }

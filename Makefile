@@ -121,12 +121,6 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
 build-all:
 	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
 
-.PHONY: build-kind-images
-build-kind-images-ko: require-ko
-	$(eval TEST_IMAGE=$(shell KO_DOCKER_REPO=kind.local KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image))
-build-kind-images: build-kind-images-ko
-	@test -n "$(TEST_IMAGE)" && (echo $(TEST_IMAGE) pushed to "$(KIND_CLUSTER_NAME)" kind cluster) || (echo Failed to create test image and and/or to push it to "$(KIND_CLUSTER_NAME)" kind cluster; exit 1)
-
 install: WHAT ?= ./cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
 	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $(WHAT)
