@@ -61,10 +61,10 @@ import (
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
+	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
-	"github.com/kcp-dev/kcp/tmc/pkg/server"
 )
 
 // TestServerArgs returns the set of kcp args used to start a test
@@ -664,8 +664,8 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		}
 
 		// the etcd server must be up before NewServer because storage decorators access it right away
-		if completedConfig.Core.EmbeddedEtcd.Config != nil {
-			if err := embeddedetcd.NewServer(completedConfig.Core.EmbeddedEtcd).Run(ctx); err != nil {
+		if completedConfig.EmbeddedEtcd.Config != nil {
+			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
 				return err
 			}
 		}

@@ -22,14 +22,14 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 
 	kcpcoreoptions "github.com/kcp-dev/kcp/cmd/kcp-core/options"
-	tmcserveroptions "github.com/kcp-dev/kcp/tmc/pkg/server/options"
+	serveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 )
 
 type Options struct {
 	Output io.Writer
 
 	Generic kcpcoreoptions.GenericOptions
-	Server  tmcserveroptions.Options
+	Server  serveroptions.Options
 	Extra   ExtraOptions
 }
 
@@ -39,7 +39,7 @@ func NewOptions(rootDir string) *Options {
 	opts := &Options{
 		Output: nil,
 
-		Server:  *tmcserveroptions.NewOptions(rootDir),
+		Server:  *serveroptions.NewOptions(rootDir),
 		Generic: *kcpcoreoptions.NewGeneric(rootDir),
 		Extra:   ExtraOptions{},
 	}
@@ -51,7 +51,7 @@ type completedOptions struct {
 	Output io.Writer
 
 	Generic kcpcoreoptions.GenericOptions
-	Server  tmcserveroptions.CompletedOptions
+	Server  serveroptions.CompletedOptions
 	Extra   ExtraOptions
 }
 
