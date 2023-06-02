@@ -184,7 +184,7 @@ Then we'll use a CRD to generate an `APIResourceSchema` and `APIExport` and appl
 workspace.
 
 > The `apigen` tool used below can be found
-> [here](https://github.com/kcp-dev/kcp/tree/main/cmd/apigen). Builds for the
+> [here](https://github.com/kcp-dev/kcp/tree/main/sdk/cmd/apigen). Builds for the
 > tool are not currently published as part of the kcp release process.
 
 ```shell

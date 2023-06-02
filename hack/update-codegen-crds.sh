@@ -53,6 +53,6 @@ ${CONTROLLER_GEN} \
     output:crd:artifacts:config="${REPO_ROOT}"/test/e2e/reconciler/cluster/
 
 (
-    cd "${REPO_ROOT}"/cmd/apigen
+    cd "${REPO_ROOT}"/sdk/cmd/apigen
     go run main.go --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0
 )
