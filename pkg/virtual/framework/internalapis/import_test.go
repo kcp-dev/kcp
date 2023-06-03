@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 //go:embed fixtures/*.yaml
@@ -67,21 +67,21 @@ func TestImportInternalAPIs(t *testing.T) {
 		},
 		{
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:   "synctargets",
-				Singular: "synctarget",
-				Kind:     "SyncTarget",
+				Plural:   "workspaces",
+				Singular: "workspace",
+				Kind:     "Workspace",
 			},
-			GroupVersion:  schema.GroupVersion{Group: "workload.kcp.io", Version: "v1alpha1"},
-			Instance:      &workloadv1alpha1.SyncTarget{},
+			GroupVersion:  schema.GroupVersion{Group: "tenancy.kcp.io", Version: "v1alpha1"},
+			Instance:      &tenancyv1alpha1.Workspace{},
 			ResourceScope: apiextensionsv1.ClusterScoped,
 			HasStatus:     true,
 		},
 	}
-	workloadScheme := runtime.NewScheme()
-	err := workloadv1alpha1.AddToScheme(workloadScheme)
+	tenancyScheme := runtime.NewScheme()
+	err := tenancyv1alpha1.AddToScheme(tenancyScheme)
 	require.NoError(t, err)
 	schemas, err := CreateAPIResourceSchemas(
-		[]*runtime.Scheme{clientgoscheme.Scheme, workloadScheme},
+		[]*runtime.Scheme{clientgoscheme.Scheme, tenancyScheme},
 		[]common.GetOpenAPIDefinitions{k8sopenapi.GetOpenAPIDefinitions, kcpopenapi.GetOpenAPIDefinitions},
 		apisToImport...)
 	require.NoError(t, err)

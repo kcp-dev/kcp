@@ -7,14 +7,12 @@ kcp is a Kubernetes-like control plane focusing on:
 - A **control plane** for many independent, **isolated** “clusters” known as **workspaces**
 - Enabling API service providers to **offer APIs centrally** using **multi-tenant operators**
 - Easy **API consumption** for users in their workspaces
-- Flexible **scheduling** of workloads to physical clusters
-- **Transparent movement** of workloads among compatible physical clusters
-- **Advanced deployment strategies** for scenarios such as affinity/anti-affinity, geographic replication, cross-cloud
-  replication, etc.
 
 kcp can be a building block for SaaS service providers who need a **massively multi-tenant platform** to offer services
 to a large number of fully isolated tenants using Kubernetes-native APIs. The goal is to be useful to cloud
 providers as well as enterprise IT departments offering APIs within their company.
+
+**NB:** In May 2023, the kcp project was restructured and components related to workload scheduling (e.g. the syncer) and the transparent multi cluster (tmc) code were removed due to lack of interest/maintainers. Please refer to the [`main-pre-tmc-removal` branch](https://github.com/kcp-dev/kcp/tree/main-pre-tmc-removal) if you are interested in the related code.
 
 ## Documentation
 

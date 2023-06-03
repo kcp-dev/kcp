@@ -38,11 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -57,15 +55,12 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
-	"github.com/kcp-dev/kcp/pkg/tunneler"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
@@ -370,14 +365,6 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
 
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-		kubeBasicLongRunningRequestCheck := c.GenericConfig.LongRunningFunc
-		tunnelBasicLongRunningRequestCheck := genericfilters.BasicLongRunningRequestCheck(sets.NewString(""), sets.NewString("tunnel"))
-		c.GenericConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
-			return kubeBasicLongRunningRequestCheck(r, requestInfo) || tunnelBasicLongRunningRequestCheck(r, requestInfo)
-		}
-	}
-
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -387,17 +374,6 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
-
-		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-			tunneler := tunneler.NewTunneler()
-			apiHandler = tunneler.WithSyncerTunnelHandler(apiHandler)
-			apiHandler = tunneler.WithPodSubresourceProxying(
-				apiHandler,
-				c.DynamicClusterClient,
-				c.KcpSharedInformerFactory,
-				c.CacheKcpSharedInformerFactory,
-			)
-		}
 
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
 		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
@@ -525,10 +501,8 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// make sure the informer gets started, otherwise conversions will not work!
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
-	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})            //nolint:errcheck
-	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                        //nolint:errcheck
-	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey})      //nolint:errcheck
-	c.CacheKcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
+	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName}) //nolint:errcheck
+	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})             //nolint:errcheck
 
 	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,

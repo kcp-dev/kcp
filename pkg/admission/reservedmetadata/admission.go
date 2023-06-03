@@ -29,11 +29,9 @@ import (
 	"k8s.io/utils/strings/slices"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/syncer"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 const (
@@ -42,8 +40,6 @@ const (
 
 var (
 	annotationAllowList = []string{
-		workloadv1alpha1.AnnotationSkipDefaultObjectCreation,
-		syncer.AdvancedSchedulingFeatureAnnotation,
 		tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, // protected by workspace admission from non-system:admins
 		authorization.RequiredGroupsAnnotationKey,               // protected by workspace admission from non-system:admins
 		core.LogicalClusterPathAnnotationKey,                    // protected by pathannoation admission from non-system:admins

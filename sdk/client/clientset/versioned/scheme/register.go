@@ -28,10 +28,8 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 var Scheme = runtime.NewScheme()
@@ -41,10 +39,8 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	apiresourcev1alpha1.AddToScheme,
 	apisv1alpha1.AddToScheme,
 	corev1alpha1.AddToScheme,
-	schedulingv1alpha1.AddToScheme,
 	tenancyv1alpha1.AddToScheme,
 	topologyv1alpha1.AddToScheme,
-	workloadv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

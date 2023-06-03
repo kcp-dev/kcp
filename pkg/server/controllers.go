@@ -77,7 +77,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
-	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -1149,7 +1148,7 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 	}
 
 	return s.AddPostStartHook(postStartHookName(extraannotationsync.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsapiexport.ControllerName))
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(extraannotationsync.ControllerName))
 		if err := s.WaitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.

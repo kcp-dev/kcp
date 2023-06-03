@@ -18,7 +18,6 @@ package indexers
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -28,57 +27,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 )
 
 const (
-	// BySyncerFinalizerKey is the name for the index that indexes by syncer finalizer label keys.
-	BySyncerFinalizerKey = "bySyncerFinalizerKey"
 	// APIBindingByClusterAndAcceptedClaimedGroupResources is the name for the index that indexes an APIBinding by its
 	// cluster name and accepted claimed group resources.
 	APIBindingByClusterAndAcceptedClaimedGroupResources = "byClusterAndAcceptedClaimedGroupResources"
-	// ByClusterResourceStateLabelKey indexes resources based on the cluster state label key.
-	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
 	// ByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
 	ByLogicalClusterPath = "ByLogicalClusterPath"
 	// ByLogicalClusterPathAndName indexes by logical cluster path and object name, if the annotation exists.
 	ByLogicalClusterPathAndName = "ByLogicalClusterPathAndName"
 )
-
-// IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
-func IndexBySyncerFinalizerKey(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	syncerFinalizers := []string{}
-	for _, f := range metaObj.GetFinalizers() {
-		if strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
-			syncerFinalizers = append(syncerFinalizers, f)
-		}
-	}
-
-	return syncerFinalizers, nil
-}
-
-// IndexByClusterResourceStateLabelKey indexes resources based on the cluster state key label.
-func IndexByClusterResourceStateLabelKey(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	ClusterResourceStateLabelKeys := []string{}
-	for k := range metaObj.GetLabels() {
-		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
-			ClusterResourceStateLabelKeys = append(ClusterResourceStateLabelKeys, k)
-		}
-	}
-	return ClusterResourceStateLabelKeys, nil
-}
 
 // IndexByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
 func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {

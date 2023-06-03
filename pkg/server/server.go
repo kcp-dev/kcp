@@ -39,7 +39,6 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -104,12 +103,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		func(obj interface{}) bool { return true },
 		nil,
 		crdGVRSource,
-		indexers.AppendOrDie(
-			cache.Indexers{
-				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
-				indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,
-			},
-		),
+		cache.Indexers{},
 	)
 	if err != nil {
 		return nil, err

@@ -42,7 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	tmcserver "github.com/kcp-dev/kcp/tmc/pkg/server"
+	"github.com/kcp-dev/kcp/pkg/server"
 )
 
 func main() {
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	serverOptions := options.NewOptions(rootDir)
-	serverOptions.Server.Core.GenericControlPlane.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
+	serverOptions.Server.GenericControlPlane.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
 
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -105,7 +105,7 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
-			if err := logsapiv1.ValidateAndApply(serverOptions.Server.Core.GenericControlPlane.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
+			if err := logsapiv1.ValidateAndApply(serverOptions.Server.GenericControlPlane.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 
@@ -119,9 +119,9 @@ func main() {
 			}
 
 			logger := klog.FromContext(cmd.Context())
-			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Core.Extra.BatteriesIncluded, ","))
+			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Extra.BatteriesIncluded, ","))
 
-			config, err := tmcserver.NewConfig(completed.Server)
+			config, err := server.NewConfig(completed.Server)
 			if err != nil {
 				return err
 			}
@@ -134,13 +134,13 @@ func main() {
 			ctx := genericapiserver.SetupSignalContext()
 
 			// the etcd server must be up before NewServer because storage decorators access it right away
-			if completedConfig.Core.EmbeddedEtcd.Config != nil {
-				if err := embeddedetcd.NewServer(completedConfig.Core.EmbeddedEtcd).Run(ctx); err != nil {
+			if completedConfig.EmbeddedEtcd.Config != nil {
+				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
 					return err
 				}
 			}
 
-			s, err := tmcserver.NewServer(completedConfig)
+			s, err := server.NewServer(completedConfig)
 			if err != nil {
 				return err
 			}

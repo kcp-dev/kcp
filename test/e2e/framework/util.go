@@ -62,7 +62,6 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -291,8 +290,6 @@ func GetFreePort(t *testing.T) (string, error) {
 }
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
-
-type SyncTargetOption func(cluster *workloadv1alpha1.SyncTarget)
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
 func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Path, contextName string) clientcmdapi.Config {
