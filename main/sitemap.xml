@@ -239,13 +239,6 @@
          
     </url>
     <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_bind_compute/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_bind_compute/"/>
-         
-    </url>
-    <url>
          <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_claims/</loc>
          <lastmod>2023-06-03</lastmod>
          <changefreq>daily</changefreq>
@@ -278,41 +271,6 @@
          <lastmod>2023-06-03</lastmod>
          <changefreq>daily</changefreq>
          <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_crd_snapshot/"/>
-         
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workload/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workload/"/>
-         
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workload_cordon/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workload_cordon/"/>
-         
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workload_drain/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workload_drain/"/>
-         
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workload_sync/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workload_sync/"/>
-         
-    </url>
-    <url>
-         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workload_uncordon/</loc>
-         <lastmod>2023-06-03</lastmod>
-         <changefreq>daily</changefreq>
-         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/en/reference/cli/kcp_workload_uncordon/"/>
          
     </url>
     <url>
