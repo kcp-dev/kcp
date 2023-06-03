@@ -48,7 +48,7 @@ import (
 type Controller interface {
 	Start(ctx context.Context, numThreads int)
 
-	EnqueueClusterRoleBindings(values ...interface{})
+	EnqueueClusterRoleBindings(clusterName logicalcluster.Name, values ...interface{})
 }
 
 // NewController returns a new controller for labelling ClusterRoleBinding that should be replicated.
@@ -144,8 +144,8 @@ type controller struct {
 	commit func(ctx context.Context, new, old *rbacv1.ClusterRoleBinding) error
 }
 
-func (c *controller) EnqueueClusterRoleBindings(values ...interface{}) {
-	clusterRoleBindings, err := c.clusterRoleBindingLister.List(labels.Everything())
+func (c *controller) EnqueueClusterRoleBindings(clusterName logicalcluster.Name, values ...interface{}) {
+	clusterRoleBindings, err := c.clusterRoleBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
