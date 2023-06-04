@@ -59,18 +59,6 @@ source_repositories:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
-      locations.scheduling.kcp.io:
-        owner:
-          - https://github.com/kcp-dev/kcp
-        topics:
-          - schuduling
-          - location
-      placements.scheduling.kcp.io:
-        owner:
-          - https://github.com/kcp-dev/kcp
-        topics:
-          - scheduling
-          - placements
       shards.core.kcp.io:
         owner:
         - https://github.com/kcp-dev/kcp
@@ -98,12 +86,6 @@ source_repositories:
         topics:
           - tenancy
           - workspaces
-      synctargets.workload.kcp.io:
-        owner:
-          - https://github.com/kcp-dev/kcp
-        topics:
-          - workload
-          - synctargets
       partitions.topology.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp

@@ -28,19 +28,13 @@ const (
 
 	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin.
 	User = "user"
-
-	// RootComputeWorkspace leads to creation of a compute workspace with kubernetes APIExport and
-	// related APIResourceSchemas in the workspace.
-	RootComputeWorkspace = "root-compute-workspace"
 )
 
 var All = sets.New[string](
 	WorkspaceTypes,
 	User,
-	RootComputeWorkspace,
 )
 
 var Defaults = sets.New[string](
 	WorkspaceTypes,
-	RootComputeWorkspace,
 )
