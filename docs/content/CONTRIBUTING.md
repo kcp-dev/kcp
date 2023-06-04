@@ -17,7 +17,7 @@ contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file f
 ### Prerequisites
 
 1. Clone this repository.
-2. [Install Go](https://golang.org/doc/install) (currently 1.19).
+2. [Install Go](https://golang.org/doc/install) (currently 1.20).
 3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl).
 
 Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/.ci-operator.yaml, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/.ci-operator.yaml the go version is indicated by the "tag" attribute. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version"
@@ -126,7 +126,7 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 - New features start under a feature-gate (`--feature-gate GateName=true`). (At some point in the future), new feature-gates are off by default *at least* until the APIs are promoted to beta (we are not there before we have reached MVP).
 - Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. **We do not compromise on unit tests**. Every feature-gated code needs full unit tests as every other code-path.
 - Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.
-- We use Testify's [require](https://pkg.go.dev/github.com/stretchr/testify/require) a 
+- We use Testify's [require](https://pkg.go.dev/github.com/stretchr/testify/require) a
   lot in tests, and avoid
   [assert](https://pkg.go.dev/github.com/stretchr/testify/assert).
 

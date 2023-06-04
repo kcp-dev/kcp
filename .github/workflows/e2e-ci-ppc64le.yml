@@ -59,8 +59,8 @@ jobs:
             service docker start
 
             #Install Go, Kind, kubectl
-            cd /root/ && wget https://go.dev/dl/go1.19.linux-ppc64le.tar.gz
-            tar -C /usr/local -xzf go1.19.linux-ppc64le.tar.gz
+            cd /root/ && wget https://go.dev/dl/go1.20.linux-ppc64le.tar.gz
+            tar -C /usr/local -xzf go1.20.linux-ppc64le.tar.gz
             export PATH=$PATH:/usr/local/go/bin
             go install github.com/google/ko@latest
             go install sigs.k8s.io/kind@v0.14.0
