@@ -99,5 +99,6 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	genericfeatures.ServerSideFieldValidation:           {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.ValidatingAdmissionPolicy:           {Default: false, PreRelease: featuregate.Alpha},
 
-	logsapi.ContextualLogging: {Default: true, PreRelease: featuregate.Alpha},
+	logsapi.LoggingBetaOptions: {Default: true, PreRelease: featuregate.Beta},
+	logsapi.ContextualLogging:  {Default: true, PreRelease: featuregate.Alpha},
 }
