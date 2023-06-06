@@ -1,0 +1,180 @@
+presubmits:
+  - name: pull-kcp-verify
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - verify-boilerplate
+            - verify-modules
+            - verify-k8s-deps
+            - verify-imports
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
+  - name: pull-kcp-verify-codegen
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - verify-codegen
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
+  - name: pull-kcp-lint
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - lint
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 2
+
+  - name: pull-kcp-test-unit
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - test
+          env:
+            - name: USE_GOTESTSUM
+              value: '1'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 2
+
+  - name: pull-kcp-test-e2e
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e
+          env:
+            - name: SUITES
+              value: control-plane
+            - name: USE_GOTESTSUM
+              value: '1'
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: '1'
+            - name: E2E_PARALLELISM
+              value: '3'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 3
+
+  - name: pull-kcp-test-e2e-multiple-runs
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e
+          env:
+            - name: SUITES
+              value: control-plane
+            - name: USE_GOTESTSUM
+              value: '1'
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: '1'
+            - name: COUNT
+              value: '3'
+            - name: E2E_PARALLELISM
+              value: '3'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 3
+
+  - name: pull-kcp-test-e2e-shared
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e-shared-minimal
+          env:
+            - name: SUITES
+              value: control-plane
+            - name: USE_GOTESTSUM
+              value: '1'
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: '1'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 3
+
+  - name: pull-kcp-test-e2e-sharded
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e-sharded-minimal
+          env:
+            - name: SUITES
+              value: control-plane
+            - name: USE_GOTESTSUM
+              value: '1'
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: '1'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 3
