@@ -53,6 +53,28 @@ presubmits:
               memory: 4Gi
               cpu: 2
 
+  - name: pull-kcp-build-image
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/containers/buildah:v1.30.0
+          command:
+            - hack/build-image.sh
+          env:
+            - name: DRY_RUN
+              value: '1'
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
   - name: pull-kcp-test-unit
     always_run: true
     decorate: true
