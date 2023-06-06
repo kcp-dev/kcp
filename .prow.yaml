@@ -1,0 +1,74 @@
+presubmits:
+  - name: pull-kcp-verify
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - verify-boilerplate
+            - verify-modules
+            - verify-k8s-deps
+            - verify-imports
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
+  - name: pull-kcp-verify-codegen
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - verify-codegen
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
+  - name: pull-kcp-lint
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - lint
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 2
+
+  - name: pull-kcp-test-unit
+    always_run: true
+    decorate: true
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.19.9-2
+          command:
+            - make
+            - test
+          env:
+            - name: USE_GOTESTSUM
+              value: '1'
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 2
