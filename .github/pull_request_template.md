@@ -19,3 +19,17 @@ Please copy the appropriate `:text:` or icon to the beginning of your PR title:
 ## Related issue(s)
 
 Fixes #
+
+## Release Notes
+
+<!--
+Please add a release note using the following format:
+
+```release-note
+<description of change>
+```
+-->
+
+```release-note
+NONE
+```
