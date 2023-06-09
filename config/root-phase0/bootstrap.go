@@ -41,7 +41,7 @@ var fs embed.FS
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.core.kcp.io", "tenancy.kcp.io", "scheduling.kcp.io", "workload.kcp.io", "apiresource.kcp.io", "topology.kcp.io"); err != nil {
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.core.kcp.io", "tenancy.kcp.io", "apiresource.kcp.io", "topology.kcp.io"); err != nil {
 		return err
 	}
 	err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs)

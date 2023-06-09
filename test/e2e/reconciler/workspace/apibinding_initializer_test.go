@@ -96,7 +96,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 				},
 				{
 					Path:   "root",
-					Export: "scheduling.kcp.io",
+					Export: "tenancy.kcp.io",
 				},
 			},
 		},
@@ -110,7 +110,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
-					Export: "workload.kcp.io",
+					Export: "topology.kcp.io",
 				},
 			},
 		},
