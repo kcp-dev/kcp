@@ -19,7 +19,7 @@ set -o pipefail
 
 VERSION=$(grep "go 1." go.mod | sed 's/go //')
 
-grep "FROM .* golang:" Dockerfile | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in Dockerfile, expected ${VERSION}"; exit 1; }
+grep "FROM .* docker.io/golang:" Dockerfile | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in Dockerfile, expected ${VERSION}"; exit 1; }
 grep -w "go-version:" .github/workflows/*.yaml | { ! grep -v "go-version: v${VERSION}"; } || { echo "Wrong go version in .github/workflows/*.yaml, expected ${VERSION}"; exit 1; }
 
 shopt -s dotglob

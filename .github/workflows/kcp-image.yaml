@@ -10,16 +10,6 @@ on:
       - 'release-*'
     tags:
     - 'v*'
-  pull_request:
-    branches:
-      - main
-      - 'release-*'
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - ".github/ISSUE_TEMPLATE/*"
-      - ".github/workflows/docs-gen-and-push.yaml"
-      - ".goreleaser.yaml"
 
 jobs:
   build:
