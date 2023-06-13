@@ -105,8 +105,3 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.36 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 )
-
-replace (
-	github.com/kcp-dev/kcp/sdk/apis => ./apis
-	github.com/kcp-dev/kcp/sdk/client => ./client
-)
