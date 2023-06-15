@@ -126,7 +126,7 @@ If you find yourself working on something that is unplanned and/or untracked (i.
 - New features start under a feature-gate (`--feature-gate GateName=true`). (At some point in the future), new feature-gates are off by default *at least* until the APIs are promoted to beta (we are not there before we have reached MVP).
 - Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. **We do not compromise on unit tests**. Every feature-gated code needs full unit tests as every other code-path.
 - Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.
-- We use Testify's [require](https://pkg.go.dev/github.com/stretchr/testify/require) a 
+- We use Testify's [require](https://pkg.go.dev/github.com/stretchr/testify/require) a
   lot in tests, and avoid
   [assert](https://pkg.go.dev/github.com/stretchr/testify/assert).
 
@@ -199,9 +199,7 @@ and [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automat
 Here are the most important links:
 
 - [.github/workflows/ci.yaml](https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml) defines the Github Actions based jobs.
-- [openshift/release/ci-operator/config/kcp-dev/kcp](https://github.com/openshift/release/tree/master/ci-operator/config/kcp-dev/kcp) defines the prow based jobs.
-- [OpenShift CI docs](https://docs.ci.openshift.org/docs/) describes the OpenShift CI system that kcp is currently piggy backing on.
-- [Testgrid](https://k8s-testgrid.appspot.com/kcp-main#Summary) shows CI statistics.
+- [kcp-dev/kcp/.prow.yaml](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml)](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml) defines the prow based jobs.
 
 ## Debugging flakes
 

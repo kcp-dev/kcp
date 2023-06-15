@@ -104,13 +104,3 @@ APIs”), and may be defaulted based on some attributes of a workspace type (all
 Kube APIs, this other “type” get the knative apis).
 
 The evolution of an API within a workspace and across workspaces is of key importance.
-
-## Syncer
-
-A syncer is installed on a SyncTarget and is responsible for synchronizing data between kcp and that cluster.
-
-## Location
-
-A collection of SyncTargets that describe runtime characteristics that allow placement of applications.
-Characteristics are not limited but could describe things like GPU, supported storage, compliance or
-regulatory fulfillment, or geographical placement.
