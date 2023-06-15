@@ -14,7 +14,7 @@
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/terminology/">
       
       
-        <link rel="prev" href="../storage/">
+        <link rel="prev" href="../rest-access-patterns/">
       
       
         <link rel="next" href="../virtual-workspaces/">
@@ -303,12 +303,6 @@
         
           
         
-          
-        
-          
-        
-          
-        
       
       
         
@@ -421,20 +415,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../placement-locations-and-scheduling/" class="md-nav__link">
-        Placement, Locations, and Scheduling
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
         Quickstart: Tenancy and APIs
       </a>
@@ -449,36 +429,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../registering-kubernetes-clusters-using-syncer/" class="md-nav__link">
-        Registering Kubernetes Clusters using syncer
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../rest-access-patterns/" class="md-nav__link">
         REST access patterns
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../storage/" class="md-nav__link">
-        Storage and stateful applications
       </a>
     </li>
   
@@ -576,20 +528,6 @@
         <li class="md-nav__item">
   <a href="#api-binding" class="md-nav__link">
     API Binding
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#syncer" class="md-nav__link">
-    Syncer
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#location" class="md-nav__link">
-    Location
   </a>
   
 </li>
@@ -1538,20 +1476,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#syncer" class="md-nav__link">
-    Syncer
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#location" class="md-nav__link">
-    Location
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1643,12 +1567,6 @@ currently bound), allow a user to bulk associate APIs (i.e. multiple APIs at the
 APIs”), and may be defaulted based on some attributes of a workspace type (all workspaces of this “type” get the default
 Kube APIs, this other “type” get the knative apis).</p>
 <p>The evolution of an API within a workspace and across workspaces is of key importance.</p>
-<h2 id="syncer">Syncer</h2>
-<p>A syncer is installed on a SyncTarget and is responsible for synchronizing data between kcp and that cluster.</p>
-<h2 id="location">Location</h2>
-<p>A collection of SyncTargets that describe runtime characteristics that allow placement of applications.
-Characteristics are not limited but could describe things like GPU, supported storage, compliance or
-regulatory fulfillment, or geographical placement.</p>
 
 
 

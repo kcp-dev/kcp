@@ -529,12 +529,6 @@
         
           
         
-          
-        
-          
-        
-          
-        
       
       
         
@@ -647,20 +641,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/placement-locations-and-scheduling/" class="md-nav__link">
-        Placement, Locations, and Scheduling
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         Quickstart: Tenancy and APIs
       </a>
@@ -675,36 +655,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/registering-kubernetes-clusters-using-syncer/" class="md-nav__link">
-        Registering Kubernetes Clusters using syncer
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../concepts/rest-access-patterns/" class="md-nav__link">
         REST access patterns
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../concepts/storage/" class="md-nav__link">
-        Storage and stateful applications
       </a>
     </li>
   
@@ -1921,7 +1873,7 @@ contribution. See the <a href="https://github.com/kcp-dev/kcp/tree/main/DCO">DCO
 <li>New features start under a feature-gate (<code>--feature-gate GateName=true</code>). (At some point in the future), new feature-gates are off by default <em>at least</em> until the APIs are promoted to beta (we are not there before we have reached MVP).</li>
 <li>Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. <strong>We do not compromise on unit tests</strong>. Every feature-gated code needs full unit tests as every other code-path.</li>
 <li>Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.</li>
-<li>We use Testify's <a href="https://pkg.go.dev/github.com/stretchr/testify/require">require</a> a 
+<li>We use Testify's <a href="https://pkg.go.dev/github.com/stretchr/testify/require">require</a> a
   lot in tests, and avoid
   <a href="https://pkg.go.dev/github.com/stretchr/testify/assert">assert</a>.</li>
 </ul>
@@ -1975,9 +1927,7 @@ and <a href="https://github.com/kubernetes/test-infra/tree/master/prow">prow</a>
 <p>Here are the most important links:</p>
 <ul>
 <li><a href="https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml">.github/workflows/ci.yaml</a> defines the Github Actions based jobs.</li>
-<li><a href="https://github.com/openshift/release/tree/master/ci-operator/config/kcp-dev/kcp">openshift/release/ci-operator/config/kcp-dev/kcp</a> defines the prow based jobs.</li>
-<li><a href="https://docs.ci.openshift.org/docs/">OpenShift CI docs</a> describes the OpenShift CI system that kcp is currently piggy backing on.</li>
-<li><a href="https://k8s-testgrid.appspot.com/kcp-main#Summary">Testgrid</a> shows CI statistics.</li>
+<li><a href="https://github.com/kcp-dev/kcp/blob/main/.prow.yaml">kcp-dev/kcp/.prow.yaml</a>](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml) defines the prow based jobs.</li>
 </ul>
 <h2 id="debugging-flakes">Debugging flakes</h2>
 <p>Tests that sometimes pass and sometimes fail are known as flakes. Sometimes, there is only an issue with the test, while
