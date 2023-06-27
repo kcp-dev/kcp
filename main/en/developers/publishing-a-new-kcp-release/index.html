@@ -658,20 +658,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#configure-prow-for-the-new-release-branch" class="md-nav__link">
-    Configure prow for the new release branch
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#update-testgrid" class="md-nav__link">
-    Update testgrid
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1495,20 +1481,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#configure-prow-for-the-new-release-branch" class="md-nav__link">
-    Configure prow for the new release branch
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#update-testgrid" class="md-nav__link">
-    Update testgrid
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1575,17 +1547,17 @@ tasks.</p>
 </code></pre></div>
 </li>
 <li>
-<p>Tag the <code>pkg/sdk</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
+<p>Tag the <code>sdk</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;pkg/sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;pkg/sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
 <h3 id="push-the-tags">Push the tags</h3>
 </li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;pkg/sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
 </code></pre></div>
 <h2 id="if-its-a-new-minor-version">If it's a new minor version</h2>
 <p>If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
@@ -1599,59 +1571,6 @@ tasks.</p>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
-<h3 id="configure-prow-for-the-new-release-branch">Configure prow for the new release branch</h3>
-<ol>
-<li>Make sure you have <a href="https://github.com/openshift/release/">openshift/release</a> cloned</li>
-<li>Create a new branch</li>
-<li>Copy <code>ci-operator/config/kcp-dev/kcp/kcp-dev-kcp-main.yaml</code> to <code>ci-operator/config/kcp-dev/kcp/kcp-dev-kcp-release-&lt;version&gt;.yaml</code></li>
-<li>Edit the new file</li>
-<li>
-<p>Change <code>main</code> to the name of the release branch, such as <code>release-0.8</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">zz_generated_metadata</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">branch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
-</code></pre></div>
-</li>
-<li>
-<p>Change <code>latest</code> to the name of the release branch</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">promotion</span><span class="p">:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kcp</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">tag_by_commit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</code></pre></div>
-</li>
-<li>
-<p>Edit <code>core-services/prow/02_config/kcp-dev/kcp/_prowconfig.yaml</code></p>
-</li>
-<li>Copy the <code>main</code> branch configuration to a new <code>release-x.y</code> entry</li>
-<li>Run <code>make update</code></li>
-<li>Add the new/updated files and commit your changes</li>
-<li>Push your branch to your fork</li>
-<li>Open a pull request</li>
-<li>Wait for it to be reviewed and merged</li>
-</ol>
-<h3 id="update-testgrid">Update testgrid</h3>
-<ol>
-<li>Make sure you have a clone of <a href="https://github.com/kubernetes/test-infra/">kubernetes/test-infra</a></li>
-<li>Edit config/testgrids/kcp/kcp.yaml</li>
-<li>In the <code>test_groups</code> section:<ol>
-<li>Copy all the entries under <code># main</code> to the bottom of the map</li>
-<li>Rename <code>-main-</code> to <code>-release-&lt;version&gt;-</code></li>
-</ol>
-</li>
-<li>In the <code>dashboard_groups</code> section:<ol>
-<li>Add a new entry under <code>dashboard_names</code> for <code>kcp-release-&lt;version&gt;</code></li>
-</ol>
-</li>
-<li>In the <code>dashboards</code> section:<ol>
-<li>Copy the <code>kcp-main</code> entry, including <code>dashboard_tab</code> and all its entries, to a new entry called <code>kcp-release-&lt;version&gt;</code></li>
-<li>Rename <code>main</code> to <code>release-&lt;version&gt;</code> in the new entry</li>
-</ol>
-</li>
-<li>Commit your changes</li>
-<li>Push your branch to your fork</li>
-<li>Open a pull request</li>
-<li>Wait for it to be reviewed and merged</li>
-</ol>
 <h2 id="revieweditpublish-the-release-in-github">Review/edit/publish the release in GitHub</h2>
 <p>The <a href="https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml">goreleaser</a> workflow automatically creates a draft GitHub release for each tag.</p>
 <ol>
