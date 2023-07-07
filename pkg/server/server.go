@@ -56,6 +56,8 @@ type Server struct {
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
+
+	controllers map[string]*controllerWrapper
 }
 
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {
@@ -71,6 +73,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		CompletedConfig:      c,
 		syncedCh:             make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
+		controllers:          make(map[string]*controllerWrapper),
 	}
 
 	var err error
@@ -488,6 +491,18 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.userToken, s.shardAdminTokenHash); err != nil {
+		return err
+	}
+
+	// add post start hook that starts all registered controllers.
+	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
+		ctx := klog.NewContext(goContext(hookContext), logger)
+
+		s.startControllers(ctx)
+
+		return nil
+	}); err != nil {
 		return err
 	}
 

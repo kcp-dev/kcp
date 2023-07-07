@@ -34,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	certutil "k8s.io/client-go/util/cert"
@@ -84,8 +83,51 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
-func postStartHookName(controllerName string) string {
-	return fmt.Sprintf("kcp-start-%s", controllerName)
+type RunFunc func(ctx context.Context)
+type WaitFunc func(ctx context.Context, s *Server) error
+
+type controllerWrapper struct {
+	Name   string
+	Runner RunFunc
+	Wait   WaitFunc
+}
+
+func (s *Server) startControllers(ctx context.Context) {
+	for _, controller := range s.controllers {
+		go s.runController(ctx, controller)
+	}
+}
+
+func (s *Server) runController(ctx context.Context, controller *controllerWrapper) {
+	log := klog.FromContext(ctx).WithValues("controller", controller.Name)
+	log.Info("waiting for sync")
+
+	// controllers can define their own custom wait functions in case
+	// they need to start early. If they do not define one, we will wait
+	// for everything to sync.
+	var err error
+	if controller.Wait != nil {
+		err = controller.Wait(ctx, s)
+	} else {
+		err = s.WaitForSync(ctx.Done())
+	}
+	if err != nil {
+		log.Error(err, "failed to wait for sync")
+		return
+	}
+
+	log.Info("starting registered controller")
+	controller.Runner(ctx)
+}
+
+func (s *Server) registerController(controller *controllerWrapper) error {
+	if s.controllers[controller.Name] != nil {
+		return fmt.Errorf("controller %s is already registered", controller.Name)
+	}
+
+	s.controllers[controller.Name] = controller
+
+	return nil
 }
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -99,9 +141,11 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		kubeClient.RbacV1())
 
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		go c.Run(ctx, 5)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			c.Run(ctx, 5)
+		},
 	})
 }
 
@@ -140,15 +184,11 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		corev1.FinalizerKubernetes,
 	)
 
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Run(10, ctx.Done())
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			c.Run(10, ctx.Done())
+		},
 	})
 }
 
@@ -170,15 +210,11 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 		return fmt.Errorf("error creating ServiceAccount controller: %w", err)
 	}
 
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Run(ctx, 1)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			c.Run(ctx, 1)
+		},
 	})
 }
 
@@ -227,16 +263,14 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		return fmt.Errorf("error creating service account controller: %w", err)
 	}
 
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go controller.Run(int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			controller.Run(
+				int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs),
+				ctx.Done(),
+			)
+		},
 	})
 }
 
@@ -269,15 +303,11 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		return fmt.Errorf("error creating %s controller: %w", controllerName, err)
 	}
 
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Run(ctx, 2)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			c.Run(ctx, 2)
+		},
 	})
 }
 
@@ -307,15 +337,11 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(tenancylogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancylogicalcluster.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go controller.Start(ctx, 10)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: tenancylogicalcluster.ControllerName,
+		Runner: func(ctx context.Context) {
+			controller.Start(ctx, 10)
+		},
 	})
 }
 
@@ -354,15 +380,11 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 		discoverResourcesFn,
 	)
 
-	return s.AddPostStartHook(postStartHookName(logicalclusterdeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(logicalclusterdeletion.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go logicalClusterDeletionController.Start(ctx, 10)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: logicalclusterdeletion.ControllerName,
+		Runner: func(ctx context.Context) {
+			logicalClusterDeletionController.Start(ctx, 10)
+		},
 	})
 }
 
@@ -400,14 +422,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(workspace.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspace.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		go workspaceController.Start(ctx, 2)
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: workspace.ControllerName,
+		Runner: func(ctx context.Context) {
+			workspaceController.Start(ctx, 2)
+		},
 	}); err != nil {
 		return err
 	}
@@ -430,14 +449,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}
 	}
 	if workspaceShardController != nil {
-		if err := s.AddPostStartHook(postStartHookName(shard.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-			logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(shard.ControllerName))
-			if err := s.WaitForSync(hookContext.StopCh); err != nil {
-				logger.Error(err, "failed to finish post-start-hook")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			go workspaceShardController.Start(ctx, 2)
-			return nil
+		if err := s.registerController(&controllerWrapper{
+			Name: shard.ControllerName,
+			Runner: func(ctx context.Context) {
+				workspaceShardController.Start(ctx, 2)
+			},
 		}); err != nil {
 			return err
 		}
@@ -459,14 +475,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(workspacetype.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspacetype.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		go workspaceTypeController.Start(ctx, 2)
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: workspacetype.ControllerName,
+		Runner: func(ctx context.Context) {
+			workspaceTypeController.Start(ctx, 2)
+		},
 	}); err != nil {
 		return err
 	}
@@ -498,14 +511,12 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-	return s.AddPostStartHook(postStartHookName(universalControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(universalControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		go universalController.Start(ctx, 2)
-		return nil
+
+	return s.registerController(&controllerWrapper{
+		Name: universalControllerName,
+		Runner: func(ctx context.Context) {
+			universalController.Start(ctx, 2)
+		},
 	})
 }
 
@@ -526,19 +537,12 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(logicalclusterctrl.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(logicalclusterctrl.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		go logicalClusterController.Start(ctx, 2)
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	return s.registerController(&controllerWrapper{
+		Name: logicalclusterctrl.ControllerName,
+		Runner: func(ctx context.Context) {
+			logicalClusterController.Start(ctx, 2)
+		},
+	})
 }
 
 func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, ddsif *informer.DiscoveringDynamicSharedInformerFactory) error {
@@ -572,27 +576,25 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(apibinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apibinding.ControllerName))
-		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
-		// and the controllers must run as soon as these two informers are up in order to bootstrap
-		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
-			cacheSchemasSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
-			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return crdsSynced && exportsSynced && cacheExportsSynced && schemasSynced && cacheSchemasSynced && bindingsSynced, nil
-		}); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: apibinding.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
+			// and the controllers must run as soon as these two informers are up in order to bootstrap
+			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
+			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+				cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+				schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
+				cacheSchemasSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
+				bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+				return crdsSynced && exportsSynced && cacheExportsSynced && schemasSynced && cacheSchemasSynced && bindingsSynced, nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	}); err != nil {
 		return err
 	}
@@ -621,16 +623,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(permissionclaimlabel.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(permissionclaimlabel.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go permissionClaimLabelController.Start(goContext(hookContext), 5)
-
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: permissionclaimlabel.ControllerName,
+		Runner: func(ctx context.Context) {
+			permissionClaimLabelController.Start(ctx, 5)
+		},
 	}); err != nil {
 		return err
 	}
@@ -658,15 +655,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(permissionclaimlabel.ResourceControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(permissionclaimlabel.ResourceControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		go permissionClaimLabelResourceController.Start(goContext(hookContext), 2)
-
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: permissionclaimlabel.ResourceControllerName,
+		Runner: func(ctx context.Context) {
+			permissionClaimLabelResourceController.Start(ctx, 2)
+		},
 	}); err != nil {
 		return err
 	}
@@ -688,16 +681,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(apibindingdeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apibindingdeletion.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go apibindingDeletionController.Start(goContext(hookContext), 10)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apibindingdeletion.ControllerName,
+		Runner: func(ctx context.Context) {
+			apibindingDeletionController.Start(ctx, 10)
+		},
 	})
 }
 
@@ -756,19 +744,14 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(initialization.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(initialization.ControllerName))
+	return s.registerController(&controllerWrapper{
+		Name: initialization.ControllerName,
+		Runner: func(ctx context.Context) {
+			initializingWorkspacesKcpInformers.Start(ctx.Done())
+			initializingWorkspacesKcpInformers.WaitForCacheSync(ctx.Done())
 
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		initializingWorkspacesKcpInformers.Start(hookContext.StopCh)
-		initializingWorkspacesKcpInformers.WaitForCacheSync(hookContext.StopCh)
-
-		go c.Start(goContext(hookContext), 2)
-		return nil
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -790,16 +773,11 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(crdcleanup.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(crdcleanup.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: crdcleanup.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -827,23 +805,21 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(apiexport.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexport.ControllerName))
-		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
-		// and the controllers must run as soon as these two informers are up in order to bootstrap
-		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			return crdsSynced && exportsSynced, nil
-		}); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apiexport.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
+			// and the controllers must run as soon as these two informers are up in order to bootstrap
+			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
+			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+				return crdsSynced && exportsSynced, nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -861,16 +837,11 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(apisreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrole.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apisreplicateclusterrole.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -889,16 +860,11 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(coresreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(coresreplicateclusterrole.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: coresreplicateclusterrole.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -916,16 +882,11 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(apisreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicateclusterrolebinding.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apisreplicateclusterrolebinding.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -943,16 +904,11 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(apisreplicatelogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apisreplicatelogicalcluster.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apisreplicatelogicalcluster.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -970,16 +926,11 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(tenancyreplicatelogicalcluster.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicatelogicalcluster.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: tenancyreplicatelogicalcluster.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -998,16 +949,11 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(corereplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(corereplicateclusterrolebinding.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: corereplicateclusterrolebinding.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1025,16 +971,11 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(tenancyreplicateclusterrole.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrole.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: tenancyreplicateclusterrole.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1052,16 +993,11 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 
-	return s.AddPostStartHook(postStartHookName(tenancyreplicateclusterrolebinding.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(tenancyreplicateclusterrolebinding.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: tenancyreplicateclusterrolebinding.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1086,16 +1022,11 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(apiexportendpointslice.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexportendpointslice.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: apiexportendpointslice.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1118,16 +1049,11 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(partitionset.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(partitionset.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: partitionset.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1147,16 +1073,11 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(extraannotationsync.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(extraannotationsync.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: extraannotationsync.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1193,16 +1114,11 @@ func (s *Server) installKubeQuotaController(
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(kubequota.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(kubequota.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	if err := s.registerController(&controllerWrapper{
+		Name: kubequota.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	}); err != nil {
 		return err
 	}
@@ -1227,15 +1143,12 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	return s.AddPostStartHook(postStartHookName(identitycache.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(identitycache.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
 
-		go c.Start(goContext(hookContext), 1)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: identitycache.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
 	})
 }
 
@@ -1245,15 +1158,12 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 	if err != nil {
 		return err
 	}
-	return s.AddPostStartHook(postStartHookName(replication.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replication.ControllerName))
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
 
-		go controller.Start(goContext(hookContext), 2)
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: replication.ControllerName,
+		Runner: func(ctx context.Context) {
+			controller.Start(ctx, 2)
+		},
 	})
 }
 
@@ -1288,17 +1198,11 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		return err
 	}
 
-	return s.AddPostStartHook(postStartHookName(garbagecollector.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(garbagecollector.ControllerName))
-
-		if err := s.WaitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
+	return s.registerController(&controllerWrapper{
+		Name: garbagecollector.ControllerName,
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
 	})
 }
 
