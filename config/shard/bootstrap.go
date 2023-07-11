@@ -40,7 +40,7 @@ var SystemShardCluster = logicalcluster.Name("system:shard")
 // As of today creating API bindings for the root APIs and the default ns is enough.
 func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], kcpClient kcpclient.Interface) error {
 	// note: shards are not really needed. But to avoid breaking the kcp shared informer factory, we also add them.
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.core.kcp.io", "tenancy.kcp.io", "apiresource.kcp.io", "topology.kcp.io"); err != nil {
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.core.kcp.io", "tenancy.kcp.io", "topology.kcp.io"); err != nil {
 		return err
 	}
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, fs)

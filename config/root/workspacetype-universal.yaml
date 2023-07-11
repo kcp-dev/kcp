@@ -8,8 +8,6 @@ spec:
   - path: root
     export: tenancy.kcp.io
   - path: root
-    export: apiresource.kcp.io
-  - path: root
     export: topology.kcp.io
   defaultChildren:
     types:

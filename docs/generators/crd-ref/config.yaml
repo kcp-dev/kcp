@@ -24,16 +24,6 @@ source_repositories:
     cr_paths:
       - docs/cr
     metadata:
-      apiresourceimports.apiresource.kcp.io:
-        owner:
-          - https://github.com/kcp-dev/kcp
-        topics:
-          - apiresource
-      negotiatedapiresources.apiresource.kcp.io:
-        owner:
-          - https://github.com/kcp-dev/kcp
-        topics:
-          - apiresource
       apibindings.apis.kcp.io:
         owner:
           - https://github.com/kcp-dev/kcp

@@ -23,15 +23,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	apiextensionsv1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiextensions/v1"
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiresource/v1alpha1"
-	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	applyconfigurationmetav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
@@ -79,89 +77,63 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	case v1.SchemeGroupVersion.WithKind("WebhookConversion"):
 		return &apiextensionsv1.WebhookConversionApplyConfiguration{}
 
-		// Group=apiresource.kcp.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceImport"):
-		return &apiresourcev1alpha1.APIResourceImportApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceImportCondition"):
-		return &apiresourcev1alpha1.APIResourceImportConditionApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceImportSpec"):
-		return &apiresourcev1alpha1.APIResourceImportSpecApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceImportStatus"):
-		return &apiresourcev1alpha1.APIResourceImportStatusApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("ColumnDefinition"):
-		return &apiresourcev1alpha1.ColumnDefinitionApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("CommonAPIResourceSpec"):
-		return &apiresourcev1alpha1.CommonAPIResourceSpecApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("GroupVersion"):
-		return &apiresourcev1alpha1.GroupVersionApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("NegotiatedAPIResource"):
-		return &apiresourcev1alpha1.NegotiatedAPIResourceApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("NegotiatedAPIResourceCondition"):
-		return &apiresourcev1alpha1.NegotiatedAPIResourceConditionApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("NegotiatedAPIResourceSpec"):
-		return &apiresourcev1alpha1.NegotiatedAPIResourceSpecApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("NegotiatedAPIResourceStatus"):
-		return &apiresourcev1alpha1.NegotiatedAPIResourceStatusApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("SubResource"):
-		return &apiresourcev1alpha1.SubResourceApplyConfiguration{}
-
 		// Group=apis.kcp.io, Version=v1alpha1
-	case apisv1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):
-		return &applyconfigurationapisv1alpha1.AcceptablePermissionClaimApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIBinding"):
-		return &applyconfigurationapisv1alpha1.APIBindingApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIBindingSpec"):
-		return &applyconfigurationapisv1alpha1.APIBindingSpecApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIBindingStatus"):
-		return &applyconfigurationapisv1alpha1.APIBindingStatusApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIConversion"):
-		return &applyconfigurationapisv1alpha1.APIConversionApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIConversionRule"):
-		return &applyconfigurationapisv1alpha1.APIConversionRuleApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIConversionSpec"):
-		return &applyconfigurationapisv1alpha1.APIConversionSpecApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"):
-		return &applyconfigurationapisv1alpha1.APIExportApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportEndpoint"):
-		return &applyconfigurationapisv1alpha1.APIExportEndpointApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSlice"):
-		return &applyconfigurationapisv1alpha1.APIExportEndpointSliceApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSliceSpec"):
-		return &applyconfigurationapisv1alpha1.APIExportEndpointSliceSpecApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSliceStatus"):
-		return &applyconfigurationapisv1alpha1.APIExportEndpointSliceStatusApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportSpec"):
-		return &applyconfigurationapisv1alpha1.APIExportSpecApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIExportStatus"):
-		return &applyconfigurationapisv1alpha1.APIExportStatusApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"):
-		return &applyconfigurationapisv1alpha1.APIResourceSchemaApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchemaSpec"):
-		return &applyconfigurationapisv1alpha1.APIResourceSchemaSpecApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceVersion"):
-		return &applyconfigurationapisv1alpha1.APIResourceVersionApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("APIVersionConversion"):
-		return &applyconfigurationapisv1alpha1.APIVersionConversionApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("BindingReference"):
-		return &applyconfigurationapisv1alpha1.BindingReferenceApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("BoundAPIResource"):
-		return &applyconfigurationapisv1alpha1.BoundAPIResourceApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
-		return &applyconfigurationapisv1alpha1.BoundAPIResourceSchemaApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("ExportBindingReference"):
-		return &applyconfigurationapisv1alpha1.ExportBindingReferenceApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("GroupResource"):
-		return &applyconfigurationapisv1alpha1.GroupResourceApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("Identity"):
-		return &applyconfigurationapisv1alpha1.IdentityApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("MaximalPermissionPolicy"):
-		return &applyconfigurationapisv1alpha1.MaximalPermissionPolicyApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("PermissionClaim"):
-		return &applyconfigurationapisv1alpha1.PermissionClaimApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("ResourceSelector"):
-		return &applyconfigurationapisv1alpha1.ResourceSelectorApplyConfiguration{}
-	case apisv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
-		return &applyconfigurationapisv1alpha1.VirtualWorkspaceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):
+		return &apisv1alpha1.AcceptablePermissionClaimApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIBinding"):
+		return &apisv1alpha1.APIBindingApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIBindingSpec"):
+		return &apisv1alpha1.APIBindingSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIBindingStatus"):
+		return &apisv1alpha1.APIBindingStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIConversion"):
+		return &apisv1alpha1.APIConversionApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIConversionRule"):
+		return &apisv1alpha1.APIConversionRuleApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIConversionSpec"):
+		return &apisv1alpha1.APIConversionSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExport"):
+		return &apisv1alpha1.APIExportApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpoint"):
+		return &apisv1alpha1.APIExportEndpointApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSlice"):
+		return &apisv1alpha1.APIExportEndpointSliceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSliceSpec"):
+		return &apisv1alpha1.APIExportEndpointSliceSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSliceStatus"):
+		return &apisv1alpha1.APIExportEndpointSliceStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportSpec"):
+		return &apisv1alpha1.APIExportSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportStatus"):
+		return &apisv1alpha1.APIExportStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"):
+		return &apisv1alpha1.APIResourceSchemaApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceSchemaSpec"):
+		return &apisv1alpha1.APIResourceSchemaSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIResourceVersion"):
+		return &apisv1alpha1.APIResourceVersionApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIVersionConversion"):
+		return &apisv1alpha1.APIVersionConversionApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("BindingReference"):
+		return &apisv1alpha1.BindingReferenceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("BoundAPIResource"):
+		return &apisv1alpha1.BoundAPIResourceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
+		return &apisv1alpha1.BoundAPIResourceSchemaApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ExportBindingReference"):
+		return &apisv1alpha1.ExportBindingReferenceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("GroupResource"):
+		return &apisv1alpha1.GroupResourceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Identity"):
+		return &apisv1alpha1.IdentityApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("MaximalPermissionPolicy"):
+		return &apisv1alpha1.MaximalPermissionPolicyApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PermissionClaim"):
+		return &apisv1alpha1.PermissionClaimApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ResourceSelector"):
+		return &apisv1alpha1.ResourceSelectorApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
+		return &apisv1alpha1.VirtualWorkspaceApplyConfiguration{}
 
 		// Group=conditions, Version=v1alpha1
 	case conditionsv1alpha1.SchemeGroupVersion.WithKind("Condition"):
@@ -194,8 +166,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmetav1.ObjectMetaApplyConfiguration{}
 	case metav1.SchemeGroupVersion.WithKind("OwnerReference"):
 		return &applyconfigurationmetav1.OwnerReferenceApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("TableColumnDefinition"):
-		return &applyconfigurationmetav1.TableColumnDefinitionApplyConfiguration{}
 	case metav1.SchemeGroupVersion.WithKind("TypeMeta"):
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 

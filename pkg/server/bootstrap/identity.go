@@ -47,9 +47,8 @@ import (
 var (
 	// KcpRootGroupExportNames lists the APIExports in the root workspace for standard kcp groups.
 	KcpRootGroupExportNames = map[string]string{
-		"tenancy.kcp.io":     "tenancy.kcp.io",
-		"apiresource.kcp.io": "apiresource.kcp.io",
-		"topology.kcp.io":    "topology.kcp.io",
+		"tenancy.kcp.io":  "tenancy.kcp.io",
+		"topology.kcp.io": "topology.kcp.io",
 	}
 
 	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources.
