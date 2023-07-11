@@ -36,7 +36,6 @@ import (
 
 	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apiresourceinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apiresource"
 	apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis"
 	coreinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core"
 	"github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
@@ -262,15 +261,10 @@ type SharedInformerFactory interface {
 	// InformerFor returns the SharedIndexInformer for obj.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) kcpcache.ScopeableSharedIndexInformer
 
-	Apiresource() apiresourceinformers.ClusterInterface
 	Apis() apisinformers.ClusterInterface
 	Core() coreinformers.ClusterInterface
 	Tenancy() tenancyinformers.ClusterInterface
 	Topology() topologyinformers.ClusterInterface
-}
-
-func (f *sharedInformerFactory) Apiresource() apiresourceinformers.ClusterInterface {
-	return apiresourceinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Apis() apisinformers.ClusterInterface {
@@ -431,15 +425,10 @@ type SharedScopedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Apiresource() apiresourceinformers.Interface
 	Apis() apisinformers.Interface
 	Core() coreinformers.Interface
 	Tenancy() tenancyinformers.Interface
 	Topology() topologyinformers.Interface
-}
-
-func (f *sharedScopedInformerFactory) Apiresource() apiresourceinformers.Interface {
-	return apiresourceinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Apis() apisinformers.Interface {

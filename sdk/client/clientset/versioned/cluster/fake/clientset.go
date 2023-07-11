@@ -31,8 +31,6 @@ import (
 
 	client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcpapiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
-	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apiresource/v1alpha1/fake"
 	kcpapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	fakeapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1/fake"
 	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
@@ -42,7 +40,6 @@ import (
 	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 	faketopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1/fake"
 	clientscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -81,11 +78,6 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 
 func (c *ClusterClientset) Tracker() kcptesting.ObjectTracker {
 	return c.tracker
-}
-
-// ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1ClusterClient.
-func (c *ClusterClientset) ApiresourceV1alpha1() kcpapiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface {
-	return &fakeapiresourcev1alpha1.ApiresourceV1alpha1ClusterClient{Fake: c.Fake}
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.
@@ -138,11 +130,6 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 func (c *Clientset) Tracker() kcptesting.ScopedObjectTracker {
 	return c.tracker
-}
-
-// ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client.
-func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
-	return &fakeapiresourcev1alpha1.ApiresourceV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client.

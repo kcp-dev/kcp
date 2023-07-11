@@ -26,7 +26,6 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -35,7 +34,6 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
@@ -45,16 +43,10 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
-	apisV1alpha1        *apisv1alpha1.ApisV1alpha1Client
-	coreV1alpha1        *corev1alpha1.CoreV1alpha1Client
-	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
-	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1Client
-}
-
-// ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
-func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
-	return c.apiresourceV1alpha1
+	apisV1alpha1     *apisv1alpha1.ApisV1alpha1Client
+	coreV1alpha1     *corev1alpha1.CoreV1alpha1Client
+	tenancyV1alpha1  *tenancyv1alpha1.TenancyV1alpha1Client
+	topologyV1alpha1 *topologyv1alpha1.TopologyV1alpha1Client
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
@@ -121,10 +113,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.apiresourceV1alpha1, err = apiresourcev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -162,7 +150,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
 	cs.apisV1alpha1 = apisv1alpha1.New(c)
 	cs.coreV1alpha1 = corev1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)

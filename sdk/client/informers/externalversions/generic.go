@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -90,11 +89,6 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericClusterInformer, error) {
 	switch resource {
-	// Group=apiresource.kcp.io, Version=V1alpha1
-	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().APIResourceImports().Informer()}, nil
-	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()}, nil
 	// Group=apis.kcp.io, Version=V1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIBindings().Informer()}, nil
@@ -130,13 +124,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 // TODO extend this to unknown resources with a client pool
 func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=apiresource.kcp.io, Version=V1alpha1
-	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
-		informer := f.Apiresource().V1alpha1().APIResourceImports().Informer()
-		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
-		informer := f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()
-		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=apis.kcp.io, Version=V1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
 		informer := f.Apis().V1alpha1().APIBindings().Informer()
