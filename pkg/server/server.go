@@ -18,8 +18,11 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
+	"os"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -27,10 +30,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
@@ -138,7 +144,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	hookName := "kcp-start-informers"
 	if err := s.AddPostStartHook(hookName, func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := logger.WithValues("postStartHook", hookName)
+		logger = logger.WithValues("postStartHook", hookName)
 		ctx = klog.NewContext(ctx, logger)
 
 		logger.Info("starting kube informers")
@@ -497,9 +503,27 @@ func (s *Server) Run(ctx context.Context) error {
 	// add post start hook that starts all registered controllers.
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
-		ctx := klog.NewContext(goContext(hookContext), logger)
+		controllerCtx := klog.NewContext(goContext(hookContext), logger)
 
-		s.startControllers(ctx)
+		if s.Options.Controllers.EnableLeaderElection {
+			hostname, err := os.Hostname()
+			if err != nil {
+				return fmt.Errorf("failed to determine hostname: %w", err)
+			}
+			id := fmt.Sprintf("%s_%s", hostname, string(uuid.NewUUID()))
+
+			// set up a special *rest.Config that points to the (shard-)local admin cluster.
+			leaderElectionConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
+			leaderElectionConfig = rest.AddUserAgent(leaderElectionConfig, "kcp-leader-election")
+			leaderElectionConfig.Host, err = url.JoinPath(leaderElectionConfig.Host, genericcontrolplane.LocalAdminCluster.Path().RequestPath())
+			if err != nil {
+				return fmt.Errorf("failed to determine local shard admin workspace: %w", err)
+			}
+
+			go s.leaderElectAndStartControllers(controllerCtx, id, leaderElectionConfig)
+		} else {
+			s.startControllers(controllerCtx)
+		}
 
 		return nil
 	}); err != nil {
@@ -531,4 +555,66 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 
 func (s *Server) WaitForPhase1Finished() {
 	<-s.rootPhase1FinishedCh
+}
+
+func (s *Server) leaderElectAndStartControllers(ctx context.Context, id string, config *rest.Config) {
+	logger := klog.FromContext(ctx).WithValues("identity", id)
+
+	rl, err := resourcelock.NewFromKubeconfig("leases",
+		s.Options.Controllers.LeaderElectionNamespace,
+		s.Options.Controllers.LeaderElectionName,
+		resourcelock.ResourceLockConfig{
+			Identity: id,
+		},
+		config,
+		time.Second*30,
+	)
+
+	if err != nil {
+		logger.Error(err, "failed to set up resource lock")
+		return
+	}
+
+	electionLogger := logger.WithValues("namespace", s.Options.Controllers.LeaderElectionNamespace, "name", s.Options.Controllers.LeaderElectionName)
+
+	// for the whole runtime of the kcp process, we want to try becoming the leader to run
+	// the kcp controllers. Even if we once were leader and lost that lock, we want to
+	// restart the leader election (thus the loop) until the complete process terminates.
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			electionLogger.Info("context canceled, will not retry leader election")
+			break loop
+		default:
+			electionLogger.Info("(re-)starting leader election")
+			leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+				Lock:          rl,
+				LeaseDuration: time.Second * 60,
+				RenewDeadline: time.Second * 5,
+				RetryPeriod:   time.Second * 2,
+				Callbacks: leaderelection.LeaderCallbacks{
+					OnStartedLeading: func(leaderElectionCtx context.Context) {
+						electionLogger.Info("started leading")
+						s.startControllers(leaderElectionCtx)
+					},
+					OnStoppedLeading: func() {
+						electionLogger.Info("stopped leading")
+					},
+					OnNewLeader: func(current_id string) {
+						if current_id == id {
+							// we already log when we start leading, no reason to also log something here.
+							return
+						}
+
+						electionLogger.WithValues("leader", current_id).Info("leader is someone else")
+					},
+				},
+				WatchDog: leaderelection.NewLeaderHealthzAdaptor(time.Second * 5),
+				Name:     s.Options.Controllers.LeaderElectionName,
+			})
+		}
+	}
+
+	electionLogger.Info("leader election loop has been terminated")
 }
