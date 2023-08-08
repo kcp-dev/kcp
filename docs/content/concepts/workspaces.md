@@ -45,7 +45,7 @@ define additional types.
   HomeBucket children.
 - **HomeBucket Workspace** are intermediate vertices in the hierarhcy
   between the HomeRoot and the user home workspaces.  Can be a child
-  of the root or another HomeBucket workspace.  Allowed children are
+  of the HomeRoot or another HomeBucket workspace.  Allowed children are
   home and HomeBucket workspaces.
 - **Home Workspace** is a user's home workspace.  These hold user
   resources such as applications with services, secrets, configmaps,
