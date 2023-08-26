@@ -199,7 +199,7 @@ and [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automat
 Here are the most important links:
 
 - [.github/workflows/ci.yaml](https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml) defines the Github Actions based jobs.
-- [kcp-dev/kcp/.prow.yaml](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml)](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml) defines the prow based jobs.
+- [kcp-dev/kcp/.prow.yaml](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml) defines the prow based jobs.
 
 ## Debugging flakes
 
