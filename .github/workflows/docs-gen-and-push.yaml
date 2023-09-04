@@ -27,7 +27,7 @@ jobs:
     name: Generate and push docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: git fetch origin gh-pages
 
