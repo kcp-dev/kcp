@@ -140,23 +140,23 @@ $(LOGCHECK):
 $(CODE_GENERATOR):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator/v2 $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
 
-lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK)
+lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK) ## Verify lint
 	$(GOLANGCI_LINT) run ./...
 	$(STATICCHECK) -checks ST1019,ST1005 ./...
 	./hack/verify-contextual-logging.sh
 .PHONY: lint
 
-update-contextual-logging: $(LOGCHECK)
+update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 	UPDATE=true ./hack/verify-contextual-logging.sh
 .PHONY: update-contextual-logging
 
 .PHONY: generate-cli-docs
-generate-cli-docs:
+generate-cli-docs: ## Generate cli docs
 	git clean -fdX docs/content/reference/cli
 	go run ./docs/generators/cli-doc/gen-cli-doc.go -output docs/content/reference/cli
 
 .PHONY: generate-api-docs
-generate-api-docs:
+generate-api-docs: ## Generate api docs
 	git clean -fdX docs/content/reference/api
 	docs/generators/crd-ref/run-crd-ref-gen.sh
 
@@ -164,12 +164,12 @@ VENVDIR=$(abspath docs/venv)
 REQUIREMENTS_TXT=docs/requirements.txt
 
 .PHONY: serve-docs
-serve-docs: venv
+serve-docs: venv ## Serve docs
 	. $(VENV)/activate; \
 	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/serve-docs.sh
 
 .PHONY: deploy-docs
-deploy-docs: venv
+deploy-docs: venv ## Deploy docs
 	. $(VENV)/activate; \
 	REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/deploy-docs.sh
 
@@ -178,7 +178,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR)
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -190,11 +190,11 @@ $(YAML_PATCH):
 $(GOTESTSUM):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
 
-crds: $(CONTROLLER_GEN) $(YAML_PATCH)
+crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen: crds $(CODE_GENERATOR)
+codegen: crds $(CODE_GENERATOR) ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	$(MAKE) imports
@@ -203,7 +203,7 @@ codegen: crds $(CODE_GENERATOR)
 # Note, running this locally if you have any modified files, even those that are not generated,
 # will result in an error. This target is mostly for CI jobs.
 .PHONY: verify-codegen
-verify-codegen:
+verify-codegen: ## Verify codegen
 	if [[ -n "${GITHUB_WORKSPACE}" ]]; then \
 		mkdir -p $$(go env GOPATH)/src/github.com/kcp-dev; \
 		ln -s ${GITHUB_WORKSPACE} $$(go env GOPATH)/src/github.com/kcp-dev/kcp; \
@@ -230,7 +230,7 @@ $(TOOLS_DIR)/verify_boilerplate.py:
 	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
 
 .PHONY: verify-boilerplate
-verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py
+verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py ## Verify boilerplate
 	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv
 
 ifdef ARTIFACT_DIR
@@ -266,7 +266,7 @@ test-e2e: $(GOTESTSUM)
 endif
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
-test-e2e: build-all
+test-e2e: build-all ## Run e2e tests
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
 
@@ -327,20 +327,20 @@ test: $(GOTESTSUM)
 endif
 test: WHAT ?= ./...
 # We will need to move into the sub package, of sdk to run those tests.
-test:
+test: ## Run tests
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
 	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: verify-k8s-deps
-verify-k8s-deps:
+verify-k8s-deps: ## Verify kubernetes deps
 	hack/validate-k8s.sh
 
 .PHONY: verify-imports
-verify-imports:
+verify-imports: ## Verify imports
 	hack/verify-imports.sh
 
 .PHONY: verify-go-versions
-verify-go-versions:
+verify-go-versions: ## Verify go versions
 	hack/verify-go-versions.sh
 
 .PHONY: modules
@@ -352,21 +352,21 @@ verify-modules: modules  ## Verify go modules are up to date
 	hack/verify-go-modules.sh
 
 .PHONY: clean
-clean: clean-workdir
+clean: clean-workdir ## Clean all
 	rm -fr $(TOOLS_DIR)
 	rm -f $(GOBIN_DIR)/*
 
 .PHONY: clean-workdir
 clean-workdir: WORK_DIR ?= .
-clean-workdir:
+clean-workdir: ## Clean workdir
 	rm -fr $(WORK_DIR)/.kcp*
 
 .PHONY: download-e2e-logs
-download-e2e-logs:
+download-e2e-logs: ## Download e2e logs from a given URL
 	OUT=$(OUT) URL=$(URL) hack/download-e2e-logs.sh
 
 .PHONY: help
-help: ## Show this help.
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+help: ## Show this help
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 include Makefile.venv
