@@ -92,10 +92,10 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.CustomResourceValidationExpressions: {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.OpenAPIEnums:                        {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.OpenAPIV3:                           {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.OpenAPIV3:                           {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.29
-	genericfeatures.ServerSideFieldValidation:           {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.ValidatingAdmissionPolicy:           {Default: false, PreRelease: featuregate.Alpha},
+	genericfeatures.ServerSideFieldValidation:           {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
+	genericfeatures.ValidatingAdmissionPolicy:           {Default: false, PreRelease: featuregate.Beta},
 
 	logsapi.LoggingBetaOptions: {Default: true, PreRelease: featuregate.Beta},
 	logsapi.ContextualLogging:  {Default: true, PreRelease: featuregate.Alpha},
