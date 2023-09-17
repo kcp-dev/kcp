@@ -19,6 +19,8 @@ package apiserver
 import (
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -48,7 +50,6 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ apidefinition.APIDefinition = (*servingInfo)(nil)

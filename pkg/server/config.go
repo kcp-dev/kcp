@@ -27,7 +27,14 @@ import (
 	"net/url"
 	"os"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,10 +56,6 @@ import (
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -66,7 +69,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type Config struct {
@@ -505,18 +507,19 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.Apis = kubeControlPlane
 	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
-	// If additional API servers are added, they should be gated.
-	conversionFactory := conversion.NewCRConverterFactory(
-		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
-		opts.Extra.ConversionCELTransformationTimeout,
-	)
+	authInfoResolver := webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeControlPlane.ProxyTransport, kubeControlPlane.Generic.EgressSelector, kubeControlPlane.Generic.LoopbackClientConfig, kubeControlPlane.Generic.TracerProvider)
+	conversionFactory, err := conversion.NewCRConverterFactory(serviceResolver, authInfoResolver)
+	if err != nil {
+		return nil, err
+	}
+
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
 		*c.GenericConfig,
 		informerfactoryhack.Wrap(c.KubeSharedInformerFactory),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
 		3,
-		conversionFactory nil)
+		conversionFactory)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
