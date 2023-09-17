@@ -283,7 +283,7 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
-			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources, 200*time.Millisecond)
 		},
 	}
 	go quotaController.Start(ctx)
@@ -305,7 +305,7 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 	// Do this in a goroutine to avoid holding up a worker in the event UpdateMonitors stalls for whatever reason
 	go func() {
 		// Make sure the monitors are synced at least once
-		resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+		resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources, 200*time.Millisecond)
 
 		go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
 	}()

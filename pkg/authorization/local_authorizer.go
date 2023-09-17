@@ -20,15 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
-
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -64,12 +63,12 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	scopedAuth := rbac.New(
 		&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
 			a.roleLister.Cluster(cluster.Name),
-			a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			a.roleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 		)},
 		&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(cluster.Name)},
 		&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
 			a.clusterRoleLister.Cluster(cluster.Name),
-			a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			a.clusterRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 		)},
 		&rbac.ClusterRoleBindingLister{Lister: a.clusterRoleBindingLister.Cluster(cluster.Name)},
 	)

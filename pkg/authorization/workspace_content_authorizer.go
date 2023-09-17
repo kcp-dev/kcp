@@ -21,23 +21,22 @@ import (
 	"fmt"
 	"strings"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -145,12 +144,12 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
 				a.localClusterRoleLister.Cluster(cluster.Name),
 				a.globalClusterRoleLister.Cluster(cluster.Name),
-				a.localClusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 			)},
 			&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
 				a.localClusterRoleBindingLister.Cluster(cluster.Name),
 				a.globalClusterRoleBindingLister.Cluster(cluster.Name),
-				a.localClusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleBindingLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 			)},
 		)
 

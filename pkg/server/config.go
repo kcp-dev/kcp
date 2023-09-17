@@ -27,14 +27,10 @@ import (
 	"net/url"
 	"os"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -42,18 +38,23 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/apis"
+	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	"k8s.io/kubernetes/pkg/controlplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
 	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
@@ -64,6 +65,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type Config struct {
@@ -72,8 +74,8 @@ type Config struct {
 	EmbeddedEtcd *embeddedetcd.Config
 
 	GenericConfig   *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
-	MiniAggregator  *aggregator.MiniAggregatorConfig
-	Apis            *apis.Config
+	MiniAggregator  *miniaggregator.MiniAggregatorConfig
+	Apis            *controlplaneapiserver.Config
 	ApiExtensions   *apiextensionsapiserver.Config
 	OptionalVirtual *VirtualConfig
 
@@ -129,8 +131,8 @@ type completedConfig struct {
 
 	GenericConfig   genericapiserver.CompletedConfig
 	EmbeddedEtcd    embeddedetcd.CompletedConfig
-	MiniAggregator  aggregator.CompletedMiniAggregatorConfig
-	Apis            apis.CompletedConfig
+	MiniAggregator  miniaggregator.CompletedMiniAggregatorConfig
+	Apis            controlplaneapiserver.CompletedConfig
 	ApiExtensions   apiextensionsapiserver.CompletedConfig
 	OptionalVirtual CompletedVirtualConfig
 
@@ -186,11 +188,20 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	var err error
 	var storageFactory *serverstorage.DefaultStorageFactory
-	c.GenericConfig, storageFactory, c.KubeSharedInformerFactory, c.KubeClusterClient, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
+	c.GenericConfig, c.KubeSharedInformerFactory, storageFactory, err = controlplaneapiserver.BuildGenericConfig(
+		opts.GenericControlPlane,
+		[]*runtime.Scheme{legacyscheme.Scheme, apiextensionsapiserver.Scheme},
+		controlplane.DefaultAPIResourceConfigSource(),
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
 
+	c.KubeClusterClient, err = kcpkubernetesclient.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
+	if err != nil {
+		return nil, err
+	}
 	cacheClientConfig, err := c.Options.Cache.Client.RestConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return nil, err
@@ -478,26 +489,37 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		return "https://" + c.GenericConfig.ExternalAddress
 	}
 
-	c.Apis, err = genericcontrolplane.CreateKubeAPIServerConfig(c.GenericConfig, opts.GenericControlPlane, c.KubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
+	serviceResolver := webhook.NewDefaultServiceResolver()
+	kubeControlPlane, kubePluginInitializer, err := controlplaneapiserver.CreateConfig(
+		opts.GenericControlPlane,
+		c.GenericConfig,
+		c.KubeSharedInformerFactory,
+		storageFactory,
+		serviceResolver,
+		admissionPluginInitializers,
+	)
 	if err != nil {
 		return nil, err
 	}
+	c.Apis = kubeControlPlane
+	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
 	// If additional API servers are added, they should be gated.
-	c.ApiExtensions, err = genericcontrolplane.CreateAPIExtensionsConfig(
-		*c.Apis.GenericConfig,
-		informerfactoryhack.Wrap(c.Apis.ExtraConfig.VersionedInformers),
+	conversionFactory := conversion.NewCRConverterFactory(
+		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+		opts.Extra.ConversionCELTransformationTimeout,
+	)
+	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
+		*c.GenericConfig,
+		informerfactoryhack.Wrap(c.KubeSharedInformerFactory),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
-	)
+		3,
+		conversionFactory nil)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
 
-	c.ApiExtensions.ExtraConfig.ConversionFactory = conversion.NewCRConverterFactory(
-		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
-		opts.Extra.ConversionCELTransformationTimeout,
-	)
 	// make sure the informer gets started, otherwise conversions will not work!
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
@@ -520,7 +542,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ApiExtensions.ExtraConfig.Informers = c.ApiExtensionsSharedInformerFactory
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
-	c.MiniAggregator = &aggregator.MiniAggregatorConfig{
+	c.MiniAggregator = &miniaggregator.MiniAggregatorConfig{
 		GenericConfig: c.GenericConfig,
 	}
 

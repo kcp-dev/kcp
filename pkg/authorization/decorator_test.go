@@ -219,7 +219,7 @@ func TestDecorator(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := audit.WithAuditContext(context.Background())
 			auditCtx := audit.AuditContextFrom(ctx)
-			auditCtx.Event = &auditapis.Event{
+			auditCtx.Event = auditapis.Event{
 				Level: auditapis.LevelMetadata,
 			}
 			attr := authorizer.AttributesRecord{}

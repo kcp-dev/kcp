@@ -27,10 +27,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
-	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -49,11 +45,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/kcp/config/helpers"
+	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -65,6 +64,7 @@ import (
 	wildwestv1alpha1ac "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestAPIExportVirtualWorkspace(t *testing.T) {
@@ -853,7 +853,7 @@ func gatherInternalAPIs(t *testing.T, discoveryClient discovery.DiscoveryInterfa
 				resourceScope = apiextensionsv1.NamespaceScoped
 			}
 
-			instance, err := genericcontrolplanescheme.Scheme.New(gvk)
+			instance, err := kcpscheme.Scheme.New(gvk)
 			if err != nil {
 				if extensionsapiserver.Scheme.Recognizes(gvk) {
 					// Not currently supporting permission claim for CustomResourceDefinition.

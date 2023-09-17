@@ -20,16 +20,15 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type GlobalAuthorizer struct {
@@ -42,12 +41,12 @@ func NewGlobalAuthorizer(localKubeInformers, globalKubeInformers kcpkubernetesin
 			return rbac.New(
 				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
 					globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
-					localKubeInformers.Rbac().V1().Roles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+					localKubeInformers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
 				)},
 				&rbac.RoleBindingLister{Lister: globalKubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName)},
 				&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
 					globalKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
-					localKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+					localKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
 				)},
 				&rbac.ClusterRoleBindingLister{Lister: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName)},
 			)

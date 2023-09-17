@@ -24,6 +24,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"go.uber.org/zap"
 	"math/big"
 	"net/url"
 	"os"
@@ -55,13 +56,13 @@ func NewConfig(o options.CompletedOptions, enableWatchCache bool) (*Config, erro
 	cfg.Dir = o.Directory
 	cfg.AuthToken = ""
 
-	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
-	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
-	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
-	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
+	cfg.AdvertisePeerUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
+	cfg.ListenClientUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
+	cfg.AdvertiseClientUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
-	if err := fileutil.TouchDirAll(cfg.Dir); err != nil {
+	if err := fileutil.TouchDirAll(zap.NewNop(), cfg.Dir); err != nil {
 		return nil, err
 	}
 

@@ -263,7 +263,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
-			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory, 200*time.Millisecond)
 		},
 	}
 	go garbageCollectorController.Start(ctx)
@@ -285,7 +285,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
 	go func() {
 		// Make sure the GC monitors are synced at least once
-		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory, 200*time.Millisecond)
 
 		go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
 	}()

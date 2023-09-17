@@ -87,12 +87,10 @@ func (f *kcpFeatureGate) Type() string {
 var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-	genericfeatures.AdvancedAuditing:                    {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIResponseCompression:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.APIListChunking:                     {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.CustomResourceValidationExpressions: {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.DryRun:                              {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.28
 	genericfeatures.OpenAPIEnums:                        {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.OpenAPIV3:                           {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.29

@@ -109,9 +109,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
-	if err := opts.Etcd.Complete(serverConfig.Config.StorageObjectCountTracker, serverConfig.Config.DrainedNotify(), serverConfig.Config.AddPostStartHook); err != nil {
-		return nil, err
-	}
 	if err := opts.Etcd.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
@@ -203,10 +200,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		resyncPeriod,
 	)
 
-	crdRESTOptionsGetter, err := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd)
-	if err != nil {
-		return nil, err
-	}
+	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)
 
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,

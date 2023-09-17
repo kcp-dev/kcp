@@ -132,6 +132,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	// which informers need to be started. The shared informer factories are started in their
 	// own post-start hook.
 	c := namespace.NewNamespaceController(
+		ctx,
 		kubeClient,
 		metadata,
 		discoverResourcesFn,
@@ -147,7 +148,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(10, ctx.Done())
+		go c.Run(ctx, 10)
 		return nil
 	})
 }
@@ -220,7 +221,6 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		serviceaccountcontroller.TokensControllerOptions{
 			TokenGenerator: tokenGenerator,
 			RootCA:         rootCA,
-			AutoGenerate:   true,
 		},
 	)
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go controller.Run(int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
+		go controller.Run(ctx, int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs))
 
 		return nil
 	})

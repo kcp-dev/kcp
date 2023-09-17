@@ -18,15 +18,14 @@ package labelclusterrolebindings
 
 import (
 	"context"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
-
-	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 )
 
 func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {
@@ -39,7 +38,7 @@ func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, err
 			} else if errors.IsNotFound(err) {
-				return c.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster).Get(name)
+				return c.clusterRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster).Get(name)
 			}
 			return obj, nil
 		},

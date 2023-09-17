@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 )
 
 type BootstrapPolicyAuthorizer struct {
@@ -34,10 +34,10 @@ type BootstrapPolicyAuthorizer struct {
 
 func NewBootstrapPolicyAuthorizer(informers kcpkubernetesinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
 	a := &BootstrapPolicyAuthorizer{bootstrapPolicy: rbac.New(
-		&rbac.RoleGetter{Lister: informers.Rbac().V1().Roles().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
-		&rbac.RoleBindingLister{Lister: informers.Rbac().V1().RoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
-		&rbac.ClusterRoleGetter{Lister: informers.Rbac().V1().ClusterRoles().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
-		&rbac.ClusterRoleBindingLister{Lister: informers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
+		&rbac.RoleGetter{Lister: informers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster)},
+		&rbac.RoleBindingLister{Lister: informers.Rbac().V1().RoleBindings().Lister().Cluster(controlplaneapiserver.LocalAdminCluster)},
+		&rbac.ClusterRoleGetter{Lister: informers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster)},
+		&rbac.ClusterRoleBindingLister{Lister: informers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(controlplaneapiserver.LocalAdminCluster)},
 	)}
 
 	return a, a
