@@ -28,6 +28,7 @@ import (
 	"os"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -505,17 +506,24 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
 	// If additional API servers are added, they should be gated.
-	conversionFactory := conversion.NewCRConverterFactory(
+	// TODO(sttts): restore CEL conversion
+	/*conversionFactory := conversion.NewCRConverterFactory(
 		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
 		opts.Extra.ConversionCELTransformationTimeout,
-	)
+	)*/
+	authInfoResolver := webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeControlPlane.ProxyTransport, kubeControlPlane.Generic.EgressSelector, kubeControlPlane.Generic.LoopbackClientConfig, kubeControlPlane.Generic.TracerProvider)
+	conversionFactory, err := conversion.NewCRConverterFactory(serviceResolver, authInfoResolver)
+	if err != nil {
+		return nil, err
+	}
+
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
 		*c.GenericConfig,
 		informerfactoryhack.Wrap(c.KubeSharedInformerFactory),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
 		3,
-		conversionFactory nil)
+		conversionFactory)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
