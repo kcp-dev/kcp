@@ -5,6 +5,7 @@ contrib/demo/clusters/kind/*.kubeconfig
 coverage.*
 tools
 build
+vendor
 
 # JetBrains IDE files
 .idea/
