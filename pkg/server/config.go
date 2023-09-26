@@ -512,7 +512,6 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
 		*c.GenericConfig,
 		informerfactoryhack.Wrap(c.KubeSharedInformerFactory),
@@ -547,8 +546,11 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
 	c.MiniAggregator = &miniaggregator.MiniAggregatorConfig{
-		GenericConfig: c.GenericConfig,
+		GenericConfig: *c.GenericConfig,
 	}
+	// same as in kube-aggregator, remove hooks and OpenAPI
+	c.MiniAggregator.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
+	c.MiniAggregator.GenericConfig.SkipOpenAPIInstallation = true
 
 	if opts.Virtual.Enabled {
 		virtualWorkspacesConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
