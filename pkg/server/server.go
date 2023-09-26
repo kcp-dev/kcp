@@ -102,7 +102,9 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, fmt.Errorf("failed to create generic controlplane apiserver: %w", err)
 	}
 
-	allStorageProviders, err := c.Apis.DefaultStorageProviders()
+	// TODO(sttts): that discovery client is used for CEL admission. It looks up
+	//              resources to admit I believe. So that probably must be scoped.
+	allStorageProviders, err := c.Apis.DefaultStorageProviders(s.KcpClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).Discovery())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage providers: %w", err)
 	}
