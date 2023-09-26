@@ -26,6 +26,7 @@ import (
 	validatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	kubeapiserveroptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 	certapproval "k8s.io/kubernetes/plugin/pkg/admission/certificates/approval"
+	"k8s.io/kubernetes/plugin/pkg/admission/certificates/ctbattest"
 	certsigning "k8s.io/kubernetes/plugin/pkg/admission/certificates/signing"
 	certsubjectrestriction "k8s.io/kubernetes/plugin/pkg/admission/certificates/subjectrestriction"
 	"k8s.io/kubernetes/plugin/pkg/admission/defaulttolerationseconds"
@@ -108,7 +109,6 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 // RegisterAllKcpAdmissionPlugins registers all admission plugins.
 // The order of registration is irrelevant, see AllOrderedPlugins for execution order.
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
-	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	workspace.Register(plugins)
 	logicalclusterfinalizer.Register(plugins)
 	shard.Register(plugins)
@@ -186,9 +186,11 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	runtimeclass.PluginName,                 // RuntimeClass
 	certapproval.PluginName,                 // CertificateApproval
 	certsigning.PluginName,                  // CertificateSigning
+	ctbattest.PluginName,                    // ClusterTrustBundleAttest
 	certsubjectrestriction.PluginName,       // CertificateSubjectRestriction
 	defaultingressclass.PluginName,          // DefaultIngressClass
-	podsecurity.PluginName,                  // PodSecurity)
+	podsecurity.PluginName,                  // PodSecurity
+	validatingadmissionpolicy.PluginName,    // ValidatingAdmissionPolicy, only active when feature gate ValidatingAdmissionPolicy is enabled
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.
