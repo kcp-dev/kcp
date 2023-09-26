@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -83,7 +84,7 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Name
 	// ignore CRDs targeting system and non-root workspaces
-	if clusterName == apibinding.SystemBoundCRDsClusterName || clusterName == "system:admin" {
+	if clusterName == apibinding.SystemBoundCRDsClusterName || clusterName == apiserver.LocalAdminCluster {
 		return nil
 	}
 
