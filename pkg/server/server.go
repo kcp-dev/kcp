@@ -43,6 +43,8 @@ import (
 	"k8s.io/klog/v2"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+	autoscalingrest "k8s.io/kubernetes/pkg/registry/autoscaling/rest"
+	flowcontrolrest "k8s.io/kubernetes/pkg/registry/flowcontrol/rest"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -100,9 +102,19 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, fmt.Errorf("failed to create generic controlplane apiserver: %w", err)
 	}
 
-	storageProviders, err := c.Apis.DefaultStorageProviders()
+	allStorageProviders, err := c.Apis.DefaultStorageProviders()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage providers: %w", err)
+	}
+	var storageProviders []controlplaneapiserver.RESTStorageProvider
+	for i := range allStorageProviders {
+		switch allStorageProviders[i].(type) {
+		case flowcontrolrest.RESTStorageProvider:
+		// TODO(sttts): remove this code when P&F is wired
+		case autoscalingrest.RESTStorageProvider:
+		default:
+			storageProviders = append(storageProviders, allStorageProviders[i])
+		}
 	}
 	if err := s.Apis.InstallAPIs(storageProviders...); err != nil {
 		return nil, fmt.Errorf("failed to install APIs: %w", err)
