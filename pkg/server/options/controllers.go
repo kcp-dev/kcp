@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 	kcmoptions "k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
@@ -33,6 +34,10 @@ import (
 type Controllers struct {
 	EnableAll           bool
 	IndividuallyEnabled []string
+
+	EnableLeaderElection    bool
+	LeaderElectionNamespace string
+	LeaderElectionName      string
 
 	SAController kcmoptions.SAControllerOptions
 }
@@ -52,6 +57,10 @@ func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
+		EnableLeaderElection:    false,
+		LeaderElectionNamespace: metav1.NamespaceSystem,
+		LeaderElectionName:      "kcp-controllers",
+
 		SAController: *kcmDefaults.SAController,
 	}
 }
@@ -61,6 +70,10 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringSliceVar(&c.IndividuallyEnabled, "unsupported-run-individual-controllers", c.IndividuallyEnabled, "Run individual controllers in-process. The controller names can change at any time.")
 	fs.MarkHidden("unsupported-run-individual-controllers") //nolint:errcheck
+
+	fs.BoolVar(&c.EnableLeaderElection, "enable-leader-election", c.EnableLeaderElection, "Enable a leader election for kcp controllers running in the system:admin workspace")
+	fs.StringVar(&c.LeaderElectionNamespace, "leader-election-namespace", c.LeaderElectionNamespace, "Namespace in system:admin workspace to use for leader election")
+	fs.StringVar(&c.LeaderElectionName, "leader-election-name", c.LeaderElectionName, "Name of the lease to use for leader election")
 
 	c.SAController.AddFlags(fs)
 }
