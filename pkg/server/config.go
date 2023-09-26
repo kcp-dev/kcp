@@ -435,6 +435,8 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		// But this is not harmful as the kcp warnings are not many.
 		apiHandler = filters.WithWarningRecorder(apiHandler)
 
+		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
+
 		// Add a mux before the chain, for other handlers with their own handler chain to hook in. For example, when
 		// the virtual workspace server is running as part of kcp, it registers /services with the mux so it can handle
 		// that path itself, instead of the rest of the handler chain above handling it.
@@ -443,7 +445,6 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
 		apiHandler = mux
 
-		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
 		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
