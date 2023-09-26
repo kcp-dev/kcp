@@ -47,6 +47,7 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -193,7 +194,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		opts.GenericControlPlane,
 		[]*runtime.Scheme{legacyscheme.Scheme, apiextensionsapiserver.Scheme},
 		controlplane.DefaultAPIResourceConfigSource(),
-		nil,
+		generatedopenapi.GetOpenAPIDefinitions,
 	)
 	if err != nil {
 		return nil, err
