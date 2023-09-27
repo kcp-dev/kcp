@@ -45,8 +45,8 @@ import (
 	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	corev1 "k8s.io/api/core/v1"
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
