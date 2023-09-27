@@ -17,7 +17,6 @@ limitations under the License.
 package scheme
 
 import (
-	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -26,16 +25,14 @@ import (
 	authorizationinstall "k8s.io/kubernetes/pkg/apis/authorization/install"
 	certificatesinstall "k8s.io/kubernetes/pkg/apis/certificates/install"
 	coordinationinstall "k8s.io/kubernetes/pkg/apis/coordination/install"
+	"k8s.io/kubernetes/pkg/apis/core/install"
 	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	eventsinstall "k8s.io/kubernetes/pkg/apis/events/install"
 	rbacinstall "k8s.io/kubernetes/pkg/apis/rbac/install"
 )
 
 func init() {
-	utilruntime.Must(core.AddToGenericControlPlaneScheme(Scheme))
-	utilruntime.Must(corev1.AddToControlPlaneScheme(Scheme))
-	utilruntime.Must(Scheme.SetVersionPriority(corev1.SchemeGroupVersion))
-
+	install.Install(Scheme)
 	authenticationinstall.Install(Scheme)
 	authorizationinstall.Install(Scheme)
 	certificatesinstall.Install(Scheme)
@@ -53,7 +50,7 @@ var (
 	// you're doing.
 	Scheme = runtime.NewScheme()
 
-	// Codecs provides access to encoding and decoding for the scheme
+	// Codecs provides access to encoding and decoding for the scheme.
 	Codecs = serializer.NewCodecFactory(Scheme)
 
 	// ParameterCodec handles versioning of objects that are converted to query parameters.
