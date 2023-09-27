@@ -48,7 +48,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
-	kcplimitranger "github.com/kcp-dev/kcp/pkg/admission/limitranger"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
@@ -84,7 +83,6 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	kcpmutatingwebhook.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
-	kcplimitranger.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
@@ -124,7 +122,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kcpmutatingwebhook.Register(plugins)
 	kcpvalidatingadmissionpolicy.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
-	kcplimitranger.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
 	reservednames.Register(plugins)
@@ -137,7 +134,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 
 var defaultOnPluginsInKcp = sets.New[string](
 	workspacenamespacelifecycle.PluginName, // WorkspaceNamespaceLifecycle
-	kcplimitranger.PluginName,              // WorkspaceLimitRanger
 	certapproval.PluginName,                // CertificateApproval
 	certsigning.PluginName,                 // CertificateSigning
 	certsubjectrestriction.PluginName,      // CertificateSubjectRestriction
