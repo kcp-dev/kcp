@@ -17,26 +17,20 @@ limitations under the License.
 package scheme
 
 import (
-	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
-
 	admissionregistrationinstall "k8s.io/kubernetes/pkg/apis/admissionregistration/install"
 	authenticationinstall "k8s.io/kubernetes/pkg/apis/authentication/install"
 	authorizationinstall "k8s.io/kubernetes/pkg/apis/authorization/install"
 	certificatesinstall "k8s.io/kubernetes/pkg/apis/certificates/install"
 	coordinationinstall "k8s.io/kubernetes/pkg/apis/coordination/install"
+	"k8s.io/kubernetes/pkg/apis/core/install"
 	eventsinstall "k8s.io/kubernetes/pkg/apis/events/install"
 	rbacinstall "k8s.io/kubernetes/pkg/apis/rbac/install"
 )
 
 func init() {
-	utilruntime.Must(core.AddToGenericControlPlaneScheme(Scheme))
-	utilruntime.Must(corev1.AddToControlPlaneScheme(Scheme))
-	utilruntime.Must(Scheme.SetVersionPriority(corev1.SchemeGroupVersion))
-
+	install.Install(Scheme)
 	authenticationinstall.Install(Scheme)
 	authorizationinstall.Install(Scheme)
 	certificatesinstall.Install(Scheme)
