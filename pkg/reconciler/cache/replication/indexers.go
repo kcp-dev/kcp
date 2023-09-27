@@ -41,7 +41,7 @@ func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error
 		annotations = map[string]string{}
 	}
 	// TODO: rename to genericapirequest.ShardNameAnnotationKey
-	shardName := annotations[genericapirequest.AnnotationKey]
+	shardName := annotations[genericapirequest.ShardAnnotationKey]
 
 	return []string{ShardAndLogicalClusterAndNamespaceKey(shardName, logicalcluster.From(a), a.GetNamespace(), a.GetName())}, nil
 }
