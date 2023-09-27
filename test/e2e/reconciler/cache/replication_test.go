@@ -669,13 +669,13 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 			}
 			return false, err.Error()
 		}
-		t.Logf("Compare if both the original and replicated resources (%s %s/%s) are the same except %s annotation and ResourceVersion", b.gvr, cluster, b.resourceName, genericapirequest.AnnotationKey)
+		t.Logf("Compare if both the original and replicated resources (%s %s/%s) are the same except %s annotation and ResourceVersion", b.gvr, cluster, b.resourceName, genericapirequest.ShardAnnotationKey)
 		cachedResourceMeta, err := meta.Accessor(cachedResource)
 		if err != nil {
 			return false, err.Error()
 		}
-		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.AnnotationKey]; !found {
-			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), genericapirequest.AnnotationKey)
+		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.ShardAnnotationKey]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), genericapirequest.ShardAnnotationKey)
 		}
 		unstructured.RemoveNestedField(originalResource.Object, "metadata", "resourceVersion")
 		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "resourceVersion")
@@ -688,7 +688,7 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 			unstructured.RemoveNestedField(cachedResource.Object, "metadata", "generation")
 		}
 
-		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", genericapirequest.AnnotationKey)
+		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", genericapirequest.ShardAnnotationKey)
 		if cachedStatus, ok := cachedResource.Object["status"]; ok && cachedStatus == nil || (cachedStatus != nil && len(cachedStatus.(map[string]interface{})) == 0) {
 			// TODO: worth investigating:
 			// for some reason cached resources have an empty status set whereas the original resources don't

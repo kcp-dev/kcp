@@ -66,11 +66,11 @@ func ensureMeta(cacheObject *unstructured.Unstructured, localObject *unstructure
 		if !ok {
 			return false, fmt.Errorf("metadata.annotations field of unstructuredCacheObject is of the type %T, expected map[string]interface{}", cacheObjAnnotationsRaw)
 		}
-		if shard, hasShard := cacheObjAnnotations[genericrequest.AnnotationKey]; hasShard {
-			unstructured.RemoveNestedField(cacheObjAnnotations, genericrequest.AnnotationKey)
+		if shard, hasShard := cacheObjAnnotations[genericrequest.ShardAnnotationKey]; hasShard {
+			unstructured.RemoveNestedField(cacheObjAnnotations, genericrequest.ShardAnnotationKey)
 			defer func() {
 				if err == nil {
-					err = unstructured.SetNestedField(cacheObject.Object, shard, "metadata", "annotations", genericrequest.AnnotationKey)
+					err = unstructured.SetNestedField(cacheObject.Object, shard, "metadata", "annotations", genericrequest.ShardAnnotationKey)
 				}
 			}()
 		}
