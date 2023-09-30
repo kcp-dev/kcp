@@ -24,6 +24,8 @@ import (
 func TestValidationOptionDrift(t *testing.T) {
 	expectedNonBool := map[string]reflect.Kind{
 		"DisallowDefaultsReason": reflect.String,
+		"CELEnvironmentSet":      reflect.Ptr,
+		"PreexistingExpressions": reflect.Struct,
 	}
 	expectedFalse := map[string]bool{
 		"RequireImmutableNames": true,
