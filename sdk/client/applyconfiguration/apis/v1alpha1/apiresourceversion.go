@@ -19,22 +19,21 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-
-	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiextensions/v1"
 )
 
 // APIResourceVersionApplyConfiguration represents an declarative configuration of the APIResourceVersion type for use
 // with apply.
 type APIResourceVersionApplyConfiguration struct {
-	Name                     *string                                               `json:"name,omitempty"`
-	Served                   *bool                                                 `json:"served,omitempty"`
-	Storage                  *bool                                                 `json:"storage,omitempty"`
-	Deprecated               *bool                                                 `json:"deprecated,omitempty"`
-	DeprecationWarning       *string                                               `json:"deprecationWarning,omitempty"`
-	Schema                   *runtime.RawExtension                                 `json:"schema,omitempty"`
-	Subresources             *v1.CustomResourceSubresourcesApplyConfiguration      `json:"subresources,omitempty"`
-	AdditionalPrinterColumns []v1.CustomResourceColumnDefinitionApplyConfiguration `json:"additionalPrinterColumns,omitempty"`
+	Name                     *string                             `json:"name,omitempty"`
+	Served                   *bool                               `json:"served,omitempty"`
+	Storage                  *bool                               `json:"storage,omitempty"`
+	Deprecated               *bool                               `json:"deprecated,omitempty"`
+	DeprecationWarning       *string                             `json:"deprecationWarning,omitempty"`
+	Schema                   *runtime.RawExtension               `json:"schema,omitempty"`
+	Subresources             *v1.CustomResourceSubresources      `json:"subresources,omitempty"`
+	AdditionalPrinterColumns []v1.CustomResourceColumnDefinition `json:"additionalPrinterColumns,omitempty"`
 }
 
 // APIResourceVersionApplyConfiguration constructs an declarative configuration of the APIResourceVersion type for use with
@@ -94,20 +93,17 @@ func (b *APIResourceVersionApplyConfiguration) WithSchema(value runtime.RawExten
 // WithSubresources sets the Subresources field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Subresources field is set to the value of the last call.
-func (b *APIResourceVersionApplyConfiguration) WithSubresources(value *v1.CustomResourceSubresourcesApplyConfiguration) *APIResourceVersionApplyConfiguration {
-	b.Subresources = value
+func (b *APIResourceVersionApplyConfiguration) WithSubresources(value v1.CustomResourceSubresources) *APIResourceVersionApplyConfiguration {
+	b.Subresources = &value
 	return b
 }
 
 // WithAdditionalPrinterColumns adds the given value to the AdditionalPrinterColumns field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the AdditionalPrinterColumns field.
-func (b *APIResourceVersionApplyConfiguration) WithAdditionalPrinterColumns(values ...*v1.CustomResourceColumnDefinitionApplyConfiguration) *APIResourceVersionApplyConfiguration {
+func (b *APIResourceVersionApplyConfiguration) WithAdditionalPrinterColumns(values ...v1.CustomResourceColumnDefinition) *APIResourceVersionApplyConfiguration {
 	for i := range values {
-		if values[i] == nil {
-			panic("nil value passed to WithAdditionalPrinterColumns")
-		}
-		b.AdditionalPrinterColumns = append(b.AdditionalPrinterColumns, *values[i])
+		b.AdditionalPrinterColumns = append(b.AdditionalPrinterColumns, values[i])
 	}
 	return b
 }

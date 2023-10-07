@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakeAPIConversions struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apiconversionsResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiconversions"}
+var apiconversionsResource = v1alpha1.SchemeGroupVersion.WithResource("apiconversions")
 
-var apiconversionsKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIConversion"}
+var apiconversionsKind = v1alpha1.SchemeGroupVersion.WithKind("APIConversion")
 
 // Get takes name of the aPIConversion, and returns the corresponding aPIConversion object, and an error if there is any.
 func (c *FakeAPIConversions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIConversion, err error) {

@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakePartitionSets struct {
 	Fake *FakeTopologyV1alpha1
 }
 
-var partitionsetsResource = schema.GroupVersionResource{Group: "topology.kcp.io", Version: "v1alpha1", Resource: "partitionsets"}
+var partitionsetsResource = v1alpha1.SchemeGroupVersion.WithResource("partitionsets")
 
-var partitionsetsKind = schema.GroupVersionKind{Group: "topology.kcp.io", Version: "v1alpha1", Kind: "PartitionSet"}
+var partitionsetsKind = v1alpha1.SchemeGroupVersion.WithKind("PartitionSet")
 
 // Get takes name of the partitionSet, and returns the corresponding partitionSet object, and an error if there is any.
 func (c *FakePartitionSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PartitionSet, err error) {

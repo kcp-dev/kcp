@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakeAPIBindings struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apibindingsResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apibindings"}
+var apibindingsResource = v1alpha1.SchemeGroupVersion.WithResource("apibindings")
 
-var apibindingsKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIBinding"}
+var apibindingsKind = v1alpha1.SchemeGroupVersion.WithKind("APIBinding")
 
 // Get takes name of the aPIBinding, and returns the corresponding aPIBinding object, and an error if there is any.
 func (c *FakeAPIBindings) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIBinding, err error) {

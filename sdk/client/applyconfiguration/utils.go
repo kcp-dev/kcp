@@ -19,8 +19,7 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -28,11 +27,10 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
-	apiextensionsv1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apiextensions/v1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
-	applyconfigurationmetav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
+	metav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 )
@@ -41,43 +39,7 @@ import (
 // apply configuration type exists for the given GroupVersionKind.
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
-	// Group=apiextensions.k8s.io, Version=v1
-	case v1.SchemeGroupVersion.WithKind("CustomResourceColumnDefinition"):
-		return &apiextensionsv1.CustomResourceColumnDefinitionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceConversion"):
-		return &apiextensionsv1.CustomResourceConversionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinition"):
-		return &apiextensionsv1.CustomResourceDefinitionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinitionCondition"):
-		return &apiextensionsv1.CustomResourceDefinitionConditionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinitionNames"):
-		return &apiextensionsv1.CustomResourceDefinitionNamesApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinitionSpec"):
-		return &apiextensionsv1.CustomResourceDefinitionSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinitionStatus"):
-		return &apiextensionsv1.CustomResourceDefinitionStatusApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceDefinitionVersion"):
-		return &apiextensionsv1.CustomResourceDefinitionVersionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceSubresources"):
-		return &apiextensionsv1.CustomResourceSubresourcesApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceSubresourceScale"):
-		return &apiextensionsv1.CustomResourceSubresourceScaleApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("CustomResourceValidation"):
-		return &apiextensionsv1.CustomResourceValidationApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ExternalDocumentation"):
-		return &apiextensionsv1.ExternalDocumentationApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("JSONSchemaProps"):
-		return &apiextensionsv1.JSONSchemaPropsApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ServiceReference"):
-		return &apiextensionsv1.ServiceReferenceApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ValidationRule"):
-		return &apiextensionsv1.ValidationRuleApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("WebhookClientConfig"):
-		return &apiextensionsv1.WebhookClientConfigApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("WebhookConversion"):
-		return &apiextensionsv1.WebhookConversionApplyConfiguration{}
-
-		// Group=apis.kcp.io, Version=v1alpha1
+	// Group=apis.kcp.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):
 		return &apisv1alpha1.AcceptablePermissionClaimApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIBinding"):
@@ -156,18 +118,18 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcorev1alpha1.ShardStatusApplyConfiguration{}
 
 		// Group=meta.k8s.io, Version=v1
-	case metav1.SchemeGroupVersion.WithKind("LabelSelector"):
-		return &applyconfigurationmetav1.LabelSelectorApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("LabelSelectorRequirement"):
-		return &applyconfigurationmetav1.LabelSelectorRequirementApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("ManagedFieldsEntry"):
-		return &applyconfigurationmetav1.ManagedFieldsEntryApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("ObjectMeta"):
-		return &applyconfigurationmetav1.ObjectMetaApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("OwnerReference"):
-		return &applyconfigurationmetav1.OwnerReferenceApplyConfiguration{}
-	case metav1.SchemeGroupVersion.WithKind("TypeMeta"):
-		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LabelSelector"):
+		return &metav1.LabelSelectorApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LabelSelectorRequirement"):
+		return &metav1.LabelSelectorRequirementApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ManagedFieldsEntry"):
+		return &metav1.ManagedFieldsEntryApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ObjectMeta"):
+		return &metav1.ObjectMetaApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("OwnerReference"):
+		return &metav1.OwnerReferenceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("TypeMeta"):
+		return &metav1.TypeMetaApplyConfiguration{}
 
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
