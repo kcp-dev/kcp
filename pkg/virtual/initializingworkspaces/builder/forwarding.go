@@ -20,10 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation/path"
@@ -35,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/validation/validate"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -95,8 +94,8 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 		typer runtime.ObjectTyper,
 		tableConvertor rest.TableConvertor,
 		namespaceScoped bool,
-		schemaValidator *validate.SchemaValidator,
-		subresourcesSchemaValidator map[string]*validate.SchemaValidator,
+		schemaValidator validation.SchemaValidator,
+		subresourcesSchemaValidator map[string]validation.SchemaValidator,
 		structuralSchema *structuralschema.Structural,
 	) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]

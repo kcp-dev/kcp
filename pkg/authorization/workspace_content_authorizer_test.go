@@ -34,7 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
@@ -211,7 +211,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: genericcontrolplane.LocalAdminCluster.String(),
+							logicalcluster.AnnotationKey: controlplaneapiserver.LocalAdminCluster.String(),
 						},
 						Name: "access",
 					},

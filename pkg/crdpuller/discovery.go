@@ -43,8 +43,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
+
+	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 )
 
 type schemaPuller struct {
@@ -155,14 +155,14 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 
 			logger := logger.WithValues("resource", apiResource.Name)
 
-			if genericcontrolplanescheme.Scheme.IsGroupRegistered(gv.Group) && !genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
+			if kcpscheme.Scheme.IsGroupRegistered(gv.Group) && !kcpscheme.Scheme.IsVersionRegistered(gv) {
 				logger.Info("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version")
 				continue
 			}
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
-			if (genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
+			if (kcpscheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
 				logger.Info("ignoring a resource since it is part of the core KCP resources")
 				continue
 			}

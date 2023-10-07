@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/cel/environment"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
@@ -176,6 +177,8 @@ var defaultValidationOpts = crdvalidation.ValidationOptions{
 	RequirePrunedDefaults:              true,
 	RequireAtomicSetType:               true,
 	RequireMapListKeysMapSetValidation: true,
+
+	CELEnvironmentSet: environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()),
 }
 
 func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIResourceVersion, fldPath *field.Path) field.ErrorList {

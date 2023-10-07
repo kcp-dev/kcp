@@ -24,13 +24,16 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
+	"k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -105,11 +108,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	opts.Etcd.StorageConfig.Prefix = "/cache"
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
+	serverConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, apiopenapi.NewDefinitionNamer(apiserver.Scheme))
 
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
-		return nil, err
-	}
-	if err := opts.Etcd.Complete(serverConfig.Config.StorageObjectCountTracker, serverConfig.Config.DrainedNotify(), serverConfig.Config.AddPostStartHook); err != nil {
 		return nil, err
 	}
 	if err := opts.Etcd.ApplyTo(&serverConfig.Config); err != nil {
@@ -203,21 +204,17 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		resyncPeriod,
 	)
 
-	crdRESTOptionsGetter, err := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd)
-	if err != nil {
-		return nil, err
-	}
+	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)
 
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiextensionsapiserver.ExtraConfig{
-			CRDRESTOptionsGetter:   crdRESTOptionsGetter,
-			MasterCount:            1,
-			Client:                 c.ApiExtensionsClusterClient,
-			Informers:              c.ApiExtensionsSharedInformerFactory,
-			ClusterAwareCRDLister:  &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
-			DisableServerSideApply: true,
-			ConversionFactory:      &nopCRConversionFactory{},
+			CRDRESTOptionsGetter:  crdRESTOptionsGetter,
+			MasterCount:           1,
+			Client:                c.ApiExtensionsClusterClient,
+			Informers:             c.ApiExtensionsSharedInformerFactory,
+			ClusterAwareCRDLister: &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
+			ConversionFactory:     &nopCRConversionFactory{},
 		},
 	}
 

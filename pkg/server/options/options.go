@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/options"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
@@ -38,7 +38,7 @@ import (
 )
 
 type Options struct {
-	GenericControlPlane ServerRunOptions
+	GenericControlPlane controlplaneapiserver.Options
 	EmbeddedEtcd        etcdoptions.Options
 	Controllers         Controllers
 	Authorization       Authorization
@@ -70,7 +70,7 @@ type ExtraOptions struct {
 }
 
 type completedOptions struct {
-	GenericControlPlane options.CompletedServerRunOptions
+	GenericControlPlane controlplaneapiserver.CompletedOptions
 	EmbeddedEtcd        etcdoptions.CompletedOptions
 	Controllers         Controllers
 	Authorization       Authorization
@@ -89,9 +89,7 @@ type CompletedOptions struct {
 // NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
-		GenericControlPlane: ServerRunOptions{
-			*options.NewServerRunOptions(),
-		},
+		GenericControlPlane: *controlplaneapiserver.NewOptions(),
 		EmbeddedEtcd:        *etcdoptions.NewOptions(rootDir),
 		Controllers:         *NewControllers(),
 		Authorization:       *NewAuthorization(),
@@ -127,11 +125,13 @@ func NewOptions(rootDir string) *Options {
 	// WithWebHook()
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
+	o.GenericControlPlane.Authorization = nil // we have our own
+	o.GenericControlPlane.GenericServerRunOptions.EnablePriorityAndFairness = false
 
 	// override set of admission plugins
-	kcpadmission.RegisterAllKcpAdmissionPlugins(o.GenericControlPlane.Admission.Plugins)
-	o.GenericControlPlane.Admission.DisablePlugins = sets.List[string](kcpadmission.DefaultOffAdmissionPlugins())
-	o.GenericControlPlane.Admission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
+	kcpadmission.RegisterAllKcpAdmissionPlugins(o.GenericControlPlane.Admission.GenericAdmission.Plugins)
+	o.GenericControlPlane.Admission.GenericAdmission.DisablePlugins = sets.List[string](kcpadmission.DefaultOffAdmissionPlugins())
+	o.GenericControlPlane.Admission.GenericAdmission.RecommendedPluginOrder = kcpadmission.AllOrderedPlugins
 
 	// turn on the watch cache
 	o.GenericControlPlane.Etcd.EnableWatchCache = true
@@ -145,7 +145,9 @@ func NewOptions(rootDir string) *Options {
 }
 
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
-	for name, fs := range o.GenericControlPlane.Flags().FlagSets {
+	raw := &cliflag.NamedFlagSets{}
+	o.GenericControlPlane.AddFlags(raw)
+	for name, fs := range raw.FlagSets {
 		fss.FlagSet(name).AddFlagSet(filter(name, fs, allowedFlags))
 	}
 
@@ -302,11 +304,11 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	if len(o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles) == 0 {
 		o.GenericControlPlane.Authentication.ServiceAccounts.KeyFiles = []string{o.Controllers.SAController.ServiceAccountKeyFile}
 	}
-	if o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile == "" {
-		o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
+	if o.GenericControlPlane.ServiceAccountSigningKeyFile == "" {
+		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericServerRunOptions, err := o.GenericControlPlane.ServerRunOptions.Complete()
+	completedGenericServerRunOptions, err := o.GenericControlPlane.Complete(nil, nil)
 	if err != nil {
 		return nil, err
 	}

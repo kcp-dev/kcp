@@ -25,20 +25,22 @@ import (
 	"os"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
+	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/notfoundhandler"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -50,6 +52,7 @@ import (
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -57,8 +60,10 @@ const resyncPeriod = 10 * time.Hour
 type Server struct {
 	CompletedConfig
 
-	*genericcontrolplane.ServerChain
-	virtual *virtualrootapiserver.Server
+	ApiExtensions  *extensionsapiserver.CustomResourceDefinitions
+	Apis           *controlplaneapiserver.Server
+	MiniAggregator *miniaggregator.MiniAggregatorServer
+	virtual        *virtualrootapiserver.Server
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -82,17 +87,36 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		controllers:          make(map[string]*controllerWrapper),
 	}
 
+	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
 	var err error
-	s.ServerChain, err = genericcontrolplane.CreateServerChain(c.MiniAggregator, c.Apis, c.ApiExtensions)
+	s.ApiExtensions, err = c.ApiExtensions.New(genericapiserver.NewEmptyDelegateWithCustomHandler(notFoundHandler))
+	if err != nil {
+		return nil, fmt.Errorf("create api extensions: %v", err)
+	}
+
+	s.Apis, err = c.Apis.New("generic-control-plane", s.ApiExtensions.GenericAPIServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create generic controlplane apiserver: %w", err)
+	}
+
+	storageProviders, err := c.Apis.DefaultStorageProviders()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage providers: %w", err)
+	}
+	if err := s.Apis.InstallAPIs(storageProviders...); err != nil {
+		return nil, fmt.Errorf("failed to install APIs: %w", err)
+	}
+
+	s.MiniAggregator, err = c.MiniAggregator.New(s.Apis.GenericAPIServer, s.Apis, s.ApiExtensions)
 	if err != nil {
 		return nil, err
 	}
 
-	s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
+	s.Apis.GenericAPIServer.Handler.GoRestfulContainer.Filter(
 		mergeCRDsIntoCoreGroup(
-			s.ApiExtensions.ExtraConfig.ClusterAwareCRDLister,
-			s.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
-			s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
+			s.ApiExtensions.ClusterAwareCRDLister,
+			s.ApiExtensions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
+			s.Apis.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
 		),
 	)
 
@@ -364,7 +388,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installRootCAConfigMapController(ctx, s.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installRootCAConfigMapController(ctx, s.Apis.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
@@ -515,7 +539,7 @@ func (s *Server) Run(ctx context.Context) error {
 			// set up a special *rest.Config that points to the (shard-)local admin cluster.
 			leaderElectionConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
 			leaderElectionConfig = rest.AddUserAgent(leaderElectionConfig, "kcp-leader-election")
-			leaderElectionConfig.Host, err = url.JoinPath(leaderElectionConfig.Host, genericcontrolplane.LocalAdminCluster.Path().RequestPath())
+			leaderElectionConfig.Host, err = url.JoinPath(leaderElectionConfig.Host, controlplaneapiserver.LocalAdminCluster.Path().RequestPath())
 			if err != nil {
 				return fmt.Errorf("failed to determine local shard admin workspace: %w", err)
 			}

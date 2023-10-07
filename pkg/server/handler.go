@@ -46,7 +46,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
 )
 
 var (
@@ -409,7 +409,7 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClus
 	// is "special" - it doesn't have an apiVersion field that the decoder needs to determine the
 	// type.
 	into := &metav1.APIResourceList{}
-	obj, _, err := aggregator.DiscoveryCodecs.UniversalDeserializer().Decode(writer.data, nil, into)
+	obj, _, err := miniaggregator.DiscoveryCodecs.UniversalDeserializer().Decode(writer.data, nil, into)
 	if err != nil {
 		err = apierrors.NewInternalError(fmt.Errorf("unable to serve /api/v1 discovery: error decoding /api/v1 response from generic control plane: %w", err))
 		_ = responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, res, req)
@@ -431,7 +431,7 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClus
 	})
 
 	// Serve up our combined discovery
-	versionHandler := apiserverdiscovery.NewAPIVersionHandler(aggregator.DiscoveryCodecs, schema.GroupVersion{Group: "", Version: "v1"}, apiserverdiscovery.APIResourceListerFunc(func() []metav1.APIResource {
+	versionHandler := apiserverdiscovery.NewAPIVersionHandler(miniaggregator.DiscoveryCodecs, schema.GroupVersion{Group: "", Version: "v1"}, apiserverdiscovery.APIResourceListerFunc(func() []metav1.APIResource {
 		return v1ResourceList.APIResources
 	}))
 	versionHandler.ServeHTTP(res, req)

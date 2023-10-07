@@ -25,10 +25,6 @@ import (
 	"testing"
 	"time"
 
-	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -41,11 +37,15 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 //go:embed *.yaml
@@ -215,10 +215,10 @@ func TestAuthorizer(t *testing.T) {
 			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			t.Logf("Creating matching ClusterRole %s in %s", bootstrapClusterRole.Name, genericcontrolplane.LocalAdminCluster)
+			t.Logf("Creating matching ClusterRole %s in %s", bootstrapClusterRole.Name, controlplaneapiserver.LocalAdminCluster)
 			shardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardCfg)
 			require.NoError(t, err)
-			_, err = shardKubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			framework.Eventually(t, func() (bool, string) {
