@@ -17,7 +17,7 @@ contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file f
 ### Prerequisites
 
 1. Clone this repository.
-2. [Install Go](https://golang.org/doc/install) (currently 1.19).
+2. [Install Go](https://golang.org/doc/install) (currently 1.20).
 3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl).
 
 Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/.ci-operator.yaml, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/.ci-operator.yaml the go version is indicated by the "tag" attribute. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version"

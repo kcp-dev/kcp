@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp/sdk
 
-go 1.19
+go 1.20
 
 require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
