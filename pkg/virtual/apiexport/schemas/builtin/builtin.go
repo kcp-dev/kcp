@@ -243,6 +243,7 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
 		Instance:      &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
 	},
 	{
 		Names: apiextensionsv1.CustomResourceDefinitionNames{
