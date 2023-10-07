@@ -120,13 +120,8 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 				return nil, err
 			}
 		}
-		openAPIService, err := handler.NewOpenAPIService(mergedSpec)
-		if err != nil {
-			return nil, err
-		}
-		if err := openAPIService.RegisterOpenAPIVersionedService("/openapi/v2", firstAPIServer.Handler.NonGoRestfulMux); err != nil {
-			return nil, err
-		}
+		openAPIService := handler.NewOpenAPIService(mergedSpec)
+		openAPIService.RegisterOpenAPIVersionedService("/openapi/v2", firstAPIServer.Handler.NonGoRestfulMux)
 	}
 
 	return delegateAPIServer, nil
