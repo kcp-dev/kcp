@@ -204,7 +204,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting kube informers")
 
 		logger.Info("bootstrapping system CRDs")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			if err := systemcrds.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()),
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()).Discovery(),
@@ -222,7 +222,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished bootstrapping system CRDs")
 
 		logger.Info("bootstrapping the shard workspace")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			if err := configshard.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster.Path()).Discovery(),
 				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster.Path()),
@@ -243,7 +243,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.StopCh)
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
@@ -271,7 +271,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapped root workspace phase 0")
 
 			logger.Info("getting kcp APIExport identities")
-			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 					return false, nil
@@ -284,7 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("finished getting kcp APIExport identities")
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
 			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
 					return false, nil
@@ -319,7 +319,7 @@ func (s *Server) Run(ctx context.Context) error {
 			},
 		}
 		logger.Info("Creating or updating Shard", "shard", s.Options.Extra.ShardName)
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			existingShard, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed getting Shard from the root workspace")

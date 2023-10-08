@@ -582,7 +582,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 				cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
@@ -811,7 +811,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 				return crdsSynced && exportsSynced, nil

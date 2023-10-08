@@ -515,6 +515,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 	}
 
 	for _, version := range schema.Spec.Versions {
+		version := version
 		crdVersion := apiextensionsv1.CustomResourceDefinitionVersion{
 			Name:                     version.Name,
 			Served:                   version.Served,

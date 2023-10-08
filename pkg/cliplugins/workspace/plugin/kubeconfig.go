@@ -592,7 +592,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
-	if err := wait.PollImmediate(time.Millisecond*100, time.Second*5, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Second*5, true, func(ctx context.Context) (bool, error) {
 		if _, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, nil
@@ -606,7 +606,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 
 	// wait for being ready
 	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
-		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
+		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, o.ReadyWaitTimeout, true, func(ctx context.Context) (bool, error) {
 			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err

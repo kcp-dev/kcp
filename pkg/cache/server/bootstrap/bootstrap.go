@@ -27,7 +27,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -42,7 +42,8 @@ var SystemCRDLogicalCluster = logicalcluster.Name("system:system-crds")
 const SystemCacheServerShard = "system:cache:server"
 
 func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface) error {
-	crds := []*apiextensionsv1.CustomResourceDefinition{}
+	var crds []*apiextensionsv1.CustomResourceDefinition //nolint:prealloc
+
 	for _, gr := range []struct{ group, resource string }{
 		{"apis.kcp.io", "apiresourceschemas"},
 		{"apis.kcp.io", "apiconversions"},
@@ -68,7 +69,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 			v.Schema = &apiextensionsv1.CustomResourceValidation{
 				OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 					Type:                   "object",
-					XPreserveUnknownFields: pointer.Bool(true),
+					XPreserveUnknownFields: ptr.To(true),
 				},
 			} // wipe the schema, we don't need validation
 			v.Subresources = nil // wipe subresources so that updates don't have to be made against the status endpoint
@@ -78,7 +79,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 
 	logger := klog.FromContext(ctx)
 	ctx = cacheclient.WithShardInContext(ctx, SystemCacheServerShard)
-	return wait.PollInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, time.Second, false, func(ctx context.Context) (bool, error) {
 		for _, crd := range crds {
 			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster.Path()).ApiextensionsV1().CustomResourceDefinitions(), crd)
 			if err != nil {

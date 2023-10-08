@@ -18,10 +18,8 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -46,8 +44,6 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	cmd := &cobra.Command{
 		Use:   "kcp-core",
 		Short: "kcp control plane core",

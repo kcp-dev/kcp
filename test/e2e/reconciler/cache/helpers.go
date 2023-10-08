@@ -163,7 +163,7 @@ func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientR
 func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
 	t.Helper()
 	var lastError error
-	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Minute, true, func(ctx context.Context) (bool, error) {
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		_, err := req.Do(ctx).Raw()
 		if err != nil {

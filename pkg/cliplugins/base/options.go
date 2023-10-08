@@ -71,15 +71,17 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 // Complete initializes ClientConfig based on Kubeconfig and KubectlOverrides.
 func (o *Options) Complete() error {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = o.Kubeconfig
+	if o.ClientConfig == nil {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		loadingRules.ExplicitPath = o.Kubeconfig
 
-	startingConfig, err := loadingRules.GetStartingConfig()
-	if err != nil {
-		return err
+		startingConfig, err := loadingRules.GetStartingConfig()
+		if err != nil {
+			return err
+		}
+
+		o.ClientConfig = clientcmd.NewDefaultClientConfig(*startingConfig, o.KubectlOverrides)
 	}
-
-	o.ClientConfig = clientcmd.NewDefaultClientConfig(*startingConfig, o.KubectlOverrides)
 
 	return nil
 }

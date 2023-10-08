@@ -27,7 +27,6 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
@@ -109,7 +108,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	opts.Etcd.StorageConfig.Prefix = "/cache"
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
-	serverConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, apiopenapi.NewDefinitionNamer(apiserver.Scheme))
+	serverConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, apiopenapi.NewDefinitionNamer(apiextensionsapiserver.Scheme))
 
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err

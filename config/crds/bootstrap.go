@@ -168,7 +168,7 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 
 	logger.Info("waiting for CRD to be established")
 	var lastMsg string
-	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
 		crd, err := client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {

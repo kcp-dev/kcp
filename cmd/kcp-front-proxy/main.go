@@ -19,10 +19,8 @@ package main
 import (
 	"context"
 	goflags "flag"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -42,8 +40,6 @@ import (
 
 func main() {
 	ctx := genericapiserver.SetupSignalContext()
-
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(goflags.CommandLine)

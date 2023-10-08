@@ -17,8 +17,8 @@ limitations under the License.
 package crypto
 
 import (
+	"crypto/rand"
 	"encoding/base64"
-	"math/rand"
 )
 
 // RandomBits returns a random byte slice with at least the requested bits of entropy.

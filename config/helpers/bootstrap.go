@@ -86,7 +86,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	for _, opt := range opts {
 		transformers = append(transformers, opt.TransformFile)
 	}
-	return wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, batteriesIncluded, fs, transformers...); err != nil {
 			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
 			// invalidate cache if resources not found
@@ -266,7 +266,7 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 			return err
 		}
 
-		if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 			existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
 				logger.Error(err, "error getting APIBinding", "name", exportName)

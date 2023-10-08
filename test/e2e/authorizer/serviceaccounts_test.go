@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -31,9 +32,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -148,7 +148,7 @@ func TestServiceAccounts(t *testing.T) {
 			boundToken, err := kubeClusterClient.Cluster(wsPath).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences:         []string{"https://kcp.default.svc"},
-					ExpirationSeconds: pointer.Int64(3600),
+					ExpirationSeconds: ptr.To[int64](3600),
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
 						APIVersion: "v1",
 						Kind:       "Secret",

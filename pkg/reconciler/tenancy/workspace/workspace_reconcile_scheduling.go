@@ -18,9 +18,10 @@ package workspace
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"math/rand"
+	mathrand "math/rand"
 	"net/url"
 	"path"
 	"strings"
@@ -63,7 +64,7 @@ const (
 )
 
 type schedulingReconciler struct {
-	generateClusterName func(path logicalcluster.Path) logicalcluster.Name
+	generateClusterName func(path logicalcluster.Path) (logicalcluster.Name, error)
 
 	getShard       func(name string) (*corev1alpha1.Shard, error)
 	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
@@ -121,7 +122,10 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			}
 		}
 		if !hasCluster {
-			cluster := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))
+			cluster, err := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))
+			if err != nil {
+				return reconcileStatusStopAndRequeue, err
+			}
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
@@ -230,7 +234,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		logger.Error(utilerrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
 		return nil, "No available shards to schedule the workspace", nil // retry is automatic when new shards show up
 	}
-	targetShard := validShards[rand.Intn(len(validShards))]
+	targetShard := validShards[mathrand.Intn(len(validShards))]
 	return targetShard, "", nil
 }
 
@@ -339,10 +343,13 @@ func isValidShard(_ *corev1alpha1.Shard) (valid bool, reason, message string) {
 	return true, "", ""
 }
 
-func randomClusterName(path logicalcluster.Path) logicalcluster.Name {
+func randomClusterName(path logicalcluster.Path) (logicalcluster.Name, error) {
 	token := make([]byte, 32)
-	rand.Read(token)
+	_, err := rand.Read(token)
+	if err != nil {
+		return "", err
+	}
 	hash := sha256.Sum224(token)
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return logicalcluster.Name(base36hash[:16]) // 36^16 = 82 bits, P(conflict)<10^-9 for 2^26 clusters
+	return logicalcluster.Name(base36hash[:16]), nil // 36^16 = 82 bits, P(conflict)<10^-9 for 2^26 clusters
 }

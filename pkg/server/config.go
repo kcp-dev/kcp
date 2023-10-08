@@ -31,7 +31,6 @@ import (
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -201,7 +200,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	c.KubeClusterClient, err = kcpkubernetesclient.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
+	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return nil, err
 	}
