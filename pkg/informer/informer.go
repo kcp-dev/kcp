@@ -836,7 +836,6 @@ type crdGVRSource struct {
 var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = map[schema.GroupVersionResource]GVRPartialMetadata{
 	gvrFor("", "v1", "configmaps"):                                                          withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
 	gvrFor("", "v1", "events"):                                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
-	gvrFor("", "v1", "limitranges"):                                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
 	gvrFor("", "v1", "namespaces"):                                                          withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
 	gvrFor("", "v1", "resourcequotas"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
 	gvrFor("", "v1", "secrets"):                                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),

@@ -84,6 +84,7 @@ var (
 		"service-account-key-file",                // File containing PEM-encoded x509 RSA or ECDSA private or public keys, used to verify ServiceAccount tokens. The specified file can contain multiple keys, and the flag can be specified multiple times with different files. If unspecified, --tls-private-key-file is used. Must be specified when --service-account-signing-key is provided
 		"service-account-lookup",                  // If true, validate ServiceAccount tokens exist in etcd as part of authentication.
 		"service-account-max-token-expiration",    // The maximum validity duration of a token created by the service account token issuer. If an otherwise valid TokenRequest with a validity duration larger than this value is requested, a token will be issued with a validity duration of this value.
+		"service-account-signing-key-file",        // Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.
 
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text", "json".
@@ -108,13 +109,14 @@ var (
 		"tls-sni-cert-key",                 // A pair of x509 certificate and private key file paths, optionally suffixed with a list of domain patterns which are fully qualified domain names, possibly with prefixed wildcard segments. The domain patterns also allow IP addresses, but IPs should only be used if the apiserver has visibility to the IP address requested by a client. If no domain patterns are provided, the names of the certificate are extracted. Non-wildcard matches trump over wildcard matches, explicit domain patterns trump over extracted names. For multiple key/certificate pairs, use the --tls-sni-cert-key multiple times. Examples: "example.crt,example.key" or "foo.crt,foo.key:*.foo.com,foo.com".
 
 		// generic flags
-		"cors-allowed-origins",                 // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.
-		"goaway-chance",                        // To prevent HTTP/2 clients from getting stuck on a single apiserver, randomly close a connection (GOAWAY). The client's other in-flight requests won't be affected, and the client will reconnect, likely landing on a different apiserver after going through the load balancer again. This argument sets the fraction of requests that will be sent a GOAWAY. Clusters with single apiservers, or which don't use a load balancer, should NOT enable this. Min is 0 (off), Max is .02 (1/50 requests); .001 (1/1000) is a recommended starting point.
-		"livez-grace-period",                   // This option represents the maximum amount of time it should take for apiserver to complete its startup sequence and become live. From apiserver's start time to when this amount of time has elapsed, /livez will assume that unfinished post-start hooks will complete successfully and therefore return true.
-		"shutdown-delay-duration",              // Time to delay the termination. During that time the server keeps serving requests normally. The endpoints /healthz and /livez will return success, but /readyz immediately returns failure. Graceful termination starts after this delay has elapsed. This can be used to allow load balancer to stop sending traffic to this server.
-		"shutdown-send-retry-after",            // If true the HTTP Server will continue listening until all non long running request(s) in flight have been drained, during this window all incoming requests will be rejected with a status code 429 and a 'Retry-After' response header, in addition 'Connection: close' response header is set in order to tear down the TCP connection when idle.
-		"strict-transport-security-directives", // List of directives for HSTS, comma separated. If this list is empty, then HSTS directives will not be added. Example: 'max-age=31536000,includeSubDomains,preload'
-		"external-hostname",                    // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
+		"cors-allowed-origins",                    // List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.
+		"goaway-chance",                           // To prevent HTTP/2 clients from getting stuck on a single apiserver, randomly close a connection (GOAWAY). The client's other in-flight requests won't be affected, and the client will reconnect, likely landing on a different apiserver after going through the load balancer again. This argument sets the fraction of requests that will be sent a GOAWAY. Clusters with single apiservers, or which don't use a load balancer, should NOT enable this. Min is 0 (off), Max is .02 (1/50 requests); .001 (1/1000) is a recommended starting point.
+		"livez-grace-period",                      // This option represents the maximum amount of time it should take for apiserver to complete its startup sequence and become live. From apiserver's start time to when this amount of time has elapsed, /livez will assume that unfinished post-start hooks will complete successfully and therefore return true.
+		"shutdown-delay-duration",                 // Time to delay the termination. During that time the server keeps serving requests normally. The endpoints /healthz and /livez will return success, but /readyz immediately returns failure. Graceful termination starts after this delay has elapsed. This can be used to allow load balancer to stop sending traffic to this server.
+		"shutdown-send-retry-after",               // If true the HTTP Server will continue listening until all non long running request(s) in flight have been drained, during this window all incoming requests will be rejected with a status code 429 and a 'Retry-After' response header, in addition 'Connection: close' response header is set in order to tear down the TCP connection when idle.
+		"strict-transport-security-directives",    // List of directives for HSTS, comma separated. If this list is empty, then HSTS directives will not be added. Example: 'max-age=31536000,includeSubDomains,preload'
+		"external-hostname",                       // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
+		"shutdown-watch-termination-grace-period", // his option, if set, represents the maximum amount of grace period the apiserver will wait for active watch request(s) to drain during the graceful server shutdown window.
 
 		// etcd flags
 		"encryption-provider-config-automatic-reload", // Determines if the file set by --encryption-provider-config should be automatically reloaded if the disk contents change. Setting this to true disables the ability to uniquely identify distinct KMS plugins via the API server healthz endpoints.
@@ -138,6 +140,7 @@ var (
 		// features flags
 		"contention-profiling", // Enable lock contention profiling, if profiling is enabled
 		"profiling",            // Enable profiling via web interface host:port/debug/pprof/
+		"debug-socket-path",    // Use an unprotected (no authn/authz) unix-domain socket for profiling with the given path
 
 		// metrics flags
 		"allow-metric-labels",             // The map from metric-label to value allow-list of this label. The key's format is <MetricName>,<LabelName>. The value's format is <allowed_value>,<allowed_value>...e.g. metric1,label1='v1,v2,v3', metric1,label2='v1,v2,v3' metric2,label1='v1,v2,v3'.
@@ -157,7 +160,6 @@ var (
 		"advertise-address",              // The IP address on which to advertise the apiserver to members of the cluster. This address must be reachable by the rest of the cluster. If blank, the --bind-address will be used. If --bind-address is unspecified, the host's default interface will be used.
 		"enable-priority-and-fairness",   // If true and the APIPriorityAndFairness feature gate is enabled, replace the max-in-flight handler with an enhanced one that queues and dispatches with priority and fairness
 		"feature-gates",                  // A set of key=value pairs that describe feature gates for alpha/experimental features. Options are:
-		"master-service-namespace",       // DEPRECATED: the namespace from which the Kubernetes master services should be injected into pods.
 		"max-mutating-requests-inflight", // This and --max-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of mutating requests in flight, or a zero value disables the limit completely.
 		"max-requests-inflight",          // This and --max-mutating-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of non-mutating requests in flight, or a zero value disables the limit completely.
 		"min-request-timeout",            // An optional field indicating the minimum number of seconds a handler must keep a request open before timing it out. Currently only honored by the watch request handler, which picks a randomized value above this number as the connection timeout, to spread out load.
@@ -173,11 +175,19 @@ var (
 		"admission-control-config-file", // File with admission control configuration.
 		"disable-admission-plugins",     // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
 		"enable-admission-plugins",      // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"admission-control",             // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
 
 		// egress selector flags
 		"egress-selector-config-file", // File with apiserver egress selector configuration.
 
 		// API enablement flags
 		"runtime-config", // A set of key=value pairs that enable or disable built-in APIs. Supported options are:
+
+		// Aggregation/peering
+		"aggregator-reject-forwarding-redirect", // Aggregator reject forwarding redirect response back to client.
+		"enable-aggregator-routing",             // Turns on aggregator routing requests to endpoints IP rather than cluster IP.
+		"peer-advertise-ip",                     // If set and the UnknownVersionInteroperabilityProxy feature gate is enabled, this IP will be used by peer kube-apiservers to proxy requests to this kube-apiserver when the request cannot be handled by the peer due to version skew between the kube-apiservers. This flag is only used in clusters configured with multiple kube-apiservers for high availability.
+		"peer-advertise-port",                   // If set and the UnknownVersionInteroperabilityProxy feature gate is enabled, this port will be used by peer kube-apiservers to proxy requests to this kube-apiserver when the request cannot be handled by the peer due to version skew between the kube-apiservers. This flag is only used in clusters configured with multiple kube-apiservers for high availability.
+		"peer-ca-file",                          // If set and the UnknownVersionInteroperabilityProxy feature gate is enabled, this file will be used to verify serving certificates of peer kube-apiservers. This flag is only used in clusters configured with multiple kube-apiservers for high availability.
 	)
 )

@@ -49,11 +49,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -267,7 +267,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 		t.Logf("Verify that user-1 can now patch (application/apply-patch+yaml) cowboys")
 		patch := `{"apiVersion":"wildwest.dev/v1alpha1","kind":"Cowboy","spec":{"intent":"4"}}`
-		_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys(cowboy.Namespace).Patch(ctx, cowboy.Name, types.ApplyPatchType, []byte(patch), metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
+		_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys(cowboy.Namespace).Patch(ctx, cowboy.Name, types.ApplyPatchType, []byte(patch), metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: ptr.To(true)})
 		require.NoError(t, err)
 
 		t.Logf("Verify that user-1 can not patch a non-existent cowboy")
@@ -853,7 +853,7 @@ func gatherInternalAPIs(t *testing.T, discoveryClient discovery.DiscoveryInterfa
 				resourceScope = apiextensionsv1.NamespaceScoped
 			}
 
-			instance, err := genericcontrolplanescheme.Scheme.New(gvk)
+			instance, err := kcpscheme.Scheme.New(gvk)
 			if err != nil {
 				if extensionsapiserver.Scheme.Recognizes(gvk) {
 					// Not currently supporting permission claim for CustomResourceDefinition.
@@ -980,7 +980,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
-	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(c context.Context) (done bool, err error) {
 		groups, err := consumerWsClient.Cluster(consumerWorkspace).Discovery().ServerGroups()
 		if err != nil {
 			return false, fmt.Errorf("error retrieving consumer workspace %q group discovery: %w", consumerWorkspace, err)

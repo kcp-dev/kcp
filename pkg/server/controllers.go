@@ -24,13 +24,13 @@ import (
 	"os"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -176,6 +176,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	// which informers need to be started. The shared informer factories are started in their
 	// own post-start hook.
 	c := namespace.NewNamespaceController(
+		ctx,
 		kubeClient,
 		metadata,
 		discoverResourcesFn,
@@ -187,7 +188,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
 		Runner: func(ctx context.Context) {
-			c.Run(10, ctx.Done())
+			c.Run(ctx, 10)
 		},
 	})
 }
@@ -256,7 +257,6 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		serviceaccountcontroller.TokensControllerOptions{
 			TokenGenerator: tokenGenerator,
 			RootCA:         rootCA,
-			AutoGenerate:   true,
 		},
 	)
 	if err != nil {
@@ -267,8 +267,8 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		Name: controllerName,
 		Runner: func(ctx context.Context) {
 			controller.Run(
+				ctx,
 				int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs),
-				ctx.Done(),
 			)
 		},
 	})
@@ -582,7 +582,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 				cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
@@ -811,7 +811,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 				return crdsSynced && exportsSynced, nil

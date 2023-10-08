@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -663,7 +663,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							Served:             true,
 							Storage:            false,
 							Deprecated:         true,
-							DeprecationWarning: pointer.String("deprecated!"),
+							DeprecationWarning: ptr.To("deprecated!"),
 							Schema: runtime.RawExtension{
 								Raw: []byte(`
 {
@@ -677,7 +677,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.String(".status.selector"),
+									LabelSelectorPath:  ptr.To(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -709,7 +709,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.String(".status.selector"),
+									LabelSelectorPath:  ptr.To(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -753,7 +753,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							Served:             true,
 							Storage:            false,
 							Deprecated:         true,
-							DeprecationWarning: pointer.String("deprecated!"),
+							DeprecationWarning: ptr.To("deprecated!"),
 							Schema: &apiextensionsv1.CustomResourceValidation{
 								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 									Description: "foo",
@@ -765,7 +765,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.String(".status.selector"),
+									LabelSelectorPath:  ptr.To(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
@@ -795,7 +795,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
 									SpecReplicasPath:   ".spec.replicas",
 									StatusReplicasPath: ".status.replicas",
-									LabelSelectorPath:  pointer.String(".status.selector"),
+									LabelSelectorPath:  ptr.To(".status.selector"),
 								},
 							},
 							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{

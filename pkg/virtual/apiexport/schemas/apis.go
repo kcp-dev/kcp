@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -42,7 +42,7 @@ func init() {
 		}
 		bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
 			Type:                   "object",
-			XPreserveUnknownFields: pointer.Bool(true),
+			XPreserveUnknownFields: ptr.To(true),
 		})
 		if err != nil {
 			panic(fmt.Sprintf("failed to marshal JSONSchemaProps: %v", err))

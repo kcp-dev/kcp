@@ -118,7 +118,7 @@ func Run(ctx context.Context, o *options.Options) error {
 
 	// resolve identities for system APIBindings
 	identityConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
-	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
 			logger.V(3).Info("failed to resolve identities, keeping trying: ", "err", err)
 			return false, nil

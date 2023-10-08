@@ -1,5 +1,5 @@
-//go:build tools
-// +build tools
+//go:build kcptools
+// +build kcptools
 
 /*
 Copyright 2021 The KCP Authors.

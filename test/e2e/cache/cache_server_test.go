@@ -144,7 +144,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	initialMangoDB.UID = "3"
 	initialMangoDB.Generation = 11
 	initialMangoDB.CreationTimestamp = metav1.Now().Rfc3339Copy()
-	initialMangoDB.Annotations = map[string]string{genericrequest.AnnotationKey: "amber"}
+	initialMangoDB.Annotations = map[string]string{genericrequest.ShardAnnotationKey: "amber"}
 	validateFn := func(mangoDB fakeAPIExport, cachedMangoDBRaw *unstructured.Unstructured) {
 		cachedMangoDBJson, err := cachedMangoDBRaw.MarshalJSON()
 		require.NoError(t, err)

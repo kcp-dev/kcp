@@ -142,7 +142,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 
 	// wait for phase to be bound
 	if createdBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-		if err := wait.PollImmediate(time.Millisecond*500, b.BindWaitTimeout, func() (done bool, err error) {
+		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (done bool, err error) {
 			createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err

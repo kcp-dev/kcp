@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakeWorkspaceTypes struct {
 	Fake *FakeTenancyV1alpha1
 }
 
-var workspacetypesResource = schema.GroupVersionResource{Group: "tenancy.kcp.io", Version: "v1alpha1", Resource: "workspacetypes"}
+var workspacetypesResource = v1alpha1.SchemeGroupVersion.WithResource("workspacetypes")
 
-var workspacetypesKind = schema.GroupVersionKind{Group: "tenancy.kcp.io", Version: "v1alpha1", Kind: "WorkspaceType"}
+var workspacetypesKind = v1alpha1.SchemeGroupVersion.WithKind("WorkspaceType")
 
 // Get takes name of the workspaceType, and returns the corresponding workspaceType object, and an error if there is any.
 func (c *FakeWorkspaceTypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.WorkspaceType, err error) {

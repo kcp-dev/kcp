@@ -26,6 +26,7 @@ import (
 	validatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	kubeapiserveroptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 	certapproval "k8s.io/kubernetes/plugin/pkg/admission/certificates/approval"
+	"k8s.io/kubernetes/plugin/pkg/admission/certificates/ctbattest"
 	certsigning "k8s.io/kubernetes/plugin/pkg/admission/certificates/signing"
 	certsubjectrestriction "k8s.io/kubernetes/plugin/pkg/admission/certificates/subjectrestriction"
 	"k8s.io/kubernetes/plugin/pkg/admission/defaulttolerationseconds"
@@ -42,13 +43,11 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/apibinding"
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
-	"github.com/kcp-dev/kcp/pkg/admission/apiconversion"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
-	kcplimitranger "github.com/kcp-dev/kcp/pkg/admission/limitranger"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
@@ -71,7 +70,6 @@ import (
 var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
-	apiconversion.PluginName,
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,
@@ -85,7 +83,6 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	kcpmutatingwebhook.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
-	kcplimitranger.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
@@ -110,7 +107,6 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 // RegisterAllKcpAdmissionPlugins registers all admission plugins.
 // The order of registration is irrelevant, see AllOrderedPlugins for execution order.
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
-	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	workspace.Register(plugins)
 	logicalclusterfinalizer.Register(plugins)
 	shard.Register(plugins)
@@ -119,7 +115,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	logicalcluster.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
-	apiconversion.Register(plugins)
 	apibinding.Register(plugins)
 	apibindingfinalizer.Register(plugins)
 	apiexportendpointslice.Register(plugins)
@@ -127,7 +122,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kcpmutatingwebhook.Register(plugins)
 	kcpvalidatingadmissionpolicy.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
-	kcplimitranger.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
 	reservednames.Register(plugins)
@@ -140,7 +134,6 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 
 var defaultOnPluginsInKcp = sets.New[string](
 	workspacenamespacelifecycle.PluginName, // WorkspaceNamespaceLifecycle
-	kcplimitranger.PluginName,              // WorkspaceLimitRanger
 	certapproval.PluginName,                // CertificateApproval
 	certsigning.PluginName,                 // CertificateSigning
 	certsubjectrestriction.PluginName,      // CertificateSubjectRestriction
@@ -154,7 +147,6 @@ var defaultOnPluginsInKcp = sets.New[string](
 	logicalcluster.PluginName,
 	apiresourceschema.PluginName,
 	apiexport.PluginName,
-	apiconversion.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
@@ -190,9 +182,11 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	runtimeclass.PluginName,                 // RuntimeClass
 	certapproval.PluginName,                 // CertificateApproval
 	certsigning.PluginName,                  // CertificateSigning
+	ctbattest.PluginName,                    // ClusterTrustBundleAttest
 	certsubjectrestriction.PluginName,       // CertificateSubjectRestriction
 	defaultingressclass.PluginName,          // DefaultIngressClass
-	podsecurity.PluginName,                  // PodSecurity)
+	podsecurity.PluginName,                  // PodSecurity
+	validatingadmissionpolicy.PluginName,    // ValidatingAdmissionPolicy, only active when feature gate ValidatingAdmissionPolicy is enabled
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.

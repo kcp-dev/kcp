@@ -31,7 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -145,12 +145,12 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
 				a.localClusterRoleLister.Cluster(cluster.Name),
 				a.globalClusterRoleLister.Cluster(cluster.Name),
-				a.localClusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 			)},
 			&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
 				a.localClusterRoleBindingLister.Cluster(cluster.Name),
 				a.globalClusterRoleBindingLister.Cluster(cluster.Name),
-				a.localClusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
+				a.localClusterRoleBindingLister.Cluster(controlplaneapiserver.LocalAdminCluster),
 			)},
 		)
 

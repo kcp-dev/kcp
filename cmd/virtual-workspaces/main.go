@@ -19,9 +19,7 @@ package main
 import (
 	goflag "flag"
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/spf13/pflag"
 
@@ -32,8 +30,6 @@ import (
 
 func main() {
 	ctx := genericapiserver.SetupSignalContext()
-
-	rand.Seed(time.Now().UTC().UnixNano())
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 

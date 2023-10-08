@@ -50,7 +50,7 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 	}
 
 	// set LogicalCluster to Initializing
-	return wait.PollImmediateUntilWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (done bool, err error) {
+	return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (done bool, err error) {
 		logger := klog.FromContext(ctx).WithValues("bootstrapping", "root-phase0")
 		logicalCluster, err := kcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		if err != nil {

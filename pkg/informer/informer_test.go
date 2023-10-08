@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
+
+	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 )
 
 // TestBuiltInInformableTypes tests that there is no drift between actual built-in types and the list that is hard-coded
@@ -54,10 +54,30 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	gvksToIgnore := map[schema.GroupVersionKind]struct{}{
 		{Version: "v1", Kind: "APIGroup"}:                                                {},
 		{Version: "v1", Kind: "APIVersions"}:                                             {},
+		{Version: "v1", Kind: "Binding"}:                                                 {},
+		{Version: "v1", Kind: "ComponentStatus"}:                                         {},
+		{Version: "v1", Kind: "Endpoints"}:                                               {},
+		{Version: "v1", Kind: "LimitRange"}:                                              {},
+		{Version: "v1", Kind: "NodeProxyOptions"}:                                        {},
+		{Version: "v1", Kind: "Node"}:                                                    {},
+		{Version: "v1", Kind: "PersistentVolumeClaim"}:                                   {},
+		{Version: "v1", Kind: "PersistentVolume"}:                                        {},
+		{Version: "v1", Kind: "Pod"}:                                                     {},
+		{Version: "v1", Kind: "PodAttachOptions"}:                                        {},
+		{Version: "v1", Kind: "PodExecOptions"}:                                          {},
+		{Version: "v1", Kind: "PodPortForwardOptions"}:                                   {},
+		{Version: "v1", Kind: "PodLogOptions"}:                                           {},
+		{Version: "v1", Kind: "PodProxyOptions"}:                                         {},
+		{Version: "v1", Kind: "PodStatusResult"}:                                         {},
+		{Version: "v1", Kind: "PodTemplate"}:                                             {},
+		{Version: "v1", Kind: "ReplicationController"}:                                   {},
 		{Version: "v1", Kind: "RangeAllocation"}:                                         {},
 		{Version: "v1", Kind: "SerializedReference"}:                                     {},
+		{Version: "v1", Kind: "ServiceProxyOptions"}:                                     {},
+		{Version: "v1", Kind: "Service"}:                                                 {},
 		{Version: "v1", Kind: "Status"}:                                                  {},
 		{Group: "authentication.k8s.io", Version: "v1alpha1", Kind: "SelfSubjectReview"}: {},
+		{Group: "authentication.k8s.io", Version: "v1", Kind: "SelfSubjectReview"}:       {},
 		{Group: "authentication.k8s.io", Version: "v1", Kind: "TokenRequest"}:            {},
 		{Group: "authentication.k8s.io", Version: "v1", Kind: "TokenReview"}:             {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "LocalSubjectAccessReview"}: {},
@@ -74,6 +94,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1"}: {},
 		{Group: "authentication.k8s.io", Version: "v1beta1"}:        {},
 		{Group: "authorization.k8s.io", Version: "v1beta1"}:         {},
+		{Group: "certificates.k8s.io", Version: "v1alpha1"}:         {},
 		{Group: "certificates.k8s.io", Version: "v1beta1"}:          {},
 		{Group: "coordination.k8s.io", Version: "v1beta1"}:          {},
 		{Group: "events.k8s.io", Version: "v1beta1"}:                {},
@@ -81,7 +102,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "rbac.authorization.k8s.io", Version: "v1beta1"}:    {},
 	}
 
-	allKnownTypes := genericcontrolplanescheme.Scheme.AllKnownTypes()
+	allKnownTypes := kcpscheme.Scheme.AllKnownTypes()
 
 	// CRDs are not included in the genericcontrolplane scheme (because they're part of the apiextensions apiserver),
 	// so we have to manually add them

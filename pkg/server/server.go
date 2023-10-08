@@ -27,18 +27,24 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/notfoundhandler"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+	autoscalingrest "k8s.io/kubernetes/pkg/registry/autoscaling/rest"
+	flowcontrolrest "k8s.io/kubernetes/pkg/registry/flowcontrol/rest"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -57,8 +63,10 @@ const resyncPeriod = 10 * time.Hour
 type Server struct {
 	CompletedConfig
 
-	*genericcontrolplane.ServerChain
-	virtual *virtualrootapiserver.Server
+	ApiExtensions  *extensionsapiserver.CustomResourceDefinitions
+	Apis           *controlplaneapiserver.Server
+	MiniAggregator *miniaggregator.MiniAggregatorServer
+	virtual        *virtualrootapiserver.Server
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -82,17 +90,48 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		controllers:          make(map[string]*controllerWrapper),
 	}
 
+	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
 	var err error
-	s.ServerChain, err = genericcontrolplane.CreateServerChain(c.MiniAggregator, c.Apis, c.ApiExtensions)
+	s.ApiExtensions, err = c.ApiExtensions.New(genericapiserver.NewEmptyDelegateWithCustomHandler(notFoundHandler))
+	if err != nil {
+		return nil, fmt.Errorf("create api extensions: %v", err)
+	}
+
+	s.Apis, err = c.Apis.New("generic-control-plane", s.ApiExtensions.GenericAPIServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create generic controlplane apiserver: %w", err)
+	}
+
+	// TODO(sttts): that discovery client is used for CEL admission. It looks up
+	//              resources to admit I believe. So that probably must be scoped.
+	allStorageProviders, err := c.Apis.DefaultStorageProviders(s.KcpClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).Discovery())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage providers: %w", err)
+	}
+	var storageProviders []controlplaneapiserver.RESTStorageProvider
+	for i := range allStorageProviders {
+		switch allStorageProviders[i].(type) {
+		case flowcontrolrest.RESTStorageProvider:
+		// TODO(sttts): remove this code when P&F is wired
+		case autoscalingrest.RESTStorageProvider:
+		default:
+			storageProviders = append(storageProviders, allStorageProviders[i])
+		}
+	}
+	if err := s.Apis.InstallAPIs(storageProviders...); err != nil {
+		return nil, fmt.Errorf("failed to install APIs: %w", err)
+	}
+
+	s.MiniAggregator, err = c.MiniAggregator.New(s.Apis.GenericAPIServer, s.Apis, s.ApiExtensions)
 	if err != nil {
 		return nil, err
 	}
 
-	s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
+	s.Apis.GenericAPIServer.Handler.GoRestfulContainer.Filter(
 		mergeCRDsIntoCoreGroup(
-			s.ApiExtensions.ExtraConfig.ClusterAwareCRDLister,
-			s.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
-			s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
+			s.ApiExtensions.ClusterAwareCRDLister,
+			s.ApiExtensions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
+			s.Apis.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
 		),
 	)
 
@@ -165,7 +204,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting kube informers")
 
 		logger.Info("bootstrapping system CRDs")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			if err := systemcrds.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()),
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()).Discovery(),
@@ -183,7 +222,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished bootstrapping system CRDs")
 
 		logger.Info("bootstrapping the shard workspace")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			if err := configshard.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster.Path()).Discovery(),
 				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster.Path()),
@@ -204,7 +243,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.StopCh)
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
@@ -232,7 +271,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapped root workspace phase 0")
 
 			logger.Info("getting kcp APIExport identities")
-			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 					return false, nil
@@ -245,7 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("finished getting kcp APIExport identities")
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
 			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
 					return false, nil
@@ -280,7 +319,7 @@ func (s *Server) Run(ctx context.Context) error {
 			},
 		}
 		logger.Info("Creating or updating Shard", "shard", s.Options.Extra.ShardName)
-		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(goContext(hookContext), time.Second, true, func(ctx context.Context) (bool, error) {
 			existingShard, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed getting Shard from the root workspace")
@@ -364,7 +403,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installRootCAConfigMapController(ctx, s.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installRootCAConfigMapController(ctx, s.Apis.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
@@ -515,7 +554,7 @@ func (s *Server) Run(ctx context.Context) error {
 			// set up a special *rest.Config that points to the (shard-)local admin cluster.
 			leaderElectionConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
 			leaderElectionConfig = rest.AddUserAgent(leaderElectionConfig, "kcp-leader-election")
-			leaderElectionConfig.Host, err = url.JoinPath(leaderElectionConfig.Host, genericcontrolplane.LocalAdminCluster.Path().RequestPath())
+			leaderElectionConfig.Host, err = url.JoinPath(leaderElectionConfig.Host, controlplaneapiserver.LocalAdminCluster.Path().RequestPath())
 			if err != nil {
 				return fmt.Errorf("failed to determine local shard admin workspace: %w", err)
 			}

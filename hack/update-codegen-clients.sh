@@ -31,13 +31,16 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
 go install "${CODEGEN_PKG}"/cmd/client-gen
 
+# TODO: This is hack to allow CI to pass
+chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
-  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1 \
+  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
   --output-package github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \

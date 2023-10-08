@@ -40,7 +40,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -77,7 +77,7 @@ func BuildVirtualWorkspace(
 	}
 	bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
 		Type:                   "object",
-		XPreserveUnknownFields: pointer.Bool(true),
+		XPreserveUnknownFields: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err

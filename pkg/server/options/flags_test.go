@@ -24,11 +24,13 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	cliflag "k8s.io/component-base/cli/flag"
 )
 
 func TestAllowedFlagList(t *testing.T) {
 	o := NewOptions(".kcp")
-	fss := o.GenericControlPlane.Flags()
+	var fss cliflag.NamedFlagSets
+	o.GenericControlPlane.AddFlags(&fss)
 
 	missing := map[string][]*pflag.Flag{}
 
@@ -55,7 +57,8 @@ func TestAllowedFlagList(t *testing.T) {
 
 func TestAllowedFlagListCleanup(t *testing.T) {
 	o := NewOptions(".kcp")
-	fss := o.GenericControlPlane.Flags()
+	var fss cliflag.NamedFlagSets
+	o.GenericControlPlane.AddFlags(&fss)
 
 	allFlags := map[string]*pflag.Flag{}
 	for _, fs := range fss.FlagSets {

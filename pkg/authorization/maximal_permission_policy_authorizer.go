@@ -29,7 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -76,7 +76,7 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers kcp
 				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
 					kubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
 					globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().Roles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+					kubeInformers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
 				)},
 				&rbac.RoleBindingLister{Lister: rbacwrapper.NewMergedRoleBindingLister(
 					kubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName),
@@ -85,12 +85,12 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers kcp
 				&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
 					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
 					globalKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
 				)},
 				&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
 					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
 					globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
 				)},
 			)
 		},

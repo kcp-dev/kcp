@@ -235,7 +235,7 @@ func (v *VirtualWorkspace) waitForReady(ctx context.Context) (<-chan error, erro
 	vwHost := fmt.Sprintf("https://%s", net.JoinHostPort("localhost", virtualWorkspacePort(v.index)))
 	kubeconfigPath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.kubeconfig", v.index))
 
-	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		select {
 		case <-ctx.Done():
 			return false, fmt.Errorf("context canceled")

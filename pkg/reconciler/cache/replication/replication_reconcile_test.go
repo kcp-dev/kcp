@@ -228,7 +228,7 @@ func WithShardName(u *unstructured.Unstructured, name string) *unstructured.Unst
 	if ann == nil {
 		ann = map[string]string{}
 	}
-	ann[request.AnnotationKey] = name
+	ann[request.ShardAnnotationKey] = name
 	u.SetAnnotations(ann)
 	return u
 }

@@ -20,17 +20,17 @@ import (
 	"context"
 
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	"k8s.io/apimachinery/pkg/api/validation/path"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/kube-openapi/pkg/validation/validate"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 )
@@ -68,7 +68,7 @@ func NewStorage(
 	strategy customresource.CustomResourceStrategy,
 	categories []string,
 	tableConvertor rest.TableConvertor,
-	replicasPathMapping fieldmanager.ResourcePathMappings,
+	replicasPathMapping managedfields.ResourcePathMappings,
 	dynamicClusterClientFunc DynamicClusterClientFunc,
 	patchConflictRetryBackoff *wait.Backoff,
 	wrapper StorageWrapper,
@@ -132,8 +132,8 @@ func ProvideReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc Dy
 		typer runtime.ObjectTyper,
 		tableConvertor rest.TableConvertor,
 		namespaceScoped bool,
-		schemaValidator *validate.SchemaValidator,
-		subresourcesSchemaValidator map[string]*validate.SchemaValidator,
+		schemaValidator validation.SchemaValidator,
+		subresourcesSchemaValidator map[string]validation.SchemaValidator,
 		structuralSchema *structuralschema.Structural,
 	) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate := subresourcesSchemaValidator["status"]

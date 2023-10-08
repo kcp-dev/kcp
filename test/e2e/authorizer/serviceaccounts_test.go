@@ -32,7 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -109,20 +109,30 @@ func TestServiceAccounts(t *testing.T) {
 		helper.QualifiedObjectName(namespace),
 	)
 
-	t.Log("Waiting for service account secret to be created")
+	t.Log("Creating the service account secret manually")
+	_, err = kubeClusterClient.Cluster(wsPath).CoreV1().Secrets(namespace.Name).Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-token",
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: "default",
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create service account secret")
+
+	t.Log("Waiting for service account secret to be filled")
 	var tokenSecret corev1.Secret
 	require.Eventually(t, func() bool {
-		secrets, err := kubeClusterClient.Cluster(wsPath).CoreV1().Secrets(namespace.Name).List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "failed to list secrets")
-
-		for _, secret := range secrets.Items {
-			if secret.Annotations[corev1.ServiceAccountNameKey] == "default" {
-				tokenSecret = secret
-				return true
-			}
+		s, err := kubeClusterClient.Cluster(wsPath).CoreV1().Secrets(namespace.Name).Get(ctx, "default-token", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		} else if err != nil {
+			t.Fatalf("unexpected error retrieving service account secret: %v", err)
 		}
-		return false
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for default service account not created")
+		tokenSecret = *s
+		return len(s.Data) > 0
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "\"default-token\" secret not filled in namespace %s")
 
 	testCases := []struct {
 		name  string
@@ -138,7 +148,7 @@ func TestServiceAccounts(t *testing.T) {
 			boundToken, err := kubeClusterClient.Cluster(wsPath).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
 					Audiences:         []string{"https://kcp.default.svc"},
-					ExpirationSeconds: pointer.Int64(3600),
+					ExpirationSeconds: ptr.To[int64](3600),
 					BoundObjectRef: &authenticationv1.BoundObjectReference{
 						APIVersion: "v1",
 						Kind:       "Secret",

@@ -172,7 +172,7 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
-		annotations[genericrequest.AnnotationKey] = r.shardName
+		annotations[genericrequest.ShardAnnotationKey] = r.shardName
 		localCopy.SetAnnotations(annotations)
 
 		logger.V(2).Info("Creating object in global cache")

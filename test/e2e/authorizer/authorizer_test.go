@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -215,10 +215,10 @@ func TestAuthorizer(t *testing.T) {
 			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			t.Logf("Creating matching ClusterRole %s in %s", bootstrapClusterRole.Name, genericcontrolplane.LocalAdminCluster)
+			t.Logf("Creating matching ClusterRole %s in %s", bootstrapClusterRole.Name, controlplaneapiserver.LocalAdminCluster)
 			shardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardCfg)
 			require.NoError(t, err)
-			_, err = shardKubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			framework.Eventually(t, func() (bool, string) {

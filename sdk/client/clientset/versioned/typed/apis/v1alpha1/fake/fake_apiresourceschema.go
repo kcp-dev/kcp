@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakeAPIResourceSchemas struct {
 	Fake *FakeApisV1alpha1
 }
 
-var apiresourceschemasResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiresourceschemas"}
+var apiresourceschemasResource = v1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas")
 
-var apiresourceschemasKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIResourceSchema"}
+var apiresourceschemasKind = v1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema")
 
 // Get takes name of the aPIResourceSchema, and returns the corresponding aPIResourceSchema object, and an error if there is any.
 func (c *FakeAPIResourceSchemas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceSchema, err error) {

@@ -30,9 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/common"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
+	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
@@ -41,7 +41,7 @@ import (
 // for APIExport virtual workspace.
 // TODO(hasheddan): this could be handled via code generation.
 func init() {
-	schemes := []*runtime.Scheme{genericcontrolplanescheme.Scheme}
+	schemes := []*runtime.Scheme{kcpscheme.Scheme}
 	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
 
 	apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, BuiltInAPIs...)
@@ -110,16 +110,6 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		},
 		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
 		Instance:      &corev1.Event{},
-		ResourceScope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "limitranges",
-			Singular: "limitrange",
-			Kind:     "LimitRange",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:      &corev1.LimitRange{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
 	},
 	{
@@ -253,6 +243,7 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
 		Instance:      &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
 	},
 	{
 		Names: apiextensionsv1.CustomResourceDefinitionNames{

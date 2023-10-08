@@ -18,10 +18,8 @@ package main
 
 import (
 	"flag"
-	"math/rand"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -36,8 +34,6 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	rootDir := flag.String("root-directory", ".kcp-cache", "Path to the root directory where all files required by this server will be stored")
 
 	var cacheServerFlags, remainingFlags []string //nolint:prealloc

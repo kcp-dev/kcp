@@ -25,7 +25,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -39,9 +38,9 @@ type FakeLogicalClusters struct {
 	Fake *FakeCoreV1alpha1
 }
 
-var logicalclustersResource = schema.GroupVersionResource{Group: "core.kcp.io", Version: "v1alpha1", Resource: "logicalclusters"}
+var logicalclustersResource = v1alpha1.SchemeGroupVersion.WithResource("logicalclusters")
 
-var logicalclustersKind = schema.GroupVersionKind{Group: "core.kcp.io", Version: "v1alpha1", Kind: "LogicalCluster"}
+var logicalclustersKind = v1alpha1.SchemeGroupVersion.WithKind("LogicalCluster")
 
 // Get takes name of the logicalCluster, and returns the corresponding logicalCluster object, and an error if there is any.
 func (c *FakeLogicalClusters) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LogicalCluster, err error) {
