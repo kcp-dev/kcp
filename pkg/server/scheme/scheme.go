@@ -19,14 +19,12 @@ package scheme
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	admissionregistrationinstall "k8s.io/kubernetes/pkg/apis/admissionregistration/install"
 	authenticationinstall "k8s.io/kubernetes/pkg/apis/authentication/install"
 	authorizationinstall "k8s.io/kubernetes/pkg/apis/authorization/install"
 	certificatesinstall "k8s.io/kubernetes/pkg/apis/certificates/install"
 	coordinationinstall "k8s.io/kubernetes/pkg/apis/coordination/install"
 	"k8s.io/kubernetes/pkg/apis/core/install"
-	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	eventsinstall "k8s.io/kubernetes/pkg/apis/events/install"
 	rbacinstall "k8s.io/kubernetes/pkg/apis/rbac/install"
 )
