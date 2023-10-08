@@ -31,6 +31,9 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
 go install "${CODEGEN_PKG}"/cmd/client-gen
 
+# TODO: This is hack to allow CI to pass
+chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   --input-dirs github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
