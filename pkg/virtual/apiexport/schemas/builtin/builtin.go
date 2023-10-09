@@ -264,5 +264,6 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "apiextensions.k8s.io", Version: "v1"},
 		Instance:      &apiextensionsv1.CustomResourceDefinition{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
 	},
 }
