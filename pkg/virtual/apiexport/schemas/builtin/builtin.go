@@ -255,4 +255,14 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		Instance:      &admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
 	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "customresourcedefinitions",
+			Singular: "customresourcedefinition",
+			Kind:     "CustomResourceDefinition",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "apiextensions.k8s.io", Version: "v1"},
+		Instance:      &apiextensionsv1.CustomResourceDefinition{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
 }

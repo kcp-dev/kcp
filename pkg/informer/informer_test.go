@@ -17,7 +17,6 @@ limitations under the License.
 package informer
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -84,6 +83,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SelfSubjectAccessReview"}:  {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SelfSubjectRulesReview"}:   {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SubjectAccessReview"}:      {},
+		{Group: "apiextensions.k8s.io", Version: "v1", Kind: "ConversionReview"}:         {},
 	}
 
 	gvsToIgnore := map[schema.GroupVersion]struct{}{
@@ -92,6 +92,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 
 		// These are alpha/beta versions that are not preferred (they all have v1)
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1"}: {},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1"}:         {},
 		{Group: "authentication.k8s.io", Version: "v1beta1"}:        {},
 		{Group: "authorization.k8s.io", Version: "v1beta1"}:         {},
 		{Group: "certificates.k8s.io", Version: "v1alpha1"}:         {},
@@ -103,11 +104,6 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	}
 
 	allKnownTypes := kcpscheme.Scheme.AllKnownTypes()
-
-	// CRDs are not included in the genericcontrolplane scheme (because they're part of the apiextensions apiserver),
-	// so we have to manually add them
-	allKnownTypes[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}] = reflect.TypeOf(struct{}{})
-
 	for gvk := range allKnownTypes {
 		if kindsToIgnore.Has(gvk.Kind) {
 			continue
