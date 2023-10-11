@@ -1,0 +1,22 @@
+externalHostname: "kcp.faros.sh"
+kcp:
+  volumeClassName: "standard"
+  externalLogicalClusterAdminFlag: false
+  # Fake images to trick Tilt to think they are different
+  image: "ghcr.io/kcp-dev/kcp-server"
+  tokenAuth:
+    enabled: true
+kcpFrontProxy:
+  # Fake images to trick Tilt to think they are different
+  image: "ghcr.io/kcp-dev/kcp-frontend-proxy"
+  tag: f1332a0e
+  openshiftRoute:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "nginx"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  certificate:
+    issuerSpec:
+      selfSigned: {}

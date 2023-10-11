@@ -27,3 +27,6 @@ tmp
 
 go.work
 go.work.sum
+
+contrib/tilt/cloudflare-tunnel.yaml
+/contrib/tilt/bin/*

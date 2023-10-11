@@ -1,0 +1,172 @@
+load('ext://helm_remote', 'helm_remote')
+load('ext://helm_resource', 'helm_resource')
+load('ext://namespace', 'namespace_create', 'namespace_inject')
+load('ext://restart_process', 'docker_build_with_restart')
+load('ext://git_resource', 'git_checkout')
+load('ext://get_obj', 'get_obj')
+load('ext://cert_manager', 'deploy_cert_manager')
+
+k8s_yaml('kernel-limits-job.yaml')
+
+current_context = k8s_context()
+
+namespace_create('grafana')
+helm_remote(
+  'grafana',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='grafana',
+  namespace='grafana',
+  version='6.38.0',
+  values=['./grafana-values.yaml'],
+  set=[]
+)
+
+k8s_resource(
+  workload='grafana',
+  port_forwards=[
+    port_forward(name="3333", local_port=3333, container_port=3000),
+  ],
+)
+
+namespace_create('loki')
+helm_remote(
+  'loki',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='loki',
+  namespace='loki',
+  # contains loki 2.8.0 -- the same we run in prod on 2023-06-27: https://artifacthub.io/packages/helm/grafana/loki/5.2.0
+  version='5.2.0',
+  values=['./loki-values.yaml'],
+  set=[]
+)
+k8s_resource(
+  workload='loki',
+  port_forwards=[
+    port_forward(name="ui", local_port=3100, container_port=3100),
+  ],
+)
+
+promtail_values = ['promtail-values.yaml']
+
+helm_remote(
+  'promtail',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='promtail',
+  namespace='loki',
+  version='3.11.0',
+  values=promtail_values,
+  set=[]
+)
+
+prometheus_values = ['prometheus-values.yaml']
+namespace_create('prometheus')
+helm_remote(
+  'prometheus',
+  repo_url='https://prometheus-community.github.io/helm-charts',
+  repo_name='prometheus-community',
+  release_name='prometheus',
+  namespace='prometheus',
+  version='22.6.0',
+  values=prometheus_values,
+  set=[]
+)
+
+k8s_resource(
+  workload='prometheus-server',
+  port_forwards=[
+    port_forward(name="ui", local_port=9091, container_port=9090),
+  ],
+)
+
+# KCP development
+namespace_create('kcp')
+if not os.path.exists('kcp-helm-charts'):
+  git_checkout(
+    'https://github.com/kcp-dev/helm-charts',
+    'kcp-helm-charts'
+  )
+
+compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp ./cmd/kcp'
+local_resource(
+  'kcp-compile',
+  compile_cmd,
+  deps=[
+    './../../pkg',
+    './../../sdk',
+    './../../cmd',
+  ],
+  allow_parallel=True,
+)
+
+docker_build_with_restart(
+  'ghcr.io/kcp-dev/kcp-server',
+  '.',
+  entrypoint=['/kcp', "start"],
+  dockerfile='Dockerfile.kcp',
+  only=[
+    './bin/kcp',
+  ],
+  build_args={'SHELL': 'with-shell-'},
+  live_update=[
+    sync('./bin/kcp', '/kcp'),
+  ],
+)
+
+compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp-front-proxy ./cmd/kcp-front-proxy'
+local_resource(
+  'kcp-proxy-compile',
+  compile_cmd,
+  deps=[
+    './../../pkg',
+    './../../sdk',
+    './../../cmd',
+  ],
+  allow_parallel=True,
+)
+
+docker_build_with_restart(
+  'ghcr.io/kcp-dev/kcp-frontend-proxy',
+  '.',
+  entrypoint=['/kcp-front-proxy'],
+  dockerfile='Dockerfile.proxy',
+  only=[
+    './bin/kcp-front-proxy',
+  ],
+  build_args={'SHELL': 'with-shell-'},
+  live_update=[
+    sync('./bin/kcp-front-proxy', '/kcp-front-proxy'),
+  ],
+)
+
+yaml = helm(
+  'kcp-helm-charts/charts/kcp',
+  # The release name, equivalent to helm --name
+  name='kcp',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp',
+  # The values file to substitute into the chart.
+  values=['kcp-values.yaml'],
+)
+
+k8s_yaml(yaml)
+
+k8s_resource(
+  workload='kcp',
+  port_forwards=[
+    port_forward(name="kcp", local_port=9443, container_port=6443),
+  ],
+)
+
+k8s_resource(
+  workload='kcp-front-proxy',
+  port_forwards=[
+    port_forward(name="kcp-front-proxy", local_port=9444, container_port=8443),
+  ],
+)
+
+
+# cloudflare tunnel
+k8s_yaml(read_file('cloudflare-tunnel.yaml'))

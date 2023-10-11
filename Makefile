@@ -365,6 +365,10 @@ clean-workdir: ## Clean workdir
 download-e2e-logs: ## Download e2e logs from a given URL
 	OUT=$(OUT) URL=$(URL) hack/download-e2e-logs.sh
 
+tilt-kind-up:
+	tilt up $(TILT_ARGS) --context kind-tilt-kcp -- --env=$(TILT_USER) $(TILTFILE_ARGS)
+
+
 .PHONY: help
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
