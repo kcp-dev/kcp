@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: metrics-viewer
+  annotations:
+    bootstrap.kcp.io/battery: metrics-viewer
+rules:
+- nonResourceURLs:
+  - '/metrics'
+  verbs:
+  - 'GET'
