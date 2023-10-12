@@ -117,6 +117,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 			versionedInformers.Core().V1().Secrets().Lister(),
 			versionedInformers.Core().V1().ServiceAccounts().Lister(),
 		)
+		authenticatorConfig.SecretsWriter = tokenGetterClient.CoreV1().Secrets()
 	}
 
 	// Sets up a union Authenticator for all enabled auth methods
