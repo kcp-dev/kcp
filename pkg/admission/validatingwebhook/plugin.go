@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -55,6 +56,7 @@ type Plugin struct {
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 
+	managerLock   sync.Mutex
 	managersCache map[logicalcluster.Name]generic.Source
 }
 
@@ -68,7 +70,9 @@ var (
 
 func NewValidatingAdmissionWebhook(configFile io.Reader) (*Plugin, error) {
 	p := &Plugin{
-		Handler: admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		managerLock:   sync.Mutex{},
+		managersCache: make(map[logicalcluster.Name]generic.Source),
+		Handler:       admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
 	}
 	if configFile != nil {
 		config, err := io.ReadAll(configFile)
@@ -127,10 +131,8 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 		return nil, err
 	}
 
-	if p.managersCache == nil {
-		p.managersCache = make(map[logicalcluster.Name]generic.Source)
-	}
-
+	p.managerLock.Lock()
+	defer p.managerLock.Unlock()
 	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
 		p.managersCache[clusterNameForGroupResource] = configuration.NewValidatingWebhookConfigurationManagerForInformer(
 			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
