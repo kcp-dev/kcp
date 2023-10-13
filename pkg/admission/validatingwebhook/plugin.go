@@ -54,6 +54,8 @@ type Plugin struct {
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+
+	managersCache map[logicalcluster.Name]generic.Source
 }
 
 var (
@@ -125,9 +127,17 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 		return nil, err
 	}
 
-	return configuration.NewValidatingWebhookConfigurationManagerForInformer(
-		p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
-	), nil
+	if p.managersCache == nil {
+		p.managersCache = make(map[logicalcluster.Name]generic.Source)
+	}
+
+	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
+		p.managersCache[clusterNameForGroupResource] = configuration.NewValidatingWebhookConfigurationManagerForInformer(
+			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
+		)
+	}
+
+	return p.managersCache[clusterNameForGroupResource], nil
 }
 
 func (p *Plugin) getSourceClusterForGroupResource(clusterName logicalcluster.Name, groupResource schema.GroupResource) (logicalcluster.Name, error) {
