@@ -43,6 +43,13 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
+const (
+	// workspaceInitTimeout is set to 60 seconds. wait.ForeverTestTimeout
+	// is 30 seconds and the optimism on that being forever is great, but workspace
+	// initialisation can take a while in CI.
+	workspaceInitTimeout = 60 * time.Second
+)
+
 type WorkspaceOption interface {
 	PrivilegedWorkspaceOption | UnprivilegedWorkspaceOption
 }
@@ -174,7 +181,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
+	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
 	Eventually(t, func() (bool, string) {
 		if _, err := clusterClient.Cluster(logicalcluster.NewPath(ws.Spec.Cluster)).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{}); err != nil {
