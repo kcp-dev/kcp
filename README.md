@@ -22,6 +22,8 @@ Please visit [docs.kcp.io/kcp](https://docs.kcp.io/kcp) for our documentation.
 
 We ❤️ our contributors! If you're interested in helping us out, please check out [contributing to kcp](https://docs.kcp.io/kcp/main/en/CONTRIBUTING).
 
+This community has a [Code of Conduct](./code-of-conduct.md). Please make sure to follow it.
+
 ## Getting in touch
 
 There are several ways to communicate with us:
