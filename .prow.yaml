@@ -105,7 +105,6 @@ presubmits:
       containers:
         - image: ghcr.io/kcp-dev/infra/build:1.20.8-1
           command:
-            - ./hack/run-with-prometheus.sh
             - make
             - test-e2e
           env:
@@ -132,7 +131,6 @@ presubmits:
       containers:
         - image: ghcr.io/kcp-dev/infra/build:1.20.8-1
           command:
-            - ./hack/run-with-prometheus.sh
             - make
             - test-e2e
           env:
@@ -161,7 +159,6 @@ presubmits:
       containers:
         - image: ghcr.io/kcp-dev/infra/build:1.20.8-1
           command:
-            - ./hack/run-with-prometheus.sh
             - make
             - test-e2e-shared-minimal
           env:
@@ -186,7 +183,6 @@ presubmits:
       containers:
         - image: ghcr.io/kcp-dev/infra/build:1.20.8-1
           command:
-            - ./hack/run-with-prometheus.sh
             - make
             - test-e2e-sharded-minimal
           env:
