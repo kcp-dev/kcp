@@ -35,11 +35,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/kcp/test/e2e/wait"
 )
 
 func TestPartialMetadataCRD(t *testing.T) {
