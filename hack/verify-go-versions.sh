@@ -28,6 +28,9 @@ for f in docs/content/CONTRIBUTING.md; do
   grep "golang.org/doc/install" "$f" | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in $f; expected ${VERSION}"; exit 1; }
 done
 
+# Check prow config
+grep "ghcr.io/kcp-dev/infra/build" ".prow.yaml" | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in .prow.yaml; expected ${VERSION}"; exit 1; }
+
 if [ -z "${IGNORE_GO_VERSION}" ]; then
   go version | { ! grep -v go${VERSION}; } || { echo "Unexpected go version installed, expected ${VERSION}. Use IGNORE_GO_VERSION=1 to skip this check."; exit 1; }
 fi
