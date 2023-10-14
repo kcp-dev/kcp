@@ -16,8 +16,14 @@ limitations under the License.
 
 package wait
 
-import "time"
+import (
+	"time"
+
+	kwait "k8s.io/apimachinery/pkg/util/wait"
+)
 
 // ForeverTestTimeout is the timeout used by the KCP test suite. Kubernetes uses 30s,
 // but we have a lot of tests that are slow, so we use 60s.
 var ForeverTestTimeout = time.Second * 60
+
+var PollUntilContextTimeout = kwait.PollUntilContextTimeout
