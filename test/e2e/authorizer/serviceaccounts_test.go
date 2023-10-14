@@ -30,12 +30,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/kcp/test/e2e/wait"
 )
 
 func TestServiceAccounts(t *testing.T) {
