@@ -17,6 +17,7 @@ limitations under the License.
 package scheme
 
 import (
+	apiextensionsinstall "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/install"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	admissionregistrationinstall "k8s.io/kubernetes/pkg/apis/admissionregistration/install"
@@ -33,6 +34,7 @@ func init() {
 	install.Install(Scheme)
 	authenticationinstall.Install(Scheme)
 	authorizationinstall.Install(Scheme)
+	apiextensionsinstall.Install(Scheme)
 	certificatesinstall.Install(Scheme)
 	coordinationinstall.Install(Scheme)
 	rbacinstall.Install(Scheme)
