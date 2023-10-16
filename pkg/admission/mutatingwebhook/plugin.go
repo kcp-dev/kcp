@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -54,6 +55,9 @@ type Plugin struct {
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+
+	managerLock   sync.Mutex
+	managersCache map[logicalcluster.Name]generic.Source
 }
 
 var (
@@ -66,7 +70,9 @@ var (
 
 func NewMutatingAdmissionWebhook(configFile io.Reader) (*Plugin, error) {
 	p := &Plugin{
-		Handler: admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		managerLock:   sync.Mutex{},
+		managersCache: make(map[logicalcluster.Name]generic.Source),
+		Handler:       admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
 	}
 	if configFile != nil {
 		config, err := io.ReadAll(configFile)
@@ -125,9 +131,15 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 		return nil, err
 	}
 
-	return configuration.NewMutatingWebhookConfigurationManagerForInformer(
-		p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
-	), nil
+	p.managerLock.Lock()
+	defer p.managerLock.Unlock()
+	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
+		p.managersCache[clusterNameForGroupResource] = configuration.NewMutatingWebhookConfigurationManagerForInformer(
+			p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
+		)
+	}
+
+	return p.managersCache[clusterNameForGroupResource], nil
 }
 
 func (p *Plugin) getSourceClusterForGroupResource(clusterName logicalcluster.Name, groupResource schema.GroupResource) (logicalcluster.Name, error) {
