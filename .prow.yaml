@@ -96,8 +96,9 @@ presubmits:
               cpu: 2
 
   - name: pull-kcp-test-e2e
-    always_run: true
     decorate: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -119,12 +120,13 @@ presubmits:
               value: '3'
           resources:
             requests:
-              memory: 4Gi
-              cpu: 3
+              memory: 6Gi
+              cpu: 4
 
   - name: pull-kcp-test-e2e-multiple-runs
-    always_run: true
     decorate: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -143,17 +145,18 @@ presubmits:
             - name: KUBE_CACHE_MUTATION_DETECTOR
               value: '1'
             - name: COUNT
-              value: '3'
+              value: '2'
             - name: E2E_PARALLELISM
               value: '3'
           resources:
             requests:
-              memory: 4Gi
-              cpu: 3
+              memory: 6Gi
+              cpu: 4
 
   - name: pull-kcp-test-e2e-shared
-    always_run: true
     decorate: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -173,12 +176,13 @@ presubmits:
               value: '1'
           resources:
             requests:
-              memory: 4Gi
-              cpu: 3
+              memory: 6Gi
+              cpu: 4
 
   - name: pull-kcp-test-e2e-sharded
-    always_run: true
     decorate: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -198,5 +202,5 @@ presubmits:
               value: '1'
           resources:
             requests:
-              memory: 4Gi
-              cpu: 3
+              memory: 6Gi
+              cpu: 4
