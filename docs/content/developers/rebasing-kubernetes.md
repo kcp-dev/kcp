@@ -13,6 +13,7 @@ onto v1.26.3.
       ```
       go get -u k8s.io/api@v0.26.3 k8s.io/apimachinery@v0.26.3 k8s.io/client-go@v0.26.3
       ```
+   3. Run `go mod tidy`.
 3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that 
    changed upstream. For example, we maintain a slightly modified copy of the
    [shared informer code](https://github.com/kubernetes/kubernetes/blob/v1.26.3/staging/src/k8s.io/client-go/tools/cache/shared_informer.go).
@@ -34,6 +35,7 @@ onto v1.26.3.
       ```
       go get -u k8s.io/apimachinery@v0.26.3 k8s.io/code-generator@v0.26.3
       ```
+   3. Run `go mod tidy`.
 3. Update Kubernetes tooling versions in the `Makefile`:
    1. `KUBE_CLIENT_GEN_VER := v0.26.3`
    2. `KUBE_LISTER_GEN_VER := v0.26.3`
@@ -67,7 +69,8 @@ onto v1.26.3.
       ```
       go get -u k8s.io/api@v0.26.3 k8s.io/apimachinery@v0.26.3 k8s.io/client-go@v0.26.3
       ```
-   4. Update the kcp code-generator tooling version in the `Makefile`:
+   4. Run `go mod tidy`.
+   5. Update the kcp code-generator tooling version in the `Makefile`:
       1. Look up the latest commit from the main branch in https://github.com/kcp-dev/code-generator.
       2. Adjust `CODE_GENERATOR_VER` to match accordingly.
 3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
@@ -80,15 +83,57 @@ onto v1.26.3.
 
 # 4. Update kcp-dev/kubernetes
 
+## Terminology
+
+Commits merged into `kcp-dev/kubernetes` follow this commit message format:
+
+- `UPSTREAM: <UPSTREAM PR ID>`
+  - The number identifies a PR in upstream kubernetes
+    (i.e. `https://github.com/kubernetes/kubernetes/pull/<pr id>`)
+  - A commit with this message should only be picked into the subsequent rebase branch
+    if the commits of the referenced PR are not included in the upstream branch.
+  - To check if a given commit is included in the upstream branch, open the referenced
+    upstream PR and check any of its commits for the release tag (e.g. `v.1.26.3`)
+    targeted by the new rebase branch. For example:
+    <img src="commit-tag.png">
+- `UPSTREAM: <carry>:`
+  - A persistent carry that should probably be picked for the subsequent rebase branch.
+  - In general, these commits are used to modify behavior for consistency or
+    compatibility with kcp.
+- `UPSTREAM: <drop>:`
+  - A carry that should probably not be picked for the subsequent rebase branch.
+  - In general, these commits are used to maintain the codebase in ways that are
+    branch-specific, like the update of generated files or dependencies.
+
+## Spreadsheet of carry commits from previous release
+
+If the old branch (generally also the default branch) is `upstream/kcp-feature-logical-cluster-1.24-v3`
+and the old version is `v1.24.3`, then a tsv file containing the set of carry commits that need to be
+considered for cherry-picking later can be generated using:
+
+```sh
+# create column headers
+echo 'Comment Sha\tSummary\tCommit link\tPR link\tAction' > ~/Documents/v1.24.3.tsv
+
+# populate the sheet
+git log $( git merge-base upstream/kcp-feature-logical-clusters-1.24-v3 v1.24.3 )..upstream/kcp-feature-logical-clusters-1.24-v3 --ancestry-path --reverse --no-merges --pretty='tformat:%h%x09%s%x09https://github.com/kcp-dev/kubernetes/commit/%h?w=1' | grep -E $'\t''UPSTREAM: .'$'\t' | sed -E 's~UPSTREAM: ([0-9]+)(:.)~UPSTREAM: \1\2\thttps://github.com/kubernetes/kubernetes/pull/\1~' >> ~/Documents/v1.24.3.tsv
+```
+
+The tsv file can be imported into a google sheets spreadsheet to track the progress of picking commits
+to the new rebase branch. The spreadsheet can also be a way of communicating with rebase reviewers.
+For an example, please see the [spreadsheet used for the v1.27.3 rebase](https://docs.google.com/spreadsheets/d/15k9sih-xBKICuLUHj4HMrqYf60mliaslImqqv6fGSJI/edit?usp=sharing).
+
+## Rebase process
+
 1. First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!
 2. Remember, if you mess up, `git rebase --abort` and `git reflog` are your very good friends!
 3. Terminology:
    - "Old" version: the current version of Kubernetes that kcp is using
    - "New" version: the new Kubernetes version on top of which you are rebasing
 4. The `upstream` in e.g. `upstream/kcp-feature-logical-cluster-1.24-v3` is the name of the git remote that points 
-   to github.com/kubernetes/kubernetes. Please adjust the commands below if your remote is named differently.
+   to github.com/kcp-dev/kubernetes. Please adjust the commands below if your remote is named differently.
 5. Prepare the old branch for rebasing:
-   1. In this example, the old version is 1.24, and the new version is 1.26.
+   1. In this example, the old version is 1.24.3, and the new version is 1.26.3.
    2. Create a new temporary branch to clean up the accumulated commits on the old branch:
       ```
       git checkout -b kcp-1.24-clean upstream/kcp-feature-logical-cluster-1.24-v3
@@ -102,6 +147,13 @@ onto v1.26.3.
       - go.mod/go.sum
       - Generated clients, listers, informers, applyconfigurations
       - vendor/*
+      ```
+      git checkout go.mod go.sum vendor
+
+      # for any untracked files
+      git clean -n -d vendor/* # to check what files would be removed
+      git clean -f vendor/* # actually remove the new untracked files
+      ```
    5. Create a single baseline commit:
       ```
       git add .
@@ -112,7 +164,7 @@ onto v1.26.3.
    ```
    git checkout -b kcp-1.26-baseline v1.26.3
    ```
-7. Review the `git log` from the old version branch (this will typically also be the default branch in GitHub). Look 
+7. Review the list of carry commits in the spreadsheet generated above. Look
    for commit messages of the format 
    `UPSTREAM: 12345: ...`. The number indicates the upstream pull request. You'll need to inspect each pull request 
    to determine when it was merged. Anything that merged **before** the rebase version can be ignored and omitted 
