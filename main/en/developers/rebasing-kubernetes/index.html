@@ -1327,6 +1327,7 @@ onto v1.26.3.</p>
 <li>Update the primary Kubernetes dependencies:
       <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go get -u k8s.io/api@v0.26.3 k8s.io/apimachinery@v0.26.3 k8s.io/client-go@v0.26.3
 </code></pre></div></li>
+<li>Run <code>go mod tidy</code>.</li>
 <li>Manually review the code that is upstream from <code>third_party</code> and make the same/similar edits to anything that 
    changed upstream. For example, we maintain a slightly modified copy of the
    <a href="https://github.com/kubernetes/kubernetes/blob/v1.26.3/staging/src/k8s.io/client-go/tools/cache/shared_informer.go">shared informer code</a>.
@@ -1347,6 +1348,7 @@ onto v1.26.3.</p>
 <li>Update the primary Kubernetes dependencies:
       <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>go get -u k8s.io/apimachinery@v0.26.3 k8s.io/code-generator@v0.26.3
 </code></pre></div></li>
+<li>Run <code>go mod tidy</code>.</li>
 <li>Update Kubernetes tooling versions in the <code>Makefile</code>:</li>
 <li><code>KUBE_CLIENT_GEN_VER := v0.26.3</code></li>
 <li><code>KUBE_LISTER_GEN_VER := v0.26.3</code></li>
@@ -1381,6 +1383,7 @@ onto v1.26.3.</p>
 <li>That should have updated the primary Kubernetes dependencies, but in case it didn't, you can do so manually:
       <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>go get -u k8s.io/api@v0.26.3 k8s.io/apimachinery@v0.26.3 k8s.io/client-go@v0.26.3
 </code></pre></div></li>
+<li>Run <code>go mod tidy</code>.</li>
 <li>Update the kcp code-generator tooling version in the <code>Makefile</code>:<ol>
 <li>Look up the latest commit from the main branch in https://github.com/kcp-dev/code-generator.</li>
 <li>Adjust <code>CODE_GENERATOR_VER</code> to match accordingly.</li>
@@ -1395,6 +1398,41 @@ onto v1.26.3.</p>
 <li>Open a PR; get it reviewed and merged.</li>
 </ol>
 <h1 id="4-update-kcp-devkubernetes">4. Update kcp-dev/kubernetes</h1>
+<h2 id="terminology">Terminology</h2>
+<p>Commits merged into <code>kcp-dev/kubernetes</code> follow this commit message format:</p>
+<ul>
+<li><code>UPSTREAM: &lt;UPSTREAM PR ID&gt;</code></li>
+<li>The number identifies a PR in upstream kubernetes
+    (i.e. <code>https://github.com/kubernetes/kubernetes/pull/&lt;pr id&gt;</code>)</li>
+<li>A commit with this message should only be picked into the subsequent rebase branch
+    if the commits of the referenced PR are not included in the upstream branch.</li>
+<li>To check if a given commit is included in the upstream branch, open the referenced
+    upstream PR and check any of its commits for the release tag (e.g. <code>v.1.26.3</code>)
+    targeted by the new rebase branch. For example:
+    <img src="commit-tag.png"></li>
+<li><code>UPSTREAM: &lt;carry&gt;:</code></li>
+<li>A persistent carry that should probably be picked for the subsequent rebase branch.</li>
+<li>In general, these commits are used to modify behavior for consistency or
+    compatibility with kcp.</li>
+<li><code>UPSTREAM: &lt;drop&gt;:</code></li>
+<li>A carry that should probably not be picked for the subsequent rebase branch.</li>
+<li>In general, these commits are used to maintain the codebase in ways that are
+    branch-specific, like the update of generated files or dependencies.</li>
+</ul>
+<h2 id="spreadsheet-of-carry-commits-from-previous-release">Spreadsheet of carry commits from previous release</h2>
+<p>If the old branch (generally also the default branch) is <code>upstream/kcp-feature-logical-cluster-1.24-v3</code>
+and the old version is <code>v1.24.3</code>, then a tsv file containing the set of carry commits that need to be
+considered for cherry-picking later can be generated using:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># create column headers</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;Comment Sha\tSummary\tCommit link\tPR link\tAction&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>~/Documents/v1.24.3.tsv
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># populate the sheet</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>git<span class="w"> </span>log<span class="w"> </span><span class="k">$(</span><span class="w"> </span>git<span class="w"> </span>merge-base<span class="w"> </span>upstream/kcp-feature-logical-clusters-1.24-v3<span class="w"> </span>v1.24.3<span class="w"> </span><span class="k">)</span>..upstream/kcp-feature-logical-clusters-1.24-v3<span class="w"> </span>--ancestry-path<span class="w"> </span>--reverse<span class="w"> </span>--no-merges<span class="w"> </span>--pretty<span class="o">=</span><span class="s1">&#39;tformat:%h%x09%s%x09https://github.com/kcp-dev/kubernetes/commit/%h?w=1&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">$&#39;\t&#39;&#39;UPSTREAM: .&#39;$&#39;\t&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;s~UPSTREAM: ([0-9]+)(:.)~UPSTREAM: \1\2\thttps://github.com/kubernetes/kubernetes/pull/\1~&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/Documents/v1.24.3.tsv
+</code></pre></div>
+<p>The tsv file can be imported into a google sheets spreadsheet to track the progress of picking commits
+to the new rebase branch. The spreadsheet can also be a way of communicating with rebase reviewers.
+For an example, please see the <a href="https://docs.google.com/spreadsheets/d/15k9sih-xBKICuLUHj4HMrqYf60mliaslImqqv6fGSJI/edit?usp=sharing">spreadsheet used for the v1.27.3 rebase</a>.</p>
+<h2 id="rebase-process">Rebase process</h2>
 <ol>
 <li>First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!</li>
 <li>Remember, if you mess up, <code>git rebase --abort</code> and <code>git reflog</code> are your very good friends!</li>
@@ -1402,31 +1440,37 @@ onto v1.26.3.</p>
 <li>"Old" version: the current version of Kubernetes that kcp is using</li>
 <li>"New" version: the new Kubernetes version on top of which you are rebasing</li>
 <li>The <code>upstream</code> in e.g. <code>upstream/kcp-feature-logical-cluster-1.24-v3</code> is the name of the git remote that points 
-   to github.com/kubernetes/kubernetes. Please adjust the commands below if your remote is named differently.</li>
+   to github.com/kcp-dev/kubernetes. Please adjust the commands below if your remote is named differently.</li>
 <li>Prepare the old branch for rebasing:</li>
-<li>In this example, the old version is 1.24, and the new version is 1.26.</li>
+<li>In this example, the old version is 1.24.3, and the new version is 1.26.3.</li>
 <li>Create a new temporary branch to clean up the accumulated commits on the old branch:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git checkout -b kcp-1.24-clean upstream/kcp-feature-logical-cluster-1.24-v3
+      <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git checkout -b kcp-1.24-clean upstream/kcp-feature-logical-cluster-1.24-v3
 </code></pre></div></li>
 <li>Start by doing a soft git reset so your working directory contains all the changes from the branch in an
       uncommitted state:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git reset v1.24.3 # this must be whatever upstream commit was the starting point for the old branch
+      <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>git reset v1.24.3 # this must be whatever upstream commit was the starting point for the old branch
 </code></pre></div></li>
 <li>Revert the following types of changes:<ul>
 <li>go.mod/go.sum</li>
 <li>Generated clients, listers, informers, applyconfigurations</li>
-<li>vendor/*</li>
+<li>vendor/*
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>git checkout go.mod go.sum vendor
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a># for any untracked files
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>git clean -n -d vendor/* # to check what files would be removed
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>git clean -f vendor/* # actually remove the new untracked files
+</code></pre></div></li>
 </ul>
 </li>
 <li>Create a single baseline commit:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>git add .
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>git commit -m &#39;UPSTREAM: &lt;carry&gt;: baseline for kcp 1.24&#39;
+      <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>git add .
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git commit -m &#39;UPSTREAM: &lt;carry&gt;: baseline for kcp 1.24&#39;
 </code></pre></div></li>
 <li>Create a baseline branch that starts from the new version. We'll use this to cherry-pick any commits from 
    upstream that we need to continue carrying (i.e., they have not yet merged into the new version).
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>git checkout -b kcp-1.26-baseline v1.26.3
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git checkout -b kcp-1.26-baseline v1.26.3
 </code></pre></div></li>
-<li>Review the <code>git log</code> from the old version branch (this will typically also be the default branch in GitHub). Look 
+<li>Review the list of carry commits in the spreadsheet generated above. Look
    for commit messages of the format 
    <code>UPSTREAM: 12345: ...</code>. The number indicates the upstream pull request. You'll need to inspect each pull request 
    to determine when it was merged. Anything that merged <strong>before</strong> the rebase version can be ignored and omitted 
@@ -1435,18 +1479,18 @@ onto v1.26.3.</p>
    logging Unstructured type</code>. This was added in 1.27, and therefore needs to be cherry-picked to the
    <code>kcp-1.26-baseline</code> branch.</li>
 <li>Create a branch where you'll attempt to do the rebase. This will start from the cleaned up old version branch:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>git checkout -b kcp-1.26-rebase kcp-1.24-clean
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>git checkout -b kcp-1.26-rebase kcp-1.24-clean
 </code></pre></div></li>
 <li>Rebase onto the baseline branch you created above:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git rebase kcp-1.26-baseline
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>git rebase kcp-1.26-baseline
 </code></pre></div></li>
 </ol>
 <p>You will likely encounter numerous conflicts. This is 100% normal! Go through each file and resolve them as best 
    as you can. Make notes of any particular changes you have questions about, so you don't forget them.
 10. Update kcp dependencies, for all kcp repositories that changed. For example:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>hack/pin-dependency.sh github.com/kcp-dev/logicalcluster/v3 v3.0.4
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>hack/pin-dependency.sh github.com/kcp-dev/apimachinery/v2 767ac05aebce82530dee46e9dab8c7bb47f1c823
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>hack/pin-dependency.sh github.com/kcp-dev/client-go 654321d8cac56f9944e8cf801dc15e37b3a582f3
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>hack/pin-dependency.sh github.com/kcp-dev/logicalcluster/v3 v3.0.4
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>hack/pin-dependency.sh github.com/kcp-dev/apimachinery/v2 767ac05aebce82530dee46e9dab8c7bb47f1c823
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>hack/pin-dependency.sh github.com/kcp-dev/client-go 654321d8cac56f9944e8cf801dc15e37b3a582f3
 </code></pre></div>
 11. Review changes to the origins of pkg/genericcontrolplane to see if similar changes are needed in the new version:</p>
 <table>
@@ -1503,7 +1547,7 @@ onto v1.26.3.</p>
 <li>
 <p>Update generated clients, informers, listers, etc. because we generate logical cluster aware versions of these 
    for Kubernetes to use:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>hack/update-codegen.sh
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>hack/update-codegen.sh
 </code></pre></div></p>
 </li>
 <li>
@@ -1548,9 +1592,9 @@ onto v1.26.3.</p>
 <li>Go ahead and make a commit here, as the next change we'll be making is to point kcp at your local checkout of 
       Kubernetes.</li>
 <li>Point kcp at your local checkout of Kubernetes:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a># Change KUBE per your local setup
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>KUBE=../../../go/src/k8s.io/kubernetes
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>gsed -i &quot;s,k8s.io/\(.*\) =&gt; .*/kubernetes/.*,k8s.io/\1 =&gt; $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes =&gt; .*,k8s.io/kubernetes =&gt; $KUBE,&quot; go.mod
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a># Change KUBE per your local setup
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>KUBE=../../../go/src/k8s.io/kubernetes
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>gsed -i &quot;s,k8s.io/\(.*\) =&gt; .*/kubernetes/.*,k8s.io/\1 =&gt; $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes =&gt; .*,k8s.io/kubernetes =&gt; $KUBE,&quot; go.mod
 </code></pre></div>
    !!! warning
       Don't commit your changes to go.mod/go.sum. They point to your local file system.</li>
@@ -1564,10 +1608,10 @@ onto v1.26.3.</p>
 <h1 id="6-test-ci">6. Test CI</h1>
 <ol>
 <li>Undo your changes to go.mod and go.sum that point to your local checkout:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>git checkout -- go.mod go.sum
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>git checkout -- go.mod go.sum
 </code></pre></div></li>
 <li>Update go.mod to point to your rebase branch in your Kubernetes fork:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>GITHUB_USER=&lt;your username here&gt; BRANCH=kcp-1.26-rebase hack/bump-k8s.sh
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>GITHUB_USER=&lt;your username here&gt; BRANCH=kcp-1.26-rebase hack/bump-k8s.sh
 </code></pre></div></li>
 <li>Commit this change with a message such as <code>UNDO: my Kubernetes</code>. We won't be using this commit when it's time to 
    merge, so we make it easy to find.</li>
@@ -1584,7 +1628,7 @@ onto v1.26.3.</p>
 <li>Rename/create a new branch in kcp-dev/kubernetes based off what you just merged into kcp-1.26-baseline - this is 
    the actual rebase! The new branch could be named something like <code>kcp-1.26</code>.</li>
 <li>Back in your local checkout of kcp, update to the kcp-dev/kubernetes rebase branch:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>BRANCH=kcp-1.26 hack/bump-k8s.sh
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>BRANCH=kcp-1.26 hack/bump-k8s.sh
 </code></pre></div></li>
 <li>Commit this change. You can either squash this with your previous <code>UNDO</code> commit (reword it so it's not an <code>UNDO</code> 
    any more), or drop the <code>UNDO</code> commit and replace it with this one.</li>
