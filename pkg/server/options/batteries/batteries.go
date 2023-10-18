@@ -28,11 +28,15 @@ const (
 
 	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin.
 	User = "user"
+
+	// MetricsViewer leads to an additional service account named "metrics" in the root namespace that can view metrics.
+	MetricsViewer = "metrics-viewer"
 )
 
 var All = sets.New[string](
 	WorkspaceTypes,
 	User,
+	MetricsViewer,
 )
 
 var Defaults = sets.New[string](
