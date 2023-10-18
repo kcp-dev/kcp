@@ -7,7 +7,7 @@ require (
 	github.com/abiosoft/lineprefix v0.1.4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
-	github.com/emicklei/go-restful/v3 v3.10.2
+	github.com/emicklei/go-restful/v3 v3.11.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fatih/color v1.15.0
 	github.com/go-logr/logr v1.2.4
