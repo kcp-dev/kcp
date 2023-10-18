@@ -46,6 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
@@ -76,10 +77,13 @@ type WorkspaceResourcesDeleterInterface interface {
 // NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
 	metadataClusterClient kcpmetadata.ClusterInterface,
-	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
+	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
+	isBoundResource func(clusterName logicalcluster.Name, group, resource string) (bool, error),
+) WorkspaceResourcesDeleterInterface {
 	d := &logicalClusterResourcesDeleter{
 		metadataClusterClient: metadataClusterClient,
 		discoverResourcesFn:   discoverResourcesFn,
+		isBoundResource:       isBoundResource,
 	}
 	return d
 }
@@ -92,6 +96,7 @@ type logicalClusterResourcesDeleter struct {
 	metadataClusterClient kcpmetadata.ClusterInterface
 
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error)
+	isBoundResource     func(clusterName logicalcluster.Name, group, resource string) (bool, error)
 }
 
 // Delete deletes all resources in the given logical cluster.
@@ -370,6 +375,10 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 		// no need to delete namespace scoped resource since it will be handled by namespace deletion anyway. This
 		// can avoid redundant list/delete requests.
 		isNotNamespaceScoped{},
+
+		isNotBoundResource{isBoundResource: func(group, resource string) (bool, error) {
+			return d.isBoundResource(logicalcluster.From(ws), group, resource)
+		}},
 	}, resources)
 	groupVersionResources, err := groupVersionResources(deletableResources)
 	if err != nil {
@@ -518,6 +527,25 @@ type isNotNamespaceScoped struct{}
 // Match checks if the resource is a cluster scoped resource.
 func (n isNotNamespaceScoped) Match(groupVersion string, r *metav1.APIResource) bool {
 	return !r.Namespaced
+}
+
+type isNotBoundResource struct {
+	isBoundResource func(group, resource string) (bool, error)
+}
+
+func (nbr isNotBoundResource) Match(groupVersion string, r *metav1.APIResource) bool {
+	comps := strings.SplitN(groupVersion, "/", 2)
+	group := comps[0]
+	if len(comps) == 1 {
+		group = ""
+	}
+	bound, err := nbr.isBoundResource(group, r.Name)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("error checking if %s.%s is a bound resource: %w", group, r.Name, err))
+		// Since we couldn't determine, return that this is not a bound resource
+		return true
+	}
+	return !bound
 }
 
 type and []discovery.ResourcePredicate
