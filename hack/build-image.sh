@@ -78,6 +78,19 @@ for arch in $architectures; do
   buildah manifest add "$image" "$image-$arch"
 done
 
+# Additionally to an image tagged with the Git tag, we also
+# release images tagged with the current branch name, which
+# is somewhere between a blanket "latest" tag and a specific
+# tag.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+branchImage="$repository:$branch"
+
+echo "Creating manifest $branchImage ..."
+buildah manifest create "$branchImage"
+for arch in $architectures; do
+  buildah manifest add "$branchImage" "$image-$arch"
+done
+
 # push manifest, except in presubmits
 if [ -z "${DRY_RUN:-}" ]; then
   echo "Logging into GHCR ..."
@@ -85,6 +98,7 @@ if [ -z "${DRY_RUN:-}" ]; then
 
   echo "Pushing manifest and images ..."
   buildah manifest push --all "$image" "docker://$image"
+  buildah manifest push --all "$branchImage" "docker://$branchImage"
 else
   echo "Not pushing images because \$DRY_RUN is set."
 fi
