@@ -30,6 +30,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
 // FieldValidatorsFromFile extracts the CEL validators by version and JSONPath from a CRD file and returns
@@ -76,7 +77,7 @@ func VersionValidatorsFromFile(t *testing.T, crdFilePath string) map[string]CELV
 		structuralSchema, err := schema.NewStructural(&internalSchema)
 		require.NoError(t, err, "failed to create StructuralSchema for version %s: %v", v.Name, err)
 		ret[v.Name] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(structuralSchema, true, cel.RuntimeCELCostBudget).Validate(context.TODO(), nil, structuralSchema, obj, old, cel.PerCallLimit)
+			errs, _ := cel.NewValidator(structuralSchema, true, celconfig.RuntimeCELCostBudget).Validate(context.TODO(), nil, structuralSchema, obj, old, celconfig.PerCallLimit)
 			return errs
 		}
 	}
@@ -104,7 +105,7 @@ func findCEL(t *testing.T, s *schema.Structural, root bool, pth *field.Path) (ma
 		s := *s
 		pth := *pth
 		ret[pth.String()] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(&s, root, cel.RuntimeCELCostBudget).Validate(context.TODO(), &pth, &s, obj, old, cel.PerCallLimit)
+			errs, _ := cel.NewValidator(&s, root, celconfig.RuntimeCELCostBudget).Validate(context.TODO(), &pth, &s, obj, old, celconfig.PerCallLimit)
 			return errs
 		}
 	}
