@@ -535,8 +535,11 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.userToken, s.shardAdminTokenHash); err != nil {
-		return err
+	// only write the admin kubeconfig if --enable-auth-write is set.
+	if s.writeAdminKubeconfig {
+		if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.userToken, s.shardAdminTokenHash); err != nil {
+			return err
+		}
 	}
 
 	// add post start hook that starts all registered controllers.

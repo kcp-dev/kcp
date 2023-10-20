@@ -92,6 +92,7 @@ type ExtraConfig struct {
 	IdentityConfig    *rest.Config
 
 	// authentication
+	writeAdminKubeconfig                      bool
 	kcpAdminToken, shardAdminToken, userToken string
 	shardAdminTokenHash                       []byte
 
@@ -317,7 +318,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 	var userToken string
-	c.kcpAdminToken, c.shardAdminToken, userToken, c.shardAdminTokenHash, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
+	c.kcpAdminToken, c.shardAdminToken, userToken, c.shardAdminTokenHash, c.writeAdminKubeconfig, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -20,9 +20,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -51,7 +53,8 @@ const (
 )
 
 type AdminAuthentication struct {
-	KubeConfigPath string
+	KubeConfigPath  string
+	EnableAuthWrite bool
 
 	// TODO: move into Secret in-cluster, maybe by using an "in-cluster" string as value
 	ShardAdminTokenHashFilePath string
@@ -59,6 +62,7 @@ type AdminAuthentication struct {
 
 func NewAdminAuthentication(rootDir string) *AdminAuthentication {
 	return &AdminAuthentication{
+		EnableAuthWrite:             true,
 		KubeConfigPath:              filepath.Join(rootDir, "admin.kubeconfig"),
 		ShardAdminTokenHashFilePath: filepath.Join(rootDir, ".admin-token-store"),
 	}
@@ -83,24 +87,41 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
+	fs.BoolVar(&s.EnableAuthWrite, "enable-auth-write", s.EnableAuthWrite,
+		"Enable generating administrative kubeconfig and token hash file at startup. If not provided, kcp expects an existing file passed to --authentication-admin-token-path.")
 	fs.StringVar(&s.KubeConfigPath, "kubeconfig-path", s.KubeConfigPath,
-		"Path to which the administrative kubeconfig should be written at startup. If this is relative, it is relative to --root-directory.")
+		"Path to which the administrative kubeconfig should be written at startup. Requires --enable-auth-write. If this is relative, it is relative to --root-directory.")
 	fs.StringVar(&s.ShardAdminTokenHashFilePath, "authentication-admin-token-path", s.ShardAdminTokenHashFilePath,
-		"Path to which the administrative token hash should be written at startup. If this is relative, it is relative to --root-directory.")
+		"Path to file which stores the hex-encoded administrative token hash. If --enable-auth-write is set and this file does not exist, a new token will be generated and its hash will be written to this file. If this is relative, it is relative to --root-directory.")
 }
 
 // ApplyTo returns a new volatile kcp admin token.
 // It also returns a new shard admin token and its hash if the configured shard admin hash file is not present.
 // If the shard admin hash file is present only the shard admin hash is returned and the returned shard admin token is empty.
-func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatileKcpAdminToken, shardAdminToken, volatileUserToken string, shardAdminTokenHash []byte, err error) {
+func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatileKcpAdminToken, shardAdminToken, volatileUserToken string, shardAdminTokenHash []byte, writeAdminKubeconfig bool, err error) {
 	// try to load existing token to reuse
-	shardAdminTokenHash, err = os.ReadFile(s.ShardAdminTokenHashFilePath)
+	shardAdminTokenHashString, err := os.ReadFile(s.ShardAdminTokenHashFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return "", "", "", nil, s.EnableAuthWrite, fmt.Errorf("failed to read admin token hash file: %w", err)
+	}
+
 	if os.IsNotExist(err) {
+		if !s.EnableAuthWrite {
+			return "", "", "", nil, s.EnableAuthWrite, fmt.Errorf("'%s' not found and authentication file writes disabled", s.ShardAdminTokenHashFilePath)
+		}
+
 		shardAdminToken = uuid.New().String()
 		sum := sha256.Sum256([]byte(shardAdminToken))
 		shardAdminTokenHash = sum[:]
-		if err := os.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
-			return "", "", "", nil, err
+
+		if err := os.WriteFile(s.ShardAdminTokenHashFilePath, []byte(hex.EncodeToString(shardAdminTokenHash)), 0600); err != nil {
+			return "", "", "", nil, s.EnableAuthWrite, err
+		}
+	} else {
+		// decode hex-encoded admin token hash. trim any newline that might have been appended to the hash
+		shardAdminTokenHash, err = hex.DecodeString(strings.TrimSuffix(string(shardAdminTokenHashString), "\n"))
+		if err != nil {
+			return "", "", "", nil, s.EnableAuthWrite, err
 		}
 	}
 
@@ -146,7 +167,7 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 
 	config.Authentication.Authenticator = authenticatorunion.New(newAuthenticator, config.Authentication.Authenticator)
 
-	return volatileKcpAdminToken, shardAdminToken, volatileUserToken, shardAdminTokenHash, nil
+	return volatileKcpAdminToken, shardAdminToken, volatileUserToken, shardAdminTokenHash, s.EnableAuthWrite, nil
 }
 
 func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedConfig, kcpAdminToken, shardAdminToken, userToken string, shardAdminTokenHash []byte) error {
