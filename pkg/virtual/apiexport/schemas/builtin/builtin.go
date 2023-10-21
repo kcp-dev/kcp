@@ -32,9 +32,11 @@ import (
 	"k8s.io/kube-openapi/pkg/common"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
+	generatedkcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 // Create APIResourceSchemas for built-in APIs available as permission claims
@@ -42,7 +44,10 @@ import (
 // TODO(hasheddan): this could be handled via code generation.
 func init() {
 	schemes := []*runtime.Scheme{kcpscheme.Scheme}
-	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
+	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{
+		generatedopenapi.GetOpenAPIDefinitions,    // core types
+		generatedkcpopenapi.GetOpenAPIDefinitions, // KCP core types for LogicalCluster
+	}
 
 	apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, BuiltInAPIs...)
 	if err != nil {
@@ -263,6 +268,17 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		},
 		GroupVersion:  schema.GroupVersion{Group: "apiextensions.k8s.io", Version: "v1"},
 		Instance:      &apiextensionsv1.CustomResourceDefinition{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "logicalclusters",
+			Singular: "logicalcluster",
+			Kind:     "LogicalCluster",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "core.kcp.io", Version: "v1alpha1"},
+		Instance:      &corev1alpha1.LogicalCluster{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
 		HasStatus:     true,
 	},

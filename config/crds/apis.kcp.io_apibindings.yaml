@@ -115,10 +115,6 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
-                      != "logicalclusters" || (has(self.identityHash) && self.identityHash
-                      != "")'
                 type: array
               reference:
                 description: reference uniquely identifies an API to bind to.
@@ -224,10 +220,6 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
-                      != "logicalclusters" || (has(self.identityHash) && self.identityHash
-                      != "")'
                 type: array
               boundResources:
                 description: boundResources records the state of bound APIs.
@@ -402,10 +394,6 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
-                      != "logicalclusters" || (has(self.identityHash) && self.identityHash
-                      != "")'
                 type: array
               phase:
                 description: 'phase is the current phase of the APIBinding: - "":
