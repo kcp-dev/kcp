@@ -84,6 +84,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SelfSubjectRulesReview"}:   {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SubjectAccessReview"}:      {},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: "ConversionReview"}:         {},
+		{Group: "core.kcp.io", Version: "v1alpha1", Kind: "Shard"}:                       {},
 	}
 
 	gvsToIgnore := map[schema.GroupVersion]struct{}{

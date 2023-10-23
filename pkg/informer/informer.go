@@ -852,6 +852,7 @@ var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = 
 	gvrFor("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicies"):       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicy", "validatingadmissionpolicy"),
 	gvrFor("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicybindings"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicyBinding", "validatingadmissionpolicybinding"),
 	gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
+	gvrFor("core.kcp.io", "v1alpha1", "logicalclusters"):                                    withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "LogicalCluster", "logicalcluster"),
 }
 
 func (s *crdGVRSource) GVRs() map[schema.GroupVersionResource]GVRPartialMetadata {

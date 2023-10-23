@@ -825,8 +825,8 @@ func gatherInternalAPIs(t *testing.T, discoveryClient discovery.DiscoveryInterfa
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		require.NoError(t, err)
-		// ignore kcp resources
-		if strings.HasSuffix(gv.Group, ".kcp.io") {
+		// ignore kcp resources except for core.kcp.io
+		if strings.HasSuffix(gv.Group, ".kcp.io") && gv.Group != "core.kcp.io" {
 			continue
 		}
 		// ignore authn/authz non-crud apis

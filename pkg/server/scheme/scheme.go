@@ -28,10 +28,13 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core/install"
 	eventsinstall "k8s.io/kubernetes/pkg/apis/events/install"
 	rbacinstall "k8s.io/kubernetes/pkg/apis/rbac/install"
+
+	installkcpcore "github.com/kcp-dev/kcp/sdk/apis/core/install"
 )
 
 func init() {
 	install.Install(Scheme)
+	installkcpcore.Install(Scheme)
 	authenticationinstall.Install(Scheme)
 	authorizationinstall.Install(Scheme)
 	apiextensionsinstall.Install(Scheme)

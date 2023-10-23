@@ -116,29 +116,6 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "logicalcluster invalid",
-			current: map[string]interface{}{
-				"group":    "core.kcp.io",
-				"resource": "logicalclusters",
-				"all":      true,
-			},
-			wantErrs: []string{
-				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": logicalclusters cannot be claimed",
-			},
-		},
-		{
-			name: "logicalcluster invalid with empty identityHash",
-			current: map[string]interface{}{
-				"group":        "core.kcp.io",
-				"resource":     "logicalclusters",
-				"identityHash": "",
-				"all":          true,
-			},
-			wantErrs: []string{
-				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": logicalclusters cannot be claimed",
-			},
-		},
-		{
 			name: "logicalcluster fine with non-empty identityHash",
 			current: map[string]interface{}{
 				"group":        "core.kcp.io",
