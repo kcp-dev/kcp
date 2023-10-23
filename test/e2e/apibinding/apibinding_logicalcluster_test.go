@@ -18,15 +18,17 @@ package apibinding
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -136,13 +138,15 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, virtualWorkspaceURL))
 	require.NoError(t, err)
 	gvr := corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters")
-	spew.Dump(gvr)
 
-	list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, list.Items, 1, "expected to find one logical cluster")
+	framework.Eventually(t, func() (bool, string) {
+		list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+		return len(list.Items) == 1, fmt.Sprintf("Error listing LogicalClusters: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	// Sorry :( Checking the owner to validate
+	list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
 	name := list.Items[0].Object["spec"].(map[string]interface{})["owner"].(map[string]interface{})["name"].(string)
 	require.Equal(t, consumerPath.Base(), name)
 }
@@ -253,7 +257,8 @@ func TestAPIBindingCRDs(t *testing.T) {
 	require.NoError(t, err)
 	gvr := apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")
 
-	list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, list.Items, 1, "expected to find one crs instance")
+	framework.Eventually(t, func() (bool, string) {
+		list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+		return len(list.Items) == 1, fmt.Sprintf("Error listing CRD instances: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
