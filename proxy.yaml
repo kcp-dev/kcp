@@ -1,0 +1,153 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kcp-proxy-tilt-bq88jikv
+  namespace: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kcp-proxy-tilt-bq88jikv-token
+  namespace: default
+  annotations:
+    kubernetes.io/service-account.name: kcp-proxy-tilt-bq88jikv
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kcp-proxy-tilt-bq88jikv
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "watch"
+  - "delete"
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - "get"
+  - "watch"
+  - "list"
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
+- apiGroups:
+  - "apiresource.kcp.io"
+  resources:
+  - apiresourceimports
+  verbs:
+  - "create"
+  - "update"
+  - "list"
+  - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kcp-proxy-tilt-bq88jikv
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kcp-proxy-tilt-bq88jikv
+subjects:
+- kind: ServiceAccount
+  name: kcp-proxy-tilt-bq88jikv
+  namespace: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kcp-proxy-tilt-bq88jikv
+  namespace: default
+stringData:
+  kubeconfig: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: default-cluster
+      cluster:
+        certificate-authority-data: 
+        server: https://kcp.faros.sh:443
+    contexts:
+    - name: default-context
+      context:
+        cluster: default-cluster
+        namespace: default
+        user: default-user
+    current-context: default-context
+    users:
+    - name: default-user
+      user:
+        token: eyJhbGciOiJSUzI1NiIsImtpZCI6IngxSnRkeHZEMWJKWUFzenVrOVJpXzFFd0RkZ2duQmpsMUF3dTRnbjNrSWsifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9jbHVzdGVyTmFtZSI6IjFqb2IzZzNqdXJ4Mmc2cjMiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L25hbWVzcGFjZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoia2NwLXByb3h5LXRpbHQtYnE4OGppa3YiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoia2NwLXByb3h5LXRpbHQtYnE4OGppa3YiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJjMjFhOWU2Ny0wYjBjLTRmYWYtYWZiYi04YmUxNDRlNGVlNjUiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDprY3AtcHJveHktdGlsdC1icTg4amlrdiJ9.tLXTPIyJSttxFzGVeYE6vLrAwPd4C9Z0y-qxtioSBq80PDduNliBpJFbzFH84tXrfCz-IspDcFjwUQsTuxFDjiHw_3Q22oaAGYi3_ADri0Dn1mdBvx0IWyW4JD2vXqUiob8qitcJldW1wdfGNX8g8-ZQilWu8x8EC3dgS6DLllFjoIpAM7wsJM7L0KHMYdgL2Tee1kri8HWdl69ZUZ1zKyk9_ufz9QpLUk-ycyPt_IOau8v-8JfrpVI7cHu37dQ6Dug4Ca41Aapdw_yN1fQ4vvTuyQb5AL9dphwsj_GcWduBJNnHapVpiaj3j0NKWmexxVWwTwFJPhyyVfz4QxyMtQ
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcp-proxy-tilt-bq88jikv
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kcp-proxy-tilt-bq88jikv
+  template:
+    metadata:
+      labels:
+        app: kcp-proxy-tilt-bq88jikv
+    spec:
+      containers:
+      - name: kcp-proxy
+        command:
+        - /ko-app/proxy
+        args:
+        - --from-kubeconfig=/kcp/kubeconfig
+        - --proxy-target-name=tilt
+        - --proxy-target-uid=2be4dea4-b127-4d4c-a8a9-04e20fc655e9
+        - --from-cluster=1job3g3jurx2g6r3
+        - --qps=20
+        - --burst=30
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: ghcr.io/kcp-dev/kcp-proxy
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: kcp-config
+          mountPath: /kcp/
+          readOnly: true
+      serviceAccountName: kcp-proxy-tilt-bq88jikv
+      volumes:
+        - name: kcp-config
+          secret:
+            secretName: kcp-proxy-tilt-bq88jikv
+            optional: false

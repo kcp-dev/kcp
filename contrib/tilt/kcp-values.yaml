@@ -6,6 +6,7 @@ kcp:
   image: "ghcr.io/kcp-dev/kcp-server"
   tokenAuth:
     enabled: true
+  v: 4
 kcpFrontProxy:
   # Fake images to trick Tilt to think they are different
   image: "ghcr.io/kcp-dev/kcp-frontend-proxy"

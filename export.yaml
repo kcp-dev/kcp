@@ -1,0 +1,12 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  name: logical-cluster
+spec:
+  permissionClaims:
+  - group: core.kcp.io
+    resource: logicalclusters
+    all: true
+  - group: ""
+    resource: configmaps
+    all: true

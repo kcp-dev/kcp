@@ -1,0 +1,16 @@
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: proxy
+spec:
+  extend:
+    with:
+    - name: universal
+      path: root
+  defaultAPIBindings:
+  - path: root:proxy
+    export: proxy.kcp.io
+  defaultChildren:
+    types:
+    - name: proxy
+      path: root

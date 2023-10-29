@@ -32,6 +32,7 @@ import (
 
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+	proxyvwoptions "github.com/kcp-dev/kcp/proxy/virtual/options"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
@@ -55,7 +56,8 @@ type Options struct {
 
 	Logs *logs.Options
 
-	CoreVirtualWorkspaces corevwoptions.Options
+	CoreVirtualWorkspaces  corevwoptions.Options
+	ProxyVirtualWorkspaces proxyvwoptions.Options
 
 	ProfilerAddress string
 }
@@ -74,8 +76,9 @@ func NewOptions() *Options {
 		Audit:          *genericapiserveroptions.NewAuditOptions(),
 		Logs:           logs.NewOptions(),
 
-		CoreVirtualWorkspaces: *corevwoptions.NewOptions(),
-		ProfilerAddress:       "",
+		CoreVirtualWorkspaces:  *corevwoptions.NewOptions(),
+		ProxyVirtualWorkspaces: *proxyvwoptions.NewOptions(),
+		ProfilerAddress:        "",
 	}
 
 	opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
@@ -92,6 +95,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.Audit.AddFlags(flags)
 	logsapiv1.AddFlags(o.Logs, flags)
 	o.CoreVirtualWorkspaces.AddFlags(flags)
+	o.ProxyVirtualWorkspaces.AddFlags(flags)
 
 	flags.StringVar(&o.ShardExternalURL, "shard-external-url", o.ShardExternalURL, "URL used by outside clients to talk to the kcp shard this virtual workspace is related to")
 
@@ -109,6 +113,7 @@ func (o *Options) Validate() error {
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.CoreVirtualWorkspaces.Validate()...)
+	errs = append(errs, o.ProxyVirtualWorkspaces.Validate()...)
 
 	if len(o.ShardExternalURL) == 0 {
 		errs = append(errs, fmt.Errorf(("--shard-external-url is required")))

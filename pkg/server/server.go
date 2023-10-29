@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	configproxy "github.com/kcp-dev/kcp/proxy/config/proxy"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
@@ -375,6 +376,19 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			logger.Info("finished bootstrapping root workspace phase 1")
 			close(s.rootPhase1FinishedCh)
+
+			// TODO: Move to proxy separate binary
+			logger.Info("starting bootstrapping proxy workspace")
+			if err := configproxy.Bootstrap(
+				goContext(hookContext),
+				s.BootstrapApiExtensionsClusterClient,
+				s.BootstrapDynamicClusterClient,
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
+			); err != nil {
+				logger.Error(err, "failed to bootstrap root workspace phase 1")
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			logger.Info("finished bootstrapping root workspace phase 1")
 		}
 
 		return nil

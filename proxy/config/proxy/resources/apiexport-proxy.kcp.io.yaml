@@ -1,0 +1,9 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: proxy.kcp.io
+spec:
+  latestResourceSchemas:
+  - v231029-0183dc337.clusters.proxy.kcp.io
+status: {}

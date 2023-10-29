@@ -43,6 +43,8 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	proxyclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
+	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -143,6 +145,12 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
 
+	cacheProxyClusterClient, err := proxyclientset.NewForConfig(cacheConfig)
+	if err != nil {
+		return err
+	}
+	cacheProxyInformers := proxyinformers.NewSharedInformerFactory(cacheProxyClusterClient, 10*time.Minute)
+
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck,gosec
 		go http.ListenAndServe(o.ProfilerAddress, nil)
@@ -182,6 +190,13 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
+
+	// create proxy builder
+	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, cacheProxyInformers)
+	if err != nil {
+		return err
+	}
+	rootAPIServerConfig.Extra.VirtualWorkspaces = append(rootAPIServerConfig.Extra.VirtualWorkspaces, proxyWorkspace...)
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())

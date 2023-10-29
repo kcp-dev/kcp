@@ -58,7 +58,6 @@ func main() {
 			}
 
 			config, err := clientcmd.NewDefaultClientConfig(*startingConfig, nil).ClientConfig()
-
 			if err != nil {
 				return err
 			}

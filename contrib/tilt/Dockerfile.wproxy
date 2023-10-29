@@ -1,0 +1,11 @@
+ARG SHELL=""
+
+FROM alpine
+
+RUN apk --no-cache add ca-certificates \
+  && update-ca-certificates ca-certificates-bundle
+
+WORKDIR /
+COPY bin/kcp-proxy .
+
+ENTRYPOINT ["./kcp-proxy"]

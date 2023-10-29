@@ -1,0 +1,18 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  name: binding
+spec:
+  reference:
+    export:
+      name: logical-cluster
+      path: root:foo
+  permissionClaims:
+  - group: core.kcp.io
+    resource: logicalclusters
+    all: true
+    state: "Accepted"
+  - group: ""
+    resource: configmaps
+    all: true
+    state: "Accepted"

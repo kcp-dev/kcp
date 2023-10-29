@@ -167,6 +167,36 @@ k8s_resource(
   ],
 )
 
-
 # cloudflare tunnel
 k8s_yaml(read_file('cloudflare-tunnel.yaml'))
+
+
+# Enable this only when proxy/README.md file was executed and proxy.yaml file is generated.
+# this is not ideal but better than running it every time you make a change :)
+proxy_deployed = True
+if proxy_deployed:
+  compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp-proxy ./proxy/cmd/proxy'
+  local_resource(
+    'proxy-compile',
+    compile_cmd,
+    deps=[
+      './../../proxy'
+    ],
+    allow_parallel=True,
+  )
+
+  k8s_yaml(read_file('../../proxy.yaml'))
+
+  docker_build_with_restart(
+    'ghcr.io/kcp-dev/kcp-proxy',
+    '.',
+    entrypoint=['/kcp-proxy'],
+    dockerfile='Dockerfile.wproxy',
+    only=[
+      './bin/kcp-proxy',
+    ],
+    build_args={'SHELL': 'with-shell-'},
+    live_update=[
+      sync('./bin/kcp-proxy', '/kcp-proxy'),
+    ],
+  )
