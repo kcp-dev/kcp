@@ -25,25 +25,25 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// ClusterStatusApplyConfiguration represents an declarative configuration of the ClusterStatus type for use
+// WorkspaceProxyStatusApplyConfiguration represents an declarative configuration of the WorkspaceProxyStatus type for use
 // with apply.
-type ClusterStatusApplyConfiguration struct {
-	URL                    *string                        `json:"URL,omitempty"`
-	Phase                  *v1alpha1.ClusterPhaseType     `json:"phase,omitempty"`
-	LastProxyHeartbeatTime *v1.Time                       `json:"lastProxyHeartbeatTime,omitempty"`
-	Conditions             *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+type WorkspaceProxyStatusApplyConfiguration struct {
+	URL                    *string                           `json:"URL,omitempty"`
+	Phase                  *v1alpha1.WorkspaceProxyPhaseType `json:"phase,omitempty"`
+	LastProxyHeartbeatTime *v1.Time                          `json:"lastProxyHeartbeatTime,omitempty"`
+	Conditions             *conditionsv1alpha1.Conditions    `json:"conditions,omitempty"`
 }
 
-// ClusterStatusApplyConfiguration constructs an declarative configuration of the ClusterStatus type for use with
+// WorkspaceProxyStatusApplyConfiguration constructs an declarative configuration of the WorkspaceProxyStatus type for use with
 // apply.
-func ClusterStatus() *ClusterStatusApplyConfiguration {
-	return &ClusterStatusApplyConfiguration{}
+func WorkspaceProxyStatus() *WorkspaceProxyStatusApplyConfiguration {
+	return &WorkspaceProxyStatusApplyConfiguration{}
 }
 
 // WithURL sets the URL field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the URL field is set to the value of the last call.
-func (b *ClusterStatusApplyConfiguration) WithURL(value string) *ClusterStatusApplyConfiguration {
+func (b *WorkspaceProxyStatusApplyConfiguration) WithURL(value string) *WorkspaceProxyStatusApplyConfiguration {
 	b.URL = &value
 	return b
 }
@@ -51,7 +51,7 @@ func (b *ClusterStatusApplyConfiguration) WithURL(value string) *ClusterStatusAp
 // WithPhase sets the Phase field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Phase field is set to the value of the last call.
-func (b *ClusterStatusApplyConfiguration) WithPhase(value v1alpha1.ClusterPhaseType) *ClusterStatusApplyConfiguration {
+func (b *WorkspaceProxyStatusApplyConfiguration) WithPhase(value v1alpha1.WorkspaceProxyPhaseType) *WorkspaceProxyStatusApplyConfiguration {
 	b.Phase = &value
 	return b
 }
@@ -59,7 +59,7 @@ func (b *ClusterStatusApplyConfiguration) WithPhase(value v1alpha1.ClusterPhaseT
 // WithLastProxyHeartbeatTime sets the LastProxyHeartbeatTime field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the LastProxyHeartbeatTime field is set to the value of the last call.
-func (b *ClusterStatusApplyConfiguration) WithLastProxyHeartbeatTime(value v1.Time) *ClusterStatusApplyConfiguration {
+func (b *WorkspaceProxyStatusApplyConfiguration) WithLastProxyHeartbeatTime(value v1.Time) *WorkspaceProxyStatusApplyConfiguration {
 	b.LastProxyHeartbeatTime = &value
 	return b
 }
@@ -67,7 +67,7 @@ func (b *ClusterStatusApplyConfiguration) WithLastProxyHeartbeatTime(value v1.Ti
 // WithConditions sets the Conditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Conditions field is set to the value of the last call.
-func (b *ClusterStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *ClusterStatusApplyConfiguration {
+func (b *WorkspaceProxyStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *WorkspaceProxyStatusApplyConfiguration {
 	b.Conditions = &value
 	return b
 }

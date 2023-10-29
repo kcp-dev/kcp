@@ -26,8 +26,8 @@ import (
 )
 
 type ClusterInterface interface {
-	// Clusters returns a ClusterClusterInformer
-	Clusters() ClusterClusterInformer
+	// WorkspaceProxies returns a WorkspaceProxyClusterInformer
+	WorkspaceProxies() WorkspaceProxyClusterInformer
 }
 
 type version struct {
@@ -40,14 +40,14 @@ func New(f internalinterfaces.SharedInformerFactory, tweakListOptions internalin
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// Clusters returns a ClusterClusterInformer
-func (v *version) Clusters() ClusterClusterInformer {
-	return &clusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// WorkspaceProxies returns a WorkspaceProxyClusterInformer
+func (v *version) WorkspaceProxies() WorkspaceProxyClusterInformer {
+	return &workspaceProxyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
-	// Clusters returns a ClusterInformer
-	Clusters() ClusterInformer
+	// WorkspaceProxies returns a WorkspaceProxyInformer
+	WorkspaceProxies() WorkspaceProxyInformer
 }
 
 type scopedVersion struct {
@@ -61,7 +61,7 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Clusters returns a ClusterInformer
-func (v *scopedVersion) Clusters() ClusterInformer {
-	return &clusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// WorkspaceProxies returns a WorkspaceProxyInformer
+func (v *scopedVersion) WorkspaceProxies() WorkspaceProxyInformer {
+	return &workspaceProxyScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

@@ -255,15 +255,15 @@ func (o *ProxyOptions) Run(ctx context.Context) error {
 
 // getProxyID returns a unique ID for a proxy derived from the name and its UID. It's
 // a valid DNS segment and can be used as namespace or object names.
-func getProxyID(proxyTarget *proxyv1alpha1.Cluster) string {
+func getProxyID(proxyTarget *proxyv1alpha1.WorkspaceProxy) string {
 	hash := sha256.Sum224([]byte(proxyTarget.UID))
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 	return fmt.Sprintf("kcp-proxy-%s-%s", proxyTarget.Name, base36hash[:8])
 }
 
-func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient.Interface, proxyClient proxyclient.Interface, proxyTargetName string, labels map[string]string) (*proxyv1alpha1.Cluster, error) {
+func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient.Interface, proxyClient proxyclient.Interface, proxyTargetName string, labels map[string]string) (*proxyv1alpha1.WorkspaceProxy, error) {
 	// TODO: check if workspace we are in is proxy type
-	proxyTarget, err := proxyClient.ProxyV1alpha1().Clusters().Get(ctx, proxyTargetName, metav1.GetOptions{})
+	proxyTarget, err := proxyClient.ProxyV1alpha1().WorkspaceProxies().Get(ctx, proxyTargetName, metav1.GetOptions{})
 
 	switch {
 	case apierrors.IsNotFound(err):
@@ -271,13 +271,13 @@ func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
 		// to the syncer).
 		fmt.Fprintf(o.ErrOut, "Creating proxy target %q\n", proxyTargetName)
-		proxyTarget, err = proxyClient.ProxyV1alpha1().Clusters().Create(ctx,
-			&proxyv1alpha1.Cluster{
+		proxyTarget, err = proxyClient.ProxyV1alpha1().WorkspaceProxies().Create(ctx,
+			&proxyv1alpha1.WorkspaceProxy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   proxyTargetName,
 					Labels: labels,
 				},
-				Spec: proxyv1alpha1.ClusterSpec{
+				Spec: proxyv1alpha1.WorkspaceProxySpec{
 					Type: proxyv1alpha1.ProxyTypePassthrough,
 				},
 			},
@@ -298,11 +298,11 @@ func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient
 	}
 
 	// Patch proxy with updated labels
-	oldData, err := json.Marshal(proxyv1alpha1.Cluster{
+	oldData, err := json.Marshal(proxyv1alpha1.WorkspaceProxy{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: proxyTarget.ObjectMeta.Labels,
 		},
-		Spec: proxyv1alpha1.ClusterSpec{
+		Spec: proxyv1alpha1.WorkspaceProxySpec{
 			Type: proxyv1alpha1.ProxyTypePassthrough,
 		},
 	})
@@ -310,13 +310,13 @@ func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient
 		return nil, fmt.Errorf("failed to Marshal old data for proxy target %s: %w", proxyTargetName, err)
 	}
 
-	newData, err := json.Marshal(proxyv1alpha1.Cluster{
+	newData, err := json.Marshal(proxyv1alpha1.WorkspaceProxy{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             proxyTarget.UID,
 			ResourceVersion: proxyTarget.ResourceVersion,
 			Labels:          labels,
 		}, // to ensure they appear in the patch as preconditions
-		Spec: proxyv1alpha1.ClusterSpec{
+		Spec: proxyv1alpha1.WorkspaceProxySpec{
 			Type: proxyv1alpha1.ProxyTypePassthrough,
 		},
 	})
@@ -329,7 +329,7 @@ func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient
 		return nil, fmt.Errorf("failed to create merge patch for proxy target %q because: %w", proxyTargetName, err)
 	}
 
-	if proxyTarget, err = proxyClient.ProxyV1alpha1().Clusters().Patch(ctx, proxyTargetName, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if proxyTarget, err = proxyClient.ProxyV1alpha1().WorkspaceProxies().Patch(ctx, proxyTargetName, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to patch proxy target %s: %w", proxyTargetName, err)
 	}
 	return proxyTarget, nil
@@ -338,7 +338,7 @@ func (o *ProxyOptions) applyProxyTarget(ctx context.Context, kcpClient kcpclient
 // enableProxyForWorkspace creates a proxy target with the given name and creates a service
 // account for the proxy in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the proxy will use to connect to kcp.
-func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest.Config, proxyTargetName, namespace string, labels map[string]string) (saToken string, proxyID string, proxyTarget *proxyv1alpha1.Cluster, err error) {
+func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest.Config, proxyTargetName, namespace string, labels map[string]string) (saToken string, proxyID string, proxyTarget *proxyv1alpha1.WorkspaceProxy, err error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create kcp client: %w", err)
@@ -362,7 +362,7 @@ func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest
 
 	proxyTargetOwnerReferences := []metav1.OwnerReference{{
 		APIVersion: proxyv1alpha1.SchemeGroupVersion.String(),
-		Kind:       "cluster",
+		Kind:       "workspaceproxy",
 		Name:       proxyTarget.Name,
 		UID:        proxyTarget.UID,
 	}}
@@ -443,14 +443,14 @@ func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest
 		{
 			Verbs:         []string{"get", "list", "watch"},
 			APIGroups:     []string{proxyv1alpha1.SchemeGroupVersion.Group},
-			Resources:     []string{"clusters", "clusters/status"},
+			Resources:     []string{"workspaceproxies", "workspaceproxies/status"},
 			ResourceNames: []string{proxyTargetName},
 		},
 		{
 			Verbs:         []string{"update", "patch", "put"},
 			APIGroups:     []string{proxyv1alpha1.SchemeGroupVersion.Group},
 			ResourceNames: []string{proxyTargetName},
-			Resources:     []string{"clusters", "clusters/status"},
+			Resources:     []string{"workspaceproxies", "workspaceproxies/status"},
 		},
 		{
 			Verbs:     []string{"get", "list", "watch"},
@@ -458,8 +458,8 @@ func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest
 			Resources: []string{"customresourcedefinitions"},
 		},
 		{
-			Verbs:           []string{"access", "patch"},
-			NonResourceURLs: []string{"/", "status"},
+			Verbs:           []string{"access"},
+			NonResourceURLs: []string{"/"},
 		},
 	}
 

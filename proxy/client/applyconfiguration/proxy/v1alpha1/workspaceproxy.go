@@ -25,21 +25,21 @@ import (
 	v1 "github.com/kcp-dev/kcp/proxy/client/applyconfiguration/meta/v1"
 )
 
-// ClusterApplyConfiguration represents an declarative configuration of the Cluster type for use
+// WorkspaceProxyApplyConfiguration represents an declarative configuration of the WorkspaceProxy type for use
 // with apply.
-type ClusterApplyConfiguration struct {
+type WorkspaceProxyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *ClusterSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *ClusterStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *WorkspaceProxySpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *WorkspaceProxyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Cluster constructs an declarative configuration of the Cluster type for use with
+// WorkspaceProxy constructs an declarative configuration of the WorkspaceProxy type for use with
 // apply.
-func Cluster(name string) *ClusterApplyConfiguration {
-	b := &ClusterApplyConfiguration{}
+func WorkspaceProxy(name string) *WorkspaceProxyApplyConfiguration {
+	b := &WorkspaceProxyApplyConfiguration{}
 	b.WithName(name)
-	b.WithKind("Cluster")
+	b.WithKind("WorkspaceProxy")
 	b.WithAPIVersion("proxy.kcp.io/v1alpha1")
 	return b
 }
@@ -47,7 +47,7 @@ func Cluster(name string) *ClusterApplyConfiguration {
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithKind(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithKind(value string) *WorkspaceProxyApplyConfiguration {
 	b.Kind = &value
 	return b
 }
@@ -55,7 +55,7 @@ func (b *ClusterApplyConfiguration) WithKind(value string) *ClusterApplyConfigur
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithAPIVersion(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithAPIVersion(value string) *WorkspaceProxyApplyConfiguration {
 	b.APIVersion = &value
 	return b
 }
@@ -63,7 +63,7 @@ func (b *ClusterApplyConfiguration) WithAPIVersion(value string) *ClusterApplyCo
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithName(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithName(value string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Name = &value
 	return b
@@ -72,7 +72,7 @@ func (b *ClusterApplyConfiguration) WithName(value string) *ClusterApplyConfigur
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithGenerateName(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithGenerateName(value string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.GenerateName = &value
 	return b
@@ -81,7 +81,7 @@ func (b *ClusterApplyConfiguration) WithGenerateName(value string) *ClusterApply
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithNamespace(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithNamespace(value string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
 	return b
@@ -90,7 +90,7 @@ func (b *ClusterApplyConfiguration) WithNamespace(value string) *ClusterApplyCon
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithUID(value types.UID) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithUID(value types.UID) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.UID = &value
 	return b
@@ -99,7 +99,7 @@ func (b *ClusterApplyConfiguration) WithUID(value types.UID) *ClusterApplyConfig
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithResourceVersion(value string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithResourceVersion(value string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ResourceVersion = &value
 	return b
@@ -108,7 +108,7 @@ func (b *ClusterApplyConfiguration) WithResourceVersion(value string) *ClusterAp
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithGeneration(value int64) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithGeneration(value int64) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Generation = &value
 	return b
@@ -117,7 +117,7 @@ func (b *ClusterApplyConfiguration) WithGeneration(value int64) *ClusterApplyCon
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithCreationTimestamp(value metav1.Time) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.CreationTimestamp = &value
 	return b
@@ -126,7 +126,7 @@ func (b *ClusterApplyConfiguration) WithCreationTimestamp(value metav1.Time) *Cl
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionTimestamp = &value
 	return b
@@ -135,7 +135,7 @@ func (b *ClusterApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *Cl
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionGracePeriodSeconds = &value
 	return b
@@ -145,7 +145,7 @@ func (b *ClusterApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) 
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *ClusterApplyConfiguration) WithLabels(entries map[string]string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithLabels(entries map[string]string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Labels == nil && len(entries) > 0 {
 		b.Labels = make(map[string]string, len(entries))
@@ -160,7 +160,7 @@ func (b *ClusterApplyConfiguration) WithLabels(entries map[string]string) *Clust
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *ClusterApplyConfiguration) WithAnnotations(entries map[string]string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithAnnotations(entries map[string]string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Annotations == nil && len(entries) > 0 {
 		b.Annotations = make(map[string]string, len(entries))
@@ -174,7 +174,7 @@ func (b *ClusterApplyConfiguration) WithAnnotations(entries map[string]string) *
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *ClusterApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -188,7 +188,7 @@ func (b *ClusterApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerRefer
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *ClusterApplyConfiguration) WithFinalizers(values ...string) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithFinalizers(values ...string) *WorkspaceProxyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.Finalizers = append(b.Finalizers, values[i])
@@ -196,7 +196,7 @@ func (b *ClusterApplyConfiguration) WithFinalizers(values ...string) *ClusterApp
 	return b
 }
 
-func (b *ClusterApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *WorkspaceProxyApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
@@ -205,7 +205,7 @@ func (b *ClusterApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithSpec(value *ClusterSpecApplyConfiguration) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithSpec(value *WorkspaceProxySpecApplyConfiguration) *WorkspaceProxyApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -213,7 +213,7 @@ func (b *ClusterApplyConfiguration) WithSpec(value *ClusterSpecApplyConfiguratio
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *ClusterApplyConfiguration) WithStatus(value *ClusterStatusApplyConfiguration) *ClusterApplyConfiguration {
+func (b *WorkspaceProxyApplyConfiguration) WithStatus(value *WorkspaceProxyStatusApplyConfiguration) *WorkspaceProxyApplyConfiguration {
 	b.Status = value
 	return b
 }

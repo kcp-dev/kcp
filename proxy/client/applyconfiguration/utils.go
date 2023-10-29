@@ -48,12 +48,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &metav1.TypeMetaApplyConfiguration{}
 
 		// Group=proxy.kcp.io, Version=v1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("Cluster"):
-		return &applyconfigurationproxyv1alpha1.ClusterApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("ClusterSpec"):
-		return &applyconfigurationproxyv1alpha1.ClusterSpecApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("ClusterStatus"):
-		return &applyconfigurationproxyv1alpha1.ClusterStatusApplyConfiguration{}
+	case proxyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceProxy"):
+		return &applyconfigurationproxyv1alpha1.WorkspaceProxyApplyConfiguration{}
+	case proxyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceProxySpec"):
+		return &applyconfigurationproxyv1alpha1.WorkspaceProxySpecApplyConfiguration{}
+	case proxyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceProxyStatus"):
+		return &applyconfigurationproxyv1alpha1.WorkspaceProxyStatusApplyConfiguration{}
 
 	}
 	return nil

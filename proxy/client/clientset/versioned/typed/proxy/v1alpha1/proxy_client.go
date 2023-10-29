@@ -29,7 +29,7 @@ import (
 
 type ProxyV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ClustersGetter
+	WorkspaceProxiesGetter
 }
 
 // ProxyV1alpha1Client is used to interact with features provided by the proxy.kcp.io group.
@@ -37,8 +37,8 @@ type ProxyV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ProxyV1alpha1Client) Clusters() ClusterInterface {
-	return newClusters(c)
+func (c *ProxyV1alpha1Client) WorkspaceProxies() WorkspaceProxyInterface {
+	return newWorkspaceProxies(c)
 }
 
 // NewForConfig creates a new ProxyV1alpha1Client for the given config.

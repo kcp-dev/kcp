@@ -34,7 +34,7 @@ import (
 
 type ProxyV1alpha1ClusterInterface interface {
 	ProxyV1alpha1ClusterScoper
-	ClustersClusterGetter
+	WorkspaceProxiesClusterGetter
 }
 
 type ProxyV1alpha1ClusterScoper interface {
@@ -52,8 +52,8 @@ func (c *ProxyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) pr
 	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
-func (c *ProxyV1alpha1ClusterClient) Clusters() ClusterClusterInterface {
-	return &clustersClusterInterface{clientCache: c.clientCache}
+func (c *ProxyV1alpha1ClusterClient) WorkspaceProxies() WorkspaceProxyClusterInterface {
+	return &workspaceProxiesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new ProxyV1alpha1ClusterClient for the given config.

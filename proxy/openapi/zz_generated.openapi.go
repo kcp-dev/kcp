@@ -31,10 +31,10 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.Cluster":                                  schema_proxy_apis_proxy_v1alpha1_Cluster(ref),
-		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterList":                              schema_proxy_apis_proxy_v1alpha1_ClusterList(ref),
-		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterSpec":                              schema_proxy_apis_proxy_v1alpha1_ClusterSpec(ref),
-		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterStatus":                            schema_proxy_apis_proxy_v1alpha1_ClusterStatus(ref),
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxy":                           schema_proxy_apis_proxy_v1alpha1_WorkspaceProxy(ref),
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxyList":                       schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyList(ref),
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxySpec":                       schema_proxy_apis_proxy_v1alpha1_WorkspaceProxySpec(ref),
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxyStatus":                     schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -91,11 +91,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	}
 }
 
-func schema_proxy_apis_proxy_v1alpha1_Cluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_proxy_apis_proxy_v1alpha1_WorkspaceProxy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Cluster describes the current cluster proxy.",
+				Description: "WorkspaceProxy describes the current WorkspaceProxy.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -121,28 +121,28 @@ func schema_proxy_apis_proxy_v1alpha1_Cluster(ref common.ReferenceCallback) comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxyStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterSpec", "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.ClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxySpec", "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxyStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_proxy_apis_proxy_v1alpha1_ClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterList is a list of Cluster resources",
+				Description: "WorkspaceProxyList is a list of WorkspaceProxy resources",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -172,7 +172,7 @@ func schema_proxy_apis_proxy_v1alpha1_ClusterList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.Cluster"),
+										Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxy"),
 									},
 								},
 							},
@@ -183,15 +183,15 @@ func schema_proxy_apis_proxy_v1alpha1_ClusterList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.Cluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxy", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_proxy_apis_proxy_v1alpha1_ClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_proxy_apis_proxy_v1alpha1_WorkspaceProxySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterSpec is the specification of the Cluster proxy resource.",
+				Description: "WorkspaceProxySpec is the specification of the Cluster proxy resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
@@ -206,11 +206,11 @@ func schema_proxy_apis_proxy_v1alpha1_ClusterSpec(ref common.ReferenceCallback) 
 	}
 }
 
-func schema_proxy_apis_proxy_v1alpha1_ClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterStatus communicates the observed state of the Cluster.",
+				Description: "WorkspaceProxyStatus communicates the observed state of the Workspace proxy.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"URL": {

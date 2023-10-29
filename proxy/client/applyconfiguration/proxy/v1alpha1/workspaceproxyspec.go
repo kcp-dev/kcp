@@ -22,22 +22,22 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1"
 )
 
-// ClusterSpecApplyConfiguration represents an declarative configuration of the ClusterSpec type for use
+// WorkspaceProxySpecApplyConfiguration represents an declarative configuration of the WorkspaceProxySpec type for use
 // with apply.
-type ClusterSpecApplyConfiguration struct {
+type WorkspaceProxySpecApplyConfiguration struct {
 	Type *v1alpha1.ProxyType `json:"type,omitempty"`
 }
 
-// ClusterSpecApplyConfiguration constructs an declarative configuration of the ClusterSpec type for use with
+// WorkspaceProxySpecApplyConfiguration constructs an declarative configuration of the WorkspaceProxySpec type for use with
 // apply.
-func ClusterSpec() *ClusterSpecApplyConfiguration {
-	return &ClusterSpecApplyConfiguration{}
+func WorkspaceProxySpec() *WorkspaceProxySpecApplyConfiguration {
+	return &WorkspaceProxySpecApplyConfiguration{}
 }
 
 // WithType sets the Type field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Type field is set to the value of the last call.
-func (b *ClusterSpecApplyConfiguration) WithType(value v1alpha1.ProxyType) *ClusterSpecApplyConfiguration {
+func (b *WorkspaceProxySpecApplyConfiguration) WithType(value v1alpha1.ProxyType) *WorkspaceProxySpecApplyConfiguration {
 	b.Type = &value
 	return b
 }

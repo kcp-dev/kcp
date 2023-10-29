@@ -29,8 +29,8 @@ type FakeProxyV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeProxyV1alpha1) Clusters() v1alpha1.ClusterInterface {
-	return &FakeClusters{c}
+func (c *FakeProxyV1alpha1) WorkspaceProxies() v1alpha1.WorkspaceProxyInterface {
+	return &FakeWorkspaceProxies{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

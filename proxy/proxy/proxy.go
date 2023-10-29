@@ -82,10 +82,10 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 	))
 
 	logger.Info("attempting to retrieve the Proxy target resource")
-	var proxyTarget *proxyv1alpha1.Cluster
+	var proxyTarget *proxyv1alpha1.WorkspaceProxy
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		var err error
-		proxyTarget, err = proxyClusterTargetClient.ProxyV1alpha1().Clusters().Get(ctx, cfg.ProxyTargetName, metav1.GetOptions{})
+		proxyTarget, err = proxyClusterTargetClient.ProxyV1alpha1().WorkspaceProxies().Get(ctx, cfg.ProxyTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -95,7 +95,20 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 		if cfg.ProxyTargetUID != "" && cfg.ProxyTargetUID != string(proxyTarget.UID) {
 			return false, fmt.Errorf("unexpected Proxy target UID %s, expected %s, refusing to proxy", proxyTarget.UID, cfg.ProxyTargetUID)
 		}
+
+		// We need to update first time otherwise first patch on non-existing status will fail.
+		copy := proxyTarget.DeepCopy()
+		copy.Status = proxyv1alpha1.WorkspaceProxyStatus{
+			Phase: proxyv1alpha1.WorkspaceProxyPhaseInitializing,
+		}
+
+		_, err = proxyClusterTargetClient.ProxyV1alpha1().WorkspaceProxies().Update(ctx, copy, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err
+		}
+
 		return true, nil
+
 	})
 	if err != nil {
 		return err
@@ -103,7 +116,7 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 
 	// TODO: Proxy logic here
 	proxyTargetInformerFactory.Start(ctx.Done())
-	proxyTargetInformerFactory.Proxy().V1alpha1().Clusters().Informer()
+	proxyTargetInformerFactory.Proxy().V1alpha1().WorkspaceProxies().Informer()
 	proxyTargetInformerFactory.WaitForCacheSync(ctx.Done())
 
 	startHeartbeat(ctx, proxyClusterTargetClient, cfg.ProxyTargetName, cfg.ProxyTargetUID)
@@ -123,12 +136,15 @@ func startHeartbeat(ctx context.Context, client proxylientset.Interface, proxyTa
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastProxyHeartbeatTime","value":%q}]`, proxyTargetUID, time.Now().Format(time.RFC3339)))
-			syncTarget, err := client.ProxyV1alpha1().Clusters().Patch(ctx, proxyTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			syncTarget, err := client.ProxyV1alpha1().WorkspaceProxies().Patch(ctx, proxyTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				logger.Error(err, "failed to set status.lastProxyHeartbeatTime")
 				return false, nil
 			}
-
+			if syncTarget.Status.LastProxyHeartbeatTime == nil {
+				logger.Error(fmt.Errorf("unexpected nil status.lastProxyHeartbeatTime"), "failed to set status.lastProxyHeartbeatTime")
+				return false, nil
+			}
 			heartbeatTime = syncTarget.Status.LastProxyHeartbeatTime.Time
 			return true, nil
 		})

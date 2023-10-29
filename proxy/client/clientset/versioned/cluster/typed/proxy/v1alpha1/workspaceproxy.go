@@ -34,39 +34,39 @@ import (
 	proxyv1alpha1client "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/typed/proxy/v1alpha1"
 )
 
-// ClustersClusterGetter has a method to return a ClusterClusterInterface.
+// WorkspaceProxiesClusterGetter has a method to return a WorkspaceProxyClusterInterface.
 // A group's cluster client should implement this interface.
-type ClustersClusterGetter interface {
-	Clusters() ClusterClusterInterface
+type WorkspaceProxiesClusterGetter interface {
+	WorkspaceProxies() WorkspaceProxyClusterInterface
 }
 
-// ClusterClusterInterface can operate on Clusters across all clusters,
-// or scope down to one cluster and return a proxyv1alpha1client.ClusterInterface.
-type ClusterClusterInterface interface {
-	Cluster(logicalcluster.Path) proxyv1alpha1client.ClusterInterface
-	List(ctx context.Context, opts metav1.ListOptions) (*proxyv1alpha1.ClusterList, error)
+// WorkspaceProxyClusterInterface can operate on WorkspaceProxies across all clusters,
+// or scope down to one cluster and return a proxyv1alpha1client.WorkspaceProxyInterface.
+type WorkspaceProxyClusterInterface interface {
+	Cluster(logicalcluster.Path) proxyv1alpha1client.WorkspaceProxyInterface
+	List(ctx context.Context, opts metav1.ListOptions) (*proxyv1alpha1.WorkspaceProxyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
-type clustersClusterInterface struct {
+type workspaceProxiesClusterInterface struct {
 	clientCache kcpclient.Cache[*proxyv1alpha1client.ProxyV1alpha1Client]
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *clustersClusterInterface) Cluster(clusterPath logicalcluster.Path) proxyv1alpha1client.ClusterInterface {
+func (c *workspaceProxiesClusterInterface) Cluster(clusterPath logicalcluster.Path) proxyv1alpha1client.WorkspaceProxyInterface {
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(clusterPath).Clusters()
+	return c.clientCache.ClusterOrDie(clusterPath).WorkspaceProxies()
 }
 
-// List returns the entire collection of all Clusters across all clusters.
-func (c *clustersClusterInterface) List(ctx context.Context, opts metav1.ListOptions) (*proxyv1alpha1.ClusterList, error) {
-	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Clusters().List(ctx, opts)
+// List returns the entire collection of all WorkspaceProxies across all clusters.
+func (c *workspaceProxiesClusterInterface) List(ctx context.Context, opts metav1.ListOptions) (*proxyv1alpha1.WorkspaceProxyList, error) {
+	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).WorkspaceProxies().List(ctx, opts)
 }
 
-// Watch begins to watch all Clusters across all clusters.
-func (c *clustersClusterInterface) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Clusters().Watch(ctx, opts)
+// Watch begins to watch all WorkspaceProxies across all clusters.
+func (c *workspaceProxiesClusterInterface) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).WorkspaceProxies().Watch(ctx, opts)
 }

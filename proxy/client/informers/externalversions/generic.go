@@ -87,8 +87,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericClusterInformer, error) {
 	switch resource {
 	// Group=proxy.kcp.io, Version=V1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("clusters"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Proxy().V1alpha1().Clusters().Informer()}, nil
+	case proxyv1alpha1.SchemeGroupVersion.WithResource("workspaceproxies"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Proxy().V1alpha1().WorkspaceProxies().Informer()}, nil
 	}
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
@@ -99,8 +99,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=proxy.kcp.io, Version=V1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("clusters"):
-		informer := f.Proxy().V1alpha1().Clusters().Informer()
+	case proxyv1alpha1.SchemeGroupVersion.WithResource("workspaceproxies"):
+		informer := f.Proxy().V1alpha1().WorkspaceProxies().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	}
 

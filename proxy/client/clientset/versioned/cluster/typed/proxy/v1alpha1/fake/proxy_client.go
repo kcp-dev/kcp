@@ -44,8 +44,8 @@ func (c *ProxyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) pr
 	return &ProxyV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *ProxyV1alpha1ClusterClient) Clusters() kcpproxyv1alpha1.ClusterClusterInterface {
-	return &clustersClusterClient{Fake: c.Fake}
+func (c *ProxyV1alpha1ClusterClient) WorkspaceProxies() kcpproxyv1alpha1.WorkspaceProxyClusterInterface {
+	return &workspaceProxiesClusterClient{Fake: c.Fake}
 }
 
 var _ proxyv1alpha1.ProxyV1alpha1Interface = (*ProxyV1alpha1Client)(nil)
@@ -60,6 +60,6 @@ func (c *ProxyV1alpha1Client) RESTClient() rest.Interface {
 	return ret
 }
 
-func (c *ProxyV1alpha1Client) Clusters() proxyv1alpha1.ClusterInterface {
-	return &clustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+func (c *ProxyV1alpha1Client) WorkspaceProxies() proxyv1alpha1.WorkspaceProxyInterface {
+	return &workspaceProxiesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

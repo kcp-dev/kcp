@@ -103,7 +103,7 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 
 	// In order to avoid conflicts with reusing deleted proxy names, let's make sure that the proxy name and proxy UID match, if not,
 	// that likely means that a proxy is running with a stale proxy that got deleted.
-	proxyTarget, err := t.cachedProxyInformers.Proxy().V1alpha1().Clusters().Cluster(clusterName).Lister().Get(proxyTargetName)
+	proxyTarget, err := t.cachedProxyInformers.Proxy().V1alpha1().WorkspaceProxies().Cluster(clusterName).Lister().Get(proxyTargetName)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to get proxy %s|%s: %w", path, proxyTargetName, err))
 		return
