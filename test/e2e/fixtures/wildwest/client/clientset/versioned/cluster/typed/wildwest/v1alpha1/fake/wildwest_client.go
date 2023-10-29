@@ -48,6 +48,10 @@ func (c *WildwestV1alpha1ClusterClient) Cowboys() kcpwildwestv1alpha1.CowboyClus
 	return &cowboysClusterClient{Fake: c.Fake}
 }
 
+func (c *WildwestV1alpha1ClusterClient) Sherifves() kcpwildwestv1alpha1.SheriffClusterInterface {
+	return &sherifvesClusterClient{Fake: c.Fake}
+}
+
 var _ wildwestv1alpha1.WildwestV1alpha1Interface = (*WildwestV1alpha1Client)(nil)
 
 type WildwestV1alpha1Client struct {
@@ -62,4 +66,8 @@ func (c *WildwestV1alpha1Client) RESTClient() rest.Interface {
 
 func (c *WildwestV1alpha1Client) Cowboys(namespace string) wildwestv1alpha1.CowboyInterface {
 	return &cowboysClient{Fake: c.Fake, ClusterPath: c.ClusterPath, Namespace: namespace}
+}
+
+func (c *WildwestV1alpha1Client) Sherifves() wildwestv1alpha1.SheriffInterface {
+	return &sherifvesClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

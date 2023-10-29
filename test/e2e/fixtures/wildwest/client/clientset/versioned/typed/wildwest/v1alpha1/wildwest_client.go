@@ -30,6 +30,7 @@ import (
 type WildwestV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CowboysGetter
+	SherifvesGetter
 }
 
 // WildwestV1alpha1Client is used to interact with features provided by the wildwest.dev group.
@@ -39,6 +40,10 @@ type WildwestV1alpha1Client struct {
 
 func (c *WildwestV1alpha1Client) Cowboys(namespace string) CowboyInterface {
 	return newCowboys(c, namespace)
+}
+
+func (c *WildwestV1alpha1Client) Sherifves() SheriffInterface {
+	return newSherifves(c)
 }
 
 // NewForConfig creates a new WildwestV1alpha1Client for the given config.

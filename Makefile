@@ -76,6 +76,11 @@ CODE_GENERATOR_BIN := code-generator
 CODE_GENERATOR := $(TOOLS_GOBIN_DIR)/$(CODE_GENERATOR_BIN)-$(CODE_GENERATOR_VER)
 export CODE_GENERATOR # so hack scripts can use it
 
+KCP_APIGEN_VER := v0.21.0
+KCP_APIGEN_BIN := apigen
+KCP_APIGEN_GEN := $(TOOLS_DIR)/$(KCP_APIGEN_BIN)-$(KCP_APIGEN_VER)
+export KCP_APIGEN_GEN # so hack scripts can use it
+
 ARCH := $(shell go env GOARCH)
 OS := $(shell go env GOOS)
 
@@ -110,7 +115,7 @@ ldflags:
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
 
-build: WHAT ?= ./cmd/...
+build: WHAT ?= ./cmd/... ./proxy/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
 	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 	ln -sf kubectl-workspace bin/kubectl-workspaces
@@ -139,6 +144,9 @@ $(LOGCHECK):
 
 $(CODE_GENERATOR):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator/v2 $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
+
+$(KCP_APIGEN_GEN):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/kcp/sdk/cmd/apigen $(KCP_APIGEN_BIN) $(KCP_APIGEN_VER)
 
 lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK) ## Verify lint
 	$(GOLANGCI_LINT) run --timeout 20m ./...
@@ -178,7 +186,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -192,11 +200,13 @@ $(GOTESTSUM):
 
 crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
+	./proxy/hack/update-codegen-crds.sh
 .PHONY: crds
 
 codegen: crds $(CODE_GENERATOR) ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
+	./proxy/hack/update-codegen-clients.sh
 	$(MAKE) imports
 .PHONY: codegen
 

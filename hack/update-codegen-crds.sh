@@ -44,3 +44,20 @@ for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do
         mv "${CRD}.patched" "${CRD}"
     fi
 done
+
+(
+  ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0
+)
+
+
+# Tests CRDs
+
+(
+    cd "${REPO_ROOT}/test/e2e/fixtures/wildwest/apis"
+    "${REPO_ROOT}/${CONTROLLER_GEN}" \
+        crd \
+        rbac:roleName=manager-role \
+        webhook \
+        paths="./..." \
+        output:crd:artifacts:config="${REPO_ROOT}"/test/e2e/fixtures/wildwest/crds
+)

@@ -1,0 +1,7 @@
+---
+apiVersion: wildwest.dev/v1alpha1
+kind: Sheriff
+metadata:
+  name: default
+spec:
+  intent: "The default Sheriff"

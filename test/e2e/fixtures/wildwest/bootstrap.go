@@ -32,7 +32,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 )
 
-//go:embed *.yaml
+//go:embed crds/*.yaml
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, clustername logicalcluster.Path, client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface, grs ...metav1.GroupResource) {

@@ -89,6 +89,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=wildwest.dev, Version=V1alpha1
 	case wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Wildwest().V1alpha1().Cowboys().Informer()}, nil
+	case wildwestv1alpha1.SchemeGroupVersion.WithResource("sherifves"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Wildwest().V1alpha1().Sherifves().Informer()}, nil
 	}
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
@@ -101,6 +103,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	// Group=wildwest.dev, Version=V1alpha1
 	case wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys"):
 		informer := f.Wildwest().V1alpha1().Cowboys().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case wildwestv1alpha1.SchemeGroupVersion.WithResource("sherifves"):
+		informer := f.Wildwest().V1alpha1().Sherifves().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	}
 
