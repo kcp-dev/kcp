@@ -381,6 +381,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("starting bootstrapping proxy workspace")
 			if err := configproxy.Bootstrap(
 				goContext(hookContext),
+				s.KcpClusterClient,
 				s.BootstrapApiExtensionsClusterClient,
 				s.BootstrapDynamicClusterClient,
 				sets.New[string](s.Options.Extra.BatteriesIncluded...),
