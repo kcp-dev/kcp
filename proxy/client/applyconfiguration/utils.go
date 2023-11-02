@@ -48,6 +48,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &metav1.TypeMetaApplyConfiguration{}
 
 		// Group=proxy.kcp.io, Version=v1alpha1
+	case proxyv1alpha1.SchemeGroupVersion.WithKind("TunnelWorkspace"):
+		return &applyconfigurationproxyv1alpha1.TunnelWorkspaceApplyConfiguration{}
+	case proxyv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
+		return &applyconfigurationproxyv1alpha1.VirtualWorkspaceApplyConfiguration{}
 	case proxyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceProxy"):
 		return &applyconfigurationproxyv1alpha1.WorkspaceProxyApplyConfiguration{}
 	case proxyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceProxySpec"):

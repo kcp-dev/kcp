@@ -31,6 +31,8 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.TunnelWorkspace":                          schema_proxy_apis_proxy_v1alpha1_TunnelWorkspace(ref),
+		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.VirtualWorkspace":                         schema_proxy_apis_proxy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxy":                           schema_proxy_apis_proxy_v1alpha1_WorkspaceProxy(ref),
 		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxyList":                       schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyList(ref),
 		"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.WorkspaceProxySpec":                       schema_proxy_apis_proxy_v1alpha1_WorkspaceProxySpec(ref),
@@ -88,6 +90,48 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                  schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
 		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                   schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		"k8s.io/apimachinery/pkg/version.Info":                                                      schema_k8sio_apimachinery_pkg_version_Info(ref),
+	}
+}
+
+func schema_proxy_apis_proxy_v1alpha1_TunnelWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is the URL the Proxy should use to connect to the Proxy tunnel for a given shard.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_proxy_apis_proxy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"syncerURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SyncerURL is the URL of the syncer virtual workspace.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"syncerURL"},
+			},
+		},
 	}
 }
 
@@ -247,11 +291,39 @@ func schema_proxy_apis_proxy_v1alpha1_WorkspaceProxyStatus(ref common.ReferenceC
 							},
 						},
 					},
+					"virtualWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualWorkspaces contains all virtual workspace URLs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.VirtualWorkspace"),
+									},
+								},
+							},
+						},
+					},
+					"tunnelWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TunnelWorkspaces contains all URLs (one per shard) that point to the SyncTarget workspace in order to setup the tunneler.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.TunnelWorkspace"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.TunnelWorkspace", "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

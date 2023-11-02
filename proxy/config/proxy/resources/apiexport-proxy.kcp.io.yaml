@@ -5,6 +5,10 @@ metadata:
   name: proxy.kcp.io
 spec:
   latestResourceSchemas:
-  - v231029-0183dc337.clusters.proxy.kcp.io
-  - v231029-3858785a2.workspaceproxies.proxy.kcp.io
+  - v231102-73d265116.workspaceproxies.proxy.kcp.io
+  permissionClaims:
+  - all: true
+    group: core.kcp.io
+    identityHash: CORE_IDENTITY_HASH
+    resource: shards
 status: {}

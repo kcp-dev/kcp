@@ -97,6 +97,7 @@ local_resource(
     './../../pkg',
     './../../sdk',
     './../../cmd',
+    './../../config',
   ],
   allow_parallel=True,
 )

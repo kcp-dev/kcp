@@ -72,6 +72,15 @@ type WorkspaceProxyStatus struct {
 	// Current processing state of the Cluster proxy.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// VirtualWorkspaces contains all virtual workspace URLs.
+	// +optional
+	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
+
+	// TunnelWorkspaces contains all URLs (one per shard) that point to the SyncTarget
+	// workspace in order to setup the tunneler.
+	// +optional
+	TunnelWorkspaces []TunnelWorkspace `json:"tunnelWorkspaces,omitempty"`
 }
 
 // WorkspaceProxyPhaseType is the type of the current phase of the cluster proxy
@@ -84,6 +93,25 @@ const (
 	WorkspaceProxyPhaseInitializing WorkspaceProxyPhaseType = "Initializing"
 	WorkspaceProxyPhaseReady        WorkspaceProxyPhaseType = "Ready"
 )
+
+type TunnelWorkspace struct {
+	// url is the URL the Proxy should use to connect
+	// to the Proxy tunnel for a given shard.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	URL string `json:"url"`
+}
+
+type VirtualWorkspace struct {
+	// SyncerURL is the URL of the syncer virtual workspace.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:format:URL
+	// +required
+	SyncerURL string `json:"syncerURL"`
+}
 
 // WorkspaceProxyList is a list of WorkspaceProxy resources
 //

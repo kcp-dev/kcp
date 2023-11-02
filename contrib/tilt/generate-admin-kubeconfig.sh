@@ -17,11 +17,18 @@ contexts:
       cluster: kind-kcp
       user: kind-kcp
     name: kind-kcp
+  - context:
+      cluster: kind-kcp
+      user: system-token
+    name: system:admin
 current-context: kind-kcp
 users:
   - name: kind-kcp
     user:
       token: admin-token
+  - name: system-token
+    user:
+      token: system-token
 EOF
 
 echo "Kubeconfig file created at kcp.kubeconfig"

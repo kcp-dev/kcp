@@ -108,6 +108,32 @@ spec:
                 - Initializing
                 - Ready
                 type: string
+              tunnelWorkspaces:
+                description: TunnelWorkspaces contains all URLs (one per shard) that
+                  point to the SyncTarget workspace in order to setup the tunneler.
+                items:
+                  properties:
+                    url:
+                      description: url is the URL the Proxy should use to connect
+                        to the Proxy tunnel for a given shard.
+                      minLength: 1
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
+              virtualWorkspaces:
+                description: VirtualWorkspaces contains all virtual workspace URLs.
+                items:
+                  properties:
+                    syncerURL:
+                      description: SyncerURL is the URL of the syncer virtual workspace.
+                      minLength: 1
+                      type: string
+                  required:
+                  - syncerURL
+                  type: object
+                type: array
             type: object
         type: object
     served: true

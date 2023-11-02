@@ -28,10 +28,12 @@ import (
 // WorkspaceProxyStatusApplyConfiguration represents an declarative configuration of the WorkspaceProxyStatus type for use
 // with apply.
 type WorkspaceProxyStatusApplyConfiguration struct {
-	URL                    *string                           `json:"URL,omitempty"`
-	Phase                  *v1alpha1.WorkspaceProxyPhaseType `json:"phase,omitempty"`
-	LastProxyHeartbeatTime *v1.Time                          `json:"lastProxyHeartbeatTime,omitempty"`
-	Conditions             *conditionsv1alpha1.Conditions    `json:"conditions,omitempty"`
+	URL                    *string                              `json:"URL,omitempty"`
+	Phase                  *v1alpha1.WorkspaceProxyPhaseType    `json:"phase,omitempty"`
+	LastProxyHeartbeatTime *v1.Time                             `json:"lastProxyHeartbeatTime,omitempty"`
+	Conditions             *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
+	VirtualWorkspaces      []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
+	TunnelWorkspaces       []TunnelWorkspaceApplyConfiguration  `json:"tunnelWorkspaces,omitempty"`
 }
 
 // WorkspaceProxyStatusApplyConfiguration constructs an declarative configuration of the WorkspaceProxyStatus type for use with
@@ -69,5 +71,31 @@ func (b *WorkspaceProxyStatusApplyConfiguration) WithLastProxyHeartbeatTime(valu
 // If called multiple times, the Conditions field is set to the value of the last call.
 func (b *WorkspaceProxyStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *WorkspaceProxyStatusApplyConfiguration {
 	b.Conditions = &value
+	return b
+}
+
+// WithVirtualWorkspaces adds the given value to the VirtualWorkspaces field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the VirtualWorkspaces field.
+func (b *WorkspaceProxyStatusApplyConfiguration) WithVirtualWorkspaces(values ...*VirtualWorkspaceApplyConfiguration) *WorkspaceProxyStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithVirtualWorkspaces")
+		}
+		b.VirtualWorkspaces = append(b.VirtualWorkspaces, *values[i])
+	}
+	return b
+}
+
+// WithTunnelWorkspaces adds the given value to the TunnelWorkspaces field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TunnelWorkspaces field.
+func (b *WorkspaceProxyStatusApplyConfiguration) WithTunnelWorkspaces(values ...*TunnelWorkspaceApplyConfiguration) *WorkspaceProxyStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithTunnelWorkspaces")
+		}
+		b.TunnelWorkspaces = append(b.TunnelWorkspaces, *values[i])
+	}
 	return b
 }

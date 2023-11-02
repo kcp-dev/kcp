@@ -29,12 +29,13 @@ import (
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/proxy/config/proxy/resources"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
 //go:embed *.yaml
 var fs embed.FS
 
-// RootTMCClusterName is the workspace to host common proxy APIs.
+// RootProxyClusterName is the workspace to host common proxy APIs.
 var RootProxyClusterName = logicalcluster.NewPath("root:proxy")
 
 // Bootstrap creates resources in this package by continuously retrying the list.
@@ -42,6 +43,7 @@ var RootProxyClusterName = logicalcluster.NewPath("root:proxy")
 // the bootstrapping is successfully completed.
 func Bootstrap(
 	ctx context.Context,
+	kcpClientSet kcpclientset.ClusterInterface,
 	apiExtensionClusterClient kcpapiextensionsclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	batteriesIncluded sets.Set[string],
@@ -55,5 +57,5 @@ func Bootstrap(
 	computeDiscoveryClient := apiExtensionClusterClient.Cluster(RootProxyClusterName).Discovery()
 	computeDynamicClient := dynamicClusterClient.Cluster(RootProxyClusterName)
 
-	return resources.Bootstrap(ctx, computeDiscoveryClient, computeDynamicClient, batteriesIncluded)
+	return resources.Bootstrap(ctx, kcpClientSet, computeDiscoveryClient, computeDynamicClient, batteriesIncluded)
 }

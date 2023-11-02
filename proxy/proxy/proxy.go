@@ -97,12 +97,13 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 		}
 
 		// We need to update first time otherwise first patch on non-existing status will fail.
+		// TODO: this will change once we add first reconcilers
 		copy := proxyTarget.DeepCopy()
 		copy.Status = proxyv1alpha1.WorkspaceProxyStatus{
 			Phase: proxyv1alpha1.WorkspaceProxyPhaseInitializing,
 		}
 
-		_, err = proxyClusterTargetClient.ProxyV1alpha1().WorkspaceProxies().Update(ctx, copy, metav1.UpdateOptions{})
+		_, err = proxyClusterTargetClient.ProxyV1alpha1().WorkspaceProxies().UpdateStatus(ctx, copy, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
