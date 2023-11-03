@@ -317,12 +317,14 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 	var userToken string
-	c.kcpAdminToken, c.shardAdminToken, userToken, c.shardAdminTokenHash, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
-	if err != nil {
-		return nil, err
-	}
-	if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.User) {
-		c.userToken = userToken
+	if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.Admin) {
+		c.kcpAdminToken, c.shardAdminToken, userToken, c.shardAdminTokenHash, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
+		if err != nil {
+			return nil, err
+		}
+		if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.User) {
+			c.userToken = userToken
+		}
 	}
 
 	bootstrapConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
