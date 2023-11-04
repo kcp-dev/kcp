@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,6 +36,8 @@ import (
 func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.WorkspaceProxy, workspaceShards []*corev1alpha1.Shard) (*proxyv1alpha1.WorkspaceProxy, error) {
 	logger := klog.FromContext(ctx)
 	proxyTargetCopy := syncTarget.DeepCopy()
+
+	spew.Dump(workspaceShards)
 
 	labels := proxyTargetCopy.GetLabels()
 	if labels == nil {

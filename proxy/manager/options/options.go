@@ -19,7 +19,7 @@ package options
 import (
 	cliflag "k8s.io/component-base/cli/flag"
 
-	cacheclientoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
+	cacheclientoptions "github.com/kcp-dev/kcp/proxy/cache/client/options"
 	proxyvirtualoptions "github.com/kcp-dev/kcp/proxy/virtual/options"
 )
 

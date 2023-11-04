@@ -44,7 +44,7 @@ func (m *Manager) installWorkspaceProxyController(ctx context.Context) error {
 		proxyClusterClient,
 		m.proxySharedInformerFactory.Proxy().V1alpha1().WorkspaceProxies(),
 		m.kcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		m.cacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	//	m.cacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err

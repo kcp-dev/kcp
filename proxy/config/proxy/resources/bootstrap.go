@@ -21,6 +21,7 @@ import (
 	"embed"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,12 +92,15 @@ func BindProxyToRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, ide
 								Group:    core.GroupName,
 								Resource: "shards",
 							},
+							IdentityHash: identity,
 						},
 						State: apisv1alpha1.ClaimAccepted,
 					},
 				},
 			},
 		}
+
+		spew.Dump(binding)
 
 		created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err == nil {

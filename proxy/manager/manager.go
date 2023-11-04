@@ -55,8 +55,8 @@ type Manager struct {
 	proxySharedInformerFactory      proxyinformers.SharedInformerFactory
 	cacheProxySharedInformerFactory proxyinformers.SharedInformerFactory
 
-	kcpSharedInformerFactory      kcpinformers.SharedInformerFactory
-	cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory
+	kcpSharedInformerFactory kcpinformers.SharedInformerFactory
+	//cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory
 
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
@@ -73,6 +73,7 @@ func NewManager(ctx context.Context, cfg *Config, bootstrapClientConfig, cacheCl
 		stopCh:   make(chan struct{}),
 		syncedCh: make(chan struct{}),
 	}
+
 	if m.clientConfig, err = restConfigForAPIExport(ctx, bootstrapClientConfig, apiExportName); err != nil {
 		return nil, err
 	}
@@ -113,15 +114,6 @@ func NewManager(ctx context.Context, cfg *Config, bootstrapClientConfig, cacheCl
 		resyncPeriod,
 	)
 
-	cacheKcpClusterClient, err := kcpclusterclientset.NewForConfig(cacheClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	m.cacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-		cacheKcpClusterClient,
-		resyncPeriod,
-	)
-
 	// add proxy virtual workspaces
 	virtualWorkspacesConfig := rest.CopyConfig(m.clientConfig)
 	virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
@@ -157,16 +149,16 @@ func (m Manager) Start(ctx context.Context) error {
 	logger.Info("starting kube informers")
 	m.kubeSharedInformerFactory.Start(m.stopCh)
 	m.kcpSharedInformerFactory.Start(m.stopCh)
-	m.cacheKcpSharedInformerFactory.Start(m.stopCh)
+	//m.cacheKcpSharedInformerFactory.Start(m.stopCh)
 	m.proxySharedInformerFactory.Start(m.stopCh)
 	m.cacheProxySharedInformerFactory.Start(m.stopCh)
 
 	logger.Info("waiting for kube informers sync")
 	m.kubeSharedInformerFactory.WaitForCacheSync(m.stopCh)
 
-	// These 2 not syncing. Missing something in layered config?
+	// This is not syncing. Missing something in layered config?
 	//m.cacheKcpSharedInformerFactory.WaitForCacheSync(m.stopCh)
-	//m.kcpSharedInformerFactory.WaitForCacheSync(m.stopCh)
+	m.kcpSharedInformerFactory.WaitForCacheSync(m.stopCh)
 
 	m.proxySharedInformerFactory.WaitForCacheSync(m.stopCh)
 	m.cacheProxySharedInformerFactory.WaitForCacheSync(m.stopCh)

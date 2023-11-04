@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	proxyv1alpha1 "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1"
 	proxyclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
@@ -44,6 +43,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
 
 const ControllerName = "proxy-workspace-proxy-controller"
@@ -53,14 +53,15 @@ func NewController(
 	proxyClusterClient proxyclientset.ClusterInterface,
 	workspaceProxyInformer proxyv1alpha1informers.WorkspaceProxyClusterInformer,
 	workspaceShardInformer corev1alpha1informers.ShardClusterInformer,
-	globalWorkspaceShardInformer corev1alpha1informers.ShardClusterInformer,
+	//globalWorkspaceShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
 	c := &Controller{
 		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:      kcpClusterClient,
 		proxyClusterClient:    proxyClusterClient,
 		workspaceProxyIndexer: workspaceProxyInformer.Informer().GetIndexer(),
-		listWorkspaceShards:   informer.NewListerWithFallback[*corev1alpha1.Shard](workspaceShardInformer.Lister(), globalWorkspaceShardInformer.Lister()),
+		//	listWorkspaceShards:   informer.NewListerWithFallback[*corev1alpha1.Shard](workspaceShardInformer.Lister(), globalWorkspaceShardInformer.Lister()),
+		listWorkspaceShards: workspaceShardInformer.Lister(),
 	}
 
 	// Watch for events related to WorkspaceProxy
@@ -81,10 +82,11 @@ func NewController(
 }
 
 type Controller struct {
-	queue                 workqueue.RateLimitingInterface
-	kcpClusterClient      kcpclientset.ClusterInterface
-	proxyClusterClient    proxyclientset.ClusterInterface
-	listWorkspaceShards   informer.FallbackListFunc[*corev1alpha1.Shard]
+	queue              workqueue.RateLimitingInterface
+	kcpClusterClient   kcpclientset.ClusterInterface
+	proxyClusterClient proxyclientset.ClusterInterface
+	//listWorkspaceShards   informer.FallbackListFunc[*corev1alpha1.Shard]
+	listWorkspaceShards   corev1alpha1listers.ShardClusterLister
 	workspaceProxyIndexer cache.Indexer
 }
 
@@ -178,7 +180,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	logger = logging.WithObject(klog.FromContext(ctx), currentWorkspaceProxy)
 	ctx = klog.NewContext(ctx, logger)
 
-	workspacesShards, err := c.listWorkspaceShards(labels.Everything())
+	//workspacesShards, err := c.listWorkspaceShards(labels.Everything())
+	//if err != nil {
+	//	return err
+	//}
+
+	workspacesShards, err := c.listWorkspaceShards.List(labels.Everything())
 	if err != nil {
 		return err
 	}
