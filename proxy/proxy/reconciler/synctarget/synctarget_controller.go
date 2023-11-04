@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -66,7 +68,6 @@ func NewWorkspaceProxyController(
 	workspaceProxyName string,
 	workspaceProxyClusterName logicalcluster.Name,
 	workspaceProxyUID types.UID,
-	shardManager *shardManager,
 	startShardTunneler func(ctx context.Context, shardURL proxyv1alpha1.TunnelWorkspace),
 ) (*controller, error) {
 	c := &controller{
@@ -76,13 +77,14 @@ func NewWorkspaceProxyController(
 		commit:               committer.NewCommitterScoped[*WorkspaceProxy, Patcher, *WorkspaceProxySpec, *WorkspaceProxyStatus](workspaceProxyClient),
 
 		reconcilers: []reconciler{
-			shardManager,
 			&tunnelerReconciler{
 				startedTunnelers:   make(map[proxyv1alpha1.TunnelWorkspace]tunnelerStopper),
 				startShardTunneler: startShardTunneler,
 			},
 		},
 	}
+
+	spew.Dump(workspaceProxyInformer.Lister().List(labels.Everything()))
 
 	logger := logging.WithReconciler(workspaceProxyLogger, controllerName)
 
@@ -96,6 +98,7 @@ func NewWorkspaceProxyController(
 			if err != nil {
 				return false
 			}
+
 			return name == workspaceProxyName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -134,7 +137,7 @@ func (c *controller) Start(ctx context.Context) {
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("Starting controller")
+	logger.Info("Starting workspaceProxy controller")
 	defer logger.Info("Shutting down controller")
 
 	go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -190,6 +193,7 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	}
+
 	if apierrors.IsNotFound(err) || workspaceProxy.GetUID() != c.workspaceProxyUID {
 		return c.reconcile(ctx, nil)
 	}

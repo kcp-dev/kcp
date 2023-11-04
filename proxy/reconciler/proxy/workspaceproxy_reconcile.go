@@ -75,7 +75,7 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.Wo
 				SyncerURL: syncerURL,
 			}
 
-			tunnelWorkspaceURL, err := url.JoinPath(workspaceShard.Spec.BaseURL, syncTargetClusterName.Path().RequestPath())
+			tunnelWorkspaceURL, err := url.JoinPath(workspaceShard.Spec.ExternalURL, syncTargetClusterName.Path().RequestPath())
 			if err != nil {
 				return nil, err
 			}

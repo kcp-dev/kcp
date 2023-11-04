@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/version"
-	"k8s.io/klog/v2"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	proxyoptions "github.com/kcp-dev/kcp/proxy/cmd/proxy/options"
@@ -81,9 +80,6 @@ func NewProxyCommand() *cobra.Command {
 }
 
 func Run(ctx context.Context, options *proxyoptions.Options) error {
-	logger := klog.FromContext(ctx)
-	logger.Info("proxying")
-
 	kcpConfigOverrides := &clientcmd.ConfigOverrides{
 		CurrentContext: options.FromContext,
 	}

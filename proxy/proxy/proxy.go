@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,7 @@ import (
 	proxyclusterclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
 	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
 	. "github.com/kcp-dev/kcp/proxy/logging"
+	"github.com/kcp-dev/kcp/proxy/proxy/reconciler/synctarget"
 )
 
 const (
@@ -80,6 +82,7 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.ProxyTargetName).String()
 		},
 	))
+	spew.Dump(cfg.ProxyTargetName)
 
 	logger.Info("attempting to retrieve the Proxy target resource")
 	var proxyTarget *proxyv1alpha1.WorkspaceProxy
@@ -115,10 +118,33 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 		return err
 	}
 
-	// TODO: Proxy logic here
+	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
+	rest.AddUserAgent(downstreamConfig, "kcp#status-proxy/"+proxyVersion)
+
+	workspaceProxyController, err := synctarget.NewWorkspaceProxyController(
+		logger,
+		proxyClusterTargetClient.ProxyV1alpha1().WorkspaceProxies(),
+		proxyTargetInformerFactory.Proxy().V1alpha1().WorkspaceProxies(),
+		cfg.ProxyTargetName,
+		logicalcluster.From(proxyTarget),
+		proxyTarget.UID,
+		func(ctx context.Context, shardURL proxyv1alpha1.TunnelWorkspace) {
+			upstreamTunnelConfig := rest.CopyConfig(cfg.UpstreamConfig)
+			rest.AddUserAgent(upstreamTunnelConfig, "kcp#tunneler/"+proxyVersion)
+			upstreamTunnelConfig.Host = shardURL.URL
+
+			logger.Info("starting proxy tunnel", "shardURL", shardURL)
+			StartProxyTunnel(ctx, upstreamTunnelConfig, downstreamConfig, logicalcluster.From(proxyTarget), cfg.ProxyTargetName, cfg.ProxyTargetUID)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	proxyTargetInformerFactory.Start(ctx.Done())
-	proxyTargetInformerFactory.Proxy().V1alpha1().WorkspaceProxies().Informer()
 	proxyTargetInformerFactory.WaitForCacheSync(ctx.Done())
+
+	go workspaceProxyController.Start(ctx)
 
 	startHeartbeat(ctx, proxyClusterTargetClient, cfg.ProxyTargetName, cfg.ProxyTargetUID)
 
