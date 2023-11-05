@@ -98,6 +98,7 @@ func main() {
 			}
 			kcpClientConfig.QPS = clientOptions.QPS
 			kcpClientConfig.Burst = clientOptions.Burst
+
 			// TODO (FGI) this needs to be amended so that the flag --cache-config is
 			// taken in consideration
 			cacheClientConfigOverrides := &clientcmd.ConfigOverrides{
@@ -114,6 +115,7 @@ func main() {
 			cacheClientConfig = cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
 			cacheClientConfig = cacheclient.WithShardNameFromContextRoundTripper(cacheClientConfig)
 			cacheClientConfig = cacheclient.WithDefaultShardRoundTripper(cacheClientConfig, shard.Wildcard)
+
 			mgr, err := manager.NewManager(ctx, config, kcpClientConfig, cacheClientConfig)
 			if err != nil {
 				return err

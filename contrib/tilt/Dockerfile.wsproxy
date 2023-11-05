@@ -10,6 +10,6 @@ RUN chmod +x ./kubectl
 RUN mv ./kubectl /usr/local/bin
 
 WORKDIR /
-COPY bin/kcp .
+COPY bin/kcp-proxy-server .
 
-ENTRYPOINT ["./kcp"]
+ENTRYPOINT ["./kcp-proxy-server"]

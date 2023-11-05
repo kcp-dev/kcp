@@ -10,7 +10,7 @@ kcp:
     config: |
         admin-token,admin,5555-5555-5555-5555,"system:kcp:admin"
         system-token,system,6666-6666-6666-6666,"system:admin"
-  v: 4
+  v: 8
 kcpFrontProxy:
   # Fake images to trick Tilt to think they are different
   image: "ghcr.io/kcp-dev/kcp-frontend-proxy"
@@ -25,3 +25,7 @@ kcpFrontProxy:
   certificate:
     issuerSpec:
       selfSigned: {}
+layered:
+  proxy:
+    enabled: true
+    token: admin-token

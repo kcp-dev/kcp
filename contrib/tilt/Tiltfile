@@ -176,6 +176,7 @@ k8s_yaml(read_file('cloudflare-tunnel.yaml'))
 # this is not ideal but better than running it every time you make a change :)
 proxy_deployed = True
 if proxy_deployed:
+  # proxy agent - edge side
   compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp-proxy ./proxy/cmd/proxy'
   local_resource(
     'proxy-compile',
@@ -199,5 +200,30 @@ if proxy_deployed:
     build_args={'SHELL': 'with-shell-'},
     live_update=[
       sync('./bin/kcp-proxy', '/kcp-proxy'),
+    ],
+  )
+
+  # Proxy controller (server side)
+  compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp-proxy-server ./proxy/cmd/server'
+  local_resource(
+    'proxy-server-compile',
+    compile_cmd,
+    deps=[
+      './../../proxy'
+    ],
+    allow_parallel=True,
+  )
+
+  docker_build_with_restart(
+    'ghcr.io/kcp-dev/kcp-proxy-server',
+    '.',
+    entrypoint=['/kcp-proxy-server'],
+    dockerfile='Dockerfile.wsproxy',
+    only=[
+      './bin/kcp-proxy-server',
+    ],
+    build_args={'SHELL': 'with-shell-'},
+    live_update=[
+      sync('./bin/kcp-proxy-server', '/kcp-proxy-server'),
     ],
   )

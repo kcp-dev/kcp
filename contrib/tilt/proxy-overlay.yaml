@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcp-proxy-tilt
+  namespace: kcp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kcp-proxy-tilt-a3rroayp
+  template:
+    metadata:
+      labels:
+        app: kcp-proxy-tilt-a3rroayp
+    spec:
+      containers:
+      - name: kcp-proxy
+        command:
+        - /ko-app/proxy
+        args:
+        - --from-kubeconfig=/kcp/kubeconfig
+        - --proxy-target-name=tilt
+        - --proxy-target-uid=6ae36a28-f7a8-4eee-8ca8-1b582e1d14e0
+        - --from-cluster=2k1i9oi6yyy0q9ge
+        - --qps=20
+        - --burst=30
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: ghcr.io/kcp-dev/kcp-proxy
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: kcp-config
+          mountPath: /kcp/
+          readOnly: true
+      serviceAccountName: kcp-proxy-tilt-a3rroayp
+      volumes:
+        - name: kcp-config
+          secret:
+            secretName: kcp-proxy-tilt-a3rroayp
+            optional: false

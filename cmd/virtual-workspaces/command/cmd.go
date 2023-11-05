@@ -192,6 +192,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create proxy builder
+	// TODO: move to manager
 	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, cacheProxyInformers)
 	if err != nil {
 		return err
@@ -214,9 +215,12 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKubeInformers.Start(ctx.Done())
 	wildcardKcpInformers.Start(ctx.Done())
 	cacheKcpInformers.Start(ctx.Done())
+	cacheProxyInformers.Start(ctx.Done())
+
 	wildcardKubeInformers.WaitForCacheSync(ctx.Done())
 	wildcardKcpInformers.WaitForCacheSync(ctx.Done())
 	cacheKcpInformers.WaitForCacheSync(ctx.Done())
+	cacheProxyInformers.WaitForCacheSync(ctx.Done())
 
 	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.Generic.ExternalAddress, "version", version.Get().String())
 	return preparedRootAPIServer.Run(ctx.Done())
