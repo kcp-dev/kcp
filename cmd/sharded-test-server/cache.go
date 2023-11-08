@@ -100,7 +100,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 		case err := <-terminatedCh:
 			var exitErr *exec.ExitError
 			if err == nil {
-				return nil, "", fmt.Errorf("the cahce server terminated unexpectedly with exit code 0")
+				return nil, "", fmt.Errorf("the cache server terminated unexpectedly with exit code 0")
 			} else if errors.As(err, &exitErr) {
 				return nil, "", fmt.Errorf("the cache server terminated with exit code %d", exitErr.ExitCode())
 			}
