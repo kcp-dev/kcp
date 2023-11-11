@@ -300,9 +300,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 		s.KcpSharedInformerFactory.Start(hookContext.StopCh)
 		s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
+		s.CacheProxySharedInformerFactory.Start(hookContext.StopCh)
 
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+		s.CacheProxySharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
 
 		// create or update shard
 		shard := &corev1alpha1.Shard{

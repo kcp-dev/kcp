@@ -35,7 +35,6 @@ const (
 // combined with a ForwardingREST REST storage implementation, serves a ProxyAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	shardExternalURL func() string,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,

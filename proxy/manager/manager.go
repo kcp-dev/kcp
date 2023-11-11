@@ -122,11 +122,8 @@ func NewManager(ctx context.Context, cfg *Config, bootstrapClientConfig, cacheCl
 	virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
 
 	m.virtualWorkspaces, err = m.Config.Options.ProxyVirtualWorkspaces.NewVirtualWorkspaces(
-		virtualWorkspacesConfig,
 		m.Config.Options.VirtualWorkspaces.RootPathPrefix,
-		func() string {
-			return m.Config.Options.VirtualWorkspaces.ShardExternalURL
-		},
+		virtualWorkspacesConfig,
 		m.cacheProxySharedInformerFactory,
 	)
 	if err != nil {

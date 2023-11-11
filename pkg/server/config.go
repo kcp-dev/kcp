@@ -65,6 +65,8 @@ import (
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
+	proxyclusterclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
+	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
@@ -126,6 +128,10 @@ type ExtraConfig struct {
 	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
 	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
+
+	// proxy informers
+	// TODO: move to manager
+	CacheProxySharedInformerFactory proxyinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -228,6 +234,15 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cacheProxyClusterClient, err := proxyclusterclientset.NewForConfig(cacheClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	c.CacheProxySharedInformerFactory = proxyinformers.NewSharedInformerFactoryWithOptions(
+		cacheProxyClusterClient,
+		resyncPeriod,
+	)
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
@@ -563,6 +578,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 			c.KcpSharedInformerFactory,
 			c.CacheKcpSharedInformerFactory,
 			c.ShardExternalURL,
+			c.CacheProxySharedInformerFactory,
 		)
 		if err != nil {
 			return nil, err

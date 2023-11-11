@@ -126,6 +126,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, proxy
 		return err
 	}
 	defer l.Close()
+	logger.Info("connected to destination URL")
 
 	// reverse proxy the request coming from the reverse connection to the p-cluster apiserver
 	server := &http.Server{ReadHeaderTimeout: 30 * time.Second, Handler: withAccessCheck(proxy, proxyTargetClusterName, proxyTargetName, proxyTargetUID)}

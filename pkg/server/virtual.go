@@ -34,6 +34,7 @@ import (
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -58,6 +59,7 @@ func newVirtualConfig(
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	shardExternalURL func() string,
+	cachedProxyInformers proxyinformers.SharedInformerFactory,
 ) (*VirtualConfig, error) {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
@@ -92,6 +94,7 @@ func newVirtualConfig(
 		kubeSharedInformerFactory,
 		kcpSharedInformerFactory,
 		cacheKcpSharedInformerFactory,
+		cachedProxyInformers,
 	)
 	if err != nil {
 		return nil, err

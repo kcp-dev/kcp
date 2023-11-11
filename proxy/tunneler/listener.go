@@ -77,6 +77,7 @@ func NewListener(client *http.Client, url string) (*Listener, error) {
 	sleep := 1 * time.Second
 	var c net.Conn
 	for attempts := 5; attempts > 0; attempts-- {
+		klog.Background().WithValues("attempts", attempts).Info("listener creating control connection")
 		c, err = ln.dial()
 		if err != nil {
 			klog.Background().V(5).WithValues("err", err).Info("can not create control connection")

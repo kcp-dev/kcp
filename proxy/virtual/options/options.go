@@ -51,12 +51,11 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) NewVirtualWorkspaces(
-	config *rest.Config,
 	rootPathPrefix string,
-	shardExternalURL func() string,
+	config *rest.Config,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	proxy, err := o.Proxy.NewVirtualWorkspaces(rootPathPrefix, shardExternalURL, config, cachedProxyInformers)
+	proxy, err := o.Proxy.NewVirtualWorkspaces(rootPathPrefix, config, cachedProxyInformers)
 	if err != nil {
 		return nil, err
 	}

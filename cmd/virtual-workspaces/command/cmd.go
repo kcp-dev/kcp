@@ -193,7 +193,7 @@ func Run(ctx context.Context, o *options.Options) error {
 
 	// create proxy builder
 	// TODO: move to manager
-	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, cacheProxyInformers)
+	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, identityConfig, cacheProxyInformers)
 	if err != nil {
 		return err
 	}

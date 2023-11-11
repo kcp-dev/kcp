@@ -27,6 +27,8 @@ import (
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
+	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
+	proxyoptions "github.com/kcp-dev/kcp/proxy/virtual/proxy/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -35,12 +37,14 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 type Options struct {
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
+	ProxyVirtualWorkspaces *proxyoptions.Proxy
 }
 
 func NewOptions() *Options {
 	return &Options{
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
+		ProxyVirtualWorkspaces: proxyoptions.New(),
 	}
 }
 
@@ -49,6 +53,7 @@ func (o *Options) Validate() []error {
 
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.ProxyVirtualWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
@@ -63,6 +68,7 @@ func (o *Options) NewVirtualWorkspaces(
 	shardExternalURL func() string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
+	cachedProxyInformers proxyinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers)
 	if err != nil {
@@ -74,7 +80,15 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces)
+	// Move to a separate binary
+	// create proxy builder
+	// TODO: move to manager
+	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, cachedProxyInformers)
+	if err != nil {
+		return nil, err
+	}
+
+	all, err := Merge(apiexports, initializingworkspaces, proxyWorkspace)
 	if err != nil {
 		return nil, err
 	}

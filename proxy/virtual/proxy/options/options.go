@@ -53,7 +53,6 @@ func (o *Proxy) Validate(flagPrefix string) []error {
 
 func (o *Proxy) NewVirtualWorkspaces(
 	rootPathPrefix string,
-	shardExternalURL func() string,
 	config *rest.Config,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
@@ -67,5 +66,5 @@ func (o *Proxy) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.ProxyVirtualWorkspaceName), shardExternalURL, kubeClusterClient, dynamicClusterClient, cachedProxyInformers), nil
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.ProxyVirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, cachedProxyInformers), nil
 }
