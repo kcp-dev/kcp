@@ -186,18 +186,10 @@ func Run(ctx context.Context, o *options.Options) error {
 		return o.ShardExternalURL
 	}
 
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers, cacheProxyInformers)
 	if err != nil {
 		return err
 	}
-
-	// create proxy builder
-	// TODO: move to manager
-	proxyWorkspace, err := o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, identityConfig, cacheProxyInformers)
-	if err != nil {
-		return err
-	}
-	rootAPIServerConfig.Extra.VirtualWorkspaces = append(rootAPIServerConfig.Extra.VirtualWorkspaces, proxyWorkspace...)
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
 	rootAPIServer, err := virtualrootapiserver.NewServer(completedRootAPIServerConfig, genericapiserver.NewEmptyDelegate())

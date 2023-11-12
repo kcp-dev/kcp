@@ -187,7 +187,8 @@ func (t *template) authorize(ctx context.Context, a authorizer.Attributes) (auth
 
 func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 	// TBC
-	return nil, errors.New("not implemented")
+	//return nil, errors.New("not implemented")
+	return nil, nil
 }
 
 func (t *template) buildVirtualWorkspace() *virtualworkspacesdynamic.DynamicVirtualWorkspace {

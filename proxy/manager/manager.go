@@ -30,7 +30,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-
 	proxyclusterclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
 	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"

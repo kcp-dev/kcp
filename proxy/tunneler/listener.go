@@ -76,15 +76,15 @@ func NewListener(client *http.Client, url string) (*Listener, error) {
 	// poor man backoff retry
 	sleep := 1 * time.Second
 	var c net.Conn
-	for attempts := 5; attempts > 0; attempts-- {
-		klog.Background().WithValues("attempts", attempts).Info("listener creating control connection")
+	for attempts := 50; attempts > 0; attempts-- {
+		klog.Background().WithValues("attempts", attempts, "url", url).Info("listener creating control connection")
 		c, err = ln.dial()
 		if err != nil {
-			klog.Background().V(5).WithValues("err", err).Info("can not create control connection")
+			klog.Background().WithValues("err", err).Info("can not create control connection")
 			// Add some randomness to prevent creating a Thundering Herd
 			jitter := time.Duration(rand.Int63n(int64(sleep)))
 			sleep = 2*sleep + jitter/2
-			time.Sleep(sleep)
+			time.Sleep(1 * time.Second)
 		} else {
 			ln.sc = c
 			break
@@ -160,7 +160,7 @@ func (ln *Listener) dial() (net.Conn, error) {
 	}
 
 	logger := klog.Background().WithValues("address", connect)
-	logger.V(5).Info("listener creating connection to address")
+	logger.V(5).WithValues("url", connect).Info("listener creating connection to address")
 	res, err := ln.client.Do(req) //nolint:bodyclose // Seems we're returning the connection with res.Body, caller closes it?
 	if err != nil {
 		logger.V(5).WithValues("err", err).Info("can not connect to address")

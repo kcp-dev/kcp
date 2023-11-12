@@ -26,7 +26,10 @@ import (
 	"k8s.io/klog/v2"
 
 	proxyv1alpha1 "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1"
+	"github.com/kcp-dev/kcp/proxy/manager/requestinfo"
 )
+
+var info = requestinfo.NewFactory()
 
 // WithProxyTunnelHandler adds an HTTP Handler that handles reverse connections via the tunnel subresource:
 //
@@ -36,12 +39,12 @@ func (tn *tunneler) WithProxyTunnelHandler(apiHandler http.Handler) http.Handler
 		ctx := r.Context()
 		logger := klog.FromContext(ctx)
 
-		ri, ok := genericapirequest.RequestInfoFrom(ctx)
-		if !ok {
+		// TODO: We do this this way so it portable to manager
+		ri, err := info.NewRequestInfo(r)
+		if err != nil {
 			apiHandler.ServeHTTP(w, r)
 			return
 		}
-
 		if !ri.IsResourceRequest ||
 			ri.Resource != "clusters" ||
 			ri.Subresource != "tunnel" ||

@@ -40,9 +40,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
@@ -67,6 +69,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	proxyclusterclientset "github.com/kcp-dev/kcp/proxy/client/clientset/versioned/cluster"
 	proxyinformers "github.com/kcp-dev/kcp/proxy/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/proxy/tunneler"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
@@ -393,6 +396,12 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
 
+	kubeBasicLongRunningRequestCheck := c.GenericConfig.LongRunningFunc
+	tunnelBasicLongRunningRequestCheck := genericfilters.BasicLongRunningRequestCheck(sets.NewString(""), sets.NewString("tunnel"))
+	c.GenericConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
+		return kubeBasicLongRunningRequestCheck(r, requestInfo) || tunnelBasicLongRunningRequestCheck(r, requestInfo)
+	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -402,6 +411,10 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
+
+		// TODO: Move to manager
+		tunneler := tunneler.NewTunneler()
+		apiHandler = tunneler.WithProxyTunnelHandler(apiHandler)
 
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
 		// All other invocations of the same authorizer chain still work but do not produce audit log entries.

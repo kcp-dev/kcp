@@ -5,6 +5,7 @@ load('ext://restart_process', 'docker_build_with_restart')
 load('ext://git_resource', 'git_checkout')
 load('ext://get_obj', 'get_obj')
 load('ext://cert_manager', 'deploy_cert_manager')
+load('ext://secret', 'secret_yaml_generic')
 
 k8s_yaml('kernel-limits-job.yaml')
 
@@ -170,6 +171,7 @@ k8s_resource(
 
 # cloudflare tunnel
 k8s_yaml(read_file('cloudflare-tunnel.yaml'))
+
 
 
 # Enable this only when proxy/README.md file was executed and proxy.yaml file is generated.
