@@ -28,6 +28,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -128,27 +129,40 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
 
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	virtualWorkspaceURL := export.Status.VirtualWorkspaces[0].URL
-	t.Logf("Found virtual workspace URL: %v", virtualWorkspaceURL)
-
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, virtualWorkspaceURL))
-	require.NoError(t, err)
 	gvr := corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters")
 
 	framework.Eventually(t, func() (bool, string) {
-		list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		return len(list.Items) == 1, fmt.Sprintf("Error listing LogicalClusters: %v", err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+		items := []unstructured.Unstructured{}
 
-	// Sorry :( Checking the owner to validate
-	list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	name := list.Items[0].Object["spec"].(map[string]interface{})["owner"].(map[string]interface{})["name"].(string)
-	require.Equal(t, consumerPath.Base(), name)
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		for _, vw := range export.Status.VirtualWorkspaces {
+			vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
+			require.NoError(t, err)
+
+			list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+
+			if err != nil {
+				return false, fmt.Sprintf("Error listing LogicalClusters on %s: %v", vw.URL, err)
+			}
+
+			if list != nil {
+				for _, item := range list.Items {
+					// Sorry :( Checking the owner to validate
+					name := item.Object["spec"].(map[string]interface{})["owner"].(map[string]interface{})["name"].(string)
+					if name != consumerPath.Base() {
+						t.Logf("found item not matching owner: got %s, expected %s", name, consumerPath.Base())
+						continue
+					}
+					items = append(items, item)
+				}
+			}
+		}
+
+		return len(items) == 1, fmt.Sprintf("Unexpected number of LogicalClusters found. Expected 1, found %d", len(items))
+	}, wait.ForeverTestTimeout, time.Second*1)
 }
 
 func TestAPIBindingCRDs(t *testing.T) {
@@ -246,19 +260,29 @@ func TestAPIBindingCRDs(t *testing.T) {
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
 
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	virtualWorkspaceURL := export.Status.VirtualWorkspaces[0].URL
-	t.Logf("Found virtual workspace URL: %v", virtualWorkspaceURL)
-
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, virtualWorkspaceURL))
-	require.NoError(t, err)
 	gvr := apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")
 
 	framework.Eventually(t, func() (bool, string) {
-		list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		return len(list.Items) == 1, fmt.Sprintf("Error listing CRD instances: %v", err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+		items := []unstructured.Unstructured{}
+
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		for _, vw := range export.Status.VirtualWorkspaces {
+			vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
+			require.NoError(t, err)
+
+			list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				return false, fmt.Sprintf("Error listing CustomResourceDefinitions on %s: %v", vw.URL, err)
+			}
+
+			if list != nil {
+				items = append(items, list.Items...)
+			}
+		}
+
+		return len(items) == 1, fmt.Sprintf("Unexpected number of CRDs found. Expected 1, found %d", len(items))
+	}, wait.ForeverTestTimeout, time.Second*1)
 }
