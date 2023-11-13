@@ -26,7 +26,10 @@ const (
 	// WorkspaceTypes leads to creation of a number of default types beyond the universal type.
 	WorkspaceTypes = "workspace-types"
 
-	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin.
+	// Admin leads to creating a local admin.kubeconfig and a token hash file to access kcp as shard admin.
+	Admin = "admin"
+
+	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin. Requires the "admin" battery to be enabled.
 	User = "user"
 
 	// MetricsViewer leads to an additional service account named "metrics" in the root namespace that can view metrics.
@@ -35,10 +38,12 @@ const (
 
 var All = sets.New[string](
 	WorkspaceTypes,
+	Admin,
 	User,
 	MetricsViewer,
 )
 
 var Defaults = sets.New[string](
 	WorkspaceTypes,
+	Admin,
 )

@@ -185,8 +185,9 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.
 
 - workspace-types:         creates "organization" and "team" WorkspaceTypes in the root workspace.
-- root-compute-workspace:  create a root:compute workspace, and kubernetes APIExport in it for deployments/services/ingresses
-- user:                    creates an additional non-admin user and context named "user" in the admin.kubeconfig
+- root-compute-workspace:  create a root:compute workspace, and kubernetes APIExport in it for deployments/services/ingresses.
+- admin:                   creates an admin.kubeconfig in the path passed to --kubeconfig-path.
+- user:                    creates an additional non-admin user and context named "user" in the admin.kubeconfig. Requires "admin" battery to be enabled.
 
 Prefixing with - or + means to remove from the default set or add to the default set.`,
 		strings.Join(sets.List[string](batteries.All), ","),
@@ -232,6 +233,11 @@ func (o *CompletedOptions) Validate() []error {
 		if !batteries.All.Has(b) {
 			errs = append(errs, fmt.Errorf("unknown battery: %s", b))
 		}
+	}
+
+	batterySet := sets.New[string](o.Extra.BatteriesIncluded...)
+	if batterySet.Has(batteries.User) && !batterySet.Has(batteries.Admin) {
+		errs = append(errs, fmt.Errorf("battery %s enabled which requires %s as well", batteries.User, batteries.Admin))
 	}
 
 	if o.Extra.LogicalClusterAdminKubeconfig != "" && o.Extra.ShardExternalURL == "" {
