@@ -159,17 +159,17 @@ type GetShardAccessFunc func(clusterName logicalcluster.Name) (ShardAccess, bool
 // The ShardAccessForCluster() method will be used by some downstream controllers in order to
 // be able to get / list upstream resources in the right shard.
 func NewShardManager(
-	newShardControllers func(ctx context.Context, shardURLs proxyv1alpha1.VirtualWorkspace) (acces *ShardAccess, start func() error, err error)) *shardManager {
+	newShardControllers func(ctx context.Context, shardURLs proxyv1alpha1.TunnelWorkspace) (acces *ShardAccess, start func() error, err error)) *shardManager {
 	return &shardManager{
-		controllers:         map[proxyv1alpha1.VirtualWorkspace]shardControllers{},
+		controllers:         map[proxyv1alpha1.TunnelWorkspace]shardControllers{},
 		newShardControllers: newShardControllers,
 	}
 }
 
 type shardManager struct {
 	controllersLock     sync.RWMutex
-	controllers         map[proxyv1alpha1.VirtualWorkspace]shardControllers
-	newShardControllers func(ctx context.Context, shardURLs proxyv1alpha1.VirtualWorkspace) (acces *ShardAccess, start func() error, err error)
+	controllers         map[proxyv1alpha1.TunnelWorkspace]shardControllers
+	newShardControllers func(ctx context.Context, shardURLs proxyv1alpha1.TunnelWorkspace) (acces *ShardAccess, start func() error, err error)
 }
 
 func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (ShardAccess, bool, error) {
@@ -187,9 +187,9 @@ func (c *shardManager) ShardAccessForCluster(clusterName logicalcluster.Name) (S
 func (c *shardManager) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.WorkspaceProxy) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
-	requiredShards := map[proxyv1alpha1.VirtualWorkspace]bool{}
+	requiredShards := map[proxyv1alpha1.TunnelWorkspace]bool{}
 	if syncTarget != nil {
-		for _, shardURLs := range syncTarget.Status.VirtualWorkspaces {
+		for _, shardURLs := range syncTarget.Status.TunnelWorkspaces {
 			requiredShards[shardURLs] = true
 		}
 	}

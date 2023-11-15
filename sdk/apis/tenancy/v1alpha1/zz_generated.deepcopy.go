@@ -147,6 +147,11 @@ func (in *WorkspaceLocation) DeepCopy() *WorkspaceLocation {
 func (in *WorkspaceSpec) DeepCopyInto(out *WorkspaceSpec) {
 	*out = *in
 	out.Type = in.Type
+	if in.ManagedBy != nil {
+		in, out := &in.ManagedBy, &out.ManagedBy
+		*out = new(string)
+		**out = **in
+	}
 	if in.Location != nil {
 		in, out := &in.Location, &out.Location
 		*out = new(WorkspaceLocation)

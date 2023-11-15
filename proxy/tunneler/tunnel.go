@@ -17,7 +17,6 @@ limitations under the License.
 package tunneler
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -26,12 +25,6 @@ import (
 	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	proxyv1alpha1 "github.com/kcp-dev/kcp/proxy/apis/proxy/v1alpha1"
-)
-
-const (
-	tunnelSubresourcePath = "tunnel"
 )
 
 type controlMsg struct {
@@ -87,18 +80,6 @@ func (tn *tunneler) deleteDialer(clusterName logicalcluster.Name, syncTargetName
 	defer tn.mu.Unlock()
 	id := key{clusterName, syncTargetName}
 	delete(tn.pool, id)
-}
-
-// ProxyTunnelURL builds the destination url with the Dialer expected format of the URL.
-func ProxyTunnelURL(host, ws, target string) (string, error) {
-	if target == "" || ws == "" {
-		return "", fmt.Errorf("target or ws can not be empty")
-	}
-	hostURL, err := url.Parse(host)
-	if err != nil || hostURL.Scheme != "https" || hostURL.Host == "" {
-		return "", fmt.Errorf("wrong url format, expected https://host<:port>/<path>: %w", err)
-	}
-	return url.JoinPath(hostURL.String(), "clusters", ws, "apis", proxyv1alpha1.SchemeGroupVersion.String(), "clusters", target)
 }
 
 // flushWriter.

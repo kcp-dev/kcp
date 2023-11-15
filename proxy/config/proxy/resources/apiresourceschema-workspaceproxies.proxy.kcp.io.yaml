@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v231102-73d265116.workspaceproxies.proxy.kcp.io
+  name: v231114-0104cb571.workspaceproxies.proxy.kcp.io
 spec:
   group: proxy.kcp.io
   names:
@@ -115,18 +115,6 @@ spec:
                     type: string
                 required:
                 - url
-                type: object
-              type: array
-            virtualWorkspaces:
-              description: VirtualWorkspaces contains all virtual workspace URLs.
-              items:
-                properties:
-                  syncerURL:
-                    description: SyncerURL is the URL of the syncer virtual workspace.
-                    minLength: 1
-                    type: string
-                required:
-                - syncerURL
                 type: object
               type: array
           type: object

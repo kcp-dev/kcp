@@ -2260,6 +2260,13 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
+					"managedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ManagedBy is the name of the controller that manages this workspace. If not set, the workspace is not managed by KCP. Else it is managed by the controller with the given name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"location": {
 						SchemaProps: spec.SchemaProps{
 							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",

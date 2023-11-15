@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -83,8 +81,6 @@ func NewWorkspaceProxyController(
 			},
 		},
 	}
-
-	spew.Dump(workspaceProxyInformer.Lister().List(labels.Everything()))
 
 	logger := logging.WithReconciler(workspaceProxyLogger, controllerName)
 

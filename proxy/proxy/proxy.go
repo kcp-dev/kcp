@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +81,6 @@ func StartProxy(ctx context.Context, cfg *ProxyConfig, numProxyThreads int, prox
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.ProxyTargetName).String()
 		},
 	))
-	spew.Dump(cfg.ProxyTargetName)
 
 	logger.Info("attempting to retrieve the Proxy target resource")
 	var proxyTarget *proxyv1alpha1.WorkspaceProxy

@@ -27,8 +27,13 @@ import (
 )
 
 const (
-	// ProxyVirtualWorkspaceName holds the name of the virtual workspace for the proxy.
+	// ProxyVirtualWorkspaceName holds the name of the virtual workspace for the proxy where we
+	// expect traffic to be routed to.
 	ProxyVirtualWorkspaceName string = "cluster-proxy"
+	// EdgeProxyVirtualWorkspaceName holds the name of the virtual workspace for the edge proxy
+	// connections. This is used for the edge clusters to connect & register to the cluster proxy.
+	EdgeProxyVirtualWorkspaceName string = "edge-proxy"
+	EdgeTunnelSuffix              string = "tunnel"
 )
 
 // BuildVirtualWorkspace builds two virtual workspaces, ProxyVirtualWorkspaceName by instantiating a DynamicVirtualWorkspace which,
@@ -43,24 +48,30 @@ func BuildVirtualWorkspace(
 		rootPathPrefix += "/"
 	}
 
-	// Setup the APIReconciler indexes to share between both virtualworkspaces.
-	//indexers.AddIfNotPresentOrDie(
-	//	cachedProxyInformers.Proxy().V1alpha1().Clusters().Informer().GetIndexer(),
-	//)
-
-	provider := templateProvider{
+	proxyProvider := clusterProxyProvider{
 		kubeClusterClient:    kubeClusterClient,
 		dynamicClusterClient: dynamicClusterClient,
 		cachedProxyInformers: cachedProxyInformers,
 		rootPathPrefix:       rootPathPrefix,
 	}
 
+	builder := proxyProvider.newTemplate(
+		clusterParameters{
+			virtualWorkspaceName: ProxyVirtualWorkspaceName,
+		},
+		edgeParameters{
+			virtualWorkspaceName: EdgeProxyVirtualWorkspaceName,
+		})
+
 	return []rootapiserver.NamedVirtualWorkspace{
 		{
-			Name: ProxyVirtualWorkspaceName,
-			VirtualWorkspace: provider.newTemplate(templateParameters{
-				virtualWorkspaceName: ProxyVirtualWorkspaceName,
-			}).buildVirtualWorkspace(),
+			Name:             ProxyVirtualWorkspaceName,
+			VirtualWorkspace: builder.buildClusterProxyVirtualWorkspace(),
+		},
+		{
+			Name:             EdgeProxyVirtualWorkspaceName,
+			VirtualWorkspace: builder.buildEdgeProxyVirtualWorkspace(),
 		},
 	}
+
 }

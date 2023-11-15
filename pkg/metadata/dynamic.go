@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	dynamic "k8s.io/client-go/dynamic"
@@ -89,7 +88,7 @@ func partialType(req *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	spew.Dump(info)
+
 	switch info.Verb {
 	case "list":
 		return "PartialObjectMetadataList", nil

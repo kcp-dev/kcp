@@ -180,6 +180,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		return err
 	}
+
 	old := obj
 	obj = obj.DeepCopy()
 

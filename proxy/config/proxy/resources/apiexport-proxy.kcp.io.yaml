@@ -5,7 +5,7 @@ metadata:
   name: proxy.kcp.io
 spec:
   latestResourceSchemas:
-  - v231102-73d265116.workspaceproxies.proxy.kcp.io
+  - v231114-0104cb571.workspaceproxies.proxy.kcp.io
   permissionClaims:
   - all: true
     group: core.kcp.io

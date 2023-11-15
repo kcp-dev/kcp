@@ -258,6 +258,10 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
+	if workspace.Spec.ManagedBy != nil && *workspace.Spec.ManagedBy != "" {
+		return false, nil // object managed by someone else
+	}
+
 	old := workspace
 	workspace = workspace.DeepCopy()
 

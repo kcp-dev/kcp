@@ -441,7 +441,7 @@ func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest
 	// workspace to proxy.
 	rules := []rbacv1.PolicyRule{
 		{
-			Verbs:         []string{"proxy"},
+			Verbs:         []string{"tunnel"},
 			APIGroups:     []string{proxyv1alpha1.SchemeGroupVersion.Group},
 			ResourceNames: []string{proxyTargetName},
 			Resources:     []string{"workspaceproxies"},
@@ -472,10 +472,6 @@ func (o *ProxyOptions) enableProxyForWorkspace(ctx context.Context, config *rest
 		{
 			Verbs:           []string{"access"},
 			NonResourceURLs: []string{"/"},
-		},
-		{
-			Verbs:           []string{"get"},
-			NonResourceURLs: []string{"tunnel"},
 		},
 	}
 

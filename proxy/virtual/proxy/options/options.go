@@ -17,8 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"path"
-
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
@@ -66,5 +64,5 @@ func (o *Proxy) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.ProxyVirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, cachedProxyInformers), nil
+	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, cachedProxyInformers), nil
 }

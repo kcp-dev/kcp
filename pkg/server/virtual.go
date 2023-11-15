@@ -78,15 +78,6 @@ func newVirtualConfig(
 		return nil, err
 	}
 
-	authorizationOptions := virtualoptions.NewAuthorization()
-	authorizationOptions.AlwaysAllowGroups = o.Authorization.AlwaysAllowGroups
-	authorizationOptions.AlwaysAllowPaths = o.Authorization.AlwaysAllowPaths
-	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
-		return c.Extra.VirtualWorkspaces
-	}); err != nil {
-		return nil, err
-	}
-
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
@@ -97,6 +88,15 @@ func newVirtualConfig(
 		cachedProxyInformers,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	authorizationOptions := virtualoptions.NewAuthorization()
+	authorizationOptions.AlwaysAllowGroups = o.Authorization.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = o.Authorization.AlwaysAllowPaths
+	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return c.Extra.VirtualWorkspaces
+	}); err != nil {
 		return nil, err
 	}
 

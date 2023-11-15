@@ -146,6 +146,11 @@ type WorkspaceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
 	Type WorkspaceTypeReference `json:"type,omitempty"`
 
+	// ManagedBy is the name of the controller that manages this workspace.
+	// If not set, the workspace is not managed by KCP. Else it is managed by the
+	// controller with the given name.
+	ManagedBy *string `json:"managedBy,omitempty"`
+
 	// location constraints where this workspace can be scheduled to.
 	//
 	// If the no location is specified, an arbitrary location is chosen.

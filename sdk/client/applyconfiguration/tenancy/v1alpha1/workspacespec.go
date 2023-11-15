@@ -21,10 +21,11 @@ package v1alpha1
 // WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
-	Type     *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
-	Location *WorkspaceLocationApplyConfiguration      `json:"location,omitempty"`
-	Cluster  *string                                   `json:"cluster,omitempty"`
-	URL      *string                                   `json:"URL,omitempty"`
+	Type      *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
+	ManagedBy *string                                   `json:"managedBy,omitempty"`
+	Location  *WorkspaceLocationApplyConfiguration      `json:"location,omitempty"`
+	Cluster   *string                                   `json:"cluster,omitempty"`
+	URL       *string                                   `json:"URL,omitempty"`
 }
 
 // WorkspaceSpecApplyConfiguration constructs an declarative configuration of the WorkspaceSpec type for use with
@@ -38,6 +39,14 @@ func WorkspaceSpec() *WorkspaceSpecApplyConfiguration {
 // If called multiple times, the Type field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithType(value *WorkspaceTypeReferenceApplyConfiguration) *WorkspaceSpecApplyConfiguration {
 	b.Type = value
+	return b
+}
+
+// WithManagedBy sets the ManagedBy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ManagedBy field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithManagedBy(value string) *WorkspaceSpecApplyConfiguration {
+	b.ManagedBy = &value
 	return b
 }
 

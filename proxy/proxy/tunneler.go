@@ -79,7 +79,7 @@ func StartProxyTunnel(ctx context.Context, upstream, downstream *rest.Config, pr
 func startTunneler(ctx context.Context, upstream, downstream *rest.Config, proxyTargetClusterName logicalcluster.Name, proxyTargetName, proxyTargetUID string) error {
 	logger := klog.FromContext(ctx)
 
-	// syncer --> kcp
+	// proxy --> kcp
 	clientUpstream, err := rest.HTTPClientFor(upstream)
 	if err != nil {
 		return err
@@ -114,14 +114,10 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, proxy
 	}
 	// strip the path
 	u.Path = ""
-	dst, err := tunneler.ProxyTunnelURL(u.String(), proxyTargetClusterName.String(), proxyTargetName)
-	if err != nil {
-		return err
-	}
 
-	logger = logger.WithValues("proxy-tunnel-url", dst)
+	logger = logger.WithValues("proxy-tunnel-url", upstream.Host)
 	logger.Info("connecting to destination URL")
-	l, err := tunneler.NewListener(clientUpstream, dst)
+	l, err := tunneler.NewListener(clientUpstream, upstream.Host)
 	if err != nil {
 		return err
 	}

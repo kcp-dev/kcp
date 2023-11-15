@@ -73,10 +73,6 @@ type WorkspaceProxyStatus struct {
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// VirtualWorkspaces contains all virtual workspace URLs.
-	// +optional
-	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
-
 	// TunnelWorkspaces contains all URLs (one per shard) that point to the SyncTarget
 	// workspace in order to setup the tunneler.
 	// +optional
@@ -102,15 +98,6 @@ type TunnelWorkspace struct {
 	// +kubebuilder:format:URL
 	// +required
 	URL string `json:"url"`
-}
-
-type VirtualWorkspace struct {
-	// SyncerURL is the URL of the syncer virtual workspace.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:format:URL
-	// +required
-	SyncerURL string `json:"syncerURL"`
 }
 
 // WorkspaceProxyList is a list of WorkspaceProxy resources

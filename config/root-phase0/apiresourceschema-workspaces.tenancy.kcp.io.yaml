@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v230116-832a4a55d.workspaces.tenancy.kcp.io
+  name: v231114-0104cb571.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -131,6 +131,11 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
               type: object
+            managedBy:
+              description: ManagedBy is the name of the controller that manages this
+                workspace. If not set, the workspace is not managed by KCP. Else it
+                is managed by the controller with the given name.
+              type: string
             type:
               description: "type defines properties of the workspace both on creation
                 (e.g. initial resources and initially installed APIs) and during runtime

@@ -43,9 +43,7 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.Wo
 	labels[proxyv1alpha1.InternalWorkspaceProxyKeyLabel] = proxyv1alpha1.ToProxyTargetKey(logicalcluster.From(proxyTargetCopy), proxyTargetCopy.Name)
 	proxyTargetCopy.SetLabels(labels)
 
-	desiredVWURLs := map[string]proxyv1alpha1.VirtualWorkspace{}
 	desiredTunnelWorkspaceURLs := map[string]proxyv1alpha1.TunnelWorkspace{}
-	syncTargetClusterName := logicalcluster.From(syncTarget)
 
 	var rootShardKey string
 	for _, workspaceShard := range workspaceShards {
@@ -60,27 +58,19 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.Wo
 			syncerVirtualWorkspaceURL.Path = path.Join(
 				shardVWURL.Path,
 				virtualworkspacesoptions.DefaultRootPathPrefix,
-				proxybuilder.ProxyVirtualWorkspaceName,
+				proxybuilder.EdgeProxyVirtualWorkspaceName,
 				logicalcluster.From(proxyTargetCopy).String(),
 				proxyTargetCopy.Name,
 				string(proxyTargetCopy.UID),
+				proxybuilder.EdgeTunnelSuffix,
 			)
-
-			syncerURL := (&syncerVirtualWorkspaceURL).String()
 
 			if workspaceShard.Name == corev1alpha1.RootShard {
 				rootShardKey = shardVWURL.String()
 			}
-			desiredVWURLs[shardVWURL.String()] = proxyv1alpha1.VirtualWorkspace{
-				SyncerURL: syncerURL,
-			}
 
-			tunnelWorkspaceURL, err := url.JoinPath(workspaceShard.Spec.ExternalURL, syncTargetClusterName.Path().RequestPath())
-			if err != nil {
-				return nil, err
-			}
 			desiredTunnelWorkspaceURLs[shardVWURL.String()] = proxyv1alpha1.TunnelWorkspace{
-				URL: tunnelWorkspaceURL,
+				URL: syncerVirtualWorkspaceURL.String(),
 			}
 		}
 	}
@@ -90,14 +80,6 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.Wo
 	//   in order to ensure compatibility with the shard-unaware Syncer
 	// - urls for other shards which will be added in the lexical order of the
 	// corresponding shard URLs.
-	var desiredVirtualWorkspaces []proxyv1alpha1.VirtualWorkspace //nolint:prealloc
-	if rootShardVirtualWorkspace, ok := desiredVWURLs[rootShardKey]; ok {
-		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, rootShardVirtualWorkspace)
-		delete(desiredVWURLs, rootShardKey)
-	}
-	for _, shardURL := range sets.StringKeySet(desiredVWURLs).List() {
-		desiredVirtualWorkspaces = append(desiredVirtualWorkspaces, desiredVWURLs[shardURL])
-	}
 	var desiredTunnelWorkspaces []proxyv1alpha1.TunnelWorkspace //nolint:prealloc
 	if rootShardTunnelWorkspace, ok := desiredTunnelWorkspaceURLs[rootShardKey]; ok {
 		desiredTunnelWorkspaces = append(desiredTunnelWorkspaces, rootShardTunnelWorkspace)
@@ -107,7 +89,6 @@ func (c *Controller) reconcile(ctx context.Context, syncTarget *proxyv1alpha1.Wo
 		desiredTunnelWorkspaces = append(desiredTunnelWorkspaces, desiredTunnelWorkspaceURLs[shardURL])
 	}
 
-	proxyTargetCopy.Status.VirtualWorkspaces = desiredVirtualWorkspaces
 	proxyTargetCopy.Status.TunnelWorkspaces = desiredTunnelWorkspaces
 	return proxyTargetCopy, nil
 }

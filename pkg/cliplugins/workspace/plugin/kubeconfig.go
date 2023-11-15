@@ -452,6 +452,8 @@ type CreateWorkspaceOptions struct {
 	ReadyWaitTimeout time.Duration
 	// LocationSelector is the location selector to use when creating the workspace to select a matching shard.
 	LocationSelector string
+	// ManagedBy is the name of the plugin managing the workspace.
+	ManagedBy string
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -503,6 +505,9 @@ func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
 	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
 	cmd.Flags().StringVar(&o.LocationSelector, "location-selector", o.LocationSelector, "A label selector to select the scheduling location of the created workspace.")
+	// hidden flag to switch the managedBy field to the plugin name
+	cmd.Flags().StringVar(&o.ManagedBy, "managed-by", o.ManagedBy, "The name of the plugin managing the workspace.")
+	cmd.Flags().MarkHidden("managed-by")
 }
 
 // Run creates a workspace.
@@ -542,7 +547,8 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			Name: o.Name,
 		},
 		Spec: tenancyv1alpha1.WorkspaceSpec{
-			Type: structuredWorkspaceType,
+			Type:      structuredWorkspaceType,
+			ManagedBy: &o.ManagedBy,
 		},
 	}
 
