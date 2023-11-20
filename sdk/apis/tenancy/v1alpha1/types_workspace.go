@@ -52,7 +52,10 @@ func (r WorkspaceTypeReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
-const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
+const (
+	ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
+	ExperimentalWorkspaceMountAnnotationKey string = "experimental.tenancy.kcp.io/mount"
+)
 
 // These are valid conditions of workspace.
 const (
