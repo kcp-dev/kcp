@@ -287,5 +287,6 @@ func (c *Controller) stopShard(shardName string) {
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (url string, found bool) {
-	return c.state.LookupURL(path)
+	r := c.state.LookupURL(path)
+	return r.URL, r.Found
 }

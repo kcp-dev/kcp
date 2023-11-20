@@ -133,9 +133,9 @@ func WithLocalProxy(
 		}
 
 		// lookup in our local, potentially partial index
-		requestShardName, rewrittenClusterName, foundInIndex := indexState.Lookup(path)
-		if foundInIndex && requestShardName != shardName {
-			logger.WithValues("cluster", cluster.Name, "requestedShard", requestShardName, "actualShard", shardName).Info("cluster is not on this shard, but on another")
+		r := indexState.Lookup(path)
+		if r.Found && r.Shard != shardName {
+			logger.WithValues("cluster", cluster.Name, "requestedShard", r.Shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
 
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
 			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
@@ -154,10 +154,10 @@ func WithLocalProxy(
 		}
 
 		if foundInIndex {
-			if rewrittenClusterName.Path() != path {
-				logger.WithValues("from", path, "to", rewrittenClusterName).V(4).Info("rewriting cluster")
+			if r.Cluster.Path() != path {
+				logger.WithValues("from", path, "to", r.Cluster).V(4).Info("rewriting cluster")
 			}
-			cluster.Name = rewrittenClusterName
+			cluster.Name = r.Cluster
 		} else {
 			// we check "!isName && !foundInIndex" above. So, here it is a name.
 			cluster.Name = clusterName
