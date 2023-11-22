@@ -45,6 +45,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -103,6 +104,17 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 			SkipFilterSchemaForKubectlOpenAPIV2Validation: true,
 			StripValueValidation:                          true,
 			StripNullable:                                 true,
+			AllowNonStructural:                            false})
+	if err != nil {
+		return nil, err
+	}
+
+	openAPIV3Spec, err := buildOpenAPIV3(
+		apiResourceSchema,
+		apiResourceVersion,
+		builder.Options{
+			V2: false,
+			SkipFilterSchemaForKubectlOpenAPIV2Validation: true,
 			AllowNonStructural:                            false})
 	if err != nil {
 		return nil, err
@@ -302,6 +314,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		requestScope:       requestScope,
 		statusRequestScope: &statusScope,
 		logicalClusterName: logicalcluster.From(apiResourceSchema),
+		openAPIV3Spec:      openAPIV3Spec,
 	}
 
 	return ret, nil
@@ -317,6 +330,8 @@ type servingInfo struct {
 
 	requestScope       *handlers.RequestScope
 	statusRequestScope *handlers.RequestScope
+
+	openAPIV3Spec *spec3.OpenAPI
 }
 
 // Implement APIDefinition interface
@@ -348,6 +363,10 @@ func (apiDef *servingInfo) GetSubResourceRequestScope(subresource string) *handl
 func (apiDef *servingInfo) TearDown() {
 }
 
+func (apiDef *servingInfo) GetOpenAPIV3Spec() *spec3.OpenAPI {
+	return apiDef.openAPIV3Spec
+}
+
 var _ runtime.ObjectConvertor = nopConverter{}
 
 type nopConverter struct{}
@@ -371,8 +390,7 @@ func (u nopConverter) ConvertFieldLabel(gvk schema.GroupVersionKind, label, valu
 	return label, value, nil
 }
 
-// buildOpenAPIV2 builds OpenAPI v2 for the given apiResourceSpec.
-func buildOpenAPIV2(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion, opts builder.Options) (*spec.Swagger, error) {
+func getCRDFromSchema(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion) (*apiextensionsv1.CustomResourceDefinition, error) {
 	openapiSchema, err := apiResourceVersion.GetSchema()
 	if err != nil {
 		return nil, err
@@ -393,7 +411,28 @@ func buildOpenAPIV2(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResour
 			Scope: apiResourceSchema.Spec.Scope,
 		},
 	}
+
+	return crd, nil
+}
+
+// buildOpenAPIV2 builds OpenAPI v2 for the given apiResourceSpec.
+func buildOpenAPIV2(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion, opts builder.Options) (*spec.Swagger, error) {
+	crd, err := getCRDFromSchema(apiResourceSchema, apiResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	return builder.BuildOpenAPIV2(crd, apiResourceVersion.Name, opts)
+}
+
+// buildOpenAPIV3 builds OpenAPI v3 for the given apiResourceSpec.
+func buildOpenAPIV3(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion, opts builder.Options) (*spec3.OpenAPI, error) {
+	crd, err := getCRDFromSchema(apiResourceSchema, apiResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	return builder.BuildOpenAPIV3(crd, apiResourceVersion.Name, opts)
 }
 
 func findAPIResourceVersion(schema *apisv1alpha1.APIResourceSchema, version string) (*apisv1alpha1.APIResourceVersion, bool) {
