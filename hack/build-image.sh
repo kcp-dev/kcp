@@ -42,14 +42,21 @@ architectures="amd64 arm64 ppc64le"
 
 # when building locally, just tag with the current HEAD hash
 version="$(git rev-parse --short HEAD)"
+branchName=""
 
 # deduce the tag from the Prow job metadata
 if [ -n "${PULL_BASE_REF:-}" ]; then
   version="$(git tag --list "$PULL_BASE_REF")"
 
-  # if the base ref did not point to a tag, it's just a commit hash
   if [ -z "$version" ]; then
+    # if the base ref did not point to a tag, it's a branch name
     version="$(git rev-parse --short "$PULL_BASE_REF")"
+    branchName="$PULL_BASE_REF"
+  else
+    # If PULL_BASE_REF is a tag, there is no branch availabe locally, plus
+    # there is no guarantee that vX.Y.Z is tagged _only_ in the release-X.Y
+    # branch; because of this we have to deduce the branch name from the tag
+    branchName="$(echo "$version" | sed -E 's/^v([0-9]+)\.([0-9]+)\..*/release-\1.\2/')"
   fi
 fi
 
@@ -82,14 +89,15 @@ done
 # release images tagged with the current branch name, which
 # is somewhere between a blanket "latest" tag and a specific
 # tag.
-branch="$(git rev-parse --abbrev-ref HEAD)"
-branchImage="$repository:$branch"
+if [ -n "$branchName" ]; then
+  branchImage="$repository:$branchName"
 
-echo "Creating manifest $branchImage ..."
-buildah manifest create "$branchImage"
-for arch in $architectures; do
-  buildah manifest add "$branchImage" "$image-$arch"
-done
+  echo "Creating manifest $branchImage ..."
+  buildah manifest create "$branchImage"
+  for arch in $architectures; do
+    buildah manifest add "$branchImage" "$image-$arch"
+  done
+fi
 
 # push manifest, except in presubmits
 if [ -z "${DRY_RUN:-}" ]; then
@@ -98,7 +106,10 @@ if [ -z "${DRY_RUN:-}" ]; then
 
   echo "Pushing manifest and images ..."
   buildah manifest push --all "$image" "docker://$image"
-  buildah manifest push --all "$branchImage" "docker://$branchImage"
+
+  if [ -n "${branchImage:-}" ]; then
+    buildah manifest push --all "$branchImage" "docker://$branchImage"
+  fi
 else
   echo "Not pushing images because \$DRY_RUN is set."
 fi
