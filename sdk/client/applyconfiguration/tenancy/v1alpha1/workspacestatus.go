@@ -29,6 +29,7 @@ type WorkspaceStatusApplyConfiguration struct {
 	Phase        *v1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
 	Conditions   *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
 	Initializers []v1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+	Mounts       []MountStatusApplyConfiguration      `json:"mounts,omitempty"`
 }
 
 // WorkspaceStatusApplyConfiguration constructs an declarative configuration of the WorkspaceStatus type for use with
@@ -59,6 +60,19 @@ func (b *WorkspaceStatusApplyConfiguration) WithConditions(value conditionsv1alp
 func (b *WorkspaceStatusApplyConfiguration) WithInitializers(values ...v1alpha1.LogicalClusterInitializer) *WorkspaceStatusApplyConfiguration {
 	for i := range values {
 		b.Initializers = append(b.Initializers, values[i])
+	}
+	return b
+}
+
+// WithMounts adds the given value to the Mounts field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Mounts field.
+func (b *WorkspaceStatusApplyConfiguration) WithMounts(values ...*MountStatusApplyConfiguration) *WorkspaceStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithMounts")
+		}
+		b.Mounts = append(b.Mounts, *values[i])
 	}
 	return b
 }

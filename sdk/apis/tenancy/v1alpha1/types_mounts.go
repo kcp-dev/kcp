@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2023 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,24 +20,37 @@ import (
 	"encoding/json"
 
 	corev1 "k8s.io/api/core/v1"
-)
 
-// MountKind is a kind of mount.
-type MountKind string
-
-const (
-	SymLink MountKind = "symlink"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // Mount is a workspace mount that can be used to mount a workspace into another workspace or resource.
 // Mounting itself is done at front proxy level.
 type Mount struct {
-	// Type is the type of the mount.
-	Kind MountKind `json:"kind,omitempty"`
+	// Name is the name of the mount.
+	Name string `json:"name,omitempty"`
 	// Source is an ObjectReference to the object that is mounted.
 	Source *corev1.ObjectReference `json:"ref,omitempty"`
-	// Path is the path where the object is mounted in relation to the workspace root.
-	Path string `json:"path,omitempty"`
+}
+
+// MountStatus is the status of a mount. It is used to indicate the status of a mount,
+// potentially managed outside of the core API.
+type MountStatus struct {
+	// Name is the name of the mount.
+	Name string `json:"name,omitempty"`
+	// Phase of the mount (Scheduling, Initializing, Ready).
+	//
+	// +kubebuilder:default=Scheduling
+	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
+	// Conditions is a list of conditions and their status.
+	// Current processing state of the Mount.
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// URL is the URL of the mount. Mount is considered mountable when URL is set.
+	// +optional
+	URL string `json:"url,omitempty"`
 }
 
 // ParseTenancyMountAnnotation parses the value of the annotation into a Mount.

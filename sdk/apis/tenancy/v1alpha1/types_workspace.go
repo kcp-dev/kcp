@@ -53,7 +53,9 @@ func (r WorkspaceTypeReference) String() string {
 }
 
 const (
+	// ExperimentalWorkspaceOwnerAnnotationKey is the annotation key used to indicate the owner of the workspace.
 	ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
+	// ExperimentalWorkspaceMountAnnotationKey is the annotation key used to indicate the mounts of the workspace.
 	ExperimentalWorkspaceMountAnnotationKey string = "experimental.tenancy.kcp.io/mount"
 )
 
@@ -198,6 +200,11 @@ type WorkspaceStatus struct {
 	//
 	// +optional
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// Mounts is a list of mounts that are mounted into this workspace and their statuses.
+	//
+	// +optional
+	Mounts []MountStatus `json:"mounts,omitempty"`
 }
 
 func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {

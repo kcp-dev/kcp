@@ -134,6 +134,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
 		return &applyconfigurationtenancyv1alpha1.APIExportReferenceApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("MountStatus"):
+		return &applyconfigurationtenancyv1alpha1.MountStatusApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &applyconfigurationtenancyv1alpha1.VirtualWorkspaceApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace"):
