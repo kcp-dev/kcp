@@ -19,6 +19,8 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -134,11 +136,24 @@ func WithLocalProxy(
 
 		// lookup in our local, potentially partial index
 		r := indexState.Lookup(path)
-		if r.Found && r.Shard != shardName {
+		if r.Found && r.Shard != shardName && r.URL == "" {
 			logger.WithValues("cluster", cluster.Name, "requestedShard", r.Shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
 
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
 			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
+			return
+		}
+
+		if r.URL != "" {
+			url, err := url.Parse(r.URL)
+			if err != nil {
+				logger.WithValues("cluster", cluster.Name, "url", r.URL).Error(err, "invalid url")
+				http.Error(w, "invalid url", http.StatusInternalServerError)
+				return
+			}
+			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
+			proxy := httputil.NewSingleHostReverseProxy(url)
+			proxy.ServeHTTP(w, req)
 			return
 		}
 
