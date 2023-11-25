@@ -28,6 +28,8 @@ import (
 type ClusterInterface interface {
 	// Cowboys returns a CowboyClusterInformer
 	Cowboys() CowboyClusterInformer
+	// Sherifves returns a SheriffClusterInformer
+	Sherifves() SheriffClusterInformer
 }
 
 type version struct {
@@ -45,9 +47,16 @@ func (v *version) Cowboys() CowboyClusterInformer {
 	return &cowboyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// Sherifves returns a SheriffClusterInformer
+func (v *version) Sherifves() SheriffClusterInformer {
+	return &sheriffClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// Cowboys returns a CowboyInformer
 	Cowboys() CowboyInformer
+	// Sherifves returns a SheriffInformer
+	Sherifves() SheriffInformer
 }
 
 type scopedVersion struct {
@@ -64,4 +73,9 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // Cowboys returns a CowboyInformer
 func (v *scopedVersion) Cowboys() CowboyInformer {
 	return &cowboyScopedInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Sherifves returns a SheriffInformer
+func (v *scopedVersion) Sherifves() SheriffInformer {
+	return &sheriffScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

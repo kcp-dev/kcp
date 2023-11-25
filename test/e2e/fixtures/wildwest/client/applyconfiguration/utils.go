@@ -48,6 +48,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &wildwestv1alpha1.CowboySpecApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CowboyStatus"):
 		return &wildwestv1alpha1.CowboyStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Sheriff"):
+		return &wildwestv1alpha1.SheriffApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("SheriffSpec"):
+		return &wildwestv1alpha1.SheriffSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("SheriffStatus"):
+		return &wildwestv1alpha1.SheriffStatusApplyConfiguration{}
 
 	}
 	return nil
