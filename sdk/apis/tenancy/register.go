@@ -17,5 +17,6 @@ limitations under the License.
 package tenancy
 
 const (
-	GroupName = "tenancy.kcp.io"
+	GroupName     = "tenancy.kcp.io"
+	WorkspaceKind = "Workspace"
 )
