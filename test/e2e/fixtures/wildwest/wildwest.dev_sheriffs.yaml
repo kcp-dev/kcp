@@ -5,20 +5,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: cowboys.wildwest.dev
+  name: sheriffs.wildwest.dev
 spec:
   group: wildwest.dev
   names:
-    kind: Cowboy
-    listKind: CowboyList
-    plural: cowboys
-    singular: cowboy
-  scope: Namespaced
+    categories:
+    - kcp
+    kind: Sheriff
+    listKind: SheriffList
+    plural: sheriffs
+    singular: sheriff
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Cowboy is part of the wild west
+        description: Sheriff is part of the wild west
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,13 +35,13 @@ spec:
           metadata:
             type: object
           spec:
-            description: CowboySpec holds the desired state of the Cowboy.
+            description: Sheriff holds the desired state of the Sheriff.
             properties:
               intent:
                 type: string
             type: object
           status:
-            description: CowboyStatus communicates the observed state of the Cowboy.
+            description: SheriffStatus communicates the observed state of the Sheriff.
             properties:
               result:
                 type: string
