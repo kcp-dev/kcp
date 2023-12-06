@@ -31,7 +31,7 @@ jobs:
 
       - run: git fetch origin gh-pages
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: v1.20
           cache: true
