@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kcp-dev/kcp)](https://goreportcard.com/report/github.com/kcp-dev/kcp)
 [![GitHub](https://img.shields.io/github/license/kcp-dev/kcp)](https://img.shields.io/github/license/kcp-dev/kcp)
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/kcp-dev/kcp?sort=semver)](https://img.shields.io/github/v/release/kcp-dev/kcp?sort=semver)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp?ref=badge_shield)
 
 ## Overview
 
@@ -49,3 +50,7 @@ There are several ways to communicate with us:
 - [TGI Kubernetes 157: Exploring kcp: apiserver without Kubernetes](https://youtu.be/FD_kY3Ey2pI)
 - [K8s SIG Architecture meeting discussing kcp - June 29, 2021](https://www.youtube.com/watch?v=YrdAYoo-UQQ)
 - [Let's Learn kcp - A minimal Kubernetes API server with Saiyam Pathak - July 7, 2021](https://www.youtube.com/watch?v=M4mn_LlCyzk)
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp?ref=badge_large)
