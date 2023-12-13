@@ -17,8 +17,11 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -133,8 +136,8 @@ func WithLocalProxy(
 		}
 
 		// lookup in our local, potentially partial index
-		r := indexState.Lookup(path)
-		if r.Found && r.Shard != shardName {
+		r, found := indexState.Lookup(path)
+		if found && r.Shard != shardName && r.URL == "" {
 			logger.WithValues("cluster", cluster.Name, "requestedShard", r.Shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
 
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
@@ -142,10 +145,30 @@ func WithLocalProxy(
 			return
 		}
 
+		if r.URL != "" {
+			url, err := url.Parse(r.URL)
+			if err != nil {
+				logger.WithValues("cluster", cluster.Name, "url", r.URL).Error(err, "invalid url")
+				http.Error(w, "invalid url", http.StatusInternalServerError)
+				return
+			}
+			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
+			proxy := httputil.NewSingleHostReverseProxy(url)
+			//TODO(MVP): remove this once we have a real cert wired in dev mode
+			proxy.Transport = &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			}
+
+			proxy.ServeHTTP(w, req)
+			return
+		}
+
 		// if this is a non-path request, there is nothing to lookup
 		clusterName, isName := path.Name()
 
-		if !isName && !r.Found {
+		if !isName && !found {
 			// No rewrite, depend on the handler chain to do the right thing, like 403 or 404.
 			cluster.Name = logicalcluster.Name(path.String())
 			logger.WithValues("cluster", cluster.Name).Info("cluster not found")
@@ -153,7 +176,7 @@ func WithLocalProxy(
 			return
 		}
 
-		if r.Found {
+		if found {
 			if r.Cluster.Path() != path {
 				logger.WithValues("from", path, "to", r.Cluster).V(4).Info("rewriting cluster")
 			}
