@@ -53,7 +53,10 @@ func New(rewriters []PathRewriter) *State {
 		shardWorkspaceName:        map[string]map[logicalcluster.Name]string{},
 		shardClusterParentCluster: map[string]map[logicalcluster.Name]logicalcluster.Name{},
 		shardBaseURLs:             map[string]string{},
-		workspaceNameMount:        map[logicalcluster.Name]map[string]string{},
+		// Experimental feature: allow mounts to be used with Workspaces
+		// structure: (clusterName, workspace name) -> string serialized mount objects
+		// This should be simplified once we promote this to workspace structure.
+		clusterWorkspaceMountAnnotation: map[logicalcluster.Name]map[string]string{},
 	}
 }
 
@@ -70,7 +73,7 @@ type State struct {
 	shardClusterParentCluster map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs             map[string]string                                                 // shard name -> base URL
 	// Experimental feature: allow mounts to be used with Workspaces
-	workspaceNameMount map[logicalcluster.Name]map[string]string // (clusterName, workspace name) -> mount path
+	clusterWorkspaceMountAnnotation map[logicalcluster.Name]map[string]string // (clusterName, workspace name) -> mount object string
 }
 
 func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
@@ -81,17 +84,10 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 
 	c.lock.RLock()
 	cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
-	mount := c.workspaceNameMount[clusterName][ws.Name] // experimental feature
+	mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] // experimental feature
 	c.lock.RUnlock()
 
-	var changed bool
-	if cluster.String() != ws.Spec.Cluster {
-		changed = true
-	}
-	if mount != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
-		changed = true
-	}
-	if !changed {
+	if (cluster.String() == ws.Spec.Cluster) || (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
 		return
 	}
 
@@ -112,11 +108,11 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
 
-	if mount := c.workspaceNameMount[clusterName][ws.Name]; mount != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
-		if c.workspaceNameMount[clusterName] == nil {
-			c.workspaceNameMount[clusterName] = map[string]string{}
+	if mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
+		if c.clusterWorkspaceMountAnnotation[clusterName] == nil {
+			c.clusterWorkspaceMountAnnotation[clusterName] = map[string]string{}
 		}
-		c.workspaceNameMount[clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
+		c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
 	}
 }
 
@@ -125,7 +121,7 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 
 	c.lock.RLock()
 	_, foundCluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
-	_, foundMount := c.workspaceNameMount[clusterName][ws.Name]
+	_, foundMount := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]
 	c.lock.RUnlock()
 
 	if !foundCluster && !foundMount {
@@ -155,10 +151,10 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		}
 	}
 
-	if _, foundMount = c.workspaceNameMount[clusterName][ws.Name]; foundMount {
-		delete(c.workspaceNameMount[clusterName], ws.Name)
-		if len(c.workspaceNameMount[clusterName]) == 0 {
-			delete(c.workspaceNameMount, clusterName)
+	if _, foundMount = c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; foundMount {
+		delete(c.clusterWorkspaceMountAnnotation[clusterName], ws.Name)
+		if len(c.clusterWorkspaceMountAnnotation[clusterName]) == 0 {
+			delete(c.clusterWorkspaceMountAnnotation, clusterName)
 		}
 	}
 }
@@ -246,7 +242,7 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		}
 
 		// check mounts, if found return url and true
-		val, foundMount := c.workspaceNameMount[cluster][s] // experimental feature
+		val, foundMount := c.clusterWorkspaceMountAnnotation[cluster][s] // experimental feature
 		if foundMount {
 			mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(val)
 			if !(err != nil || mount == nil || mount.MountStatus.URL == "") {
@@ -255,7 +251,6 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 					// default to workspace itself.
 				} else {
 					return Result{URL: url.String()}, true
-
 				}
 			}
 		}
@@ -279,7 +274,7 @@ func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
 		return Result{}, false
 	}
 
-	if result.URL != "" {
+	if result.URL != "" && result.Shard == "" && result.Cluster == "" {
 		return result, true
 	}
 

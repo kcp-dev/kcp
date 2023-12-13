@@ -154,7 +154,7 @@ func WithLocalProxy(
 			}
 			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
 			proxy := httputil.NewSingleHostReverseProxy(url)
-			//TODO(MVP): remove this once we have a real cert wired in dev mode
+			// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
 			proxy.Transport = &http.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,

@@ -72,7 +72,7 @@ func (t *metadataTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 func partialType(req *http.Request) (string, error) {
-	// strip off /cluster/<lcluster>
+	// strip off /clusters/<lcluster>
 	baseReq := *req
 	if strings.HasPrefix(req.URL.Path, "/clusters/") {
 		parts := strings.SplitN(req.URL.Path, "/", 4)
@@ -88,6 +88,7 @@ func partialType(req *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	switch info.Verb {
 	case "list":
 		return "PartialObjectMetadataList", nil
