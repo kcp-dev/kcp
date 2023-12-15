@@ -1,0 +1,22 @@
+server:
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-remote-write-receiver
+alertmanager:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+extraScrapeConfigs: |
+   - job_name: 'kcp'
+     metrics_path: /metrics
+     tls_config:
+       insecure_skip_verify: true
+     scheme: https
+     static_configs:
+       - targets:
+         - kcp.kcp.svc.cluster.local:6443
+     bearer_token: eyJhbGciOiJSUzI1NiIsImtpZCI6IkRFYWE0cHVUMjJ2WlJFVjhYREV4VkN3WWUtR3BZNnpyaWpGTnpqVzhzVlEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9jbHVzdGVyTmFtZSI6InJvb3QiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L25hbWVzcGFjZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoibWV0cmljcyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJtZXRyaWNzIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiYTRjYWJlZTktYzQzZi00NmNjLWJiNjktZjhiYjFlY2Y2YTdmIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6bWV0cmljcyJ9.fJk8Ixrjhkf3VbTXm2sU1AKV2cL4GhSczMRsMsPgYRyJq8sunOWH8UBdnwsCnuvm07bCWfsAVXY1C_2VxY4FOfzC6E639k3oYr3mzfVJfAE3ijbzjKfAyikW8YZOB27Wh9MwYAVRmP42xOICUwMpxN9yM2IoOrfpIXmH3A186RuCnqdZxbF0H5gtdmgaUOszL7Bk4wroOGE47F2iFUNE5UfpSsxQJyemRuTm-RvcTMqvJGDCr5mT1m16yhscOy2FMrkY2fd7zr0JBm01eqTlY-NZq6_Zr41KY1GiTvONUr3y33RQBUogQQknNwtof6lYjDn0Of61FhLoq968JubNog

@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kernel-limits
+spec:
+  template:
+    spec:
+      containers:
+        - name: init
+          image: alpine:3.14
+          command:
+            - /bin/sh
+            - -xc
+            - |
+              sysctl fs.inotify.max_user_watches=524288
+              sysctl fs.inotify.max_user_instances=512
+          securityContext:
+            privileged: true
+      restartPolicy: Never
+  backoffLimit: 1
