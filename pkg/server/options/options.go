@@ -185,9 +185,9 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.
 
 - workspace-types:         creates "organization" and "team" WorkspaceTypes in the root workspace.
-- root-compute-workspace:  create a root:compute workspace, and kubernetes APIExport in it for deployments/services/ingresses.
 - admin:                   creates an admin.kubeconfig in the path passed to --kubeconfig-path.
 - user:                    creates an additional non-admin user and context named "user" in the admin.kubeconfig. Requires "admin" battery to be enabled.
+- metrics-viewer:          created a service account named "metrics" in the root namespace that can view metrics.
 
 Prefixing with - or + means to remove from the default set or add to the default set.`,
 		strings.Join(sets.List[string](batteries.All), ","),
