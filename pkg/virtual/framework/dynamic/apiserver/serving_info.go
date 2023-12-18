@@ -39,11 +39,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
-	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
@@ -95,44 +93,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		return nil, fmt.Errorf("the server could not properly serve the CR schema") // validation should avoid this
 	}
 
-	s, err := buildOpenAPIV2(
-		apiResourceSchema,
-		apiResourceVersion,
-		builder.Options{
-			V2: true,
-			SkipFilterSchemaForKubectlOpenAPIV2Validation: true,
-			StripValueValidation:                          true,
-			StripNullable:                                 true,
-			AllowNonStructural:                            false})
-	if err != nil {
-		return nil, err
-	}
-
-	var modelsByGKV openapi.ModelsByGKV
-
-	openAPIModels, err := utilopenapi.ToProtoModels(s)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("error building openapi models for %s: %w", gvk.String(), err))
-		openAPIModels = nil
-	} else {
-		modelsByGKV, err = openapi.GetModelsByGKV(openAPIModels)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error gathering openapi models by GKV for %s: %w", gvk.String(), err))
-			modelsByGKV = nil
-		}
-	}
 	typeConverter := managedfields.NewDeducedTypeConverter()
-	if openAPIModels != nil {
-		schemas := make(map[string]*spec.Schema, len(s.Definitions))
-		for k, v := range s.Definitions {
-			v := v
-			schemas[k] = &v
-		}
-		typeConverter, err = managedfields.NewTypeConverter(schemas, false)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	safeConverter, unsafeConverter := &nopConverter{}, &nopConverter{}
 	if err != nil {
@@ -244,7 +205,6 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		TableConvertor:           table,
 		Authorizer:               genericConfig.Authorization.Authorizer,
 		MaxRequestBodyBytes:      genericConfig.MaxRequestBodyBytes,
-		OpenapiModels:            modelsByGKV,
 	}
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
