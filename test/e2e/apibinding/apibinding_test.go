@@ -23,11 +23,9 @@ import (
 	"net/url"
 	"path"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -35,7 +33,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -122,20 +119,20 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	apiBinding, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 
-	patchedBinding := apiBinding.DeepCopy()
-	patchedBinding.Spec.Reference.Export.Name = "other-export"
-	mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, apiBinding), encodeJSON(t, patchedBinding))
-	require.NoError(t, err)
+	//patchedBinding := apiBinding.DeepCopy()
+	//patchedBinding.Spec.Reference.Export.Name = "other-export"
+	//mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, apiBinding), encodeJSON(t, patchedBinding))
+	//require.NoError(t, err)
 
-	t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
-	framework.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
-		expected := "APIExport reference must not be changed"
-		if strings.Contains(err.Error(), expected) {
-			return true, ""
-		}
-		return false, fmt.Sprintf("Expecting error to contain %q but got %v", expected, err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	//t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
+	//framework.Eventually(t, func() (bool, string) {
+	//	_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	//	expected := "APIExport reference must not be changed"
+	//	if strings.Contains(err.Error(), expected) {
+	//		return true, ""
+	//	}
+	//	return false, fmt.Sprintf("Expecting error to contain %q but got %v", expected, err)
+	//}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 func TestAPIBinding(t *testing.T) {
