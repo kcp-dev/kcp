@@ -18,7 +18,6 @@ package apibinding
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -419,11 +418,4 @@ func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, url string)
 	require.NoError(t, err)
 
 	return rest.AddUserAgent(rest.CopyConfig(config), t.Name())
-}
-
-func encodeJSON(t *testing.T, obj interface{}) []byte {
-	t.Helper()
-	ret, err := json.Marshal(obj)
-	require.NoError(t, err)
-	return ret
 }
