@@ -9,6 +9,9 @@ subjects:
   name: metrics
   namespace: default
   apiGroup: ""
+- kind: User
+  name: metrics-viewer
+  apiGroup: ""
 roleRef:
   kind: ClusterRole
   name: metrics-viewer
