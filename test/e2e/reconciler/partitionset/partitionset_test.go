@@ -277,68 +277,6 @@ func TestPartitionSetAdmission(t *testing.T) {
 	partitionClient := kcpClusterClient.TopologyV1alpha1().Partitions()
 	shardClient := kcpClusterClient.CoreV1alpha1().Shards()
 
-	//errorPartitionSet := &topologyv1alpha1.PartitionSet{
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name: "admission-partitionset",
-	//	},
-	//	Spec: topologyv1alpha1.PartitionSetSpec{
-	//		Dimensions: []string{"region"},
-	//	},
-	//}
-
-	//t.Logf("Key too long in matchExpressions")
-	//errorPartitionSet.Spec.ShardSelector = &metav1.LabelSelector{
-	//	MatchExpressions: []metav1.LabelSelectorRequirement{
-	//		{
-	//			Key:      "region/1234567890123456789012345678901234567890123456789012345678901234567890",
-	//			Operator: metav1.LabelSelectorOpNotIn,
-	//			Values:   []string{"antartica", "greenland"},
-	//		},
-	//	},
-	//}
-	//_, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, errorPartitionSet, metav1.CreateOptions{})
-	//require.Error(t, err, "error creating partitionSet expected")
-
-	//t.Logf("Character not allowed at first place in matchExpressions values")
-	//errorPartitionSet.Spec.ShardSelector = &metav1.LabelSelector{
-	//	MatchExpressions: []metav1.LabelSelectorRequirement{
-	//		{
-	//			Key:      "region",
-	//			Operator: metav1.LabelSelectorOpNotIn,
-	//			Values:   []string{"antartica", "_A.123456789012345678901234567890123456789012345678901234567890"},
-	//		},
-	//	},
-	//}
-	//_, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, errorPartitionSet, metav1.CreateOptions{})
-	//require.Error(t, err, "error creating partitionSet expected")
-	//
-	//t.Logf("Invalid value in matchExpressions operator")
-	//errorPartitionSet.Spec.ShardSelector = &metav1.LabelSelector{
-	//	MatchExpressions: []metav1.LabelSelectorRequirement{
-	//		{
-	//			Key:      "region",
-	//			Operator: "DoesNotExist",
-	//			Values:   []string{"antartica", "greenland"},
-	//		},
-	//	},
-	//}
-	//_, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, errorPartitionSet, metav1.CreateOptions{})
-	//require.Error(t, err, "error creating partitionSet expected")
-	//
-	//t.Logf("Invalid key in matchLabels")
-	//errorPartitionSet.Spec.ShardSelector = &metav1.LabelSelector{
-	//	MatchLabels: map[string]string{"1234567890123456789_01234567890123456789/aaa": "keynotvalid"},
-	//}
-	//_, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, errorPartitionSet, metav1.CreateOptions{})
-	//require.Error(t, err, "error creating partitionSet expected")
-	//
-	//t.Logf("Invalid value in matchLabels")
-	//errorPartitionSet.Spec.ShardSelector = &metav1.LabelSelector{
-	//	MatchLabels: map[string]string{"valuenotvalid": "1234567890123456789%%%01234567890123456789"},
-	//}
-	//_, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, errorPartitionSet, metav1.CreateOptions{})
-	//require.Error(t, err, "error creating partitionSet expected")
-
 	t.Logf("Partition name cut when the label values sum up")
 	partitionSet := &topologyv1alpha1.PartitionSet{
 		ObjectMeta: metav1.ObjectMeta{
