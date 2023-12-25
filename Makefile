@@ -145,6 +145,9 @@ $(LOGCHECK):
 $(CODE_GENERATOR):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator/v2 $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
 
+$(KCP_APIGEN_GEN):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/kcp/sdk/cmd/apigen $(KCP_APIGEN_BIN) $(KCP_APIGEN_VER)
+
 lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK) ## Verify lint
 	$(GOLANGCI_LINT) run --timeout 20m ./...
 	$(STATICCHECK) -checks ST1019,ST1005 ./...

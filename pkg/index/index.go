@@ -17,6 +17,7 @@ limitations under the License.
 package index
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 
@@ -28,14 +29,12 @@ import (
 
 // Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
-	Lookup(path logicalcluster.Path) Result
-	LookupURL(logicalCluster logicalcluster.Path) Result
+	Lookup(path logicalcluster.Path) (Result, bool)
+	LookupURL(logicalCluster logicalcluster.Path) (Result, bool)
 }
 
-// Result is the result of a lookup.
 type Result struct {
 	URL   string
-	Found bool
 	Shard string
 	// Cluster canonical path
 	Cluster logicalcluster.Name
@@ -54,6 +53,10 @@ func New(rewriters []PathRewriter) *State {
 		shardWorkspaceName:        map[string]map[logicalcluster.Name]string{},
 		shardClusterParentCluster: map[string]map[logicalcluster.Name]logicalcluster.Name{},
 		shardBaseURLs:             map[string]string{},
+		// Experimental feature: allow mounts to be used with Workspaces
+		// structure: (clusterName, workspace name) -> string serialized mount objects
+		// This should be simplified once we promote this to workspace structure.
+		clusterWorkspaceMountAnnotation: map[logicalcluster.Name]map[string]string{},
 	}
 }
 
@@ -69,6 +72,8 @@ type State struct {
 	shardWorkspaceName        map[string]map[logicalcluster.Name]string                         // (shard name, logical cluster) -> workspace name
 	shardClusterParentCluster map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs             map[string]string                                                 // shard name -> base URL
+	// Experimental feature: allow mounts to be used with Workspaces
+	clusterWorkspaceMountAnnotation map[logicalcluster.Name]map[string]string // (clusterName, workspace name) -> mount object string
 }
 
 func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
@@ -78,17 +83,18 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	clusterName := logicalcluster.From(ws)
 
 	c.lock.RLock()
-	got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
+	cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
+	mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] // experimental feature
 	c.lock.RUnlock()
 
-	if got.String() == ws.Spec.Cluster {
+	if (cluster.String() == ws.Spec.Cluster) || (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; got.String() != ws.Spec.Cluster {
+	if cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster.String() != ws.Spec.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
 			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
 			c.shardWorkspaceName[shard] = map[logicalcluster.Name]string{}
@@ -101,42 +107,55 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		c.shardWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
+
+	if mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
+		if c.clusterWorkspaceMountAnnotation[clusterName] == nil {
+			c.clusterWorkspaceMountAnnotation[clusterName] = map[string]string{}
+		}
+		c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
+	}
 }
 
 func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	clusterName := logicalcluster.From(ws)
 
 	c.lock.RLock()
-	_, found := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
+	_, foundCluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
+	_, foundMount := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]
 	c.lock.RUnlock()
 
-	if !found {
+	if !foundCluster && !foundMount {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if _, found = c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; !found {
-		return
+	if _, foundCluster = c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; foundCluster {
+		delete(c.shardWorkspaceNameCluster[shard][clusterName], ws.Name)
+		if len(c.shardWorkspaceNameCluster[shard][clusterName]) == 0 {
+			delete(c.shardWorkspaceNameCluster[shard], clusterName)
+		}
+		if len(c.shardWorkspaceNameCluster[shard]) == 0 {
+			delete(c.shardWorkspaceNameCluster, shard)
+		}
+
+		delete(c.shardWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
+		if len(c.shardWorkspaceName[shard]) == 0 {
+			delete(c.shardWorkspaceName, shard)
+		}
+
+		delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Spec.Cluster))
+		if len(c.shardClusterParentCluster[shard]) == 0 {
+			delete(c.shardClusterParentCluster, shard)
+		}
 	}
 
-	delete(c.shardWorkspaceNameCluster[shard][clusterName], ws.Name)
-	if len(c.shardWorkspaceNameCluster[shard][clusterName]) == 0 {
-		delete(c.shardWorkspaceNameCluster[shard], clusterName)
-	}
-	if len(c.shardWorkspaceNameCluster[shard]) == 0 {
-		delete(c.shardWorkspaceNameCluster, shard)
-	}
-
-	delete(c.shardWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
-	if len(c.shardWorkspaceName[shard]) == 0 {
-		delete(c.shardWorkspaceName, shard)
-	}
-
-	delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Spec.Cluster))
-	if len(c.shardClusterParentCluster[shard]) == 0 {
-		delete(c.shardClusterParentCluster, shard)
+	if _, foundMount = c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; foundMount {
+		delete(c.clusterWorkspaceMountAnnotation[clusterName], ws.Name)
+		if len(c.clusterWorkspaceMountAnnotation[clusterName]) == 0 {
+			delete(c.clusterWorkspaceMountAnnotation, clusterName)
+		}
 	}
 }
 
@@ -197,7 +216,7 @@ func (c *State) DeleteShard(shardName string) {
 	delete(c.shardClusterParentCluster, shardName)
 }
 
-func (c *State) Lookup(path logicalcluster.Path) Result {
+func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 	segments := strings.Split(path.String(), ":")
 
 	for _, rewriter := range c.rewriters {
@@ -216,39 +235,55 @@ func (c *State) Lookup(path logicalcluster.Path) Result {
 			var found bool
 			shard, found = c.clusterShards[logicalcluster.Name(s)]
 			if !found {
-				return Result{}
+				return Result{}, false
 			}
 			cluster = logicalcluster.Name(s)
 			continue
 		}
 
+		// check mounts, if found return url and true
+		val, foundMount := c.clusterWorkspaceMountAnnotation[cluster][s] // experimental feature
+		if foundMount {
+			mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(val)
+			if !(err != nil || mount == nil || mount.MountStatus.URL == "") {
+				url, err := url.Parse(mount.MountStatus.URL)
+				if err != nil {
+					// default to workspace itself.
+				} else {
+					return Result{URL: url.String()}, true
+				}
+			}
+		}
+
 		var found bool
 		cluster, found = c.shardWorkspaceNameCluster[shard][cluster][s]
 		if !found {
-			return Result{}
+			return Result{}, false
 		}
 		shard, found = c.clusterShards[cluster]
 		if !found {
-			return Result{}
+			return Result{}, false
 		}
 	}
-
-	return Result{Shard: shard, Cluster: cluster, Found: true}
+	return Result{Shard: shard, Cluster: cluster}, true
 }
 
-func (c *State) LookupURL(path logicalcluster.Path) Result {
-	r := c.Lookup(path)
-	if !r.Found {
-		return Result{}
+func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
+	result, found := c.Lookup(path)
+	if !found {
+		return Result{}, false
 	}
 
-	baseURL, found := c.shardBaseURLs[r.Shard]
+	if result.URL != "" && result.Shard == "" && result.Cluster == "" {
+		return result, true
+	}
+
+	baseURL, found := c.shardBaseURLs[result.Shard]
 	if !found {
-		return Result{}
+		return Result{}, false
 	}
 
 	return Result{
-		URL:   strings.TrimSuffix(baseURL, "/") + r.Cluster.Path().RequestPath(),
-		Found: true,
-	}
+		URL: strings.TrimSuffix(baseURL, "/") + result.Cluster.Path().RequestPath(),
+	}, true
 }

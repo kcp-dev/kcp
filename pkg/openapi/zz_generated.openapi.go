@@ -75,6 +75,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec":                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount":                                    schema_sdk_apis_tenancy_v1alpha1_Mount(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec":                                schema_sdk_apis_tenancy_v1alpha1_MountSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus":                              schema_sdk_apis_tenancy_v1alpha1_MountStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace":                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceList":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref),
@@ -2105,6 +2108,98 @@ func schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCal
 				Required: []string{"export"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Mount is a workspace mount that can be used to mount a workspace into another workspace or resource. Mounting itself is done at front proxy level.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountSpec is the spec of the mount.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountStatus is the status of the mount.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_MountSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ref": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reference is an ObjectReference to the object that is mounted.",
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_MountStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MountStatus is the status of a mount. It is used to indicate the status of a mount, potentially managed outside of the core API.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the mount (Initializing, Connecting, Ready, Unknown).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions is a list of conditions and their status. Current processing state of the Mount.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the URL of the mount. Mount is considered mountable when URL is set.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
