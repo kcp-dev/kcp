@@ -139,7 +139,7 @@ type Controller struct {
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *workspaceResource) error
+	commit func(ctx context.Context, old, new *workspaceResource) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {

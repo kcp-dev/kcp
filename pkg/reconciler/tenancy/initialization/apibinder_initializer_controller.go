@@ -163,7 +163,7 @@ type APIBinder struct {
 	transitiveTypeResolver transitiveTypeResolver
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *logicalClusterResource) error
+	commit func(ctx context.Context, old, new *logicalClusterResource) error
 }
 
 type transitiveTypeResolver interface {
