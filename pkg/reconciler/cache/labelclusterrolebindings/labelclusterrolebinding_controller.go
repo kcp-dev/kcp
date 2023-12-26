@@ -141,7 +141,7 @@ type controller struct {
 	clusterRoleIndexer cache.Indexer
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *rbacv1.ClusterRoleBinding) error
+	commit func(ctx context.Context, old, new *rbacv1.ClusterRoleBinding) error
 }
 
 func (c *controller) EnqueueClusterRoleBindings(clusterName logicalcluster.Name, values ...interface{}) {
