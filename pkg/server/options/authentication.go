@@ -198,11 +198,17 @@ func createKubeConfig(kcpAdminToken, shardAdminToken, userToken, baseHost, tlsSe
 			CertificateAuthorityData: caData,
 			TLSServerName:            tlsServerName,
 		},
+		"system:admin": {
+			Server:                   baseHost + "/clusters/system:admin",
+			CertificateAuthorityData: caData,
+			TLSServerName:            tlsServerName,
+		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
 		"root":         {Cluster: "root", AuthInfo: kcpAdminUserName},
 		"base":         {Cluster: "base", AuthInfo: kcpAdminUserName},
-		"system:admin": {Cluster: "base", AuthInfo: shardAdminUserName},
+		"system:admin": {Cluster: "system:admin", AuthInfo: shardAdminUserName},
+		"shard-base":   {Cluster: "base", AuthInfo: shardAdminUserName},
 	}
 	kubeConfig.CurrentContext = "root"
 
