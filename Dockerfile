@@ -55,7 +55,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM gcr.io/distroless/static:debug
 WORKDIR /
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
-COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
+COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces workspace/bin/cache-server /
 COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
 COPY --from=builder workspace/bin/kubectl /usr/local/bin/
 ENV KUBECONFIG=/etc/kcp/config/admin.kubeconfig
