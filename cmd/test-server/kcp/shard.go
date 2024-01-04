@@ -196,7 +196,7 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 		// intentionally load again every iteration because it can change
 		kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
 		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+			&clientcmd.ConfigOverrides{CurrentContext: "shard-base"},
 		)
 		config, err := configLoader.ClientConfig()
 		if err != nil {
@@ -243,7 +243,7 @@ func (s *Shard) GatherMetrics(ctx context.Context) {
 
 	kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+		&clientcmd.ConfigOverrides{CurrentContext: "shard-base"},
 	)
 	config, err := configLoader.ClientConfig()
 	if err != nil {
@@ -283,7 +283,7 @@ func ScrapeMetrics(ctx context.Context, s *Shard, workDir string) error {
 	kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
-		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+		&clientcmd.ConfigOverrides{CurrentContext: "shard-base"},
 	)
 	config, err := configLoader.ClientConfig()
 	if err != nil {

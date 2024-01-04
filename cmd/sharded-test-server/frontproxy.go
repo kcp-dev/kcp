@@ -105,13 +105,13 @@ func startFrontProxy(
 	// write root shard kubeconfig
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")},
-		&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+		&clientcmd.ConfigOverrides{CurrentContext: "shard-base"},
 	)
 	raw, err := configLoader.RawConfig()
 	if err != nil {
 		return err
 	}
-	raw.CurrentContext = "system:admin"
+	raw.CurrentContext = "shard-base"
 	if err := clientcmdapi.MinifyConfig(&raw); err != nil {
 		return err
 	}

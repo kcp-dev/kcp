@@ -104,7 +104,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	virtualWorkspaceKubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
 			"shard": {
-				Server:               fmt.Sprintf("https://localhost:%d/clusters/system:admin", 6444+index),
+				Server:               fmt.Sprintf("https://localhost:%d", 6444+index),
 				CertificateAuthority: servingCAPath,
 			},
 		},

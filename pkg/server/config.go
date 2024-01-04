@@ -235,14 +235,14 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// The informers here are not used before the informers are actually started (i.e. no race).
 	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
 		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
-		nonIdentityRootKcpShardSystemAdminConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()
+		nonIdentityRootKcpShardBaseConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "shard-base"}).ClientConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
 		}
 
 		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardSystemAdminConfig, c.KubeClusterClient)
-		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
+		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardBaseConfig, c.KubeClusterClient)
+		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardBaseConfig)
 		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
 		c.RootShardKcpClusterClient, err = kcpclientset.NewForConfig(rootKcpShardIdentityConfig)
 		if err != nil {

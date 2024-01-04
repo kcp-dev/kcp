@@ -831,17 +831,18 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
-// RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
+// RootShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	t.Helper()
 
-	cfg, err := c.config("system:admin")
+	cfg, err := c.config("shard-base")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
+
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
-// ShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context of a given shard. Client-side throttling is disabled (QPS=-1).
+// ShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context of a given shard. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
 	t.Helper()
 
@@ -1089,14 +1090,14 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	return wrappedCfg
 }
 
-// RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
+// RootShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	t.Helper()
 
 	return s.ShardSystemMasterBaseConfig(t, corev1alpha1.RootShard)
 }
 
-// ShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context of the given shard. Client-side throttling is disabled (QPS=-1).
+// ShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context of the given shard. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
 	t.Helper()
 
@@ -1108,7 +1109,7 @@ func (s *unmanagedKCPServer) ShardSystemMasterBaseConfig(t *testing.T, shard str
 	raw, err := cfg.RawConfig()
 	require.NoError(t, err)
 
-	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
+	config := clientcmd.NewNonInteractiveClientConfig(raw, "shard-base", nil, nil)
 
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
