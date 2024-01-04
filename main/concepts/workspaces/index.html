@@ -1704,8 +1704,9 @@ via a ClusterWorkspace nor any per-request check for workspace existence.</p>
 <p>System workspace are only accessible to a shard-local admin user, and there is
 neither a definition via a ClusterWorkspace, nor is there any validation of requests
 that the system workspace exists.</p>
-<p>The <code>system:admin</code> system workspace is special as it is also accessible through <code>/</code>
-of the shard, and at <code>/cluster/system:admin</code> at the same time.</p>
+<p>As an example, the <code>system:admin</code> workspace exists for administrative objects
+that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if
+leader election is enabled). It is accessible via <code>/clusters/system:admin</code>.</p>
 
 
 
