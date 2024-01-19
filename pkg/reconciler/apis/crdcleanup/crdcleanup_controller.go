@@ -153,7 +153,7 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha1.
 
 	for uid := range uidSet {
 		key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDsClusterName.String(), "", uid)
-		logging.WithQueueKey(logger, key).V(2).Info("queueing CRD via APIBinding")
+		logging.WithQueueKey(logger, key).V(3).Info("queueing CRD via APIBinding")
 		c.queue.Add(key)
 	}
 }
@@ -242,7 +242,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger.V(1).Info("Deleting CRD")
+	logger.V(2).Info("Deleting CRD")
 	if err := c.deleteCRD(ctx, obj.Name); err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

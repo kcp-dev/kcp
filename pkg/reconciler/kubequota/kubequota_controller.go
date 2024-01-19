@@ -134,7 +134,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	}
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing Workspace")
+	logger.V(4).Info("queueing Workspace")
 	c.queue.Add(key)
 }
 
@@ -172,7 +172,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

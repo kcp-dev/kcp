@@ -133,7 +133,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing APIBinding")
+	logger.V(4).Info("queueing APIBinding")
 	c.queue.Add(key)
 }
 
@@ -168,7 +168,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -186,7 +186,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
 		duration := time.Duration(t) * time.Second
-		logger.V(2).Info("custom resources remaining for APIBinding, waiting", "duration", duration)
+		logger.V(3).Info("custom resources remaining for APIBinding, waiting", "duration", duration)
 		c.queue.AddAfter(key, duration)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed

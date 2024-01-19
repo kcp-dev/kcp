@@ -102,7 +102,7 @@ func (c *resourceController) enqueueForResource(logger logr.Logger, gvr schema.G
 	}
 
 	queueKey += "::" + key
-	logging.WithQueueKey(logger, queueKey).V(2).Info("queuing resource")
+	logging.WithQueueKey(logger, queueKey).V(4).Info("queuing resource")
 	c.queue.Add(queueKey)
 }
 
@@ -138,7 +138,7 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

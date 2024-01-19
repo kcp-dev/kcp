@@ -57,7 +57,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 
 	var errors []error
 	clusterName := logicalcluster.From(logicalCluster)
-	logger.V(2).Info("initializing APIBindings for workspace")
+	logger.V(3).Info("initializing APIBindings for workspace")
 
 	// Start with the WorkspaceType specified by the Workspace
 	leafWT, err := b.getWorkspaceType(wtCluster, wtName)
@@ -119,7 +119,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 
 	for _, wt := range wts {
 		logger := logging.WithObject(logger, wt)
-		logger.V(2).Info("attempting to initialize APIBindings")
+		logger.V(3).Info("attempting to initialize APIBindings")
 
 		for i := range wt.Spec.DefaultAPIBindings {
 			exportRef := wt.Spec.DefaultAPIBindings[i]

@@ -83,7 +83,7 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.V(2).Info("got a not found error when trying to patch")
+			logger.V(3).Info("got a not found error when trying to patch")
 			return nil
 		}
 

@@ -82,7 +82,7 @@ func (r *reconciler) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBindi
 	} else {
 		var changed bool
 		if crb.Annotations, changed = kcpcorehelper.DontReplicateFor(crb.Annotations, r.groupName); changed {
-			logger.V(2).Info("Not replicating ClusterRoleBinding")
+			logger.V(3).Info("Not replicating ClusterRoleBinding")
 		}
 	}
 

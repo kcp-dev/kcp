@@ -237,7 +237,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 	logicalCluster, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
-		logger.V(2).Info("Workspace has been deleted")
+		logger.V(3).Info("Workspace has been deleted")
 		return nil
 	}
 	if deleteErr != nil {
@@ -258,7 +258,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	startTime := time.Now()
 	deleteErr = c.deleter.Delete(ctx, logicalClusterCopy)
 	if deleteErr == nil {
-		logger.V(2).Info("finished deleting logical cluster content", "duration", time.Since(startTime))
+		logger.V(4).Info("finished deleting logical cluster content", "duration", time.Since(startTime))
 		return c.finalizeWorkspace(ctx, logicalClusterCopy)
 	}
 

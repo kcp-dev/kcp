@@ -126,7 +126,7 @@ func CRD(fs embed.FS, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceD
 func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
 	logger := klog.FromContext(ctx).WithValues("crd", rawCRD.Name)
 	start := time.Now()
-	logger.V(4).Info("bootstrapping CRD")
+	logger.V(2).Info("bootstrapping CRD")
 
 	updateNeeded := false
 	crd, err := client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
