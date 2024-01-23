@@ -160,7 +160,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			ids.groupIdentities[group] = apiExportIdentity
 			ids.lock.Unlock()
 
-			logger.V(2).Info("APIExport has identity")
+			logger.V(4).Info("APIExport has identity")
 		}
 		for gr, name := range groupResourceExportNames {
 			logger := logging.WithObject(logger, &apisv1alpha1.APIExport{
@@ -192,7 +192,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			ids.groupResourceIdentities[gr] = apiExportIdentity
 			ids.lock.Unlock()
 
-			logger.V(2).Info("APIExport has identity")
+			logger.V(4).Info("APIExport has identity")
 		}
 		return errorsutil.NewAggregate(errs)
 	}

@@ -324,7 +324,7 @@ func (c *controller) enqueueAPIBinding(apiBinding *apisv1alpha1.APIBinding, logg
 		return
 	}
 
-	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing APIBinding%s", logSuffix))
+	logging.WithQueueKey(logger, key).V(4).Info(fmt.Sprintf("queueing APIBinding%s", logSuffix))
 	c.queue.Add(key)
 }
 
@@ -427,7 +427,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

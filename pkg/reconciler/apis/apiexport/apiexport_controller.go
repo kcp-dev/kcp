@@ -229,7 +229,7 @@ func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
 			continue
 		}
 
-		logging.WithQueueKey(logger, key).V(2).Info("queuing APIExport because Shard changed")
+		logging.WithQueueKey(logger, key).V(3).Info("queuing APIExport because Shard changed")
 		c.queue.Add(key)
 	}
 }
@@ -248,7 +248,7 @@ func (c *controller) enqueueSecret(secret *corev1.Secret) {
 			runtime.HandleError(err)
 			return
 		}
-		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
+		logging.WithQueueKey(logger, key).V(3).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}
 }

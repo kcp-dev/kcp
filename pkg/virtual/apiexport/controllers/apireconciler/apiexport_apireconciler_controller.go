@@ -157,12 +157,12 @@ func (c *APIReconciler) enqueueAPIResourceSchema(apiResourceSchema *apisv1alpha1
 	logger = logging.WithObject(logger, apiResourceSchema)
 
 	if len(exports) == 0 {
-		logger.V(2).Info("No APIExports found")
+		logger.V(3).Info("No APIExports found")
 		return
 	}
 
 	for _, export := range exports {
-		logger.WithValues("apiexport", export.Name).V(2).Info("Queueing APIExport for APIResourceSchema")
+		logger.WithValues("apiexport", export.Name).V(4).Info("Queueing APIExport for APIResourceSchema")
 		c.enqueueAPIExport(export, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
 	}
 }
@@ -173,7 +173,7 @@ func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logg
 		runtime.HandleError(err)
 		return
 	}
-	logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport")
+	logging.WithQueueKey(logger, key).V(4).Info("queueing APIExport")
 	c.queue.Add(key)
 
 	if apiExport.Status.IdentityHash != "" {
@@ -190,7 +190,7 @@ func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logg
 				logger.Error(err, "error getting key!")
 				continue
 			}
-			logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport for claim")
+			logging.WithQueueKey(logger, key).V(4).Info("queueing APIExport for claim")
 			c.queue.Add(key)
 		}
 	}
@@ -240,7 +240,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

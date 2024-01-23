@@ -134,7 +134,7 @@ func (c *controller) enqueueWorkspaceTypes(obj interface{}) {
 	}
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing WorkspaceType")
+	logger.V(4).Info("queueing WorkspaceType")
 	c.queue.Add(key)
 }
 
@@ -153,7 +153,7 @@ func (c *controller) enqueueAllWorkspaceTypes(shard interface{}) {
 			continue
 		}
 
-		logging.WithQueueKey(logger, key).V(2).Info("queuing WorkspaceType because Shard changed")
+		logging.WithQueueKey(logger, key).V(4).Info("queuing WorkspaceType because Shard changed")
 
 		c.queue.Add(key)
 	}
@@ -195,7 +195,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	if err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))

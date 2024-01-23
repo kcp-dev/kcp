@@ -50,7 +50,7 @@ func (r *reconciler) reconcile(ctx context.Context, cluster *corev1alpha1.Logica
 	} else {
 		var changed bool
 		if cluster.Annotations, changed = kcpcorehelper.DontReplicateFor(cluster.Annotations, r.groupName); changed {
-			logger.V(2).Info("Not replicating LogicalCluster")
+			logger.V(3).Info("Not replicating LogicalCluster")
 		}
 	}
 

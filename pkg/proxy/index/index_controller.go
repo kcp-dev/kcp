@@ -176,7 +176,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -213,7 +213,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	defer c.lock.Unlock()
 
 	if _, found := c.shardWorkspaceInformers[shard.Name]; !found {
-		logger.V(1).Info("Starting informers for Shard")
+		logger.V(2).Info("Starting informers for Shard")
 
 		client, err := c.clientGetter(shard)
 		if err != nil {
