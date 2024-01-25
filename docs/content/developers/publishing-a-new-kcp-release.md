@@ -9,8 +9,6 @@ description: >
     You currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these
     tasks.
 
-    You also need an available team member with approval permissions from <https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS>.
-
 ## Create git tags
 
 ### Prerequisite - make sure you have a GPG signing key
@@ -69,17 +67,43 @@ git checkout -b "release-$VERSION" "$REF"
 git push "$REMOTE" "release-$VERSION"
 ```
 
+## Generate release notes
+
+To generate release notes from the information in PR descriptions you should use Kubernetes' [release-notes](https://github.com/kubernetes/release/tree/master/cmd/release-notes) tool.
+This tool will use the `release-notes` blocks in PR descriptions and the `kind/` labels on those PRs to find user-facing changes and categorize them.
+You can run the command below to install the latest version of it:
+
+```shell
+go install k8s.io/release/cmd/release-notes@latest
+```
+
+To use `release-notes` you will need to generate a GitHub API token (Settings -> Developers settings -> Personal access tokens -> Fine-grained tokens). A token with _Public Repositories (read-only)_ repository access and no further permissions is sufficient. Store the token somewhere safe and export it as `GITHUB_TOKEN` environment variable.
+
+Then, run run the `release-notes` tool (set `PREV_VERSION` to the version released before the one you have just released).
+
+```shell
+VERSION=1.2
+PREV_VERSION=1.1
+release-notes \
+  --required-author='' \
+  --org kcp-dev \
+  --repo kcp \
+  --branch main \
+  --start-rev v$PREV_VERSION \
+  --end-rev v$VERSION \
+  --output CHANGELOG.md 
+```
+
+Don't commit the `CHANGELOG.md` to the repository, just keep it around to update the release on GitHub (next step).
+
 ## Review/edit/publish the release in GitHub
 
 The [goreleaser](https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml) workflow automatically creates a draft GitHub release for each tag.
 
 1. Navigate to the draft release for the tag you just pushed. You'll be able to find it under the [releases](https://github.com/kcp-dev/kcp/releases) page.
 2. If the release notes have been pre-populated, delete them.
-3. For the "previous tag," select the most recent, appropriate tag as the starting point
-   1. If this is a new minor release (e.g. v0.8.0), select the initial version of the previous minor release (e.g. v0.7.0)
-   2. If this is a patch release (e.g. v0.8.7), select the previous patch release (e.g. v0.8.6)
-4. Click "Generate release notes"
-5. Publish the release
+3. Copy release notes from the `CHANGELOG.md` file you generated in the previous step.
+4. Publish the release.
 
 ## Notify
 

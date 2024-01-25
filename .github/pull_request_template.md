@@ -23,11 +23,7 @@ Fixes #
 ## Release Notes
 
 <!--
-Please add a release note using the following format:
-
-```release-note
-<description of change>
-```
+Please add a release note in the block below. Leave NONE only if no user-facing changes are in this PR.
 -->
 
 ```release-note
