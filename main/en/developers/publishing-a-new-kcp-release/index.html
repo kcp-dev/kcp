@@ -680,6 +680,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generate-release-notes" class="md-nav__link">
+    Generate release notes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#revieweditpublish-the-release-in-github" class="md-nav__link">
     Review/edit/publish the release in GitHub
   </a>
@@ -1471,6 +1478,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generate-release-notes" class="md-nav__link">
+    Generate release notes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#revieweditpublish-the-release-in-github" class="md-nav__link">
     Review/edit/publish the release in GitHub
   </a>
@@ -1507,7 +1521,6 @@
 <p class="admonition-title">Note</p>
 <p>You currently need write access to the <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository to perform these
 tasks.</p>
-<p>You also need an available team member with approval permissions from <a href="https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS">https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS</a>.</p>
 </div>
 <h2 id="create-git-tags">Create git tags</h2>
 <h3 id="prerequisite-make-sure-you-have-a-gpg-signing-key">Prerequisite - make sure you have a GPG signing key</h3>
@@ -1555,16 +1568,33 @@ tasks.</p>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
+<h2 id="generate-release-notes">Generate release notes</h2>
+<p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
+This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
+You can run the command below to install the latest version of it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
+</code></pre></div>
+<p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
+<p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">PREV_VERSION</span><span class="o">=</span><span class="m">1</span>.1
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--start-rev<span class="w"> </span>v<span class="nv">$PREV_VERSION</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span>--end-rev<span class="w"> </span>v<span class="nv">$VERSION</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
+</code></pre></div>
+<p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
 <h2 id="revieweditpublish-the-release-in-github">Review/edit/publish the release in GitHub</h2>
 <p>The <a href="https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml">goreleaser</a> workflow automatically creates a draft GitHub release for each tag.</p>
 <ol>
 <li>Navigate to the draft release for the tag you just pushed. You'll be able to find it under the <a href="https://github.com/kcp-dev/kcp/releases">releases</a> page.</li>
 <li>If the release notes have been pre-populated, delete them.</li>
-<li>For the "previous tag," select the most recent, appropriate tag as the starting point</li>
-<li>If this is a new minor release (e.g. v0.8.0), select the initial version of the previous minor release (e.g. v0.7.0)</li>
-<li>If this is a patch release (e.g. v0.8.7), select the previous patch release (e.g. v0.8.6)</li>
-<li>Click "Generate release notes"</li>
-<li>Publish the release</li>
+<li>Copy release notes from the <code>CHANGELOG.md</code> file you generated in the previous step.</li>
+<li>Publish the release.</li>
 </ol>
 <h2 id="notify">Notify</h2>
 <ol>
