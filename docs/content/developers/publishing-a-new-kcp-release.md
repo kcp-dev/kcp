@@ -53,7 +53,7 @@ git push "$REMOTE" "$TAG" "sdk/$TAG"
 If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
 0.8.x version), follow the following steps.
 
-Otherwise, you can skip to [Review/edit/publish the release in GitHub](#revieweditpublish-the-release-in-github)
+Otherwise, you can skip to [Generate release notes](#generate-release-notes)
 
 ### Create a release branch
 
@@ -82,15 +82,15 @@ To use `release-notes` you will need to generate a GitHub API token (Settings ->
 Then, run run the `release-notes` tool (set `PREV_VERSION` to the version released before the one you have just released).
 
 ```shell
-VERSION=1.2
-PREV_VERSION=1.1
+TAG=v1.2.3
+PREV_TAG=v1.2.2
 release-notes \
   --required-author='' \
   --org kcp-dev \
   --repo kcp \
   --branch main \
-  --start-rev v$PREV_VERSION \
-  --end-rev v$VERSION \
+  --start-rev $PREV_TAG \
+  --end-rev $TAG \
   --output CHANGELOG.md 
 ```
 
@@ -104,6 +104,14 @@ The [goreleaser](https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml
 2. If the release notes have been pre-populated, delete them.
 3. Copy release notes from the `CHANGELOG.md` file you generated in the previous step.
 4. Publish the release.
+
+## Trigger documentation deployment
+
+Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.
+
+1. Navigate to the [Generate and push docs](https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml) GitHub Action.
+2. Hit the "Run forkflow" button, run workflow against `release-$VERSION`.
+3. Make sure the triggered workflow ran and deployed a new version of the documentation to [docs.kcp.io](https://docs.kcp.io).
 
 ## Notify
 
