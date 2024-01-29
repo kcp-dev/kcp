@@ -51,7 +51,7 @@ if [[ -n "${BRANCH:-}" ]]; then
 fi
 
 if [[ -n "${CI:-}" ]]; then
-  if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]]; then
+  if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]] || [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
     # Only push to gh-pages if we're in GitHub Actions (CI is set) and we have a non-PR event.
     MIKE_OPTIONS+=(--push)
   fi
