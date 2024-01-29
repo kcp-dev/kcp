@@ -1,0 +1,1656 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Investigation on minimal API Server
+">
+      
+      
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/v0.22/investigations/minimal-api-server/">
+      
+      
+        <link rel="prev" href="../logical-clusters/">
+      
+      
+        <link rel="next" href="../self-service-policy/">
+      
+      <link rel="icon" href="../../favicons/favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.0">
+    
+    
+      
+        <title>Minimal API Server - kcp Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.402914a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/kcp.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#minimal-api-server" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kcp Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Minimal API Server
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../logo.png" alt="logo">
+
+    </a>
+    kcp Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
+        Contributing to kcp
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../GOALS/" class="md-nav__link">
+        Project Goals
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../concepts/">Concepts</a>
+          
+            <label for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Concepts
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/apis-in-kcp/" class="md-nav__link">
+        APIs in kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/authorization/" class="md-nav__link">
+        Authorization
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/cache-server/" class="md-nav__link">
+        Cache Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/cluster-mapper/" class="md-nav__link">
+        Cluster Mapper
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/kubectl-kcp-plugin/" class="md-nav__link">
+        kubectl kcp plugin
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/partitions/" class="md-nav__link">
+        Partition API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+        Quickstart: Tenancy and APIs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/rest-access-patterns/" class="md-nav__link">
+        REST access patterns
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/sharding/" class="md-nav__link">
+        Shards
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/terminology/" class="md-nav__link">
+        Terminology for kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/virtual-workspaces/" class="md-nav__link">
+        Virtual Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/workspaces/" class="md-nav__link">
+        Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../developers/">Developers</a>
+          
+            <label for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Developers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/etcd-structure/" class="md-nav__link">
+        etcd structure
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/inspecting-e2e-metrics/" class="md-nav__link">
+        Inspecting Prometheus metrics for e2e runs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+        Publishing a new kcp release
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/rebasing-kubernetes/" class="md-nav__link">
+        Rebasing Kubernetes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
+        Replicating new resources in the cache server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/using-kcp-as-a-library/" class="md-nav__link">
+        Using kcp as a library
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+        Writing kcp-aware controllers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../">Investigations</a>
+          
+            <label for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Investigations
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logical-clusters/" class="md-nav__link">
+        Logical clusters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Minimal API Server
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Minimal API Server
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    Goal
+  </a>
+  
+    <nav class="md-nav" aria-label="Goal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constraint-the-abstraction-for-a-minimal-api-server-should-not-hinder-kubernetes-development" class="md-nav__link">
+    Constraint: The abstraction for a minimal API server should not hinder Kubernetes development
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraint-reusing-the-existing-code-base" class="md-nav__link">
+    Constraint: Reusing the existing code base
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#areas-of-investigation" class="md-nav__link">
+    Areas of investigation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    Use cases
+  </a>
+  
+    <nav class="md-nav" aria-label="Use cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-a-developer-of-crds-controllers-extensions" class="md-nav__link">
+    As a developer of CRDs / controllers / extensions
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-a-kubernetes-core-developer" class="md-nav__link">
+    As a Kubernetes core developer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-an-aggregated-api-server-developer" class="md-nav__link">
+    As an aggregated API server developer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-a-devops-team" class="md-nav__link">
+    As a devops team
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progress" class="md-nav__link">
+    Progress
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-service-policy/" class="md-nav__link">
+        Self-service policy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transparent-multi-cluster/" class="md-nav__link">
+        Transparent multi-cluster
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+      
+      
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+          CLI
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_1">
+          <span class="md-nav__icon md-icon"></span>
+          CLI
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
+        kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+        kcp bind
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+        kcp bind apiexport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+        kcp claims
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+        kcp claims get
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+        kcp claims get apibinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+        kcp crd
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+        kcp crd snapshot
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+        kcp workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+        kcp workspace create-context
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
+        kcp workspace create
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+        kcp workspace current
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+        kcp workspace tree
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+        kcp workspace use
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+          CRD
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          CRD
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiconversions.apis.kcp.io/" class="md-nav__link">
+        APIConversion
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+        APIExportEndpointSlice
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+        APIExport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+        APIResourceSchema
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+        LogicalCluster
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+        Partition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+        PartitionSet
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
+        Shard
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+        Workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+        WorkspaceType
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    Goal
+  </a>
+  
+    <nav class="md-nav" aria-label="Goal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constraint-the-abstraction-for-a-minimal-api-server-should-not-hinder-kubernetes-development" class="md-nav__link">
+    Constraint: The abstraction for a minimal API server should not hinder Kubernetes development
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constraint-reusing-the-existing-code-base" class="md-nav__link">
+    Constraint: Reusing the existing code base
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#areas-of-investigation" class="md-nav__link">
+    Areas of investigation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    Use cases
+  </a>
+  
+    <nav class="md-nav" aria-label="Use cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-a-developer-of-crds-controllers-extensions" class="md-nav__link">
+    As a developer of CRDs / controllers / extensions
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-a-kubernetes-core-developer" class="md-nav__link">
+    As a Kubernetes core developer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-an-aggregated-api-server-developer" class="md-nav__link">
+    As an aggregated API server developer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-a-devops-team" class="md-nav__link">
+    As a devops team
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progress" class="md-nav__link">
+    Progress
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="minimal-api-server">Minimal API Server</h1>
+<p>The Kubernetes API machinery provides a pattern for declarative config-driven API with a number of conventions that simplify building configuration loops and consolidating sources of truth. There have been many efforts to make that tooling more reusable and less dependent on the rest of the Kube concepts but without a strong use case driving separation and a design the tooling is still fairly coupled to Kube.</p>
+<h2 id="goal">Goal</h2>
+<p>Building and sustaining an API server that:</p>
+<ol>
+<li>reuses much of the Kubernetes API server codebase to support Kube-like CRUD operations</li>
+<li>adds, removes, or excludes some / any / all the built-in Kubernetes types</li>
+<li>excludes some default assumptions of Kubernetes specific to the "Kube as a cluster" like "create the kubernetes default svc"</li>
+<li>replaces / modifies some implementations like custom resources, backend storage (etcd vs others), RBAC, admission control, and other primitives</li>
+</ol>
+<p>As a secondary goal, identifying where exceptions or undocumented assumptions exist in the libraries that would make clients behave differently generically (where an abstraction is not complete) should help ensure future clients can more concretely work across different API servers consistently.</p>
+<h3 id="constraint-the-abstraction-for-a-minimal-api-server-should-not-hinder-kubernetes-development">Constraint: The abstraction for a minimal API server should not hinder Kubernetes development</h3>
+<p>The primary consumer of the Kube API is Kubernetes - any abstraction that makes a standalone API server possible must not regress Kubernetes performance or overly complicate Kubernetes evolution. The abstraction <em>should</em> be an opportunity to improve interfaces within Kubernetes to decouple components and improve comprehension.</p>
+<h3 id="constraint-reusing-the-existing-code-base">Constraint: Reusing the existing code base</h3>
+<p>While it is certainly possible to rebuild all of Kube from scratch, a large amount of client tooling and benefit exists within patterns like declarative apply. This investigation is scoped to working within the context of improving the existing code and making the minimal changes within the bounds of API compatibility to broaden utility.</p>
+<p>It should be possible to add an arbitrary set of the existing Kube resources to the minimal API server, up to and including what an existing kube-apiserver exposes. Several use cases desire RBAC, Namespaces, Secrets, or other parts of the workload, while ensuring a "pick and choose" mindset keeps the interface supporting the needs of the full Kubernetes server.</p>
+<p>In the short term, it would not be a goal of this investigation to replace the underlying storage implementation <code>etcd</code>, but it should be possible to more easily inject the appropriate initialization code so that someone can easily start an API server that uses a different storage mechanism.</p>
+<h2 id="areas-of-investigation">Areas of investigation</h2>
+<ol>
+<li>Define high level user use cases</li>
+<li>Document existing efforts inside and outside of the SIG process</li>
+<li>Identify near-term SIG API-Machinery work that would benefit from additional decoupling (also wg-code-organization)</li>
+<li>Find consensus points on near term changes and draft a KEP</li>
+</ol>
+<h2 id="use-cases">Use cases</h2>
+<h3 id="as-a-developer-of-crds-controllers-extensions">As a developer of CRDs / controllers / extensions</h3>
+<ul>
+<li>I can launch a local Kube API and test out multiple different versions of the same CRD in parallel quickly (shared with <a href="../logical-clusters/">logical-clusters</a>)</li>
+<li>I can create a control plane for my organization's cloud resources (CRDs) that is centralized but doesn't require me to provision nodes (shared with <a href="../logical-clusters/">logical-clusters</a>)</li>
+<li>... benefits for unit testing CRDs in controller projects?</li>
+</ul>
+<h3 id="as-a-kubernetes-core-developer">As a Kubernetes core developer</h3>
+<ul>
+<li>The core API server libraries are better separated and more strongly reviewed</li>
+<li>Additional contributors are incentivized to maintain the core libraries of Kube because of a broader set of use cases</li>
+<li>Kube client tools have fewer edge cases because they are tested against multiple sets of resources</li>
+<li>...</li>
+</ul>
+<h3 id="as-an-aggregated-api-server-developer">As an aggregated API server developer</h3>
+<ul>
+<li>It is easy to reuse the k8s.io/apiserver code base to provide:</li>
+<li>A virtual read-only resource that proxies to another type<ul>
+<li>e.g. metrics-server</li>
+</ul>
+</li>
+<li>An end user facing resource backed by a CRD (editable only by admins) that has additional validation and transformation<ul>
+<li>e.g. service catalog</li>
+</ul>
+</li>
+<li>A subresource implementation for a core type (pod/logs) that is not embedded in the Kube apiserver code</li>
+</ul>
+<h3 id="as-a-devops-team">As a devops team</h3>
+<ul>
+<li>I want to be able to create declarative APIs using the controller pattern ...</li>
+<li>So that I can have declarative infrastructure without a full Kube cluster (<a href="https://github.com/thetirefire/badidea">https://github.com/thetirefire/badidea</a> and <a href="https://docs.google.com/presentation/d/1TfCrsBEgvyOQ1MGC7jBKTvyaelAYCZzl3udRjPlVmWg/edit#slide=id.g401c104a3c_0_0">https://docs.google.com/presentation/d/1TfCrsBEgvyOQ1MGC7jBKTvyaelAYCZzl3udRjPlVmWg/edit#slide=id.g401c104a3c_0_0</a>)</li>
+<li>So that I can have controllers that list/watch/sync/react to user focused changes</li>
+<li>So that I can have a kubectl apply loop for my intent (spec) and see the current state (status)</li>
+<li>So that I can move cloud infrastructure integrations like <a href="https://github.com/aws-controllers-k8s/community">AWS Controllers for k8s</a> out of individual clusters into a centrally secured spot</li>
+<li>I want to be offer a "cluster-like" user experience to a Kube application author without exposing the cluster directly (<a href="../transparent-multi-cluster/">transparent multi-cluster</a>)</li>
+<li>So that I can keep app authors from directly knowing about where the app runs for security / infrastructure abstraction</li>
+<li>So that I can control where applications run across multiple clusters centrally</li>
+<li>So that I can offer self-service provisioning at a higher level than namespace or cluster</li>
+<li>I want to consolidate all of my infrastructure and use gitops to talk to them the same way I do for clusters</li>
+<li>...</li>
+</ul>
+<p>More detailed requests</p>
+<ul>
+<li>With some moderate boilerplate (50-100 lines of code) I can start a Kube compliant API server with (some / any of):</li>
+<li>Only custom built-in types (code -&gt; generic registry -&gt; etcd)</li>
+<li>CRDs (CustomResourceDefinition)</li>
+<li>Aggregated API support (APIService)</li>
+<li>Quotas and rate control and priority and fairness</li>
+<li>A custom admission chain that does not depend on webhooks but is inline code</li>
+<li>A different backend for storage other than etcd (projects like <a href="https://github.com/k3s-io/kine">kine</a>)</li>
+<li>Add / wrap some HTTP handlers with middleware</li>
+</ul>
+<h2 id="progress">Progress</h2>
+<p>Initial work in k/k fork involved stripping out elements of kube-apiserver start that required "the full stack" or internal controllers such as the kubernetes.default.svc maintainer (roughly <code>pkg/master</code>). It also looked at how to pull a subset of Kube resources (namespaces, rbac, but not pods) from the core resource group. The <code>kcp</code> binary uses fairly normal <code>k8s.io/apiserver</code> methods to init the apiserver process.</p>
+<p>Next steps include identifying example use cases and the interfaces they wish to customize in the control plane (see above) and then looking at how those could be composed in an approachable way. That also involves exploring what refactors and organization makes sense within the k/k project in concert with 1-2 sig-apimachinery members.</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.ce72ebac.min.js"></script>
+      
+    
+  </body>
+</html>

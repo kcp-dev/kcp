@@ -1,0 +1,133 @@
+:root {
+    --md-primary-fg-color: #06c;
+}
+
+.md-sidebar--primary .md-sidebar__scrollwrap {
+    border-right: 1px solid gainsboro;
+}
+
+.md-sidebar--secondary .md-sidebar__scrollwrap {
+    border-left: 1px solid gainsboro;
+}
+
+.td-navbar {
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: 48px;
+}
+
+.td-toc {
+    padding-top: 40px;
+}
+
+.navbar-brand {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+table tr th:empty {
+    display: none;
+}
+
+/* Styles for the CRD schema reference documentation */
+/* Taken from https://github.com/giantswarm/docs/blob/main/src/static/css/crd.css */
+
+ul.crd-index {
+    margin-top: 2em;
+    margin-bottom: 2em;
+}
+
+.crd-index .tag {
+    background-color: #ccc;
+    padding: 2px 7px;
+    font-size: 14px;
+    border-radius: 3px;
+}
+
+.crd-index .tag-provider {
+    text-transform: uppercase;
+}
+
+.crd-index .tag-provider-aws {
+    background-color: #ed9235;
+    color: #232f3b;
+}
+
+.crd-index .tag-provider-azure {
+    background-color: #1773bd;
+    color: #fff;
+}
+
+.crd-index .tag-topic {
+    background-color: #5eaebb;
+    color: #fff;
+}
+
+dl.crd-meta {
+    display: flex;
+    flex-flow: row wrap;
+    border-bottom: 1px solid #999;
+}
+
+.crd-meta dt {
+    flex-basis: 20%;
+    margin: 0;
+    padding: 4px;
+    border-top: 1px solid #999;
+    font-weight: bold;
+}
+
+.crd-meta dd {
+    flex-basis: 70%;
+    flex-grow: 1;
+    margin: 0;
+    padding: 4px;
+    border-top: 1px solid #999;
+}
+
+.crd-meta a.version {
+    margin-right: 10px;
+}
+
+.crd-schema-version {
+    border-top: 1px solid #ccc;
+}
+
+.property {
+    margin-bottom: 1em;
+}
+
+.property-header h3 {
+    font-size: 22px;
+    margin: 0 0 0 -0.1em;
+}
+
+.property-description,
+.property-meta {
+    margin: 5px 0
+}
+
+.property-type {
+    background-color: #cacaca;
+    font-size: 14px;
+    line-height: 22px;
+    padding: 3px 6px;
+    text-transform: uppercase;
+}
+
+.property-required {
+    background-color: #f5bfbf;
+    font-size: 14px;
+    line-height: 22px;
+    padding: 3px 6px;
+    text-transform: uppercase;
+}
+
+@media (min-width: 992px) {
+    .td-content>.crd-meta,
+    .td-content>.crd-description,
+    .td-content>.crd-schema-version {
+        max-width: 80%;
+    }
+
+}
