@@ -694,6 +694,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#trigger-documentation-deployment" class="md-nav__link">
+    Trigger documentation deployment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notify" class="md-nav__link">
     Notify
   </a>
@@ -1492,6 +1499,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#trigger-documentation-deployment" class="md-nav__link">
+    Trigger documentation deployment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notify" class="md-nav__link">
     Notify
   </a>
@@ -1559,7 +1573,7 @@ tasks.</p>
 <h2 id="if-its-a-new-minor-version">If it's a new minor version</h2>
 <p>If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
 0.8.x version), follow the following steps.</p>
-<p>Otherwise, you can skip to <a href="#revieweditpublish-the-release-in-github">Review/edit/publish the release in GitHub</a></p>
+<p>Otherwise, you can skip to <a href="#generate-release-notes">Generate release notes</a></p>
 <h3 id="create-a-release-branch">Create a release branch</h3>
 <p>Set <code>REMOTE</code>, <code>REF</code>, and <code>VERSION</code> as appropriate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
@@ -1576,15 +1590,15 @@ You can run the command below to install the latest version of it:</p>
 </code></pre></div>
 <p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
 <p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">PREV_VERSION</span><span class="o">=</span><span class="m">1</span>.1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--start-rev<span class="w"> </span>v<span class="nv">$PREV_VERSION</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span>--end-rev<span class="w"> </span>v<span class="nv">$VERSION</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
 </code></pre></div>
 <p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
@@ -1595,6 +1609,13 @@ You can run the command below to install the latest version of it:</p>
 <li>If the release notes have been pre-populated, delete them.</li>
 <li>Copy release notes from the <code>CHANGELOG.md</code> file you generated in the previous step.</li>
 <li>Publish the release.</li>
+</ol>
+<h2 id="trigger-documentation-deployment">Trigger documentation deployment</h2>
+<p>Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.</p>
+<ol>
+<li>Navigate to the <a href="https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml">Generate and push docs</a> GitHub Action.</li>
+<li>Hit the "Run forkflow" button, run workflow against <code>release-$VERSION</code>.</li>
+<li>Make sure the triggered workflow ran and deployed a new version of the documentation to <a href="https://docs.kcp.io">docs.kcp.io</a>.</li>
 </ol>
 <h2 id="notify">Notify</h2>
 <ol>
