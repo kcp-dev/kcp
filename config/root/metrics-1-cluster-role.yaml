@@ -8,4 +8,4 @@ rules:
 - nonResourceURLs:
   - '/metrics'
   verbs:
-  - 'GET'
+  - 'get'
