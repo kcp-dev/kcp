@@ -249,7 +249,7 @@ func TestLookup(t *testing.T) {
 			if scenario.expectFound && !found {
 				t.Fatalf("expected to lookup the path = %v", scenario.targetPath)
 			}
-			if !scenario.expectFound && found {
+			if !scenario.expectFound && r.Found {
 				t.Errorf("didn't expect to lookup the path = %v", scenario.targetPath)
 			}
 			if !scenario.expectFound {

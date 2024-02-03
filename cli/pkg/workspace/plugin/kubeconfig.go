@@ -215,7 +215,20 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		newServerHost = homeWorkspace.Spec.URL
+		config, err := o.ClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+		u, _, err := pluginhelpers.ParseClusterURL(config.Host)
+		if err != nil {
+			return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
+		}
+		uh, err := url.Parse(homeWorkspace.Spec.URL)
+		if err != nil {
+			return fmt.Errorf("invalid home workspace URL %q: %w", homeWorkspace.Spec.URL, err)
+		}
+
+		newServerHost = u.Scheme + "://" + path.Join(u.Host, uh.Path)
 
 	case ".":
 		cfg, err := o.ClientConfig.ClientConfig()

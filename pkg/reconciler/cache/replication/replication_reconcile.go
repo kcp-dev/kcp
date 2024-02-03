@@ -197,7 +197,7 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger.V(2).Info("Updating object in global cache")
+	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName()).Info("Updating object in global cache")
 	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
 	return err
 }

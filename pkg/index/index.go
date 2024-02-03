@@ -33,6 +33,7 @@ type Index interface {
 	LookupURL(logicalCluster logicalcluster.Path) (Result, bool)
 }
 
+// Result is the result of a lookup.
 type Result struct {
 	URL   string
 	Shard string

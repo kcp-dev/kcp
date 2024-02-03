@@ -23,6 +23,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
+	"strings"
 
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
@@ -30,6 +32,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // PathMapping describes how to route traffic from a path to a backend server.
@@ -46,6 +49,67 @@ type PathMapping struct {
 	ExtraHeaderPrefix string `json:"extra_header_prefix"`
 }
 
+type HttpHandler struct {
+	index          index.Index
+	mapping        []httpHandlerMapping
+	defaultHandler http.Handler
+}
+
+// httpHandlerMapping is used to route traffic to the correct backend server.
+// Higher weight means that the mapping is more specific and should be matched first
+type httpHandlerMapping struct {
+	weight  int
+	path    string
+	handler http.Handler
+}
+
+func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// mappings are used to route traffic to the correct backend server.
+	// It should not have `/clusters` as prefix because that is handled by the
+	// shardHandler or mounts. Logic is as follows:
+	// 1. We detect URL for the request and find the correct handler. URL can be
+	// shard based, virtual workspace or mount. First two are covered by r.URL,
+	// where mounts are covered by annotation on the workspace with the mount path.
+	// 2. If mountpoint is found, we rewrite the URL to resolve, else use one in
+	// request to match with mappings.
+	// 3. Iterate over mappings and find the one that matches the URL. If found,
+	// use the handler for that mapping, else use default handler - kcp.
+	// Mappings are done from most specific to least specific:
+	// Example: /clusters/cluster1/ will be matched before /clusters/
+	for _, m := range h.mapping {
+		if strings.HasPrefix(h.resolveURL(r), m.path) {
+			m.handler.ServeHTTP(w, r)
+			return
+		}
+	}
+
+	h.defaultHandler.ServeHTTP(w, r)
+}
+
+func (h *HttpHandler) resolveURL(r *http.Request) string {
+	// if we don't match any of the paths, use the default behavior - request
+	var cs = strings.SplitN(strings.TrimLeft(r.URL.Path, "/"), "/", 3)
+	if len(cs) < 2 || cs[0] != "clusters" {
+		return r.URL.Path
+	}
+	clusterPath := logicalcluster.NewPath(cs[1])
+	if !clusterPath.IsValid() {
+		return r.URL.Path
+	}
+
+	u, found := h.index.LookupURL(clusterPath)
+	if found {
+		u, err := url.Parse(u)
+		if err == nil && u != nil {
+			u.Path = strings.TrimSuffix(u.Path, "/")
+			r.URL.Path = path.Join(u.Path, strings.Join(cs[2:], "/")) // override request prefix and keep kube api contextual suffix
+			return u.Path
+		}
+	}
+
+	return r.URL.Path
+}
+
 func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
 	mappingData, err := os.ReadFile(o.MappingFile)
 	if err != nil {
@@ -57,9 +121,16 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 		return nil, fmt.Errorf("failed to unmarshal mapping file %q: %w", o.MappingFile, err)
 	}
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/metrics", legacyregistry.Handler())
+	handlers := HttpHandler{
+		index: index,
+		mapping: []httpHandlerMapping{
+			{
+				weight:  0,
+				path:    "/metrics",
+				handler: legacyregistry.Handler(),
+			},
+		},
+	}
 
 	logger := klog.FromContext(ctx)
 	for _, m := range mapping {
@@ -102,8 +173,34 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 
 		handler = WithProxyAuthHeaders(handler, userHeader, groupHeader, extraHeaderPrefix)
 
-		mux.Handle(m.Path, handler)
+		logger.V(2).WithValues("path", m.Path).Info("adding handler")
+		if m.Path == "/" {
+			handlers.defaultHandler = handler
+		} else {
+
+			handlers.mapping = append(handlers.mapping, httpHandlerMapping{
+				weight:  len(m.Path),
+				path:    m.Path,
+				handler: handler,
+			})
+		}
 	}
 
-	return mux, nil
+	handlers.mapping = sortMappings(handlers.mapping)
+
+	return &handlers, nil
+}
+
+func sortMappings(mappings []httpHandlerMapping) []httpHandlerMapping {
+	// sort mappings by weight
+	// higher weight means that the mapping is more specific and should be matched first
+	// Example: /clusters/cluster1/ will be matched before /clusters/
+	for i := range mappings {
+		for j := range mappings {
+			if mappings[i].weight > mappings[j].weight {
+				mappings[i], mappings[j] = mappings[j], mappings[i]
+			}
+		}
+	}
+	return mappings
 }
