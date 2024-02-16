@@ -75,6 +75,21 @@ type APIResourceSchemaSpec struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MinItems=1
 	Versions []APIResourceVersion `json:"versions"`
+
+	// nameValidation can be used to configure name validation for bound APIs.
+	// Allowed values are `DNS1123Subdomain` and `PathSegmentName`.
+	// - DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case
+	//   alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+	//   Regex used is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
+	// - PathSegmentName: validates the name can be safely encoded as a path segment.
+	//   The name may not be '.' or '..' and the name may not contain '/' or '%'.
+	//
+	// Defaults to `DNS1123Subdomain`, matching the behaviour of CRDs.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=DNS1123Subdomain;PathSegmentName
+	// +kubebuilder:default=DNS1123Subdomain
+	NameValidation string `json:"nameValidation,omitempty"`
 }
 
 // APIResourceVersion describes one API version of a resource.

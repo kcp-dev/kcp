@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
@@ -512,6 +513,11 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 	// See https://github.com/kubernetes/enhancements/pull/1111 for more details.
 	if value, found := schema.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
 		crd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
+	}
+
+	switch schema.Spec.NameValidation {
+	case "PathSegmentName":
+		crd.Annotations[apiserver.KcpValidateNameAnnotationKey] = "path-segment"
 	}
 
 	for _, version := range schema.Spec.Versions {
