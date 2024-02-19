@@ -25,10 +25,11 @@ import (
 // APIResourceSchemaSpecApplyConfiguration represents an declarative configuration of the APIResourceSchemaSpec type for use
 // with apply.
 type APIResourceSchemaSpecApplyConfiguration struct {
-	Group    *string                                `json:"group,omitempty"`
-	Names    *v1.CustomResourceDefinitionNames      `json:"names,omitempty"`
-	Scope    *v1.ResourceScope                      `json:"scope,omitempty"`
-	Versions []APIResourceVersionApplyConfiguration `json:"versions,omitempty"`
+	Group          *string                                `json:"group,omitempty"`
+	Names          *v1.CustomResourceDefinitionNames      `json:"names,omitempty"`
+	Scope          *v1.ResourceScope                      `json:"scope,omitempty"`
+	Versions       []APIResourceVersionApplyConfiguration `json:"versions,omitempty"`
+	NameValidation *string                                `json:"nameValidation,omitempty"`
 }
 
 // APIResourceSchemaSpecApplyConfiguration constructs an declarative configuration of the APIResourceSchemaSpec type for use with
@@ -71,5 +72,13 @@ func (b *APIResourceSchemaSpecApplyConfiguration) WithVersions(values ...*APIRes
 		}
 		b.Versions = append(b.Versions, *values[i])
 	}
+	return b
+}
+
+// WithNameValidation sets the NameValidation field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NameValidation field is set to the value of the last call.
+func (b *APIResourceSchemaSpecApplyConfiguration) WithNameValidation(value string) *APIResourceSchemaSpecApplyConfiguration {
+	b.NameValidation = &value
 	return b
 }

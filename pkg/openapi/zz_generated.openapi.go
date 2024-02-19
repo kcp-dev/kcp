@@ -1105,6 +1105,13 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"nameValidation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nameValidation can be used to configure name validation for bound APIs. Allowed values are `DNS1123Subdomain` and `PathSegmentName`. - DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case\n  alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.\n  Regex used is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'\n- PathSegmentName: validates the name can be safely encoded as a path segment.\n  The name may not be '.' or '..' and the name may not contain '/' or '%'.\n\nDefaults to `DNS1123Subdomain`, matching the behaviour of CRDs.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"group", "names", "scope", "versions"},
 			},
