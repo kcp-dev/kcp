@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-flare
+  namespace: kcp
+  labels:
+    app: cf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cf
+  template:
+    metadata:
+      labels:
+        app: cf
+    spec:
+      containers:
+      - name: tunnel
+        image: cloudflare/cloudflared:latest
+        args:
+        - tunnel
+        - run
+        - --token
+        - "<CF_TOKEN>"
+        ports:
+        - containerPort: 80
