@@ -1494,6 +1494,25 @@
 
 <div class="property depth-1">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.nameValidation">.spec.nameValidation</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>nameValidation can be used to configure name validation for bound APIs. Allowed values are <code>DNS1123Subdomain</code> and <code>PathSegmentName</code>. - DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, &lsquo;-&rsquo; or &lsquo;.&rsquo;, and must start and end with an alphanumeric character. Regex used is &lsquo;<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?(\.<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?)*&rsquo; - PathSegmentName: validates the name can be safely encoded as a path segment. The name may not be &lsquo;.&rsquo; or &lsquo;..&rsquo; and the name may not contain &lsquo;/&rsquo; or &lsquo;%&rsquo;.
+ Defaults to <code>DNS1123Subdomain</code>, matching the behaviour of CRDs.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha1-.spec.names">.spec.names</h3>
 </div>
 <div class="property-body">
