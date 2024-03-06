@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/plugin"
+	"github.com/kcp-dev/kcp/cli/pkg/workspace/plugin"
 )
 
 var (

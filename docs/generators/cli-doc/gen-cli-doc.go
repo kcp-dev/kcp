@@ -22,7 +22,7 @@ import (
 	"log"
 	"os"
 
-	kubectlKcp "github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
+	kubectlKcp "github.com/kcp-dev/kcp/cli/cmd/kubectl-kcp/cmd"
 	"github.com/kcp-dev/kcp/hack/third_party/github.com/spf13/cobra/doc"
 )
 

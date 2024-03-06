@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/claims/plugin"
+	"github.com/kcp-dev/kcp/cli/pkg/claims/plugin"
 )
 
 // TODO: Add examples for edit and update claims.

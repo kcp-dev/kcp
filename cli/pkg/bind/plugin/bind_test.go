@@ -19,7 +19,7 @@ package plugin_test
 import (
 	"testing"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/bind/plugin"
+	"github.com/kcp-dev/kcp/cli/pkg/bind/plugin"
 )
 
 func TestBindOptionsValidate(t *testing.T) {

@@ -115,9 +115,12 @@ ldflags:
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
 
-build: WHAT ?= ./cmd/...
+build: WHAT ?= ./cmd/... ./cli/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
-	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+	for W in $(WHAT); do \
+  		cd $${W%...} && ROOT=$$(go list -m -f "{{.Path}}") && ROOT=.$${ROOT#github.com/kcp-dev/kcp} && cd - && \
+    	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o $(shell pwd)/bin .$${W#$${ROOT}}; \
+    done
 	ln -sf kubectl-workspace bin/kubectl-workspaces
 	ln -sf kubectl-workspace bin/kubectl-ws
 .PHONY: build
@@ -126,9 +129,12 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
 build-all:
 	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
 
-install: WHAT ?= ./cmd/...
+install: WHAT ?= ./cmd/... ./cli/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
-	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $(WHAT)
+	for W in $(WHAT); do \
+  		cd $${W%...} && ROOT=$$(go list -m -f "{{.Path}}") && ROOT=.$${ROOT#github.com/kcp-dev/kcp} && cd - && \
+  		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" .$${W#$${ROOT}}; \
+  	done
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
 .PHONY: install

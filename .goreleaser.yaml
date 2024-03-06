@@ -18,6 +18,7 @@ builds:
   - CGO_ENABLED=0
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
+  dir: cli
   binary: bin/kubectl-kcp
   ldflags:
   - "{{ .Env.LDFLAGS }}"
@@ -38,6 +39,7 @@ builds:
   - CGO_ENABLED=0
 - id: "kubectl-workspace"
   main: ./cmd/kubectl-workspace
+  dir: cli
   binary: bin/kubectl-workspace
   ldflags:
   - "{{ .Env.LDFLAGS }}"
@@ -56,8 +58,8 @@ builds:
     goarch: ppc64le
   hooks:
     post:
-      - ln -sfr bin/kubectl-workspace bin/kubectl-workspaces
-      - ln -sfr bin/kubectl-workspace bin/kubectl-ws
+      - ln -sf kubectl-workspace bin/kubectl-workspaces
+      - ln -sf kubectl-workspace bin/kubectl-ws
   env:
   - CGO_ENABLED=0
 archives:

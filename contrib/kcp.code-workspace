@@ -100,9 +100,9 @@
 				"type": "go",
 				"request": "launch",
 				"mode": "debug",
-				"program": "${workspaceFolder:kcp}/cmd/kubectl-kcp",
+				"program": "${workspaceFolder:kcp}/cli/cmd/kubectl-kcp",
 				"env": {
-					"GOMOD": "${workspaceFolder:kcp}/go.mod",
+					"GOMOD": "${workspaceFolder:kcp}/cli/go.mod",
 					"KUBECONFIG": "${workspaceFolder:kcp}/.kcp/admin.kubeconfig",
 				},
 				"cwd": "${workspaceFolder:kcp}",

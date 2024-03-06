@@ -67,5 +67,5 @@ Shards in kcp represent a single apiserver and etcd/db instance.  This is how kc
 
 ## Where can I get the kubectl workspace plugin?
 
-You're in the right place. Clone this repo and run `make install WHAT=./cmd/kubectl-kcp`.
+You're in the right place. Clone this repo and run `make install WHAT=./cli/cmd/kubectl-kcp`.
 

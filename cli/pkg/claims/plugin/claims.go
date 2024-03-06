@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
-	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
+	"github.com/kcp-dev/kcp/cli/pkg/base"
+	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
 	apiv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )

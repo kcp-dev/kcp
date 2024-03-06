@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/bind/plugin"
+	"github.com/kcp-dev/kcp/cli/pkg/bind/plugin"
 )
 
 var (

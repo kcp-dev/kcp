@@ -27,9 +27,9 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 
+	"github.com/kcp-dev/kcp/cli/pkg/help"
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	"github.com/kcp-dev/kcp/pkg/cache/server/options"
-	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 )
 

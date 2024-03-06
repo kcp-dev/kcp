@@ -36,8 +36,8 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/cli/pkg/help"
 	"github.com/kcp-dev/kcp/cmd/kcp/options"
-	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"

@@ -27,11 +27,11 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
-	bindcmd "github.com/kcp-dev/kcp/pkg/cliplugins/bind/cmd"
-	claimscmd "github.com/kcp-dev/kcp/pkg/cliplugins/claims/cmd"
-	crdcmd "github.com/kcp-dev/kcp/pkg/cliplugins/crd/cmd"
-	workspacecmd "github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
-	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	bindcmd "github.com/kcp-dev/kcp/cli/pkg/bind/cmd"
+	claimscmd "github.com/kcp-dev/kcp/cli/pkg/claims/cmd"
+	crdcmd "github.com/kcp-dev/kcp/cli/pkg/crd/cmd"
+	"github.com/kcp-dev/kcp/cli/pkg/help"
+	workspacecmd "github.com/kcp-dev/kcp/cli/pkg/workspace/cmd"
 )
 
 func KubectlKcpCommand() *cobra.Command {
