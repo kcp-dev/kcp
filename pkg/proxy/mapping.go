@@ -26,13 +26,14 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // PathMapping describes how to route traffic from a path to a backend server.
