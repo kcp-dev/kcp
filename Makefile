@@ -117,9 +117,9 @@ require-%:
 
 build: WHAT ?= ./cmd/... ./cli/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
-	for W in $(WHAT); do \
-  		cd $${W%...} && ROOT=$$(go list -m -f "{{.Path}}") && ROOT=.$${ROOT#github.com/kcp-dev/kcp} && cd - && \
-    	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o $(shell pwd)/bin .$${W#$${ROOT}}; \
+	set -x; for W in $(WHAT); do \
+  		W=$$(echo "$${W}" | sed 's,^\./,github.com/kcp-dev/kcp/,') && \
+    	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $${W}; \
     done
 	ln -sf kubectl-workspace bin/kubectl-workspaces
 	ln -sf kubectl-workspace bin/kubectl-ws
@@ -131,9 +131,9 @@ build-all:
 
 install: WHAT ?= ./cmd/... ./cli/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
-	for W in $(WHAT); do \
-  		cd $${W%...} && ROOT=$$(go list -m -f "{{.Path}}") && ROOT=.$${ROOT#github.com/kcp-dev/kcp} && cd - && \
-  		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" .$${W#$${ROOT}}; \
+	set -x; for W in $(WHAT); do \
+  		W=$$(echo "$${W}" | sed 's,^\./,github.com/kcp-dev/kcp/,') && \
+  		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $${W}; \
   	done
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
 	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
