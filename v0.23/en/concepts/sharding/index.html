@@ -1,0 +1,1528 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Horizontal Scaling of kcp through sharding
+">
+      
+      
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/v0.23/en/concepts/sharding/">
+      
+      
+        <link rel="prev" href="../rest-access-patterns/">
+      
+      
+        <link rel="next" href="../terminology/">
+      
+      <link rel="icon" href="../../../favicons/favicon.ico">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.0">
+    
+    
+      
+        <title>Shards - kcp Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.402914a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/kcp.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#shards" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../" title="kcp Documentation" class="md-header__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../../logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kcp Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Shards
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../" title="kcp Documentation" class="md-nav__button md-logo" aria-label="kcp Documentation" data-md-component="logo">
+      
+  <img src="../../../logo.png" alt="logo">
+
+    </a>
+    kcp Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
+        Contributing to kcp
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../GOALS/" class="md-nav__link">
+        Project Goals
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../">Concepts</a>
+          
+            <label for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Concepts
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apis-in-kcp/" class="md-nav__link">
+        APIs in kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization/" class="md-nav__link">
+        Authorization
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cache-server/" class="md-nav__link">
+        Cache Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cluster-mapper/" class="md-nav__link">
+        Cluster Mapper
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kubectl-kcp-plugin/" class="md-nav__link">
+        kubectl kcp plugin
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../partitions/" class="md-nav__link">
+        Partition API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+        Quickstart: Tenancy and APIs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rest-access-patterns/" class="md-nav__link">
+        REST access patterns
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Shards
+      </a>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terminology/" class="md-nav__link">
+        Terminology for kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../virtual-workspaces/" class="md-nav__link">
+        Virtual Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workspaces/" class="md-nav__link">
+        Workspaces
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../developers/">Developers</a>
+          
+            <label for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Developers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/etcd-structure/" class="md-nav__link">
+        etcd structure
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/inspecting-e2e-metrics/" class="md-nav__link">
+        Inspecting Prometheus metrics for e2e runs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/publishing-a-new-kcp-release/" class="md-nav__link">
+        Publishing a new kcp release
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/rebasing-kubernetes/" class="md-nav__link">
+        Rebasing Kubernetes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/replicate-new-resource/" class="md-nav__link">
+        Replicating new resources in the cache server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/using-kcp-as-a-library/" class="md-nav__link">
+        Using kcp as a library
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../developers/writing-kcp-aware-controllers/" class="md-nav__link">
+        Writing kcp-aware controllers
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../investigations/">Investigations</a>
+          
+            <label for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Investigations
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/logical-clusters/" class="md-nav__link">
+        Logical clusters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/minimal-api-server/" class="md-nav__link">
+        Minimal API Server
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/self-service-policy/" class="md-nav__link">
+        Self-service policy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
+        Transparent multi-cluster
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+      
+      
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+          CLI
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_1">
+          <span class="md-nav__icon md-icon"></span>
+          CLI
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
+        kcp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+        kcp bind
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+        kcp bind apiexport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+        kcp claims
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+        kcp claims get
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+        kcp claims get apibinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+        kcp crd
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+        kcp crd snapshot
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+        kcp workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+        kcp workspace create-context
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
+        kcp workspace create
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+        kcp workspace current
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+        kcp workspace tree
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+        kcp workspace use
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+          CRD
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          CRD
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apibindings.apis.kcp.io/" class="md-nav__link">
+        APIBinding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiconversions.apis.kcp.io/" class="md-nav__link">
+        APIConversion
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexportendpointslices.apis.kcp.io/" class="md-nav__link">
+        APIExportEndpointSlice
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiexports.apis.kcp.io/" class="md-nav__link">
+        APIExport
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/apiresourceschemas.apis.kcp.io/" class="md-nav__link">
+        APIResourceSchema
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/logicalclusters.core.kcp.io/" class="md-nav__link">
+        LogicalCluster
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitions.topology.kcp.io/" class="md-nav__link">
+        Partition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/partitionsets.topology.kcp.io/" class="md-nav__link">
+        PartitionSet
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/shards.core.kcp.io/" class="md-nav__link">
+        Shard
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspaces.tenancy.kcp.io/" class="md-nav__link">
+        Workspace
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crd/workspacetypes.tenancy.kcp.io/" class="md-nav__link">
+        WorkspaceType
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="shards">Shards</h1>
+<p>Every kcp shard is hosting a set of logical clusters. A logical cluster is
+identified by a globally unique identifier called a <em>cluster name</em>. A shard
+serves the logical clusters under <code>/clusters/&lt;cluster-name&gt;</code>.</p>
+<p>A set of known shards comprises a kcp installation.</p>
+<h1 id="root-logical-cluster">Root Logical Cluster</h1>
+<p>Every kcp installation has one logical cluster called <code>root</code>. The <code>root</code> logical
+cluster holds administrational objects. Among them are shard objects.</p>
+<h1 id="shard-objects">Shard Objects</h1>
+<p>The set of shards in a kcp installation is defined by <code>Shard</code> objects in
+<code>core.kcp.io/v1alpha1</code>.</p>
+<p>A shard object specifies the network addresses, one for external access (usually 
+some worldwide load balancer) and one for direct access (shard to shard).</p>
+<h1 id="logical-clusters-and-workspace-paths">Logical Clusters and Workspace Paths</h1>
+<p>Logical clusters are defined through the existence of a <code>LogicalCluster</code> object
+"in themselves", similar to a <code>.</code> directory defining the existence of a directory 
+in Unix.</p>
+<p>Every logical cluster name <code>name</code> is a <em>logical cluster path</em>. Every logical
+cluster is reachable through <code>/cluster/&lt;path&gt;</code> for every of their paths.</p>
+<p>A <code>Workspace</code> in <code>tenancy.kcp.io/v1alpha1</code> of name <code>name</code> references a logical
+cluster specified in <code>Workspace.spec.cluster</code>. If that workspace object resided
+in a logical cluster reachable via a path <code>path</code>, the referenced logical cluster
+can be reached via a path <code>path:name</code>.</p>
+<h1 id="canonical-paths">Canonical Paths</h1>
+<p>The longest path a logical cluster is reachable under is called the <em>canonical
+path</em>. By default, all canonical paths start with <code>root</code>, i.e. they start in
+root logical cluster.</p>
+<p>The logical cluster object annotated with <code>kcp.io/path: &lt;canonical-path&gt;</code>.</p>
+<p>Additional subtrees of the workspace path hierarchy can be defined by creating
+logical clusters with <code>kcp.io/path</code> annotation <em>not</em> starting in <code>root</code>. E.g.
+a home workspace hierarchy could start at <code>home:&lt;user-name&gt;</code>. There is no need
+for the parent (<code>home</code> in this case) to exist.</p>
+<h1 id="front-proxy">Front Proxy</h1>
+<p>A front-proxy is aware of all logical clusters, their shard they live on,
+their canonical paths and all <code>Workspaces</code>s. Non canoical paths can be 
+reconstructed from the canonical path prefixes and the worksapce names.</p>
+<p>Requests to <code>/cluster/&lt;path&gt;</code> are forwarded to the shard via inverse proxying.</p>
+<p>A front-proxy in its most simplistic (toy) implementation watches all shards.
+Clearly, that's neither feasible for scale nor good for availability. A front-
+proxy could alternative be backed by any kind of external database with the
+right scalability and availability properties.</p>
+<p>There can be one front-proxy in front of a kcp installation, or many, e.g. one
+or multiple per region or cloud provider.</p>
+<h1 id="consistency-domain">Consistency Domain</h1>
+<p>Every logical cluster provides a Kubernetes-compatible API root endpoint under
+<code>/cluster/&lt;path&gt;</code> including its own discovery endpoint and their own set of 
+API groups and resources.</p>
+<p>Resources under such an endpoints satisfy the same consistency properties as with
+a full Kubernetes cluster, e.g. the semantics of the resource versions of one
+resource matches that of Kubernetes.</p>
+<p>Across logical clusters the resource versions must be considered as unrelated,
+i.e. resource versions cannot be compared.</p>
+<h1 id="wildcard-requests">Wildcard Requests</h1>
+<p>The only exception to the upper rule are objects under a "wildcard endpoint"
+<code>/clusters/*/apis/&lt;group&gt;/&lt;v&gt;/[namespaces/&lt;ns&gt;]/resource:&lt;identity-hash&gt;</code> per
+shard. It serves the objects of the given resource on that shard across 
+logical-clusters. The annotation <code>kcp.io/cluster</code> tells the consumer which
+logical cluster each object belongs to.</p>
+<p>The wildcard endpoint is privileged (requires <code>system:masters</code> group membership).
+It is only accessible when talking directly to a shard, not through a 
+front-proxy.</p>
+<p>Note: for unprivileged access, virtual view apiservers can offer a highly
+secured and filtered view, usually also per shard, e.g. for owners of APIs.</p>
+<h1 id="cross-logical-cluster-references">Cross Logical Cluster References</h1>
+<p>Some objects reference other logical clusters or objects in other logical
+clusters. These references can be by logical cluster name, by arbitrary logical
+cluster path or by canonical path.</p>
+<p>Referenced logical clusters must be assumed to live on other shard, maybe even
+on shard of different regions or cloud providers.</p>
+<p>For scalability reasons, it is usually not adequate to drive controllers by
+informers that span all shard.</p>
+<p>In other words, logical involving cross-logical-cluster referenced have a cost
+higher than in-logical-cluster references and logic must be carefully planned:</p>
+<p>For example, during workspace creation and scheduling the scheduler running on
+the shard hosting the <code>Workspace</code> object will access another shard to create the
+<code>LogicalCluster</code> object initially. It does that by choosing a random logical
+cluster name (optimistically) and choosing a shard that name maps to (through
+consistent hashing). It then tries to create the <code>LogicalCluster</code>. On conflict,
+it can check whether the existing object belong the given <code>Workspace</code> object or 
+not. If not, another name and shard is chosen, until scheduling succeeds. During
+initialization the controller on the <code>Workspace</code> hosting shard will keep watching
+the logical cluster on the other shard, with some exponential backoff. In other
+words, the <code>Workspace</code> hosting shard does not continuously watch the object on
+the other shard.</p>
+<p>Another example is API binding, but it is different than workspace scheduling:
+a binding controller running on the shard hosting the <code>APIBinding</code> object will
+be aware of all <code>APIExport</code>s in the kcp installation through caching replication
+(see next section). What is special is that this controller has all the 
+information necessary to bind a new API and to keep bound APIs working even if 
+the shard of the <code>APIExport</code> is unavailable.</p>
+<p>Note: usually it a bad idea to create logic dependent on the parent workspace. If
+such logic is desired, for availability and scalability reasons some kind of
+replication is required. E.g. a child workspace must stay operation even if the
+parent is not accessible.</p>
+<h1 id="cache-server-replication">Cache Server Replication</h1>
+<p>The cache server is a special API server that can hold replicas of objects that
+must be available globally in an eventual consistent way. E.g. the <code>APIExport</code>s
+and <code>APIResourceSchemas</code> are replicated that way and made available to the 
+corresponding controllers via informers.</p>
+<p>The cache server holds objects by logical clusters, and it can hold objects from
+many or all shards in a kcp installation, served through wildcard informers.
+The resource versions of those objects have no meaning beyond driving the cache 
+informers running in the shards.</p>
+<p>Cache servers can be 1:1 with shards, or there can be shared cache servers, e.g.
+by region.</p>
+<p>Cache servers can form a cache hierarchy.</p>
+<p>Controllers that make use of cached objects, will usually have informers against
+local objects and against the same objects in the cache server. If the former
+returns a "NotFound" error, the controllers will look up in the cache informers.</p>
+<p>The cache server technique is only useful for APIs whose object cardinality 
+across all shards does not go beyond the cardinality sensibly storable in a
+kube-based apiserver.</p>
+<p>Note that objects like <code>Workspace</code>s and <code>LogicalCluster</code>s fall not into that
+category. This means that in particular the logical cluster canonical path
+cannot be derived from cached <code>LogicalCluster</code>s. Instead, the cached objects
+must hold their own <code>kcp.io/path</code> annotation in order to be indexable by that
+value. This is crucial to implement cross-logical-cluster references by 
+canonical path.</p>
+<p>Note: the <code>APIExport</code> example assumes that there are never more than e.g. 10,000
+API exports in a kcp installation. If that is not an acceptable constraint, 
+other partitioning mechanism would be need to hold the number of <code>APIExport</code>
+objects per cache server below the critical number. E.g. there could be cache
+servers per big tenant, and that would hold only public exports and 
+tenant-internal exports. A more complex caching hierarchy would make sure the
+right objects are replicated, while the "really public" exports would only be a
+small number.</p>
+<h1 id="replication">Replication</h1>
+<p>Each shard pushes a restricted set of objects to the cache server. As the cache
+server replication is costly, this set is as minimal as possible. For example,
+certain RBAC objects are replicated in case they are needed to successfully
+authorize bindings of an API, or to use a workspace type.</p>
+<p>By the nature of replication, objects in the cache server can be old and 
+incomplete. For instance, the non-existence of an object in the cache server
+does not mean it does not exist in its respective shard. The replication 
+could be just delayed or the object was not identified to be worth to replicate.</p>
+<h1 id="bootstrapping">Bootstrapping</h1>
+<p>A new shard starting up will run a number of standard controllers (e.g. for
+workspaces, API bindings and more). These will need a number of standard
+informers both watching objects locally on that shard through wildcard informers
+and watching the corresponding cache server.</p>
+<p>Wildcard informers require the <code>APIExport</code> identity. This identity varies by
+installation as it is cryptographically created during creation of the <code>APIExport</code>.</p>
+<p>The core and tenancy APIs have their <code>APIExport</code> in the root logical cluster.
+A new shard will connect to that root logical cluster in order to extract the
+identies for these APIs. It will cache these for later use in case of a network
+partition or unavailability of the root shard. After retrieving these identities
+the informers can be started.</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.ce72ebac.min.js"></script>
+      
+    
+  </body>
+</html>
