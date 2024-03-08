@@ -3,7 +3,6 @@ module github.com/kcp-dev/kcp
 go 1.20
 
 require (
-	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/abiosoft/lineprefix v0.1.4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
@@ -15,16 +14,15 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0.0.20230926071920-57d168bcbe34
 	github.com/kcp-dev/client-go v0.0.0-20230927101349-0416c830e3b1
+	github.com/kcp-dev/kcp/cli v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.4
 	github.com/martinlindhe/base36 v1.1.1
-	github.com/muesli/reflow v0.3.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stretchr/testify v1.8.4
-	github.com/xlab/treeprint v1.2.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9
 	go.etcd.io/etcd/server/v3 v3.5.9
 	go.uber.org/multierr v1.11.0
@@ -35,7 +33,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.28.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/apiserver v0.28.2
-	k8s.io/cli-runtime v0.26.3
 	k8s.io/client-go v0.28.2
 	k8s.io/code-generator v0.26.3
 	k8s.io/component-base v0.28.2
@@ -49,6 +46,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -100,6 +98,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
+	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/onsi/gomega v1.27.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -118,6 +117,7 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	github.com/xlab/treeprint v1.2.0 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.9 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.9 // indirect
@@ -154,6 +154,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	k8s.io/cli-runtime v0.28.2 // indirect
 	k8s.io/cloud-provider v0.0.0 // indirect
 	k8s.io/cluster-bootstrap v0.0.0 // indirect
 	k8s.io/component-helpers v0.0.0 // indirect
@@ -173,6 +174,7 @@ require (
 )
 
 replace (
+	github.com/kcp-dev/kcp/cli => ./cli
 	github.com/kcp-dev/kcp/sdk => ./sdk
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20231008123256-10a06602223e
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20231008123256-10a06602223e

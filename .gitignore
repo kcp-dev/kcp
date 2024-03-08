@@ -6,6 +6,7 @@ coverage.*
 tools
 build
 vendor
+goio.yaml
 
 # JetBrains IDE files
 .idea/
@@ -26,4 +27,4 @@ tmp
 .prometheus-pid
 
 go.work
-go.work.sum
+go.work.*

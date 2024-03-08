@@ -26,7 +26,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
+	"github.com/kcp-dev/kcp/cli/pkg/workspace/cmd"
 )
 
 func main() {

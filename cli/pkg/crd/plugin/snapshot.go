@@ -33,7 +33,7 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
+	"github.com/kcp-dev/kcp/cli/pkg/base"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
