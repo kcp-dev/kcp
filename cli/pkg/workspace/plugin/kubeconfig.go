@@ -134,8 +134,8 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 	var newServerHost string
 	var workspaceType *tenancyv1alpha1.WorkspaceTypeReference
-	switch o.Name {
-	case "-":
+	switch {
+	case o.Name == "-":
 		prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
 		if !exists {
 			return errors.New("no previous workspace found in kubeconfig")
@@ -183,7 +183,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 		return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
-	case "..":
+	case o.Name == ".." || o.Name == "../" || strings.Contains(o.Name, "../.."):
 		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
@@ -192,17 +192,30 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 		}
-		parentClusterName, hasParent := currentClusterName.Parent()
-		if !hasParent {
-			if currentClusterName == core.RootCluster.Path() {
-				return fmt.Errorf("current workspace is %q", currentClusterName)
+		// In case of `../..` or `../../..` etc, we need to go down the logical cluster hierarchy.
+		// We do this by counting the number of `..` in the workspace name and then going down that many times.
+		// if we have ../../name, we override o.Name on this function end and this will be handled as usual
+		// in the next case.
+		var parentClusterName logicalcluster.Path
+		count := strings.Count(o.Name, "..")
+		i := 0
+		for i < count {
+			var hasParent bool
+			parentClusterName, hasParent = currentClusterName.Parent()
+			if !hasParent {
+				if currentClusterName == core.RootCluster.Path() {
+					return fmt.Errorf("current workspace is %q", currentClusterName)
+				}
+				return fmt.Errorf("current workspace %q has no parent", currentClusterName)
+			} else if parentClusterName != core.RootCluster.Path() && hasParent && i <= count {
+				currentClusterName = parentClusterName
 			}
-			return fmt.Errorf("current workspace %q has no parent", currentClusterName)
+			i++
 		}
 		u.Path = path.Join(u.Path, parentClusterName.RequestPath())
 		newServerHost = u.String()
 
-	case "":
+	case o.Name == "":
 		defer func() {
 			if err == nil {
 				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
@@ -210,7 +223,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}()
 		fallthrough
 
-	case "~", home:
+	case o.Name == "~" || o.Name == home:
 		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -232,7 +245,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		// host to be different from the workspace host.
 		newServerHost = u.Scheme + "://" + path.Join(u.Host, uh.Path)
 
-	case ".":
+	case o.Name == ".":
 		cfg, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
@@ -244,6 +257,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		if !cluster.IsValid() {
 			return fmt.Errorf("invalid workspace name format: %s", o.Name)
 		}
+
 		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
