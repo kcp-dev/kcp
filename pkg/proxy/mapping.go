@@ -57,7 +57,7 @@ type HttpHandler struct {
 }
 
 // httpHandlerMapping is used to route traffic to the correct backend server.
-// Higher weight means that the mapping is more specific and should be matched first
+// Higher weight means that the mapping is more specific and should be matched first.
 type httpHandlerMapping struct {
 	weight  int
 	path    string
@@ -178,7 +178,6 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 		if m.Path == "/" {
 			handlers.defaultHandler = handler
 		} else {
-
 			handlers.mapping = append(handlers.mapping, httpHandlerMapping{
 				weight:  len(m.Path),
 				path:    m.Path,

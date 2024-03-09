@@ -228,6 +228,8 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("invalid home workspace URL %q: %w", homeWorkspace.Spec.URL, err)
 		}
 
+		// We keep the old host, and append homeworkspace url. This allows users to have front-proxy
+		// host to be different from the workspace host.
 		newServerHost = u.Scheme + "://" + path.Join(u.Host, uh.Path)
 
 	case ".":
