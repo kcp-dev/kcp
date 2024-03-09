@@ -20,9 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -79,13 +79,13 @@ func NewController(
 	}
 
 	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj) },
 	})
 
 	c.discoveringDynamicSharedInformerFactory.AddEventHandler(informer.GVREventHandlerFuncs{
-		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(gvr, obj) },
-		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(gvr, obj) },
+		AddFunc:    func(_ schema.GroupVersionResource, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
+		UpdateFunc: func(_ schema.GroupVersionResource, _, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
 		DeleteFunc: nil, // Nothing to do.
 	})
 
@@ -110,30 +110,15 @@ type Controller struct {
 	commit func(ctx context.Context, new, old *workspaceResource) error
 }
 
-// enqueue adds the object to the work queue, used for workspaces.
-func (c *Controller) enqueue(obj interface{}) {
-	key, err := getWorkspaceKey(obj)
+// enqueueWorkspace adds the object to the work queue.
+func (c *Controller) enqueueWorkspace(obj interface{}) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(4).Info("queueing Workspace")
-	c.queue.Add(key)
-}
-
-// enqueueForResource adds the resource (gvr + obj) to the queue used for mounts.
-func (c *Controller) enqueueForResource(gvr schema.GroupVersionResource, obj interface{}) {
-	// construct key so we could easily resolve it into GVK using schema.ParseResourceArg
-	// and get object from the dynamic shared informer factory
-	key, err := getGVKKey(gvr, obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing GVR resource")
 	c.queue.Add(key)
 }
 
@@ -188,21 +173,11 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
-	if strings.HasPrefix(key, workspaceKeyPrefix) {
-		return c.processWorkspace(ctx, key)
-	}
-	if strings.HasPrefix(key, gvrKeyPrefix) {
-		return c.processGVKMount(ctx, key)
-	}
-	return false, fmt.Errorf("unknown key prefix: %s", key)
-}
-
-func (c *Controller) processWorkspace(ctx context.Context, key string) (bool, error) {
-	parent, name, err := parseWorkspaceKey(key)
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
-		return false, nil
+		return false, err
 	}
+
 	workspace, err := c.workspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -233,70 +208,33 @@ func (c *Controller) processWorkspace(ctx context.Context, key string) (bool, er
 	return requeue, utilerrors.NewAggregate(errs)
 }
 
-func (c *Controller) processGVKMount(ctx context.Context, key string) (bool, error) {
-	logger := klog.FromContext(ctx)
-
-	gvr, key, err := parseGVKKey(key)
-	if err != nil {
-		runtime.HandleError(err)
-		return false, nil
-	}
-
-	logger = logger.WithValues("gvr", gvr.String(), "name", key)
-
-	inf, err := c.discoveringDynamicSharedInformerFactory.ForResource(gvr)
-	if err != nil {
-		return false, fmt.Errorf("error getting dynamic informer for GVR %q: %w", gvr, err)
-	}
-
-	maybeMountObj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
-	if err != nil {
-		logger.Error(err, "unable to get from indexer")
-		return false, nil // retrying won't help
-	}
-	if !exists {
-		logger.V(4).Info("resource not found")
-		return false, nil
-	}
-
-	u, ok := maybeMountObj.(*unstructured.Unstructured)
-	if !ok {
-		logger.Error(nil, "got unexpected type", "type", fmt.Sprintf("%T", maybeMountObj))
-		return false, nil // retrying won't help
-	}
-
-	u = u.DeepCopy()
-	if u.GetAnnotations() == nil {
-		return false, nil
-	}
+// enqueuePotentiallyMountResource looks for workspaces referencing this kind.
+func (c *Controller) enqueuePotentiallyMountResource(obj interface{}) {
+	u := obj.(*unstructured.Unstructured)
 
 	// We only care about mount objects. All owner objects must have IsMountAnnotationKey set
 	// to simplify the logic here. And owner annotation to owner workspaces.
 	val, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalIsMountAnnotationKey]
 	if !ok || val != "true" {
-		return false, nil
+		return
 	}
 
 	workspaceOwnerRaw, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !ok {
-		return false, nil
+		return
 	}
 
-	var ownerSchema metav1.OwnerReference
-	if err := json.Unmarshal([]byte(workspaceOwnerRaw), &ownerSchema); err != nil {
-		return false, fmt.Errorf("unable to unmarshal owner reference: %w", err)
+	var owner metav1.OwnerReference
+	if err := json.Unmarshal([]byte(workspaceOwnerRaw), &owner); err != nil {
+		runtime.HandleError(fmt.Errorf("unable to unmarshal owner reference: %w", err))
+		return
 	}
-
-	if ownerSchema.Kind != tenancy.WorkspaceKind {
-		return false, fmt.Errorf("owner reference is not a workspace: %s", ownerSchema.Kind)
+	if owner.Kind != tenancy.WorkspaceKind {
+		runtime.HandleError(fmt.Errorf("owner reference is not a workspace: %s", owner.Kind))
+		return
 	}
 
 	// queue workspace
-	cluster := logicalcluster.From(u)
-
-	keyWorkspace := getWorkspaceKeyFromCluster(cluster, ownerSchema.Name)
-
-	c.queue.Add(keyWorkspace)
-
-	return false, nil
+	key := kcpcache.ToClusterAwareKey(logicalcluster.From(u).String(), "", owner.Name)
+	c.queue.Add(key)
 }
