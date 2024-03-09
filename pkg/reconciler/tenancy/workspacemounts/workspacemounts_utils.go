@@ -17,7 +17,7 @@ limitations under the License.
 package workspacemounts
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -59,7 +59,7 @@ func getGVKKey(gvr schema.GroupVersionResource, obj interface{}) (string, error)
 
 func parseWorkspaceKey(key string) (logicalcluster.Name, string, error) {
 	if !strings.HasPrefix(key, workspaceKeyPrefix) {
-		return "", "", errors.New("unexpected key format")
+		return "", "", fmt.Errorf("unexpected key format: %s", key)
 	}
 	key = strings.TrimPrefix(key, workspaceKeyPrefix)
 
@@ -72,18 +72,18 @@ func parseWorkspaceKey(key string) (logicalcluster.Name, string, error) {
 
 func parseGVKKey(key string) (schema.GroupVersionResource, string, error) {
 	if !strings.HasPrefix(key, gvrKeyPrefix) {
-		return schema.GroupVersionResource{}, "", errors.New("unexpected key format")
+		return schema.GroupVersionResource{}, "", fmt.Errorf("unexpected key format: %s", key)
 	}
 	key = strings.TrimPrefix(key, gvrKeyPrefix)
 
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
-		return schema.GroupVersionResource{}, "", errors.New("unexpected key format")
+		return schema.GroupVersionResource{}, "", fmt.Errorf("unexpected key format: %s", key)
 	}
 
 	gvr, _ := schema.ParseResourceArg(parts[0])
 	if gvr == nil {
-		return schema.GroupVersionResource{}, "", errors.New("unable to parse gvr string")
+		return schema.GroupVersionResource{}, "", fmt.Errorf("unable to parse gvr string: %s", parts[0])
 	}
 
 	return *gvr, parts[1], nil

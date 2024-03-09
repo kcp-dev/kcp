@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -67,8 +66,6 @@ func NewController(
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
-	logger := logging.WithReconciler(klog.Background(), ControllerName)
-
 	c := &Controller{
 		queue: queue,
 
@@ -87,8 +84,8 @@ func NewController(
 	})
 
 	c.discoveringDynamicSharedInformerFactory.AddEventHandler(informer.GVREventHandlerFuncs{
-		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
-		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
+		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(gvr, obj) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(gvr, obj) },
 		DeleteFunc: nil, // Nothing to do.
 	})
 
@@ -121,22 +118,22 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing Workspace")
+	logger.V(4).Info("queueing Workspace")
 	c.queue.Add(key)
 }
 
 // enqueueForResource adds the resource (gvr + obj) to the queue used for mounts.
-func (c *Controller) enqueueForResource(logger logr.Logger, gvr schema.GroupVersionResource, obj interface{}) {
+func (c *Controller) enqueueForResource(gvr schema.GroupVersionResource, obj interface{}) {
 	// construct key so we could easily resolve it into GVK using schema.ParseResourceArg
 	// and get object from the dynamic shared informer factory
 	key, err := getGVKKey(gvr, obj)
 	if err != nil {
-		logger.Error(err, "unable to get key for GVR resource")
+		runtime.HandleError(err)
 		return
 	}
 
-	key = gvrKeyPrefix + key
-	logging.WithQueueKey(logger, key).V(2).Info("queuing gvr resource")
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger.V(4).Info("queueing GVR resource")
 	c.queue.Add(key)
 }
 
@@ -171,7 +168,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.V(1).Info("processing key")
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -192,10 +189,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	if strings.HasPrefix(key, workspaceKeyPrefix) {
-		return c.processWorkspace(ctx, strings.TrimPrefix(key, workspaceKeyPrefix))
+		return c.processWorkspace(ctx, key)
 	}
 	if strings.HasPrefix(key, gvrKeyPrefix) {
-		return c.processGVKMount(ctx, strings.TrimPrefix(key, gvrKeyPrefix))
+		return c.processGVKMount(ctx, key)
 	}
 	return false, fmt.Errorf("unknown key prefix: %s", key)
 }
