@@ -51,10 +51,6 @@ import (
 const (
 	// ControllerName is the name of this controller.
 	ControllerName = "kcp-workspace-mounts"
-	// workspaceKeyPrefix is the prefix for the workspace keys in the queue.
-	workspaceKeyPrefix = "workspace::"
-	// gvrKeyPrefix is the prefix for the gvr keys in the queue.
-	gvrKeyPrefix = "gvr::"
 )
 
 // NewController creates a new controller for generic mounts.
