@@ -188,6 +188,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
+
 	preparedRootAPIServer := rootAPIServer.GenericAPIServer.PrepareRun()
 
 	// this **must** be done after PrepareRun() as it sets up the openapi endpoints
@@ -199,6 +200,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKubeInformers.Start(ctx.Done())
 	wildcardKcpInformers.Start(ctx.Done())
 	cacheKcpInformers.Start(ctx.Done())
+
 	wildcardKubeInformers.WaitForCacheSync(ctx.Done())
 	wildcardKcpInformers.WaitForCacheSync(ctx.Done())
 	cacheKcpInformers.WaitForCacheSync(ctx.Done())

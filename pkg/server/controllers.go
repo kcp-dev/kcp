@@ -47,6 +47,7 @@ import (
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
@@ -74,6 +75,7 @@ import (
 	tenancyreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrolebinding"
 	tenancyreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicatelogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacemounts"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
@@ -517,6 +519,43 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		Name: universalControllerName,
 		Runner: func(ctx context.Context) {
 			universalController.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *rest.Config) error {
+	// TODO(mjudeikis): Remove this and move to batteries.
+	if !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceMounts) {
+		return nil
+	}
+
+	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
+	workspaceConfig := rest.CopyConfig(config)
+	workspaceConfig = rest.AddUserAgent(workspaceConfig, workspacemounts.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	workspaceMountsController, err := workspacemounts.NewController(
+		kcpClusterClient,
+		dynamicClusterClient,
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.DiscoveringDynamicSharedInformerFactory,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: workspacemounts.ControllerName,
+		Runner: func(ctx context.Context) {
+			workspaceMountsController.Start(ctx, 2)
 		},
 	})
 }
