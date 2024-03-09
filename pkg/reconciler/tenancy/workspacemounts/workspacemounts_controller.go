@@ -215,7 +215,7 @@ func (c *Controller) enqueuePotentiallyMountResource(obj interface{}) {
 		return
 	}
 
-	workspaceOwnerRaw, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
+	workspaceOwnerRaw, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalMountWorkspaceAnnotationKey]
 	if !ok {
 		return
 	}
