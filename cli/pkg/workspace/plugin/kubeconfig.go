@@ -183,7 +183,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 		return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
-	case o.Name == ".." || strings.Contains(o.Name, "../"):
+	case o.Name == ".." || strings.Contains(o.Name, "../") || strings.Contains(o.Name, "..:"):
 		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
