@@ -82,6 +82,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha1.BoundAPIResourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
 		return &apisv1alpha1.BoundAPIResourceSchemaApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CustomResourceConversion"):
+		return &apisv1alpha1.CustomResourceConversionApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ExportBindingReference"):
 		return &apisv1alpha1.ExportBindingReferenceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("GroupResource"):
@@ -96,6 +98,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha1.ResourceSelectorApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &apisv1alpha1.VirtualWorkspaceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WebhookClientConfig"):
+		return &apisv1alpha1.WebhookClientConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WebhookConversion"):
+		return &apisv1alpha1.WebhookConversionApplyConfiguration{}
 
 		// Group=conditions, Version=v1alpha1
 	case conditionsv1alpha1.SchemeGroupVersion.WithKind("Condition"):

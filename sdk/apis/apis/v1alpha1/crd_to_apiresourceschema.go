@@ -52,6 +52,31 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 		},
 	}
 
+	if len(crd.Spec.Versions) > 1 && crd.Spec.Conversion == nil {
+		return nil, fmt.Errorf("multiple versions specified but no conversion strategy")
+	}
+
+	if crd.Spec.Conversion != nil {
+		crConversion := &CustomResourceConversion{
+			Strategy: ConversionStrategyType(crd.Spec.Conversion.Strategy),
+		}
+
+		if crd.Spec.Conversion.Strategy == "Webhook" {
+			crConversion.Webhook = &WebhookConversion{
+				ConversionReviewVersions: crd.Spec.Conversion.Webhook.ConversionReviewVersions,
+			}
+
+			if crd.Spec.Conversion.Webhook.ClientConfig != nil {
+				crConversion.Webhook.ClientConfig = &WebhookClientConfig{
+					URL:      crd.Spec.Conversion.Webhook.ClientConfig.URL,
+					CABundle: crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
+				}
+			}
+		}
+
+		apiResourceSchema.Spec.Conversion = crConversion
+	}
+
 	for i := range crd.Spec.Versions {
 		crdVersion := crd.Spec.Versions[i]
 

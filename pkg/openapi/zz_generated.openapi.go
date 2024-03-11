@@ -57,6 +57,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BindingReference":                            schema_sdk_apis_apis_v1alpha1_BindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.CustomResourceConversion":                    schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.GroupResource":                               schema_sdk_apis_apis_v1alpha1_GroupResource(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.Identity":                                    schema_sdk_apis_apis_v1alpha1_Identity(ref),
@@ -65,6 +66,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.PermissionClaim":                             schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.ResourceSelector":                            schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookClientConfig":                         schema_sdk_apis_apis_v1alpha1_WebhookClientConfig(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookConversion":                           schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalCluster":                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterList":                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterOwner":                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
@@ -1112,12 +1115,18 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"conversion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conversion defines conversion settings for the defined custom resource.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.CustomResourceConversion"),
+						},
+					},
 				},
 				Required: []string{"group", "names", "scope", "versions"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceVersion", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.APIResourceVersion", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.CustomResourceConversion", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
 	}
 }
 
@@ -1454,6 +1463,36 @@ func schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref common.ReferenceCa
 	}
 }
 
+func schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomResourceConversion describes how to convert different versions of a CR.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"strategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "strategy specifies how custom resources are converted between versions. Allowed values are: - `\"None\"`: The converter only change the apiVersion and would not touch any other field in the custom resource. - `\"Webhook\"`: API Server will call to an external webhook to do the conversion. Additional information\n  is needed for this option. This requires spec.preserveUnknownFields to be false, and spec.conversion.webhook to be set.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"webhook": {
+						SchemaProps: spec.SchemaProps{
+							Description: "webhook describes how to call the conversion webhook. Required when `strategy` is set to `\"Webhook\"`.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookConversion"),
+						},
+					},
+				},
+				Required: []string{"strategy"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookConversion"},
+	}
+}
+
 func schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1652,6 +1691,75 @@ func schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback
 				Required: []string{"url"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha1_WebhookClientConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WebhookClientConfig contains the information to make a TLS connection with the webhook.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url gives the location of the webhook, in standard URL form (`scheme://host:port/path`).\n\nPlease note that using `localhost` or `127.0.0.1` as a `host` is risky unless you take great care to run this webhook on all hosts which run an apiserver which might need to make calls to this webhook. Such installs are likely to be non-portable, i.e., not easy to turn up in a new cluster.\n\nThe scheme must be \"https\"; the URL must begin with \"https://\".\n\nA path is optional, and if present may be any string permissible in a URL. You may use the path to pass an arbitrary string to the webhook, for example, a cluster identifier.\n\nAttempting to use a user or basic auth e.g. \"user:password@\" is not allowed. Fragments (\"#...\") and query parameters (\"?...\") are not allowed, either.\n\nNote: kcp does not support provided service names like Kubernetes does.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"caBundle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "caBundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate. If unspecified, system trust roots on the apiserver are used.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WebhookConversion describes how to call a conversion webhook",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"clientConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "clientConfig is the instructions for how to call the webhook if strategy is `Webhook`.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookClientConfig"),
+						},
+					},
+					"conversionReviewVersions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "conversionReviewVersions is an ordered list of preferred `ConversionReview` versions the Webhook expects. The API server will use the first version in the list which it supports. If none of the versions specified in this list are supported by API server, conversion will fail for the custom resource. If a persisted Webhook configuration specifies allowed versions and does not include any versions known to the API Server, calls to the webhook will fail.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"conversionReviewVersions"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookClientConfig"},
 	}
 }
 
