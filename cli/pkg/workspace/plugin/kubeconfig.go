@@ -267,12 +267,29 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 		}
 
-		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.NewPath("system")) {
+		switch {
+		case strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.NewPath("system")):
 			// e.g. system:something
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
-		} else if strings.Contains(o.Name, ":") {
-			// e.g. root:something:something
+
+		case strings.Contains(o.Name, ":"):
+			// e.g. {root,else}:something:something
+
+			if !strings.HasPrefix(o.Name, core.RootCluster.String()) {
+				// User might be at /root or else:else:else, which any of them is either
+				// their root location or just where they are at the moment. So to get get the full
+				// path we need to get the current cluster name and append the request path to it.
+				_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+				if err != nil {
+					return fmt.Errorf("current URL %q does not point to a workspace", config.Host)
+				}
+
+				full := currentClusterName.Join(o.Name)
+				o.Name = full.String()
+				// override cluster with the full path for discovery
+				cluster = full
+			}
 
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 			// not a blocker to enter the workspace. We will do discovery as a final check below
@@ -298,11 +315,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
-		} else if o.Name == core.RootCluster.String() {
+		case o.Name == core.RootCluster.String():
 			// root workspace
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
-		} else {
+		default:
 			// relative logical cluster, get URL from workspace object in current context
 			ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
 			if err != nil {
