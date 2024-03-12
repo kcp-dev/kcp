@@ -43,6 +43,7 @@ func TestLookup(t *testing.T) {
 		expectedShard   string
 		expectedCluster logicalcluster.Name
 		expectFound     bool
+		expectedURL     string
 	}{
 		{
 			name: "an empty indexer is usable",
@@ -55,35 +56,35 @@ func TestLookup(t *testing.T) {
 			name: "a ns must be scheduled to be considered",
 			initialShardsToUpsert: []shardStub{{
 				name: "root",
-				url:  "https://root.io",
+				url:  "https://root.kcp.dev",
 			}},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {func() *tenancyv1alpha1.Workspace {
-					ws := newWorkspace("org", "root", "34")
+					ws := newWorkspace("org", "root", "organization")
 					ws.Status.Phase = corev1alpha1.LogicalClusterPhaseScheduling
 					return ws
 				}()},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root"), newLogicalCluster("34")},
+				"root": {newLogicalCluster("root"), newLogicalCluster("organization")},
 			},
-			targetPath: logicalcluster.NewPath("root:org"),
+			targetPath: logicalcluster.NewPath("root:organization"),
 		},
 		{
-			name: "single shard: a logical cluster for root:org workspace is found",
+			name: "single shard: a logical cluster for root:organization workspace is found",
 			initialShardsToUpsert: []shardStub{{
 				name: "root",
-				url:  "https://root.io",
+				url:  "https://root.kcp.dev",
 			}},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "34"), newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one"), newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root"), newLogicalCluster("34"), newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root"), newLogicalCluster("one"), newLogicalCluster("two")},
 			},
 			targetPath:      logicalcluster.NewPath("root:org"),
 			expectFound:     true,
-			expectedCluster: "34",
+			expectedCluster: "one",
 			expectedShard:   "root",
 		},
 		{
@@ -91,140 +92,173 @@ func TestLookup(t *testing.T) {
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
-					url:  "https://root.io",
+					url:  "https://root.kcp.dev",
 				},
 				{
-					name: "amber",
-					url:  "https://amber.io",
+					name: "beta",
+					url:  "https://beta.kcp.dev",
 				},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "34"), newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one"), newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root":  {newLogicalCluster("root")},
-				"amber": {newLogicalCluster("34"), newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one"), newLogicalCluster("two")},
 			},
 			targetPath:      logicalcluster.NewPath("root:org"),
 			expectFound:     true,
-			expectedCluster: "34",
-			expectedShard:   "amber",
+			expectedCluster: "one",
+			expectedShard:   "beta",
 		},
 		{
 			name: "multiple shards: a logical cluster for root:org:rh workspace is found",
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
-					url:  "https://root.io",
+					url:  "https://root.kcp.dev",
 				},
 				{
-					name: "amber",
-					url:  "https://amber.io",
+					name: "beta",
+					url:  "https://beta.kcp.dev",
 				},
 				{
-					name: "silver",
-					url:  "https://silver.io",
+					name: "gama",
+					url:  "https://gama.kcp.dev",
 				},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root":  {newWorkspace("org", "root", "34")},
-				"amber": {newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root":   {newLogicalCluster("root")},
-				"amber":  {newLogicalCluster("34")},
-				"silver": {newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
 			},
 			targetPath:      logicalcluster.NewPath("root:org:rh"),
 			expectFound:     true,
-			expectedCluster: "2v",
-			expectedShard:   "silver",
+			expectedCluster: "two",
+			expectedShard:   "gama",
 		},
 		{
-			name: "multiple shards: a logical cluster for 34:rh workspace is found",
+			name: "multiple shards: a logical cluster for one:rh workspace is found",
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
-					url:  "https://root.io",
+					url:  "https://root.kcp.dev",
 				},
 				{
-					name: "amber",
-					url:  "https://amber.io",
+					name: "beta",
+					url:  "https://beta.kcp.dev",
 				},
 				{
-					name: "silver",
-					url:  "https://silver.io",
+					name: "gama",
+					url:  "https://gama.kcp.dev",
 				},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root":  {newWorkspace("org", "root", "34")},
-				"amber": {newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root":   {newLogicalCluster("root")},
-				"amber":  {newLogicalCluster("34")},
-				"silver": {newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
 			},
-			targetPath:      logicalcluster.NewPath("34:rh"),
+			targetPath:      logicalcluster.NewPath("one:rh"),
 			expectFound:     true,
-			expectedCluster: "2v",
-			expectedShard:   "silver",
+			expectedCluster: "two",
+			expectedShard:   "gama",
 		},
 		{
-			name: "multiple shards: a logical cluster for 666:rh workspace is NOT found",
+			name: "multiple shards: a logical cluster for does-not-exists:rh workspace is NOT found",
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
-					url:  "https://root.io",
+					url:  "https://root.kcp.dev",
 				},
 				{
-					name: "amber",
-					url:  "https://amber.io",
+					name: "beta",
+					url:  "https://beta.kcp.dev",
 				},
 				{
-					name: "silver",
-					url:  "https://silver.io",
+					name: "gama",
+					url:  "https://gama.kcp.dev",
 				},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root":  {newWorkspace("org", "root", "34")},
-				"amber": {newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root":   {newLogicalCluster("root")},
-				"amber":  {newLogicalCluster("34")},
-				"silver": {newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
 			},
-			targetPath:  logicalcluster.NewPath("666:rh"),
+			targetPath:  logicalcluster.NewPath("does-not-exists:rh"),
 			expectFound: false,
 		},
 		{
-			name: "multiple shards: a logical cluster for root:34:rh workspace is NOT found",
+			name: "multiple shards: a logical cluster for root:one:rh workspace is NOT found",
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
-					url:  "https://root.io",
+					url:  "https://root.kcp.dev",
 				},
 				{
-					name: "amber",
-					url:  "https://amber.io",
+					name: "beta",
+					url:  "https://beta.kcp.dev",
 				},
 				{
-					name: "silver",
-					url:  "https://silver.io",
+					name: "gama",
+					url:  "https://gama.kcp.dev",
 				},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root":  {newWorkspace("org", "root", "34")},
-				"amber": {newWorkspace("rh", "34", "2v")},
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {newWorkspace("rh", "one", "two")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root":   {newLogicalCluster("root")},
-				"amber":  {newLogicalCluster("34")},
-				"silver": {newLogicalCluster("2v")},
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
 			},
-			targetPath:  logicalcluster.NewPath("root:34:rh"),
+			targetPath:  logicalcluster.NewPath("root:one:rh"),
 			expectFound: false,
+		},
+		{
+			name: "multiple shards: a logical cluster for one:rh workspace is found",
+			initialShardsToUpsert: []shardStub{
+				{
+					name: "root",
+					url:  "https://root.kcp.dev",
+				},
+				{
+					name: "beta",
+					url:  "https://beta.kcp.dev",
+				},
+				{
+					name: "gama",
+					url:  "https://gama.kcp.dev",
+				},
+			},
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {newWorkspaceWithAnnotation("rh", "one", "two", map[string]string{
+					"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
+				})},
+			},
+			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
+			},
+			targetPath:      logicalcluster.NewPath("one:rh"),
+			expectFound:     true,
+			expectedCluster: "",
+			expectedShard:   "",
+			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
 		},
 	}
 
@@ -260,6 +294,9 @@ func TestLookup(t *testing.T) {
 			}
 			if r.Cluster != scenario.expectedCluster {
 				t.Errorf("unexpected cluster = %v, for path = %v, expected = %v", r.Cluster, scenario.targetPath, scenario.expectedCluster)
+			}
+			if r.URL != scenario.expectedURL {
+				t.Errorf("unexpected url = %v, for path = %v, expected = %v", r.URL, scenario.targetPath, scenario.expectedURL)
 			}
 		})
 	}
@@ -446,6 +483,14 @@ func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Works
 		Spec:       tenancyv1alpha1.WorkspaceSpec{Cluster: scheduledCluster},
 		Status:     tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 	}
+}
+
+func newWorkspaceWithAnnotation(name, cluster, scheduledCluster string, annotations map[string]string) *tenancyv1alpha1.Workspace {
+	ws := newWorkspace(name, cluster, scheduledCluster)
+	for k, v := range annotations {
+		ws.Annotations[k] = v
+	}
+	return ws
 }
 
 func newLogicalCluster(cluster string) *corev1alpha1.LogicalCluster {
