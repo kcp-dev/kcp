@@ -41,6 +41,11 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
+const (
+	KcpAPIBindingCreationReasonAnnotationKey      = "internal.kcp.io/creation-reason"
+	KcpAPIBindingCreationReasonDefaultAPIBindings = "default-api-bindings"
+)
+
 func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
 	annotationValue, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 	if !found {
@@ -152,6 +157,9 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			apiBinding := &apisv1alpha1.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: apiBindingName,
+					Annotations: map[string]string{
+						KcpAPIBindingCreationReasonAnnotationKey: KcpAPIBindingCreationReasonDefaultAPIBindings,
+					},
 				},
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
