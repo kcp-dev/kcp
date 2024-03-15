@@ -1,3 +1,4 @@
+
 builds:
 - id: "kcp"
   main: ./cmd/kcp
@@ -78,3 +79,17 @@ release:
   draft: true
   prerelease: auto
   mode: keep-existing
+
+krews:
+- name: ws
+  ids:
+  - kubectl-workspace
+  repository:
+    owner: kcp-dev
+    name: krew-index
+    token: "{{ .Env.KREW_GITHUB_TOKEN }}"
+  homepage: "https://kcp.io/"
+  description: |
+    KCP workspace cli plugin for kubectl. Enables you to manage your kcp workspaces.
+  short_description: "KCP workspace cli plugin for kubectl."
+  skip_upload: auto
