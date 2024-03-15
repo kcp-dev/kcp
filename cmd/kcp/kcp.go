@@ -68,6 +68,7 @@ func main() {
 
 	// manually extract root directory from flags first as it influence all other flags
 	rootDir := ".kcp"
+	controllerThreadsStr := ""
 	for i, f := range os.Args {
 		if f == "--root-directory" {
 			if i < len(os.Args)-1 {
@@ -75,6 +76,10 @@ func main() {
 			} // else let normal flag processing fail
 		} else if strings.HasPrefix(f, "--root-directory=") {
 			rootDir = strings.TrimPrefix(f, "--root-directory=")
+		}
+
+		if strings.HasPrefix(f, "--controller-threads=") {
+			controllerThreadsStr = strings.TrimPrefix(f, "--controller-threads=")
 		}
 	}
 
@@ -136,7 +141,8 @@ func main() {
 				}
 			}
 
-			s, err := server.NewServer(completedConfig)
+			controllerThreads := parseControllerSettings(controllerThreadsStr)
+			s, err := server.NewServer(completedConfig, server.WithControllerThreads(controllerThreads))
 			if err != nil {
 				return err
 			}

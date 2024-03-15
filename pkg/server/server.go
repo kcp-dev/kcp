@@ -61,6 +61,9 @@ import (
 
 const resyncPeriod = 10 * time.Hour
 
+// Option configures optional parameters for the controller.
+type Option func(s *Server)
+
 type Server struct {
 	CompletedConfig
 
@@ -72,7 +75,20 @@ type Server struct {
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
 
-	controllers map[string]*controllerWrapper
+	controllers       map[string]*controllerWrapper
+	controllerThreads map[string]int // controller to num of worker threads map.
+}
+
+// WithControllerThreads configures num of worker threads per controller.
+/*
+Example:
+ --controller-settings=WorkspaceControllerThreads=2,SecretControllerThreads=3,AnotherSetting=10"
+ the controller names are matched with the names during registring a controller.
+*/
+func WithControllerThreads(csMap map[string]int) Option {
+	return func(c *Server) {
+		c.controllerThreads = csMap
+	}
 }
 
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {
@@ -83,12 +99,17 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 	return s.MiniAggregator.GenericAPIServer.AddPreShutdownHook(name, hook)
 }
 
-func NewServer(c CompletedConfig) (*Server, error) {
+func NewServer(c CompletedConfig, opts ...Option) (*Server, error) {
 	s := &Server{
 		CompletedConfig:      c,
 		syncedCh:             make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
 		controllers:          make(map[string]*controllerWrapper),
+	}
+
+	// apply options
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)

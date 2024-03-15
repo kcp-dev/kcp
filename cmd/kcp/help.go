@@ -19,6 +19,8 @@ package main
 import (
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -66,4 +68,32 @@ func printMostImportantFlags(w io.Writer, fss cliflag.NamedFlagSets, cols int, v
 	}
 
 	cliflag.PrintSections(w, filteredFFS, cols)
+}
+
+func parseControllerSettings(flagString string) map[string]int {
+	settingsMap := make(map[string]int)
+
+	// Split the flag string based on commas
+	settings := strings.Split(flagString, ",")
+
+	// Iterate over each setting
+	for _, setting := range settings {
+		// Split the setting into key and value based on '='
+		parts := strings.Split(setting, "=")
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			num, err := strconv.Atoi(value)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			settingsMap[key] = num
+		} else {
+			// Handle invalid format
+			fmt.Printf("Invalid format for setting: %s\n", setting)
+		}
+	}
+
+	return settingsMap
 }

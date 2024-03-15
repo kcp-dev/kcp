@@ -197,6 +197,11 @@ Prefixing with - or + means to remove from the default set or add to the default
 	fs.Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
+
+	// add flags that are filtered out from upstream, but overridden here with our own version
+	fs.Var(kcpfeatures.NewFlagValue(), "controller-settings", ""+
+		"A set of key=value pairs that manage controller settings for alpha/experimental features. "+
+		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 }
 
 func (o *CompletedOptions) Validate() []error {
