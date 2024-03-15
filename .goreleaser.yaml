@@ -79,7 +79,7 @@ archives:
 - id: kubectl-kcp-plugin-krew
   builds:
   - kubectl-workspace
-  name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  name_template: "kubectl-kcp-ws-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
   files:
     - bin/kubectl-ws
 release:
