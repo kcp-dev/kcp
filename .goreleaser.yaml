@@ -75,6 +75,13 @@ archives:
   files:
     - bin/kubectl-workspaces
     - bin/kubectl-ws
+# krew has separate archive as it supports only one binary per plugin
+- id: kubectl-kcp-plugin-krew
+  builds:
+  - kubectl-workspace
+  name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  files:
+    - bin/kubectl-ws
 release:
   draft: true
   prerelease: auto
@@ -83,7 +90,7 @@ release:
 krews:
 - name: ws
   ids:
-  - kubectl-kcp-plugin
+  - kubectl-kcp-plugin-krew
   repository:
     owner: kcp-dev
     name: krew-index
