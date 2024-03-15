@@ -83,7 +83,7 @@ release:
 krews:
 - name: ws
   ids:
-  - kubectl-workspace
+  - kubectl-kcp-plugin
   repository:
     owner: kcp-dev
     name: krew-index
