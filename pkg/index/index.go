@@ -88,7 +88,11 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] // experimental feature
 	c.lock.RUnlock()
 
-	if (cluster.String() == ws.Spec.Cluster) || (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
+	// TODO(mjudeikis): we are allowing upsert in 2 cases:
+	// 1. cluster name is different
+	// 2. mount object string is different (updated, added, or removed)
+	// When we promote this to workspace structure, we should make this check smarter and better tested.
+	if (cluster.String() == ws.Spec.Cluster) && (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
 		return
 	}
 
