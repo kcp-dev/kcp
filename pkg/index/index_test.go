@@ -317,15 +317,15 @@ func TestDeleteShard(t *testing.T) {
 	target.UpsertLogicalCluster("amber", newLogicalCluster("43"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org1"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "amber", "43", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "43", "", true)
 
 	// delete the shard and ensure we cannot look up a path on it
 	target.DeleteShard("amber")
 	r, found = target.Lookup(logicalcluster.NewPath("root:org1"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "", "", false)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
 }
 
 func TestDeleteLogicalCluster(t *testing.T) {
@@ -340,16 +340,16 @@ func TestDeleteLogicalCluster(t *testing.T) {
 	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
 
 	// ensure that after deleting the logical cluster it cannot be looked up
 	target.DeleteLogicalCluster("root", newLogicalCluster("34"))
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "", "", false)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 
 	r, found = target.Lookup(logicalcluster.NewPath("root"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "root", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "root", "", true)
 }
 
 func TestDeleteWorkspace(t *testing.T) {
@@ -366,15 +366,15 @@ func TestDeleteWorkspace(t *testing.T) {
 	target.UpsertLogicalCluster("root", newLogicalCluster("43"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
 
 	target.DeleteWorkspace("root", newWorkspace("org", "root", "34"))
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "", "", false)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org1"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "43", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "43", "", true)
 }
 
 func TestUpsertLogicalCluster(t *testing.T) {
@@ -387,11 +387,11 @@ func TestUpsertLogicalCluster(t *testing.T) {
 	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
 
 	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "amber", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
 }
 
 // Since LookupURL uses Lookup method the following test is just a smoke tests.
@@ -456,14 +456,21 @@ func TestUpsertWorkspace(t *testing.T) {
 	target.UpsertLogicalCluster("root", newLogicalCluster("44"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "34", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
 
 	target.UpsertWorkspace("root", newWorkspace("org", "root", "44"))
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, found, "root", "44", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "44", "", true)
+
+	// Upsert workspace with changed mount annotation
+	target.UpsertWorkspace("root", newWorkspaceWithAnnotation("org", "root", "44", map[string]string{
+		"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
+	}))
+	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "https://kcp.dev.local/services/custom-url/proxy", true)
 }
 
-func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, cluster logicalcluster.Name, found bool, expectedShard string, expectedCluster logicalcluster.Name, expectToFind bool) {
+func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, cluster logicalcluster.Name, url string, found bool, expectedShard string, expectedCluster logicalcluster.Name, expectedURL string, expectToFind bool) {
 	t.Helper()
 
 	if found != expectToFind {
@@ -474,6 +481,9 @@ func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, 
 	}
 	if shard != expectedShard {
 		t.Fatalf("unexpected shard = %v, expected = %v, for %q path", shard, expectedShard, path)
+	}
+	if url != expectedURL {
+		t.Fatalf("unexpected url = %v, expected = %v, for %q path", url, expectedURL, path)
 	}
 }
 
