@@ -305,7 +305,7 @@ func TestUse(t *testing.T) {
 			},
 			param:       ".",
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "current, no cluster URL",
@@ -340,7 +340,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, short output",
@@ -407,7 +407,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "absolute name without access to parent",
@@ -436,7 +436,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "absolute workspace doesn't exist error",
@@ -512,7 +512,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "system:admin",
-			wantStdout:  []string{"Current workspace is \"system:admin\""},
+			wantStdout:  []string{"Current workspace is ':system:admin'"},
 		},
 		{
 			name: "root",
@@ -534,7 +534,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root\""},
+			wantStdout:  []string{"Current workspace is ':root'"},
 		},
 		//{
 		//	name: "root, no cluster URL",
@@ -573,7 +573,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo",
-			wantStdout:  []string{"Current workspace is \"root:foo\""},
+			wantStdout:  []string{"Current workspace is ':root:foo'"},
 		},
 		{
 			name: ".., no cluster URL",
@@ -605,7 +605,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root\""},
+			wantStdout:  []string{"Current workspace is ':root'"},
 		},
 		{
 			name: "../.. to child of root",
@@ -627,7 +627,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root:foo\""},
+			wantStdout:  []string{"Current workspace is ':root:foo'"},
 		},
 		{
 			name: "..:.. to child of root",
@@ -649,7 +649,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root:foo\""},
+			wantStdout:  []string{"Current workspace is ':root:foo'"},
 		},
 		{
 			name: ".. in root",
@@ -697,7 +697,7 @@ func TestUse(t *testing.T) {
 				},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "- without existing previous context",
@@ -819,7 +819,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is ':%s'", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "no arg",
@@ -844,7 +844,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is %q.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is ':%s'.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "workspace name, apibindings have matching permission and export claims",
@@ -875,7 +875,7 @@ func TestUse(t *testing.T) {
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout: []string{"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings don't have matching permission or export claims",
@@ -909,7 +909,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "~, apibinding claims/exports don't match",
@@ -943,7 +943,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
+				fmt.Sprintf("Current workspace is ':%s'", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "- with existing previous context, apibinding claims/exports don't match ",
@@ -989,7 +989,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings rejected",
@@ -1021,7 +1021,7 @@ func TestUse(t *testing.T) {
 					Build(),
 			},
 			wantStdout: []string{
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 			noWarn: true,
 		},
 		{
@@ -1054,7 +1054,7 @@ func TestUse(t *testing.T) {
 					Build(),
 			},
 			wantStdout: []string{
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 			noWarn: true,
 		},
 		{
@@ -1089,7 +1089,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings not acknowledged",
@@ -1122,7 +1122,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, APIBindings unacknowledged and unspecified",
@@ -1157,7 +1157,7 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, multiple APIBindings unacknowledged",
@@ -1193,7 +1193,7 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
 				"Warning: claim for test2.test2.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "workspace name, multiple APIBindings unspecified",
@@ -1227,7 +1227,7 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Warning: claim for test.test.kcp.io:abcdef exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is ':root:foo:bar'"},
 		},
 		{
 			name: "relative change multiple jumps from non root",
@@ -1272,7 +1272,7 @@ func TestUse(t *testing.T) {
 			},
 			destination: "root:foo:bar:baz",
 			wantStdout: []string{
-				"Current workspace is \"root:foo:bar:baz\""},
+				"Current workspace is ':root:foo:bar:baz'"},
 		},
 	}
 	for _, tt := range tests {

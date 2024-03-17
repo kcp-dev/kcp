@@ -619,7 +619,7 @@ func printCurrentWorkspace(out io.Writer, host string, shortWorkspaceOutput shor
 		return err
 	}
 
-	message := fmt.Sprintf("Current workspace is %q", clusterName)
+	message := fmt.Sprintf("Current workspace is ':%s'", clusterName.String())
 	if workspaceType != nil {
 		message += fmt.Sprintf(" (type %s)", logicalcluster.NewPath(workspaceType.Path).Join(string(workspaceType.Name)).String())
 	}
