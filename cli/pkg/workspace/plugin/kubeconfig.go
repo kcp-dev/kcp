@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
@@ -227,7 +226,6 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			}
 			return o.commitConfig(ctx, currentContext, newServerHost, nil)
 		default:
-			spew.Dump("absolute")
 			newServerHost, err := o.moveAbsoluteUp(ctx)
 			if err != nil {
 				return err
@@ -441,7 +439,6 @@ func (o *UseWorkspaceOptions) moveHome(ctx context.Context, home string) (string
 	// absolute path when home workspace is resolved.
 	homeWorkspaceChild := strings.TrimPrefix(o.Name, home)
 	homeWorkspaceChild = strings.TrimPrefix(homeWorkspaceChild, "~:")
-	spew.Dump(homeWorkspaceChild)
 	if len(homeWorkspaceChild) > 1 {
 		cluster := logicalcluster.NewPath(homeWorkspaceChild)
 		if !cluster.IsValid() {
@@ -452,7 +449,6 @@ func (o *UseWorkspaceOptions) moveHome(ctx context.Context, home string) (string
 
 		// before we allow jump into this we need to check if it exists
 		parentClusterName, workspaceName := full.Split()
-		spew.Dump(full, parentClusterName, workspaceName)
 		if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 			return "", fmt.Errorf("workspace %q not found", o.Name)
 		}
