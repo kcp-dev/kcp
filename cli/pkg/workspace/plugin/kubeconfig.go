@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
@@ -157,8 +158,8 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}()
 		fallthrough
 
-	case o.Name == "~" || o.Name == home:
-		newServerHost, err := o.moveHome(ctx)
+	case o.Name == "~" || o.Name == home || strings.HasPrefix(o.Name, "~:") || strings.HasPrefix(o.Name, home):
+		newServerHost, err := o.moveHome(ctx, home)
 		if err != nil {
 			return err
 		}
@@ -201,7 +202,10 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		return o.commitConfig(ctx, currentContext, newServerHost, nil)
 
-	case strings.HasPrefix(o.Name, "system") || strings.HasPrefix(o.Name, ":system"):
+		// system is bit different. Usually when moving to system workspaces you
+		// need to have special access and "if workspace exists" checks fails.
+		// If merged to "absolute path check" code gets convoluted :/
+	case strings.HasPrefix(o.Name, ":system"):
 		newServerHost, err := o.moveAbsoluteSystem(ctx)
 		if err != nil {
 			return err
@@ -223,6 +227,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			}
 			return o.commitConfig(ctx, currentContext, newServerHost, nil)
 		default:
+			spew.Dump("absolute")
 			newServerHost, err := o.moveAbsoluteUp(ctx)
 			if err != nil {
 				return err
@@ -253,7 +258,11 @@ func (o *UseWorkspaceOptions) validate(_ context.Context) error {
 
 	switch {
 	case strings.Contains(name, ".."):
+		return nil
 	case strings.HasPrefix(name, "Users:"):
+		return nil
+	case strings.HasPrefix(name, "~:"):
+		return nil
 	default:
 		cluster := logicalcluster.NewPath(name)
 		if !cluster.IsValid() {
@@ -261,6 +270,22 @@ func (o *UseWorkspaceOptions) validate(_ context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (o *UseWorkspaceOptions) moveAbsoluteSystem(ctx context.Context) (string, error) {
+	o.Name = strings.TrimPrefix(o.Name, ":")
+	cluster := logicalcluster.NewPath(o.Name)
+	if !cluster.IsValid() {
+		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
+	}
+
+	u, _, err := o.parseCurrentLogicalCluster(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	u.Path = path.Join(u.Path, cluster.RequestPath())
+	return u.String(), nil
 }
 
 // movePrevious moves to previous context from the config.
@@ -390,7 +415,7 @@ func (o *UseWorkspaceOptions) moveBackwards(_ context.Context) (string, error) {
 	return u.String(), nil
 }
 
-func (o *UseWorkspaceOptions) moveHome(ctx context.Context) (string, error) {
+func (o *UseWorkspaceOptions) moveHome(ctx context.Context, home string) (string, error) {
 	homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -403,14 +428,39 @@ func (o *UseWorkspaceOptions) moveHome(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 	}
+
 	uh, err := url.Parse(homeWorkspace.Spec.URL)
 	if err != nil {
 		return "", fmt.Errorf("invalid home workspace URL %q: %w", homeWorkspace.Spec.URL, err)
 	}
 
+	full := logicalcluster.NewPath(strings.TrimPrefix(uh.Path, "/clusters/"))
+
+	// if homeWorkspaceChild is not empty, we need to move relative to our home up
+	// HACK(mjudeikis): this is bit hack. We should investigate how to merge this with
+	// absolute path when home workspace is resolved.
+	homeWorkspaceChild := strings.TrimPrefix(o.Name, home)
+	homeWorkspaceChild = strings.TrimPrefix(homeWorkspaceChild, "~:")
+	spew.Dump(homeWorkspaceChild)
+	if len(homeWorkspaceChild) > 1 {
+		cluster := logicalcluster.NewPath(homeWorkspaceChild)
+		if !cluster.IsValid() {
+			return "", fmt.Errorf("invalid home workspace name format: %s", homeWorkspaceChild)
+		}
+		homeCluster := logicalcluster.NewPath(homeWorkspace.Spec.Cluster)
+		full = homeCluster.Join(homeWorkspaceChild)
+
+		// before we allow jump into this we need to check if it exists
+		parentClusterName, workspaceName := full.Split()
+		spew.Dump(full, parentClusterName, workspaceName)
+		if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("workspace %q not found", o.Name)
+		}
+	}
+
 	// We keep the old host, and append homeworkspace url. This allows users to have front-proxy
 	// host to be different from the workspace host.
-	return u.Scheme + "://" + path.Join(u.Host, uh.Path), nil
+	return u.Scheme + "://" + path.Join(u.Host, full.RequestPath()), nil
 }
 
 func (o *UseWorkspaceOptions) moveRootLegacy(ctx context.Context) (string, error) {
@@ -447,21 +497,6 @@ func (o *UseWorkspaceOptions) moveCurrentRoot(ctx context.Context) (string, erro
 
 	// root workspace
 	u.Path = path.Join(u.Path, current.RequestPath())
-	return u.String(), nil
-}
-
-func (o *UseWorkspaceOptions) moveAbsoluteSystem(ctx context.Context) (string, error) {
-	cluster := logicalcluster.NewPath(o.Name)
-	if !cluster.IsValid() {
-		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
-	}
-
-	u, _, err := o.parseCurrentLogicalCluster(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	u.Path = path.Join(u.Path, cluster.RequestPath())
 	return u.String(), nil
 }
 
@@ -647,7 +682,7 @@ func printCurrentWorkspace(out io.Writer, host string, shortWorkspaceOutput shor
 		return err
 	}
 
-	message := fmt.Sprintf("Current workspace is ':%s'", clusterName.String())
+	message := fmt.Sprintf("Current workspace is '%s'", clusterName.String())
 	if workspaceType != nil {
 		message += fmt.Sprintf(" (type %s)", logicalcluster.NewPath(workspaceType.Path).Join(string(workspaceType.Name)).String())
 	}
