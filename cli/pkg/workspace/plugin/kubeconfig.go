@@ -118,6 +118,127 @@ func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 }
 
+// Run executes the "use workspace" logic based on the supplied options.
+func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
+	home, _ := os.UserHomeDir()
+	home = strings.ReplaceAll(home, "/", ":") // we default to : as / is just an alias
+	o.Name = strings.ReplaceAll(o.Name, "/", ":")
+	rawConfig, err := o.ClientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
+	// Store the currentContext content for later to set as previous context
+	currentContext, found := o.startingConfig.Contexts[rawConfig.CurrentContext]
+	if !found {
+		return fmt.Errorf("current %q context not found", rawConfig.CurrentContext)
+	}
+
+	// LEGACY(mjudeikis): Remove once everybody gets used to this
+	if strings.HasPrefix(o.Name, "root") {
+		o.Name = ":" + o.Name
+		fmt.Fprintf(o.Out, "Note: Using 'root:' to define an absolute path is no longer supported. Instead, use ':root' to specify an absolute path.\n")
+	}
+
+	// validate early for valid name
+	err = o.validate(ctx)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	// o.Name empty and home workspace should be always one after another for fallthrough to
+	// print error and default to home.
+	case o.Name == "":
+		defer func() {
+			if err == nil {
+				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
+			}
+		}()
+		fallthrough
+
+	case o.Name == "~" || o.Name == home:
+		newServerHost, err := o.moveHome(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+		// move to 'my' root
+	case o.Name == ":":
+		newServerHost, err := o.moveCurrentRoot(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+	case o.Name == ".":
+		cfg, err := o.ClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+		return printCurrentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
+
+	case o.Name == "-":
+		newServerHost, err := o.movePrevious(ctx, currentContext)
+		if err != nil {
+			return err
+		}
+		return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
+
+	case strings.Contains(o.Name, ".."):
+		newServerHost, err := o.moveBackwards(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+		// root legacy move
+	case o.Name == core.RootCluster.String():
+		newServerHost, err := o.moveRootLegacy(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+	case strings.HasPrefix(o.Name, "system") || strings.HasPrefix(o.Name, ":system"):
+		newServerHost, err := o.moveAbsoluteSystem(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+		// handle absolute path. has 3 modes:
+		// 1. system
+		// 2. whatever user requested
+	case strings.HasPrefix(o.Name, ":"):
+		o.Name = strings.TrimPrefix(o.Name, ":")
+		switch {
+		// if we have separator present, means we have multi workspace move
+		// up for absolute path
+		case strings.Contains(o.Name, ":"):
+			newServerHost, err := o.moveMultipleAbsoluteUp(ctx)
+			if err != nil {
+				return err
+			}
+			return o.commitConfig(ctx, currentContext, newServerHost, nil)
+		default:
+			newServerHost, err := o.moveAbsoluteUp(ctx)
+			if err != nil {
+				return err
+			}
+			return o.commitConfig(ctx, currentContext, newServerHost, nil)
+		}
+		// relative moves
+	default:
+		newServerHost, err := o.moveRelativeUp(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+	}
+}
+
 // validate validates input early
 func (o *UseWorkspaceOptions) validate(_ context.Context) error {
 	name := o.Name
@@ -420,7 +541,6 @@ func (o *UseWorkspaceOptions) moveRelativeUp(ctx context.Context) (string, error
 	//			    We might want to add permanent redirections to the front-proxy if the external
 	//              URL does not match the workspace's shard, and then add redirect support here to
 	//              use the right front-proxy URL in the kubeconfig.
-
 	u.Path = path.Join(u.Path, cluster.RequestPath())
 	return u.String(), nil
 }
@@ -435,133 +555,6 @@ func (o *UseWorkspaceOptions) parseCurrentLogicalCluster(ctx context.Context) (*
 		return nil, nil, fmt.Errorf("current URL %q does not point to a workspace", config.Host)
 	}
 	return u, &currentClusterName, nil
-}
-
-// Run executes the "use workspace" logic based on the supplied options.
-func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
-	home, _ := os.UserHomeDir()
-	home = strings.ReplaceAll(home, "/", ":") // we default to : as / is just an alias
-	o.Name = strings.ReplaceAll(o.Name, "/", ":")
-	rawConfig, err := o.ClientConfig.RawConfig()
-	if err != nil {
-		return err
-	}
-
-	// Store the currentContext content for later to set as previous context
-	currentContext, found := o.startingConfig.Contexts[rawConfig.CurrentContext]
-	if !found {
-		return fmt.Errorf("current %q context not found", rawConfig.CurrentContext)
-	}
-
-	// LEGACY(mjudeikis): Remove once everybody gets used to this
-	if strings.HasPrefix(o.Name, "root") {
-		o.Name = ":" + o.Name
-		fmt.Fprintf(o.Out, "Note: 'root:' for absolute path is not supported anymore. Use ':root' to define absolute path.\n")
-	}
-
-	// validate early for valid name
-	err = o.validate(ctx)
-	if err != nil {
-		return err
-	}
-
-	switch {
-	// o.Name empty and home workspace should be always one after another for fallthrough to
-	// print error and default to home.
-	case o.Name == "":
-		defer func() {
-			if err == nil {
-				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
-			}
-		}()
-		fallthrough
-
-	case o.Name == "~" || o.Name == home:
-		newServerHost, err := o.moveHome(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// move to 'my' root
-	case o.Name == ":":
-		newServerHost, err := o.moveCurrentRoot(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-	case o.Name == ".":
-		cfg, err := o.ClientConfig.ClientConfig()
-		if err != nil {
-			return err
-		}
-		return printCurrentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
-
-	case o.Name == "-":
-		newServerHost, err := o.movePrevious(ctx, currentContext)
-		if err != nil {
-			return err
-		}
-		return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
-
-	case strings.Contains(o.Name, ".."):
-		newServerHost, err := o.moveBackwards(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// root legacy move
-	case o.Name == core.RootCluster.String():
-		newServerHost, err := o.moveRootLegacy(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-	case strings.HasPrefix(o.Name, "system") || strings.HasPrefix(o.Name, ":system"):
-		newServerHost, err := o.moveAbsoluteSystem(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// handle absolute path. has 3 modes:
-		// 1. system
-		// 2. whatever user requested
-	case strings.HasPrefix(o.Name, ":"):
-		o.Name = strings.TrimPrefix(o.Name, ":")
-		switch {
-		//case strings.HasPrefix(o.Name, "system"):
-		//	newServerHost, err := o.moveAbsoluteSystem(ctx)
-		//	if err != nil {
-		//		return err
-		//	}
-		//	return o.commitConfig(ctx, currentContext, newServerHost, nil)
-		// if we have separator present, means we have multi workspace move
-		// up for absolute path
-		case strings.Contains(o.Name, ":"):
-			newServerHost, err := o.moveMultipleAbsoluteUp(ctx)
-			if err != nil {
-				return err
-			}
-			return o.commitConfig(ctx, currentContext, newServerHost, nil)
-		default:
-			newServerHost, err := o.moveAbsoluteUp(ctx)
-			if err != nil {
-				return err
-			}
-			return o.commitConfig(ctx, currentContext, newServerHost, nil)
-		}
-		// relative moves
-	default:
-		newServerHost, err := o.moveRelativeUp(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-	}
 }
 
 // getAPIBindings retrieves APIBindings within the workspace.
