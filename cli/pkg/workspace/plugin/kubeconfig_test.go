@@ -1274,13 +1274,59 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Current workspace is ':root:foo:bar:baz'"},
 		},
+		{
+			name: ": real root",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.Name("root:foo"): {"bar"},
+			},
+			param: ":",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is ':root'"},
+		},
+		{
+			name: ": custom 'my-root'",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/my-root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.Name("root:foo"): {"bar"},
+			},
+			param: ":",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/my-root"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/my-root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "my-root",
+			wantStdout:  []string{"Current workspace is ':my-root'"},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
-
-		//if !strings.HasPrefix(tt.name, "R") {
-		//	continue
-		//}
 
 		t.Run(tt.name, func(t *testing.T) {
 			var got *clientcmdapi.Config

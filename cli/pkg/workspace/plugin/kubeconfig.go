@@ -121,15 +121,18 @@ func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 // validate validates input early
 func (o *UseWorkspaceOptions) validate(_ context.Context) error {
 	name := o.Name
-	name = strings.TrimPrefix(name, ":")
+	if len(o.Name) > 2 {
+		name = strings.TrimPrefix(name, ":")
+	}
 
 	switch name {
-	case ".", "~", "-", "":
+	case ".", "~", "-", "", ":":
 		return nil
 	}
 
 	switch {
 	case strings.Contains(name, ".."):
+	case strings.HasPrefix(name, "Users:"):
 	default:
 		cluster := logicalcluster.NewPath(name)
 		if !cluster.IsValid() {
@@ -304,6 +307,28 @@ func (o *UseWorkspaceOptions) moveRootLegacy(ctx context.Context) (string, error
 	return u.String(), nil
 }
 
+func (o *UseWorkspaceOptions) moveCurrentRoot(ctx context.Context) (string, error) {
+	u, currentClusterName, err := o.parseCurrentLogicalCluster(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	hasParent := true
+	var root, current logicalcluster.Path
+	root = *currentClusterName
+	for {
+		current = root
+		root, hasParent = root.Parent()
+		if !hasParent {
+			break
+		}
+	}
+
+	// root workspace
+	u.Path = path.Join(u.Path, current.RequestPath())
+	return u.String(), nil
+}
+
 func (o *UseWorkspaceOptions) moveAbsoluteSystem(ctx context.Context) (string, error) {
 	cluster := logicalcluster.NewPath(o.Name)
 	if !cluster.IsValid() {
@@ -415,7 +440,8 @@ func (o *UseWorkspaceOptions) parseCurrentLogicalCluster(ctx context.Context) (*
 // Run executes the "use workspace" logic based on the supplied options.
 func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	home, _ := os.UserHomeDir()
-	o.Name = strings.ReplaceAll(o.Name, "/", ":") // we default to : as / is just an alias
+	home = strings.ReplaceAll(home, "/", ":") // we default to : as / is just an alias
+	o.Name = strings.ReplaceAll(o.Name, "/", ":")
 	rawConfig, err := o.ClientConfig.RawConfig()
 	if err != nil {
 		return err
@@ -438,6 +464,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	switch {
 	// o.Name empty and home workspace should be always one after another for fallthrough to
 	// print error and default to home.
@@ -451,6 +478,14 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 	case o.Name == "~" || o.Name == home:
 		newServerHost, err := o.moveHome(ctx)
+		if err != nil {
+			return err
+		}
+		return o.commitConfig(ctx, currentContext, newServerHost, nil)
+
+		// move to 'my' root
+	case o.Name == ":":
+		newServerHost, err := o.moveCurrentRoot(ctx)
 		if err != nil {
 			return err
 		}
