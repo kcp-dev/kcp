@@ -536,20 +536,20 @@ func TestUse(t *testing.T) {
 			destination: "root",
 			wantStdout:  []string{"Current workspace is ':root'"},
 		},
-		//{
-		//	name: "root, no cluster URL",
-		//	config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-		//		Contexts: map[string]*clientcmdapi.Context{
-		//			"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-		//		},
-		//		Clusters: map[string]*clientcmdapi.Cluster{
-		//			"workspace.kcp.io/current": {Server: "https://test/clusters/"},
-		//		},
-		//		AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-		//	},
-		//	param:   "root",
-		//	wantErr: true,
-		//},
+		{
+			name: "root, no cluster URL",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current": {Server: "https://test/clusters/"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param:   "root",
+			wantErr: true,
+		},
 		{
 			name: "..",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
