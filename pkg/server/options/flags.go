@@ -57,25 +57,28 @@ var (
 		"audit-webhook-version",                 // API group and version used for serializing audit events written to webhook.
 
 		// authentication flags
-		"anonymous-auth",                     // Enables anonymous requests to the secure port of the API server. Requests that are not rejected by another authentication method are treated as anonymous requests. Anonymous requests have a username of system:anonymous, and a group name of system:unauthenticated.
-		"api-audiences",                      // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences. If the --service-account-issuer flag is configured and this flag is not, this field defaults to a single element list containing the issuer URL.
-		"client-ca-file",                     // If set, any request presenting a client certificate signed by one of the authorities in the client-ca-file is authenticated with an identity corresponding to the CommonName of the client certificate.
-		"enable-bootstrap-token-auth",        // Enable to allow secrets of type 'bootstrap.kubernetes.io/token' in the 'kube-system' namespace to be used for TLS bootstrapping authentication.
-		"oidc-ca-file",                       // If set, the OpenID server's certificate will be verified by one of the authorities in the oidc-ca-file, otherwise the host's root CA set will be used.
-		"oidc-client-id",                     // The client ID for the OpenID Connect client, must be set if oidc-issuer-url is set.
-		"oidc-groups-claim",                  // If provided, the name of a custom OpenID Connect claim for specifying user groups. The claim value is expected to be a string or array of strings. This flag is experimental, please see the authentication documentation for further details.
-		"oidc-groups-prefix",                 // If provided, all groups will be prefixed with this value to prevent conflicts with other authentication strategies.
-		"oidc-issuer-url",                    // The URL of the OpenID issuer, only HTTPS scheme will be accepted. If set, it will be used to verify the OIDC JSON Web Token (JWT).
-		"oidc-required-claim",                // A key=value pair that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value. Repeat this flag to specify multiple claims.
-		"oidc-signing-algs",                  // Comma-separated list of allowed JOSE asymmetric signing algorithms. JWTs with a 'alg' header value not in this list will be rejected. Values are defined by RFC 7518 https://tools.ietf.org/html/rfc7518#section-3.1.
-		"oidc-username-claim",                // The OpenID claim to use as the user name. Note that claims other than the default ('sub') is not guaranteed to be unique and immutable. This flag is experimental, please see the authentication documentation for further details.
-		"oidc-username-prefix",               // If provided, all usernames will be prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-'.
-		"requestheader-allowed-names",        // List of client certificate common names to allow to provide usernames in headers specified by --requestheader-username-headers. If empty, any client certificate validated by the authorities in --requestheader-client-ca-file is allowed.
-		"requestheader-client-ca-file",       // Root certificate bundle to use to verify client certificates on incoming requests before trusting usernames in headers specified by --requestheader-username-headers. WARNING: generally do not depend on authorization being already done for incoming requests.
-		"requestheader-extra-headers-prefix", // List of request header prefixes to inspect. X-Remote-Extra- is suggested.
-		"requestheader-group-headers",        // List of request headers to inspect for groups. X-Remote-Group is suggested.
-		"requestheader-username-headers",     // List of request headers to inspect for usernames. X-Remote-User is common.
-		"token-auth-file",                    // If set, the file that will be used to secure the secure port of the API server via token authentication.
+		"anonymous-auth",                           // Enables anonymous requests to the secure port of the API server. Requests that are not rejected by another authentication method are treated as anonymous requests. Anonymous requests have a username of system:anonymous, and a group name of system:unauthenticated.
+		"api-audiences",                            // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences. If the --service-account-issuer flag is configured and this flag is not, this field defaults to a single element list containing the issuer URL.
+		"authentication-token-webhook-cache-ttl",   // The duration to cache responses from the webhook token authenticator.
+		"authentication-token-webhook-config-file", // File with webhook configuration for token authentication in kubeconfig format. The API server will query the remote service to determine authentication for bearer tokens.
+		"authentication-token-webhook-version",     // The API version of the authentication.k8s.io TokenReview to send to and expect from the webhook
+		"client-ca-file",                           // If set, any request presenting a client certificate signed by one of the authorities in the client-ca-file is authenticated with an identity corresponding to the CommonName of the client certificate.
+		"enable-bootstrap-token-auth",              // Enable to allow secrets of type 'bootstrap.kubernetes.io/token' in the 'kube-system' namespace to be used for TLS bootstrapping authentication.
+		"oidc-ca-file",                             // If set, the OpenID server's certificate will be verified by one of the authorities in the oidc-ca-file, otherwise the host's root CA set will be used.
+		"oidc-client-id",                           // The client ID for the OpenID Connect client, must be set if oidc-issuer-url is set.
+		"oidc-groups-claim",                        // If provided, the name of a custom OpenID Connect claim for specifying user groups. The claim value is expected to be a string or array of strings. This flag is experimental, please see the authentication documentation for further details.
+		"oidc-groups-prefix",                       // If provided, all groups will be prefixed with this value to prevent conflicts with other authentication strategies.
+		"oidc-issuer-url",                          // The URL of the OpenID issuer, only HTTPS scheme will be accepted. If set, it will be used to verify the OIDC JSON Web Token (JWT).
+		"oidc-required-claim",                      // A key=value pair that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value. Repeat this flag to specify multiple claims.
+		"oidc-signing-algs",                        // Comma-separated list of allowed JOSE asymmetric signing algorithms. JWTs with a 'alg' header value not in this list will be rejected. Values are defined by RFC 7518 https://tools.ietf.org/html/rfc7518#section-3.1.
+		"oidc-username-claim",                      // The OpenID claim to use as the user name. Note that claims other than the default ('sub') is not guaranteed to be unique and immutable. This flag is experimental, please see the authentication documentation for further details.
+		"oidc-username-prefix",                     // If provided, all usernames will be prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-'.
+		"requestheader-allowed-names",              // List of client certificate common names to allow to provide usernames in headers specified by --requestheader-username-headers. If empty, any client certificate validated by the authorities in --requestheader-client-ca-file is allowed.
+		"requestheader-client-ca-file",             // Root certificate bundle to use to verify client certificates on incoming requests before trusting usernames in headers specified by --requestheader-username-headers. WARNING: generally do not depend on authorization being already done for incoming requests.
+		"requestheader-extra-headers-prefix",       // List of request header prefixes to inspect. X-Remote-Extra- is suggested.
+		"requestheader-group-headers",              // List of request headers to inspect for groups. X-Remote-Group is suggested.
+		"requestheader-username-headers",           // List of request headers to inspect for usernames. X-Remote-User is common.
+		"token-auth-file",                          // If set, the file that will be used to secure the secure port of the API server via token authentication.
 
 		// Kubernetes ServiceAccount Authentication flags
 		"service-account-extend-token-expiration", // Turns on projected service account expiration extension during token generation, which helps safe transition from legacy token to bound service account token feature. If this flag is enabled, admission injected tokens would be extended up to 1 year to prevent unexpected failure during transition, ignoring value of service-account-max-token-expiration.
