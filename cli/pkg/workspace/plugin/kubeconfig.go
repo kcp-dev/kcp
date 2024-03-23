@@ -135,7 +135,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	// LEGACY(mjudeikis): Remove once everybody gets used to this
-	if strings.HasPrefix(o.Name, "root") {
+	if o.Name == "home" || strings.HasPrefix(o.Name, core.RootCluster.String()+":") {
 		o.Name = ":" + o.Name
 		fmt.Fprintf(o.Out, "Note: Using 'root:' to define an absolute path is no longer supported. Instead, use ':root' to specify an absolute path.\n")
 	}
@@ -157,7 +157,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}()
 		fallthrough
 
-	case o.Name == "~" || o.Name == home || strings.HasPrefix(o.Name, "~:") || strings.HasPrefix(o.Name, home):
+	case o.Name == "~" || o.Name == home || strings.HasPrefix(o.Name, "~:") || strings.HasPrefix(o.Name, home+":"):
 		newServerHost, err := o.moveHome(ctx, home)
 		if err != nil {
 			return err
@@ -204,7 +204,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		// system is bit different. Usually when moving to system workspaces you
 		// need to have special access and "if workspace exists" checks fails.
 		// If merged to "absolute path check" code gets convoluted :/
-	case strings.HasPrefix(o.Name, ":system"):
+	case strings.HasPrefix(o.Name, ":"+core.SystemCluster.String()):
 		newServerHost, err := o.moveAbsoluteSystem(ctx)
 		if err != nil {
 			return err
