@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -33,33 +34,42 @@ import (
 )
 
 type GlobalAuthorizer struct {
-	newAuthorizer func(clusterName logicalcluster.Name) authorizer.Authorizer
+	globalRoleLister rbacv1listers.RoleClusterLister
+	localRoleLister  rbacv1listers.RoleClusterLister
+
+	globalRoleBindingLister rbacv1listers.RoleBindingClusterLister
+
+	globalClusterRoleLister rbacv1listers.ClusterRoleClusterLister
+	localClusterRoleLister  rbacv1listers.ClusterRoleClusterLister
+
+	globalClusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 }
 
 func NewGlobalAuthorizer(localKubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
+	// listers are saved in the struct here to ensure that informers are instantiated early and we do not encounter race conditions with starting them.
 	a := &GlobalAuthorizer{
-		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
-			return rbac.New(
-				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
-					globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
-					localKubeInformers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
-				)},
-				&rbac.RoleBindingLister{Lister: globalKubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName)},
-				&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
-					globalKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
-					localKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
-				)},
-				&rbac.ClusterRoleBindingLister{Lister: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName)},
-			)
-		},
+		globalRoleLister: globalKubeInformers.Rbac().V1().Roles().Lister(),
+		localRoleLister:  localKubeInformers.Rbac().V1().Roles().Lister(),
+
+		globalRoleBindingLister: globalKubeInformers.Rbac().V1().RoleBindings().Lister(),
+
+		globalClusterRoleLister: globalKubeInformers.Rbac().V1().ClusterRoles().Lister(),
+		localClusterRoleLister:  localKubeInformers.Rbac().V1().ClusterRoles().Lister(),
+
+		globalClusterRoleBindingLister: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 	}
 
 	return a, a
 }
 
 func (a *GlobalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
-	// TODO: wire context in RulesFor interface
-	panic("implement me")
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil || cluster.Name.Empty() {
+		return nil, nil, false, fmt.Errorf("empty cluster name")
+	}
+
+	scopedAuth := a.newAuthorizer(cluster.Name)
+	return scopedAuth.RulesFor(ctx, user, namespace)
 }
 
 func (a *GlobalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -74,4 +84,19 @@ func (a *GlobalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attrib
 		err = fmt.Errorf("error authorizing global policy for cluster %q: %w", cluster.Name, err)
 	}
 	return dec, fmt.Sprintf("global cluster %q policy: %v", cluster.Name, reason), err
+}
+
+func (a *GlobalAuthorizer) newAuthorizer(clusterName logicalcluster.Name) *rbac.RBACAuthorizer {
+	return rbac.New(
+		&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
+			a.globalRoleLister.Cluster(clusterName),
+			a.localRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
+		)},
+		&rbac.RoleBindingLister{Lister: a.globalRoleBindingLister.Cluster(clusterName)},
+		&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
+			a.globalClusterRoleLister.Cluster(clusterName),
+			a.localClusterRoleLister.Cluster(controlplaneapiserver.LocalAdminCluster),
+		)},
+		&rbac.ClusterRoleBindingLister{Lister: a.globalClusterRoleBindingLister.Cluster(clusterName)},
+	)
 }
