@@ -33,12 +33,12 @@ import (
 )
 
 type GlobalAuthorizer struct {
-	newAuthorizer func(clusterName logicalcluster.Name) authorizer.Authorizer
+	newAuthorizer func(clusterName logicalcluster.Name) *rbac.RBACAuthorizer
 }
 
 func NewGlobalAuthorizer(localKubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
 	a := &GlobalAuthorizer{
-		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
+		newAuthorizer: func(clusterName logicalcluster.Name) *rbac.RBACAuthorizer {
 			return rbac.New(
 				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
 					globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
@@ -58,8 +58,13 @@ func NewGlobalAuthorizer(localKubeInformers, globalKubeInformers kcpkubernetesin
 }
 
 func (a *GlobalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
-	// TODO: wire context in RulesFor interface
-	panic("implement me")
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil || cluster.Name.Empty() {
+		return nil, nil, false, fmt.Errorf("empty cluster name")
+	}
+
+	scopedAuth := a.newAuthorizer(cluster.Name)
+	return scopedAuth.RulesFor(ctx, user, namespace)
 }
 
 func (a *GlobalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
