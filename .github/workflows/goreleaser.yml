@@ -36,6 +36,7 @@ jobs:
         args: release --timeout 60m
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
     - name: Run GoReleaser on pull request
       if: github.event_name == 'pull_request'
       uses: goreleaser/goreleaser-action@v4
@@ -45,6 +46,7 @@ jobs:
         args: release --timeout 60m --snapshot
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
     - uses: cytopia/upload-artifact-retry-action@v0.1.7
       if: ${{ always() }}
       with:
