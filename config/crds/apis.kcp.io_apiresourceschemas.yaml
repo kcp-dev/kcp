@@ -55,6 +55,9 @@ spec:
                       to an external webhook to do the conversion. Additional information
                       is needed for this option. This requires spec.preserveUnknownFields
                       to be false, and spec.conversion.webhook to be set.'
+                    enum:
+                    - None
+                    - Webhook
                     type: string
                   webhook:
                     description: webhook describes how to call the conversion webhook.
@@ -88,6 +91,7 @@ spec:
                               is not allowed. Fragments (\"#...\") and query parameters
                               (\"?...\") are not allowed, either. \n Note: kcp does
                               not support provided service names like Kubernetes does."
+                            format: uri
                             type: string
                         type: object
                       conversionReviewVersions:
@@ -109,6 +113,10 @@ spec:
                 required:
                 - strategy
                 type: object
+                x-kubernetes-validations:
+                - message: Webhook must be specified if strategy=Webhook
+                  rule: self.strategy == 'None' || (self.strategy == 'Webhook' &&
+                    has(self.webhook))
               group:
                 description: "group is the API group of the defined custom resource.
                   Empty string means the core API group. \tThe resources are served

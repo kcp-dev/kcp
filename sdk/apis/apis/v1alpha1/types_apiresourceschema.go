@@ -93,7 +93,7 @@ type APIResourceSchemaSpec struct {
 
 	// conversion defines conversion settings for the defined custom resource.
 	// +optional
-	Conversion *CustomResourceConversion `json:"conversion,omitempty" protobuf:"bytes,9,opt,name=conversion"`
+	Conversion *CustomResourceConversion `json:"conversion,omitempty"`
 }
 
 // APIResourceVersion describes one API version of a resource.
@@ -152,16 +152,18 @@ type APIResourceVersion struct {
 }
 
 // CustomResourceConversion describes how to convert different versions of a CR.
+// +kubebuilder:validation:XValidation:message="Webhook must be specified if strategy=Webhook",rule="self.strategy == 'None' || (self.strategy == 'Webhook' && has(self.webhook))"
 type CustomResourceConversion struct {
 	// strategy specifies how custom resources are converted between versions. Allowed values are:
 	// - `"None"`: The converter only change the apiVersion and would not touch any other field in the custom resource.
 	// - `"Webhook"`: API Server will call to an external webhook to do the conversion. Additional information
 	//   is needed for this option. This requires spec.preserveUnknownFields to be false, and spec.conversion.webhook to be set.
-	Strategy ConversionStrategyType `json:"strategy" protobuf:"bytes,1,name=strategy"`
+	// +kubebuilder:validation:Enum=None;Webhook
+	Strategy ConversionStrategyType `json:"strategy"`
 
 	// webhook describes how to call the conversion webhook. Required when `strategy` is set to `"Webhook"`.
 	// +optional
-	Webhook *WebhookConversion `json:"webhook,omitempty" protobuf:"bytes,2,opt,name=webhook"`
+	Webhook *WebhookConversion `json:"webhook,omitempty"`
 }
 
 // ConversionStrategyType describes different conversion types.
@@ -171,7 +173,7 @@ type ConversionStrategyType string
 type WebhookConversion struct {
 	// clientConfig is the instructions for how to call the webhook if strategy is `Webhook`.
 	// +optional
-	ClientConfig *WebhookClientConfig `json:"clientConfig,omitempty" protobuf:"bytes,2,name=clientConfig"`
+	ClientConfig *WebhookClientConfig `json:"clientConfig,omitempty"`
 
 	// conversionReviewVersions is an ordered list of preferred `ConversionReview`
 	// versions the Webhook expects. The API server will use the first version in
@@ -180,7 +182,7 @@ type WebhookConversion struct {
 	// If a persisted Webhook configuration specifies allowed versions and does not
 	// include any versions known to the API Server, calls to the webhook will fail.
 	// +listType=atomic
-	ConversionReviewVersions []string `json:"conversionReviewVersions" protobuf:"bytes,3,rep,name=conversionReviewVersions"`
+	ConversionReviewVersions []string `json:"conversionReviewVersions"`
 }
 
 // WebhookClientConfig contains the information to make a TLS connection with the webhook.
@@ -205,13 +207,13 @@ type WebhookClientConfig struct {
 	// allowed, either.
 	//
 	// Note: kcp does not support provided service names like Kubernetes does.
-	// +optional
-	URL *string `json:"url,omitempty" protobuf:"bytes,3,opt,name=url"`
+	// +kubebuilder:validation:Format=uri
+	URL string `json:"url,omitempty"`
 
 	// caBundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.
 	// If unspecified, system trust roots on the apiserver are used.
 	// +optional
-	CABundle []byte `json:"caBundle,omitempty" protobuf:"bytes,2,opt,name=caBundle"`
+	CABundle []byte `json:"caBundle,omitempty"`
 }
 
 // APIResourceSchemaList is a list of APIResourceSchema resources
