@@ -68,7 +68,7 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 
 			if crd.Spec.Conversion.Webhook.ClientConfig != nil {
 				crConversion.Webhook.ClientConfig = &WebhookClientConfig{
-					URL:      crd.Spec.Conversion.Webhook.ClientConfig.URL,
+					URL:      *crd.Spec.Conversion.Webhook.ClientConfig.URL,
 					CABundle: crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
 				}
 			}

@@ -551,7 +551,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 			conversion.Webhook = &apiextensionsv1.WebhookConversion{
 				ConversionReviewVersions: schema.Spec.Conversion.Webhook.ConversionReviewVersions,
 				ClientConfig: &apiextensionsv1.WebhookClientConfig{
-					URL:      schema.Spec.Conversion.Webhook.ClientConfig.URL,
+					URL:      &(schema.Spec.Conversion.Webhook.ClientConfig.URL),
 					CABundle: schema.Spec.Conversion.Webhook.ClientConfig.CABundle,
 				},
 			}
