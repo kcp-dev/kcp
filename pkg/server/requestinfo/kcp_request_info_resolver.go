@@ -19,6 +19,7 @@ package requestinfo
 import (
 	"net/http"
 	"regexp"
+	"strings"
 
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
@@ -33,16 +34,28 @@ func NewKCPRequestInfoResolver() *KCPRequestInfoResolver {
 	}
 }
 
-var clustersRE = regexp.MustCompile(`/clusters/[^/]+/(.*)$`)
+var clustersRE = regexp.MustCompile(`/clusters/[^/]+(/.*)$`)
 
 func (k *KCPRequestInfoResolver) NewRequestInfo(req *http.Request) (*request.RequestInfo, error) {
-	matches := clustersRE.FindStringSubmatch(req.URL.Path)
-	if len(matches) == 2 {
-		// matches[0] is the leftmost pattern that matches (which includes /clusters/...) - skip over that
-		strippedURL := matches[1]
-		t := req.Clone(req.Context())
-		t.URL.Path = strippedURL
-		return k.delegate.NewRequestInfo(t)
+	if !containsPrefix([]string{"/apis/", "/api/"}, req.URL.Path) {
+		matches := clustersRE.FindStringSubmatch(req.URL.Path)
+		if len(matches) == 2 {
+			// matches[0] is the leftmost pattern that matches (which includes /clusters/...) - skip over that
+			strippedURL := matches[1]
+			t := req.Clone(req.Context())
+			t.URL.Path = strippedURL
+			return k.delegate.NewRequestInfo(t)
+		}
 	}
 	return k.delegate.NewRequestInfo(req)
+}
+
+// containsPrefix returns true if the specified path has a prefix that contained in given prefix Set.
+func containsPrefix(prefixSet []string, path string) bool {
+	for _, prefix := range prefixSet {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
