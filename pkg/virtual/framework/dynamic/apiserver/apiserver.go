@@ -30,6 +30,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/kube-openapi/pkg/handler3"
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -185,6 +186,20 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 	// TODO(david): plug OpenAPI if necessary. For now, according to the various virtual workspace use-cases,
 	// it doesn't seem necessary.
 	// Of course this requires using the --validate=false argument with some kubectl command like kubectl apply.
+
+	// Plugin openAPI
+	// TODO: Figure out how to make v2 work. Or, should we even skip it since 1.29 is dropping v2 checks?
+	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/openapi/v2", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+
+	openAPIV3VersionedService := handler3.NewOpenAPIService()
+	if err != nil {
+		return s, err
+	}
+	err = openAPIV3VersionedService.RegisterOpenAPIV3VersionedService("/openapi/v3", s.GenericAPIServer.Handler.NonGoRestfulMux)
+	if err != nil {
+		return s, err
+	}
+	s.GenericAPIServer.OpenAPIV3VersionedService = openAPIV3VersionedService
 
 	return s, nil
 }
