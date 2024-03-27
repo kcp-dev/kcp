@@ -34,4 +34,9 @@ const (
 )
 
 // RootCluster is the root of workspace based logical clusters.
-var RootCluster = logicalcluster.Name("root")
+var (
+	// RootCluster is the root of workspace based logical clusters.
+	RootCluster = logicalcluster.Name("root")
+	// SystemCluster is the system logical cluster
+	SystemCluster = logicalcluster.Name("system")
+)

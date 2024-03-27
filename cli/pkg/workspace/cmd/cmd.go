@@ -94,6 +94,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	useWorkspaceOpts := plugin.NewUseWorkspaceOptions(streams)
 	useCmd := &cobra.Command{
+		Aliases:      []string{"cd"},
 		Use:          "use <workspace>|..|.|-|~|<root:absolute:workspace>",
 		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace, . mean current, ~ means home workspace",
 		SilenceUsage: true,

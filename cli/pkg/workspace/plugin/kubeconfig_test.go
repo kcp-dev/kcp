@@ -305,7 +305,7 @@ func TestUse(t *testing.T) {
 			},
 			param:       ".",
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "current, no cluster URL",
@@ -340,7 +340,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, short output",
@@ -407,7 +407,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "absolute name without access to parent",
@@ -436,7 +436,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "absolute workspace doesn't exist error",
@@ -493,13 +493,13 @@ func TestUse(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "system:admin",
+			name: ":system:admin",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
 				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			param: "system:admin",
+			param: ":system:admin",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
 				Contexts: map[string]*clientcmdapi.Context{
 					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
@@ -512,7 +512,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "system:admin",
-			wantStdout:  []string{"Current workspace is \"system:admin\""},
+			wantStdout:  []string{"Current workspace is 'system:admin'"},
 		},
 		{
 			name: "root",
@@ -534,13 +534,17 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root\""},
+			wantStdout:  []string{"Current workspace is 'root'"},
 		},
 		{
 			name: "root, no cluster URL",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/"}},
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current": {Server: "https://test/clusters/"},
+				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			param:   "root",
@@ -569,7 +573,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root:foo",
-			wantStdout:  []string{"Current workspace is \"root:foo\""},
+			wantStdout:  []string{"Current workspace is 'root:foo'"},
 		},
 		{
 			name: ".., no cluster URL",
@@ -601,7 +605,51 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: "root",
-			wantStdout:  []string{"Current workspace is \"root\""},
+			wantStdout:  []string{"Current workspace is 'root'"},
+		},
+		{
+			name: "../.. to child of root",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar:baz"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param: "../..",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar:baz"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root:foo'"},
+		},
+		{
+			name: "..:.. to child of root",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar:baz"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			param: "..:..",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar:baz"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root:foo'"},
 		},
 		{
 			name: ".. in root",
@@ -649,7 +697,7 @@ func TestUse(t *testing.T) {
 				},
 			},
 			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "- without existing previous context",
@@ -771,7 +819,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "no arg",
@@ -796,7 +844,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is %q.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "workspace name, apibindings have matching permission and export claims",
@@ -827,7 +875,7 @@ func TestUse(t *testing.T) {
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			wantStdout: []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings don't have matching permission or export claims",
@@ -861,7 +909,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "~, apibinding claims/exports don't match",
@@ -895,7 +943,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				fmt.Sprintf("Current workspace is %q", homeWorkspaceLogicalCluster.String())},
+				fmt.Sprintf("Current workspace is '%s'", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "- with existing previous context, apibinding claims/exports don't match ",
@@ -941,7 +989,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings rejected",
@@ -973,7 +1021,7 @@ func TestUse(t *testing.T) {
 					Build(),
 			},
 			wantStdout: []string{
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 			noWarn: true,
 		},
 		{
@@ -1006,7 +1054,7 @@ func TestUse(t *testing.T) {
 					Build(),
 			},
 			wantStdout: []string{
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 			noWarn: true,
 		},
 		{
@@ -1041,7 +1089,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, apibindings not acknowledged",
@@ -1074,7 +1122,7 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, APIBindings unacknowledged and unspecified",
@@ -1109,7 +1157,7 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, multiple APIBindings unacknowledged",
@@ -1145,7 +1193,7 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
 				"Warning: claim for test2.test2.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name: "workspace name, multiple APIBindings unspecified",
@@ -1179,7 +1227,102 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Warning: claim for test.test.kcp.io:abcdef exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is \"root:foo:bar\""},
+				"Current workspace is 'root:foo:bar'"},
+		},
+		{
+			name: "relative change multiple jumps from non root",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test2"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					"test":  {Token: "test"},
+					"test2": {Token: "test2"},
+				},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.Name("root:foo"):     {"bar"},
+				logicalcluster.Name("root:foo:bar"): {"baz"},
+			},
+			discovery: map[logicalcluster.Path][]*metav1.APIResourceList{
+				logicalcluster.NewPath("root:foo:bar:baz"): {&metav1.APIResourceList{
+					GroupVersion: "tenancy.kcp.io/v1alpha1",
+					APIResources: []metav1.APIResource{{Name: "workspaces"}},
+				}},
+			},
+			param: "bar:baz",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar:baz"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					"test":  {Token: "test"},
+					"test2": {Token: "test2"},
+				},
+			},
+			destination: "root:foo:bar:baz",
+			wantStdout: []string{
+				"Current workspace is 'root:foo:bar:baz'"},
+		},
+		{
+			name: ": real root",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.Name("root:foo"): {"bar"},
+			},
+			param: ":",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/root"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root'"},
+		},
+		{
+			name: ": custom 'my-root'",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/my-root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.Name("root:foo"): {"bar"},
+			},
+			param: ":",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
+					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.io/current":  {Server: "https://test/clusters/my-root"},
+					"workspace.kcp.io/previous": {Server: "https://test/clusters/my-root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "my-root",
+			wantStdout:  []string{"Current workspace is 'my-root'"},
 		},
 	}
 	for _, tt := range tests {
