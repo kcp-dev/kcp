@@ -41,6 +41,7 @@ else
 fi
 
 MIKE_OPTIONS=()
+MIKE_DEPLOY_OPTIONS=()
 
 if [[ -n "${REMOTE:-}" ]]; then
   MIKE_OPTIONS+=(--remote "$REMOTE")
@@ -50,6 +51,11 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
+LATEST=$(git describe --tags --match="v[0-9]*" `git rev-list --tags --max-count=1` | grep -o '^v[0-9]\+\.[0-9]\+')
+if [[ "${LATEST:-}" == "${VERSION:-}" ]]; then
+  MIKE_DEPLOY_OPTIONS+=(--update-aliases "$VERSION" latest)
+fi
+
 if [[ -n "${CI:-}" ]]; then
   if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]] || [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
     # Only push to gh-pages if we're in GitHub Actions (CI is set) and we have a non-PR event.
@@ -57,8 +63,17 @@ if [[ -n "${CI:-}" ]]; then
   fi
 
   # Always set git user info in CI because even if we're not pushing, we need it
-  git config user.name kcp-docs-bot
+  git config user.name kcp-ci-bot
   git config user.email no-reply@kcp.io
 fi
 
-mike deploy "${MIKE_OPTIONS[@]}" "$VERSION"
+mike deploy "${MIKE_OPTIONS[@]}" "${MIKE_DEPLOY_OPTIONS[@]}" "$VERSION"
+
+if [[ -n "${CI:-}" ]]; then
+  if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]] || [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+    if [[ "${LATEST:-}" == "${VERSION:-}" ]]; then
+        # only set the default if we pushed before, otherwise the "latest" alias might not yet exist.
+        mike set-default "${MIKE_OPTIONS[@]}" latest
+    fi
+  fi
+fi
