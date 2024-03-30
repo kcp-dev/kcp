@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
@@ -130,8 +129,6 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	spew.Dump(logicalCluster.String())
 
 	// Store the currentContext content for later to set as previous context
 	currentContext, found := o.startingConfig.Contexts[rawConfig.CurrentContext]
