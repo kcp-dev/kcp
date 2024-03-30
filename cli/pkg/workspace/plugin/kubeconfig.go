@@ -68,6 +68,7 @@ type UseWorkspaceOptions struct {
 	// for testing
 	modifyConfig   func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
 	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error)
+	userHomeDir    func() (string, error)
 }
 
 // NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
@@ -79,6 +80,7 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
 		getAPIBindings: getAPIBindings,
+		userHomeDir:    os.UserHomeDir,
 	}
 }
 
@@ -119,11 +121,28 @@ func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 }
 
 // Run executes the "use workspace" logic based on the supplied options.
-func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
-	home, _ := os.UserHomeDir()
-	home = strings.ReplaceAll(home, "/", ":") // we default to : as / is just an alias
-	o.Name = strings.ReplaceAll(o.Name, "/", ":")
-	logicalCluster := logicalcluster.NewPath(o.Name)
+func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
+	name := o.Name
+
+	// preprocess as a string
+	home, _ := o.userHomeDir()
+	if home != "" && strings.HasPrefix(name, home) {
+		name = "~" + strings.TrimPrefix(name, home)
+	}
+	name = strings.ReplaceAll(name, "/", ":")
+	if name == core.RootCluster.String() || strings.HasPrefix(name, core.RootCluster.String()+":") {
+		// LEGACY(mjudeikis): Remove once everybody gets used to this
+		name = ":" + name
+		fmt.Fprintf(o.Out, "Note: Using 'root:' to define an absolute path is no longer supported. Instead, use ':root' to specify an absolute path.\n")
+	}
+	if name == "" {
+		defer func() {
+			if err == nil {
+				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
+			}
+		}()
+		name = "~"
+	}
 
 	rawConfig, err := o.ClientConfig.RawConfig()
 	if err != nil {
@@ -136,160 +155,121 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current %q context not found", rawConfig.CurrentContext)
 	}
 
-	// LEGACY(mjudeikis): Remove once everybody gets used to this
-	if o.Name == "home" || strings.HasPrefix(o.Name, core.RootCluster.String()+":") {
-		o.Name = ":" + o.Name
-		fmt.Fprintf(o.Out, "Note: Using 'root:' to define an absolute path is no longer supported. Instead, use ':root' to specify an absolute path.\n")
-	}
-
-	// validate early for valid name
-	err = o.validate(ctx)
-	if err != nil {
-		return err
-	}
-
 	switch {
-	// o.Name empty and home workspace should be always one after another for fallthrough to
-	// print error and default to home.
-	case logicalCluster.String() == "":
-		defer func() {
-			if err == nil {
-				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
-			}
-		}()
-		fallthrough
-
-	case logicalCluster.String() == "~" || logicalCluster.String() == home || strings.HasPrefix(logicalCluster.String(), "~:") || strings.HasPrefix(logicalCluster.String(), home+":"):
-		newServerHost, err := o.moveHome(ctx, home)
+	case name == "-":
+		newServerHost, err := o.swapContexts(ctx, currentContext)
 		if err != nil {
 			return err
 		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// move to 'my' root
-	case logicalCluster.String() == ":":
-		newServerHost, err := o.moveCurrentRoot(ctx)
+		return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
+	case name == ":":
+		u, err := o.currentRootURL()
 		if err != nil {
 			return err
 		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-	case logicalCluster.String() == ".":
+		return o.commitConfig(ctx, currentContext, u, nil)
+	case name == ".":
 		cfg, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
 		}
 		return printCurrentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
-
-	case logicalCluster.String() == "-":
-		newServerHost, err := o.movePrevious(ctx, currentContext)
+	case name == "~" || strings.HasPrefix(name, "~:"):
+		pth, err := o.homePath(ctx)
 		if err != nil {
 			return err
 		}
-		return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
-
-	case strings.Contains(logicalCluster.String(), ".."):
-		newServerHost, err := o.moveBackwards(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// root legacy move
-	case logicalCluster.String() == core.RootCluster.String():
-		newServerHost, err := o.moveRootLegacy(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// system is bit different. Usually when moving to system workspaces you
-		// need to have special access and "if workspace exists" checks fails.
-		// If merged to "absolute path check" code gets convoluted :/
-	case logicalCluster.HasPrefix(logicalcluster.NewPath(":" + core.SystemCluster.String())):
-		newServerHost, err := o.moveAbsoluteSystem(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-
-		// handle absolute path.
-	case strings.HasPrefix(o.Name, ":"):
-		o.Name = strings.TrimPrefix(o.Name, ":")
-		switch {
-		// if we have separator present, means we have multi workspace move
-		// up for absolute path
-		case strings.Contains(o.Name, ":"):
-			newServerHost, err := o.moveMultipleAbsoluteUp(ctx)
-			if err != nil {
-				return err
-			}
-			return o.commitConfig(ctx, currentContext, newServerHost, nil)
-		default:
-			newServerHost, err := o.moveAbsoluteUp(ctx)
-			if err != nil {
-				return err
-			}
-			return o.commitConfig(ctx, currentContext, newServerHost, nil)
-		}
-		// relative moves
-	default:
-		newServerHost, err := o.moveRelativeUp(ctx)
-		if err != nil {
-			return err
-		}
-		return o.commitConfig(ctx, currentContext, newServerHost, nil)
-	}
-}
-
-// validate validates input early
-func (o *UseWorkspaceOptions) validate(_ context.Context) error {
-	name := o.Name
-	if len(o.Name) > 2 {
-		name = strings.TrimPrefix(name, ":")
+		name = ":" + pth.String() + strings.TrimPrefix(name, "~")
 	}
 
-	switch name {
-	case ".", "~", "-", "", ":":
-		return nil
-	}
-
-	switch {
-	case strings.Contains(name, ".."):
-		return nil
-	case strings.HasPrefix(name, "Users:"):
-		return nil
-	case strings.HasPrefix(name, "~:"):
-		return nil
-	default:
-		cluster := logicalcluster.NewPath(name)
-		if !cluster.IsValid() {
-			return fmt.Errorf("invalid workspace name format: %s", name)
-		}
-	}
-	return nil
-}
-
-func (o *UseWorkspaceOptions) moveAbsoluteSystem(ctx context.Context) (string, error) {
-	o.Name = strings.TrimPrefix(o.Name, ":")
-	cluster := logicalcluster.NewPath(o.Name)
-	if !cluster.IsValid() {
-		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
-	}
-
-	u, _, err := o.parseCurrentLogicalCluster(ctx)
+	u, current, err := o.parseCurrentLogicalCluster()
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u.String(), nil
+	// make relative paths absolute
+	if name[0] == ':' {
+		name = strings.TrimPrefix(name, ":")
+	} else {
+		name = current.Join(name).String()
+	}
+
+	// remove . and ..
+	pth, err := resolveDots(name)
+	if err != nil {
+		return err
+	}
+
+	// here we should have a valid absolute path without dots, without : prefix
+	if !pth.IsValid() {
+		return fmt.Errorf("invalid workspace path: %s", o.Name)
+	}
+
+	// first check if the workspace exists via discovery
+	groups, err := o.kcpClusterClient.Cluster(pth).Discovery().ServerGroups()
+	if err != nil && !apierrors.IsForbidden(err) {
+		return err
+	}
+	denied := false
+	if apierrors.IsForbidden(err) || len(groups.Groups) == 0 {
+		denied = true
+	}
+
+	// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
+	// not a blocker to enter the workspace. We do discovery as a final check.
+	var workspaceType *tenancyv1alpha1.WorkspaceTypeReference
+	notFound := false
+	if pth == core.RootCluster.Path() {
+		workspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
+			Name: "root",
+		}
+	} else {
+		parentClusterName, workspaceName := logicalcluster.NewPath(name).Split()
+		if workspaceName != "" {
+			if ws, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+				notFound = true
+			} else if err == nil {
+				workspaceType = &ws.Spec.Type
+			}
+		}
+	}
+	switch {
+	case denied && notFound:
+		return fmt.Errorf("workspace %q not found", name)
+	case denied:
+		return fmt.Errorf("access to workspace %q denied", name)
+	case notFound:
+		// we are good. Somehow we have access, maybe without having access to the parent or there is no parent.
+	}
+
+	u.Path = path.Join(u.Path, pth.RequestPath())
+	return o.commitConfig(ctx, currentContext, u, workspaceType)
 }
 
-// movePrevious moves to previous context from the config.
+func resolveDots(pth string) (logicalcluster.Path, error) {
+	var ret logicalcluster.Path
+	for _, part := range strings.Split(pth, ":") {
+		switch part {
+		case ".":
+			continue
+		case "..":
+			if ret.Empty() {
+				return logicalcluster.Path{}, errors.New("cannot go up from root")
+			}
+			ret, _ = ret.Parent()
+		default:
+			ret = ret.Join(part)
+		}
+	}
+	return ret, nil
+}
+
+// swapContexts moves to previous context from the config.
 // It will update existing configuration by swapping current & previous configurations.
 // This method already commits. Do not use with commitConfig
-func (o *UseWorkspaceOptions) movePrevious(ctx context.Context, currentContext *clientcmdapi.Context) (string, error) {
+func (o *UseWorkspaceOptions) swapContexts(ctx context.Context, currentContext *clientcmdapi.Context) (string, error) {
+	currentContext = currentContext.DeepCopy()
+
 	prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
 	if !exists {
 		return "", errors.New("no previous workspace found in kubeconfig")
@@ -339,7 +319,7 @@ func (o *UseWorkspaceOptions) movePrevious(ctx context.Context, currentContext *
 }
 
 // commitConfig will take in current config, new host and optional workspaceType and update the kubeconfig.
-func (o *UseWorkspaceOptions) commitConfig(ctx context.Context, currentContext *clientcmdapi.Context, newServerHost string, workspaceType *tenancyv1alpha1.WorkspaceTypeReference) error {
+func (o *UseWorkspaceOptions) commitConfig(ctx context.Context, currentContext *clientcmdapi.Context, u *url.URL, workspaceType *tenancyv1alpha1.WorkspaceTypeReference) error {
 	// modify kubeconfig, using the "workspace" context and cluster
 	newKubeConfig := o.startingConfig.DeepCopy()
 	oldCluster, found := o.startingConfig.Clusters[currentContext.Cluster]
@@ -347,7 +327,7 @@ func (o *UseWorkspaceOptions) commitConfig(ctx context.Context, currentContext *
 		return fmt.Errorf("cluster %q not found in kubeconfig", currentContext.Cluster)
 	}
 	newCluster := *oldCluster
-	newCluster.Server = newServerHost
+	newCluster.Server = u.String()
 	newKubeConfig.Clusters[kcpCurrentWorkspaceContextKey] = &newCluster
 	newContext := *currentContext
 	newContext.Cluster = kcpCurrentWorkspaceContextKey
@@ -367,7 +347,7 @@ func (o *UseWorkspaceOptions) commitConfig(ctx context.Context, currentContext *
 		return err
 	}
 
-	bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
+	bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, u.String())
 	if err != nil {
 		// display the error, but don't stop the current workspace from being reported.
 		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
@@ -377,107 +357,42 @@ func (o *UseWorkspaceOptions) commitConfig(ctx context.Context, currentContext *
 		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 	}
 
-	return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
+	return printCurrentWorkspace(o.Out, u.String(), shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
 }
 
-func (o *UseWorkspaceOptions) moveBackwards(_ context.Context) (string, error) {
-	config, err := o.ClientConfig.ClientConfig()
-	if err != nil {
-		return "", err
-	}
-	u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
-	if err != nil {
-		return "", fmt.Errorf("current URL %q does not point to a workspace", config.Host)
-	}
-	// In case of `../..` or `../../..` etc, we need to go down the logical cluster hierarchy.
-	// We do this by counting the number of `..` in the workspace name and then going down that many times.
-	// if we have ../../name, we override o.Name on this function end and this will be handled as usual
-	// in the next case.
-	var parentClusterName logicalcluster.Path
-	count := strings.Count(o.Name, "..")
-	i := 0
-	for i < count {
-		var hasParent bool
-		parentClusterName, hasParent = currentClusterName.Parent()
-		if !hasParent {
-			if currentClusterName == core.RootCluster.Path() {
-				return "", fmt.Errorf("current workspace is %q", currentClusterName)
-			}
-			return "", fmt.Errorf("current workspace %q has no parent", currentClusterName)
-		} else if parentClusterName != core.RootCluster.Path() && hasParent && i <= count {
-			currentClusterName = parentClusterName
-		}
-		i++
-	}
-	u.Path = path.Join(u.Path, parentClusterName.RequestPath())
-	return u.String(), nil
-}
-
-func (o *UseWorkspaceOptions) moveHome(ctx context.Context, home string) (string, error) {
+func (o *UseWorkspaceOptions) homePath(ctx context.Context) (logicalcluster.Path, error) {
 	homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 	if err != nil {
-		return "", err
-	}
-	config, err := o.ClientConfig.ClientConfig()
-	if err != nil {
-		return "", err
-	}
-	u, _, err := pluginhelpers.ParseClusterURL(config.Host)
-	if err != nil {
-		return "", fmt.Errorf("current URL %q does not point to a workspace", config.Host)
+		return logicalcluster.Path{}, err
 	}
 
 	uh, err := url.Parse(homeWorkspace.Spec.URL)
 	if err != nil {
-		return "", fmt.Errorf("invalid home workspace URL %q: %w", homeWorkspace.Spec.URL, err)
+		return logicalcluster.Path{}, fmt.Errorf("invalid home workspace URL %q: %w", homeWorkspace.Spec.URL, err)
 	}
 
-	full := logicalcluster.NewPath(strings.TrimPrefix(uh.Path, "/clusters/"))
-
-	// if homeWorkspaceChild is not empty, we need to move relative to our home up
-	// HACK(mjudeikis): this is bit hack. We should investigate how to merge this with
-	// absolute path when home workspace is resolved.
-	homeWorkspaceChild := strings.TrimPrefix(o.Name, home)
-	homeWorkspaceChild = strings.TrimPrefix(homeWorkspaceChild, "~:")
-	if len(homeWorkspaceChild) > 1 {
-		cluster := logicalcluster.NewPath(homeWorkspaceChild)
-		if !cluster.IsValid() {
-			return "", fmt.Errorf("invalid home workspace name format: %s", homeWorkspaceChild)
-		}
-		homeCluster := logicalcluster.NewPath(homeWorkspace.Spec.Cluster)
-		full = homeCluster.Join(homeWorkspaceChild)
-
-		// before we allow jump into this we need to check if it exists
-		parentClusterName, workspaceName := full.Split()
-		if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
-			return "", fmt.Errorf("workspace %q not found", o.Name)
-		}
-	}
-
-	// We keep the old host, and append homeworkspace url. This allows users to have front-proxy
-	// host to be different from the workspace host.
-	return u.Scheme + "://" + path.Join(u.Host, full.RequestPath()), nil
+	return logicalcluster.NewPath(strings.TrimPrefix(uh.Path, "/clusters/")), nil
 }
 
-func (o *UseWorkspaceOptions) moveRootLegacy(ctx context.Context) (string, error) {
+func (o *UseWorkspaceOptions) legacyRootURL() (*url.URL, error) {
 	cluster := logicalcluster.NewPath(o.Name)
 	if !cluster.IsValid() {
-		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
+		return nil, fmt.Errorf("invalid workspace name format: %s", o.Name)
 	}
 
-	u, _, err := o.parseCurrentLogicalCluster(ctx)
+	u, _, err := o.parseCurrentLogicalCluster()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// root workspace
 	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u.String(), nil
+	return u, nil
 }
 
-func (o *UseWorkspaceOptions) moveCurrentRoot(ctx context.Context) (string, error) {
-	u, currentClusterName, err := o.parseCurrentLogicalCluster(ctx)
+func (o *UseWorkspaceOptions) currentRootURL() (*url.URL, error) {
+	u, currentClusterName, err := o.parseCurrentLogicalCluster()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	hasParent := true
@@ -493,90 +408,10 @@ func (o *UseWorkspaceOptions) moveCurrentRoot(ctx context.Context) (string, erro
 
 	// root workspace
 	u.Path = path.Join(u.Path, current.RequestPath())
-	return u.String(), nil
+	return u, nil
 }
 
-func (o *UseWorkspaceOptions) moveMultipleAbsoluteUp(ctx context.Context) (string, error) {
-	cluster := logicalcluster.NewPath(o.Name)
-	if !cluster.IsValid() {
-		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
-	}
-
-	u, _, err := o.parseCurrentLogicalCluster(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
-	// not a blocker to enter the workspace. We will do discovery as a final check below
-	parentClusterName, workspaceName := logicalcluster.NewPath(o.Name).Split()
-	if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
-		return "", fmt.Errorf("workspace %q not found", o.Name)
-	}
-
-	groups, err := o.kcpClusterClient.Cluster(cluster).Discovery().ServerGroups()
-	if err != nil && !apierrors.IsForbidden(err) {
-		return "", err
-	}
-	if apierrors.IsForbidden(err) || len(groups.Groups) == 0 {
-		return "", fmt.Errorf("access to workspace %s denied", o.Name)
-	}
-
-	// TODO(sttts): in both the cases of `root` and absolute paths here we assume that the current cluster
-	//              client is talking to the right external URL. This obviously not guaranteed, and hence
-	//              we silently assume that the front-proxy will route to every workspace.
-	//			    We might want to add permanent redirections to the front-proxy if the external
-	//              URL does not match the workspace's shard, and then add redirect support here to
-	//              use the right front-proxy URL in the kubeconfig.
-
-	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u.String(), nil
-}
-
-func (o *UseWorkspaceOptions) moveAbsoluteUp(ctx context.Context) (string, error) {
-	cluster := logicalcluster.NewPath(o.Name)
-	if !cluster.IsValid() {
-		return "", fmt.Errorf("invalid workspace name format: %s", o.Name)
-	}
-
-	u, _, err := o.parseCurrentLogicalCluster(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u.String(), nil
-}
-
-func (o *UseWorkspaceOptions) moveRelativeUp(ctx context.Context) (string, error) {
-	u, currentClusterName, err := o.parseCurrentLogicalCluster(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	full := currentClusterName.Join(o.Name)
-	o.Name = full.String()
-	// override cluster with the full path for discovery
-	cluster := full
-
-	// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
-	// not a blocker to enter the workspace. We will do discovery as a final check below
-	parentClusterName, workspaceName := logicalcluster.NewPath(o.Name).Split()
-	if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
-		return "", fmt.Errorf("workspace %q not found", o.Name)
-	}
-
-	// TODO(sttts): in both the cases of `root` and absolute paths here we assume that the current cluster
-	//              client is talking to the right external URL. This obviously not guaranteed, and hence
-	//              we silently assume that the front-proxy will route to every workspace.
-	//			    We might want to add permanent redirections to the front-proxy if the external
-	//              URL does not match the workspace's shard, and then add redirect support here to
-	//              use the right front-proxy URL in the kubeconfig.
-	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u.String(), nil
-}
-
-func (o *UseWorkspaceOptions) parseCurrentLogicalCluster(ctx context.Context) (*url.URL, *logicalcluster.Path, error) {
+func (o *UseWorkspaceOptions) parseCurrentLogicalCluster() (*url.URL, *logicalcluster.Path, error) {
 	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
 		return nil, nil, err

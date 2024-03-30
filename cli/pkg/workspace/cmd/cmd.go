@@ -39,10 +39,19 @@ var (
 	%[1]s workspace my-workspace
 
 	# enter a given absolute workspace
-	%[1]s workspace root:default:my-workspace
+	%[1]s workspace :root:default:my-workspace
+
+	# short-hand for the current root workspace
+	%[1]s workspace :
+
+	# enter a given relative workspace
+	%[1]s workspace some:nested:workspace
 
 	# enter the parent workspace
 	%[1]s workspace ..
+
+	# enter the grand parent workspace
+	%[1]s workspace ..:..
 
 	# enter the previous workspace
 	%[1]s workspace -
@@ -95,7 +104,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	useWorkspaceOpts := plugin.NewUseWorkspaceOptions(streams)
 	useCmd := &cobra.Command{
 		Aliases:      []string{"cd"},
-		Use:          "use <workspace>|..|.|-|~|<root:absolute:workspace>",
+		Use:          "use <workspace>|..|.|-|~|<:root:absolute:workspace>|<relative:workspace>",
 		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace, . mean current, ~ means home workspace",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
