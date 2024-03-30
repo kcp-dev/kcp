@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
@@ -123,10 +124,14 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	home, _ := os.UserHomeDir()
 	home = strings.ReplaceAll(home, "/", ":") // we default to : as / is just an alias
 	o.Name = strings.ReplaceAll(o.Name, "/", ":")
+	logicalCluster := logicalcluster.NewPath(o.Name)
+
 	rawConfig, err := o.ClientConfig.RawConfig()
 	if err != nil {
 		return err
 	}
+
+	spew.Dump(logicalCluster.String())
 
 	// Store the currentContext content for later to set as previous context
 	currentContext, found := o.startingConfig.Contexts[rawConfig.CurrentContext]
@@ -149,7 +154,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	switch {
 	// o.Name empty and home workspace should be always one after another for fallthrough to
 	// print error and default to home.
-	case o.Name == "":
+	case logicalCluster.String() == "":
 		defer func() {
 			if err == nil {
 				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
@@ -157,7 +162,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}()
 		fallthrough
 
-	case o.Name == "~" || o.Name == home || strings.HasPrefix(o.Name, "~:") || strings.HasPrefix(o.Name, home+":"):
+	case logicalCluster.String() == "~" || logicalCluster.String() == home || strings.HasPrefix(logicalCluster.String(), "~:") || strings.HasPrefix(logicalCluster.String(), home+":"):
 		newServerHost, err := o.moveHome(ctx, home)
 		if err != nil {
 			return err
@@ -165,28 +170,28 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return o.commitConfig(ctx, currentContext, newServerHost, nil)
 
 		// move to 'my' root
-	case o.Name == ":":
+	case logicalCluster.String() == ":":
 		newServerHost, err := o.moveCurrentRoot(ctx)
 		if err != nil {
 			return err
 		}
 		return o.commitConfig(ctx, currentContext, newServerHost, nil)
 
-	case o.Name == ".":
+	case logicalCluster.String() == ".":
 		cfg, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
 		}
 		return printCurrentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
-	case o.Name == "-":
+	case logicalCluster.String() == "-":
 		newServerHost, err := o.movePrevious(ctx, currentContext)
 		if err != nil {
 			return err
 		}
 		return printCurrentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
-	case strings.Contains(o.Name, ".."):
+	case strings.Contains(logicalCluster.String(), ".."):
 		newServerHost, err := o.moveBackwards(ctx)
 		if err != nil {
 			return err
@@ -194,7 +199,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return o.commitConfig(ctx, currentContext, newServerHost, nil)
 
 		// root legacy move
-	case o.Name == core.RootCluster.String():
+	case logicalCluster.String() == core.RootCluster.String():
 		newServerHost, err := o.moveRootLegacy(ctx)
 		if err != nil {
 			return err
@@ -204,16 +209,14 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		// system is bit different. Usually when moving to system workspaces you
 		// need to have special access and "if workspace exists" checks fails.
 		// If merged to "absolute path check" code gets convoluted :/
-	case strings.HasPrefix(o.Name, ":"+core.SystemCluster.String()):
+	case logicalCluster.HasPrefix(logicalcluster.NewPath(":" + core.SystemCluster.String())):
 		newServerHost, err := o.moveAbsoluteSystem(ctx)
 		if err != nil {
 			return err
 		}
 		return o.commitConfig(ctx, currentContext, newServerHost, nil)
 
-		// handle absolute path. has 3 modes:
-		// 1. system
-		// 2. whatever user requested
+		// handle absolute path.
 	case strings.HasPrefix(o.Name, ":"):
 		o.Name = strings.TrimPrefix(o.Name, ":")
 		switch {
