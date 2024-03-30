@@ -7,7 +7,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/kcp-dev/client-go v0.0.0-20230927101349-0416c830e3b1
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster/v3 v3.0.4
+	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/muesli/reflow v0.3.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
