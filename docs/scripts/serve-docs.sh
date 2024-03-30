@@ -31,4 +31,5 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
+mike set-default "${MIKE_OPTIONS[@]}" main
 mike serve "${MIKE_OPTIONS[@]}"
