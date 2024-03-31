@@ -1,5 +1,6 @@
 
 builds:
+# server builds
 - id: "kcp"
   main: ./cmd/kcp
   binary: bin/kcp
@@ -17,6 +18,8 @@ builds:
     goarch: ppc64le
   env:
   - CGO_ENABLED=0
+# plugin builds
+# kubectl-kcp
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
   dir: cli
@@ -38,10 +41,11 @@ builds:
     goarch: ppc64le
   env:
   - CGO_ENABLED=0
-- id: "kubectl-workspace"
+# kubectl-workspaces
+- id: "kubectl-workspaces"
   main: ./cmd/kubectl-workspace
   dir: cli
-  binary: bin/kubectl-workspace
+  binary: bin/kubectl-workspaces
   ldflags:
   - "{{ .Env.LDFLAGS }}"
   goos:
@@ -57,10 +61,28 @@ builds:
     goarch: ppc64le
   - goos: windows
     goarch: ppc64le
-  hooks:
-    post:
-      - cp kubectl-workspace bin/kubectl-workspaces
-      - cp kubectl-workspace bin/kubectl-ws
+  env:
+  - CGO_ENABLED=0
+# kubectl-ws
+- id: "kubectl-ws"
+  main: ./cmd/kubectl-workspace
+  dir: cli
+  binary: bin/kubectl-ws
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  - goos: windows
+    goarch: ppc64le
   env:
   - CGO_ENABLED=0
 archives:
@@ -70,18 +92,15 @@ archives:
 - id: kubectl-kcp-plugin
   builds:
   - kubectl-kcp
-  - kubectl-workspace
   name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-  files:
-    - bin/kubectl-workspaces
-    - bin/kubectl-ws
-# krew has separate archive as it supports only one binary per plugin
-- id: kubectl-kcp-plugin-krew
+- id: kubectl-ws-plugin
   builds:
-  - kubectl-workspace
-  name_template: "kubectl-kcp-ws-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-  files:
-    - bin/kubectl-ws
+  - kubectl-ws
+  name_template: "kubectl-ws-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: kubectl-workspaces-plugin
+  builds:
+  - kubectl-workspaces
+  name_template: "kubectl-workspaces-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 release:
   draft: true
   mode: keep-existing
@@ -89,7 +108,7 @@ release:
 krews:
 - name: ws
   ids:
-  - kubectl-kcp-plugin-krew
+  - kubectl-ws-plugin
   repository:
     owner: kcp-dev
     name: krew-index
@@ -98,4 +117,28 @@ krews:
   description: |
     KCP workspace cli plugin for kubectl. Enables you to manage your kcp workspaces.
   short_description: "KCP workspace cli plugin for kubectl."
+  skip_upload: auto
+- name: workspaces
+  ids:
+  - kubectl-workspaces-plugin
+  repository:
+    owner: kcp-dev
+    name: krew-index
+    token: "{{ .Env.KREW_GITHUB_TOKEN }}"
+  homepage: "https://kcp.io/"
+  description: |
+    KCP workspace cli plugin for kubectl. Enables you to manage your kcp workspaces.
+  short_description: "KCP workspace cli plugin for kubectl."
+  skip_upload: auto
+- name: kcp
+  ids:
+  - kubectl-kcp-plugin
+  repository:
+    owner: kcp-dev
+    name: krew-index
+    token: "{{ .Env.KREW_GITHUB_TOKEN }}"
+  homepage: "https://kcp.io/"
+  description: |
+    KCP cli plugin for kubectl. Enables you to manage your kcp.
+  short_description: "KCP cli plugin for kubectl."
   skip_upload: auto
