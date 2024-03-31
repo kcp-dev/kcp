@@ -84,7 +84,6 @@ archives:
     - bin/kubectl-ws
 release:
   draft: true
-  prerelease: auto
   mode: keep-existing
 
 krews:
