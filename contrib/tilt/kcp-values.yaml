@@ -1,0 +1,54 @@
+externalHostname: "kcp.dev.local"
+kcp:
+  volumeClassName: "standard"
+  externalLogicalClusterAdminFlag: false
+  # Fake images to trick Tilt to think they are different
+  image: "ghcr.io/kcp-dev/kcp-server"
+  tokenAuth:
+    enabled: true
+    fileName: auth-token.csv
+    config: |
+        user-1-token,user-1,1111-1111-1111-1111,"team-1"
+        admin-token,admin,5555-5555-5555-5555,"system:kcp:admin"
+        system-admin-token,system-admin,5555-5555-5555-5555,"system:admin"
+        system-token,system,6666-6666-6666-6666,"system:masters"
+  batteries:
+    - workspace-types
+    - metrics-viewer
+  extraFlags:
+  - --feature-gates=WorkspaceMounts=true
+kcpFrontProxy:
+  v: 8
+  # Fake images to trick Tilt to think they are different
+  image: "ghcr.io/kcp-dev/kcp-frontend-proxy"
+  tag: f1332a0e
+  openshiftRoute:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "nginx"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  certificate:
+    issuerSpec:
+      selfSigned: {}
+oidc:
+  enabled: true
+  issuerUrl: https://dex.dev.local
+  clientId: kcp-dv
+  groupClaim: groups
+  usernameClaim: email
+  usernamePrefix: kcp-dev-sso-
+  groupsPrefix: kcp-dev-sso-
+certificates:
+  dnsNames:
+  - localhost
+  - kcp.kcp.svc
+  - kcp.kcp.svc.cluster.local
+  secretTemplate:
+    enabled: true
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "cluster-proxy"  # Control destination namespaces
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true" # Auto create reflection for matching namespaces
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "cluster-proxy" # Control auto-reflection namespaces

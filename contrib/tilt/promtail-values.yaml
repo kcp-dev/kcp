@@ -1,0 +1,47 @@
+enabled: true
+fullnameOverride: promtail
+config:
+  lokiAddress: http://loki:3100/loki/api/v1/push
+  snippets:
+    pipelineStages:
+      - docker: {}
+      - match:
+          selector: '{namespace!=""}'
+          stages:
+            - regex:
+                expression: '.*(level)=(?P<level>[a-zA-Z]+)'
+            # override alert_group from log field if found
+            - regex:
+                expression: '.*(alert_group)=(?P<alert_group>[^ ]+)'
+            - template:
+                source: alert_group
+                template: '{{ .namespace }}/{{ .Value }}'
+            - labels:
+                level:
+                alert_group:
+      - match:
+          selector: '{app!="",namespace="kcp"}'
+          stages:
+            - regex:
+                expression: "^.*(?P<panic>panic).*$"
+            - metrics:
+               # promtail_custom_cast_panic_total
+               cast_panic_total:
+                type: Counter
+                description: "total panics handled"
+                source: panic
+                config:
+                  action: inc
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+initContainer:
+  enabled: true
+  fsInotifyMaxUserInstances: 8192
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "http-metrics"

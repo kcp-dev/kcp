@@ -7,6 +7,7 @@ tools
 build
 vendor
 goio.yaml
+*.kubeconfig
 
 # JetBrains IDE files
 .idea/
@@ -28,3 +29,6 @@ tmp
 
 go.work
 go.work.*
+go.work.sum
+
+/contrib/tilt/bin/*
