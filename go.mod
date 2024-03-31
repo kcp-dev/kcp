@@ -16,7 +16,7 @@ require (
 	github.com/kcp-dev/client-go v0.0.0-20230927101349-0416c830e3b1
 	github.com/kcp-dev/kcp/cli v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster/v3 v3.0.4
+	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.17.0
