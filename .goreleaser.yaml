@@ -59,8 +59,8 @@ builds:
     goarch: ppc64le
   hooks:
     post:
-      - ln -sf kubectl-workspace bin/kubectl-workspaces
-      - ln -sf kubectl-workspace bin/kubectl-ws
+      - cp kubectl-workspace bin/kubectl-workspaces
+      - cp kubectl-workspace bin/kubectl-ws
   env:
   - CGO_ENABLED=0
 archives:
