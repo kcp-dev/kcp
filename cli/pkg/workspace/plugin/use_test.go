@@ -46,7 +46,7 @@ import (
 )
 
 func TestUse(t *testing.T) {
-	homeWorkspaceLogicalCluster := logicalcluster.NewPath("root:users:ab:cd:user-name")
+	homeWorkspace := logicalcluster.NewPath("root:users:ab:cd:user-name")
 
 	discoveryFor := func(pths ...string) map[logicalcluster.Path][]*metav1.APIResourceList {
 		ret := make(map[logicalcluster.Path][]*metav1.APIResourceList, len(pths))
@@ -80,12 +80,8 @@ func TestUse(t *testing.T) {
 		noWarn     bool
 	}{
 		{
-			name: "current, context named workspace",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "current, context named workspace",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo:bar").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
@@ -104,125 +100,61 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{"Current workspace is the URL \"https://test\""},
 		},
 		{
-			name: "workspace name",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, short output",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, short output",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			short:     true,
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			short:       true,
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			wantStdout:  []string{"root:foo:bar"},
 		},
 		{
-			name: "workspace name, no cluster URL",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:    "workspace name, no cluster URL",
+			config:  *NewKubeconfig().WithKcpCurrent("").Build(),
 			param:   "bar",
 			wantErr: true,
 		},
 		{
-			name: "absolute name with access to parent",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "absolute name with access to parent",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "root:foo:bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "root:foo:bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "absolute name without access to parent",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:               "absolute name without access to parent",
+			config:             *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
 			discovery:          discoveryFor("root:foo:bar"),
 			param:              "root:foo:bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			destination: "root:foo:bar",
-			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
+			expected:           NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
+			destination:        "root:foo:bar",
+			wantStdout:         []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "absolute workspace doesn't exist error",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:               "absolute workspace doesn't exist error",
+			config:             *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewNotFound(schema.GroupResource{}, "bar")},
 			discoveryErrors: map[logicalcluster.Path]error{
 				logicalcluster.NewPath("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
@@ -232,12 +164,8 @@ func TestUse(t *testing.T) {
 			wantErrors: []string{"workspace \"root:foo:foe\" not found"},
 		},
 		{
-			name: "absolute workspace access not permitted",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:               "absolute workspace access not permitted",
+			config:             *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
 			discoveryErrors: map[logicalcluster.Path]error{
 				logicalcluster.NewPath("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
@@ -247,12 +175,8 @@ func TestUse(t *testing.T) {
 			wantErrors: []string{"access to workspace \"root:foo:foe\" denied"},
 		},
 		{
-			name: "invalid workspace name format",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "invalid workspace name format",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
@@ -261,239 +185,128 @@ func TestUse(t *testing.T) {
 			wantErrors: []string{"invalid workspace path: ju:nk§"},
 		},
 		{
-			name: "absolute name, no cluster URL",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:    "absolute name, no cluster URL",
+			config:  *NewKubeconfig().WithKcpCurrent("").Build(),
 			param:   "root:bar",
 			wantErr: true,
 		},
 		{
-			name: ":system:admin",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			discovery: discoveryFor("system:admin"),
-			param:     ":system:admin",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/system:admin"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:        ":system:admin",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("system:admin"),
+			param:       ":system:admin",
+			expected:    NewKubeconfig().WithKcpCurrent("system:admin").WithKcpPrevious("root:foo").Build(),
 			destination: "system:admin",
 			wantStdout:  []string{"Current workspace is 'system:admin'"},
 		},
 		{
-			name: "root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			discovery: discoveryFor("root"),
-			param:     "root",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:        "root",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("root"),
+			param:       "root",
+			expected:    NewKubeconfig().WithKcpCurrent("root").WithKcpPrevious("root:foo").Build(),
 			destination: "root",
 			wantStdout:  []string{"Current workspace is 'root'"},
 		},
 		{
-			name: "root, no cluster URL",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current": {Server: "https://test/clusters/"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:    "root, no cluster URL",
+			config:  *NewKubeconfig().WithKcpCurrent("").Build(),
 			param:   "root",
 			wantErr: true,
 		},
 		{
-			name: "..",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "..",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo:bar").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root"): {"foo"},
 			},
-			discovery: discoveryFor("root:foo"),
-			param:     "..",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo"),
+			param:       "..",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root:foo:bar").Build(),
 			destination: "root:foo",
 			wantStdout:  []string{"Current workspace is 'root:foo'"},
 		},
 		{
-			name: ".., no cluster URL",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:    ".., no cluster URL",
+			config:  *NewKubeconfig().WithKcpCurrent("").Build(),
 			param:   "..",
 			wantErr: true,
 		},
 		{
-			name: ".. to root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			discovery: discoveryFor("root"),
-			param:     "..",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:        ".. to root",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("root"),
+			param:       "..",
+			expected:    NewKubeconfig().WithKcpCurrent("root").WithKcpPrevious("root:foo").Build(),
 			destination: "root",
 			wantStdout:  []string{"Current workspace is 'root'"},
 		},
 		{
-			name: ".. slash .. to child of root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar:baz"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			discovery: discoveryFor("root:foo"),
-			param:     "../..",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar:baz"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:        ".. slash .. to child of root",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").Build(),
+			discovery:   discoveryFor("root:foo"),
+			param:       "../..",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root:foo:bar:baz").Build(),
 			destination: "root",
 			wantStdout:  []string{"Current workspace is 'root:foo'"},
 		},
 		{
-			name: "..:.. to child of root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo:bar:baz"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			discovery: discoveryFor("root:foo"),
-			param:     "..:..",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar:baz"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:        "..:.. to child of root",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").Build(),
+			discovery:   discoveryFor("root:foo"),
+			param:       "..:..",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root:foo:bar:baz").Build(),
 			destination: "root",
 			wantStdout:  []string{"Current workspace is 'root:foo'"},
 		},
 		{
-			name: ".. in root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:     ".. in root",
+			config:   *NewKubeconfig().WithKcpCurrent("root").Build(),
 			param:    "..",
 			expected: nil,
 			wantErr:  true,
 		},
 		{
-			name: "- with existing previous context",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test2"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			name:        "relative",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("root:foo:bar:baz"),
+			param:       "bar:baz",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").WithKcpPrevious("root:foo").Build(),
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root:foo:bar:baz'"},
+		},
+		{
+			name:        "relative with ..",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("root:foo:bar:baz"),
+			param:       "bar:..:bar:baz:..:baz",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").WithKcpPrevious("root:foo").Build(),
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root:foo:bar:baz'"},
+		},
+		{
+			name:        "relative with .",
+			config:      *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			discovery:   discoveryFor("root:foo:bar:baz"),
+			param:       ".:bar:.:.:baz:.",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").WithKcpPrevious("root:foo").Build(),
+			destination: "root",
+			wantStdout:  []string{"Current workspace is 'root:foo:bar:baz'"},
+		},
+		{
+			name:   "- with existing previous context",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root:foo:bar").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			param: "-",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test2"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			param:       "-",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			wantStdout:  []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "- without existing previous context",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "- without existing previous context",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
@@ -581,106 +394,74 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{"Current workspace is the URL \"https://other2/\""},
 		},
 		{
-			name: "~",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "~",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				core.RootCluster: {"~"},
 			},
-			discovery: discoveryFor("root:users:ab:cd:user-name"),
-			param:     "~",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.RequestPath()},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspaceLogicalCluster.String())},
+			discovery:   discoveryFor("root:users:ab:cd:user-name"),
+			param:       "~",
+			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspace.String())},
 		},
 		{
-			name: "~ unfolded",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "~/bar/baz",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				core.RootCluster: {"~"},
 			},
-			discovery: discoveryFor("root:users:ab:cd:user-name"),
-			param:     "/home/sts",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.RequestPath()},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspaceLogicalCluster.String())},
+			discovery:   discoveryFor("root:users:ab:cd:user-name:bar:baz"),
+			param:       "~/bar/baz",
+			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String() + ":bar:baz").WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspace.String()+":bar:baz")},
 		},
 		{
-			name: "no arg",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "~/..",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				core.RootCluster: {"~"},
 			},
-			discovery: discoveryFor("root:users:ab:cd:user-name"),
-			param:     "",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.RequestPath()},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			destination: homeWorkspaceLogicalCluster.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+			discovery:   discoveryFor("root:users:ab:cd"),
+			param:       "~/..",
+			expected:    NewKubeconfig().WithKcpCurrent("root:users:ab:cd").WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is 'root:users:ab:cd'")},
 		},
 		{
-			name: "workspace name, apibindings have matching permission and export claims",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			name:   "~ unfolded",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			existingWorkspaces: map[logicalcluster.Name][]string{
+				core.RootCluster: {"~"},
 			},
+			discovery:   discoveryFor("root:users:ab:cd:user-name"),
+			param:       "/home/sts",
+			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'", homeWorkspace.String())},
+		},
+		{
+			name:   "no arg",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
+			existingWorkspaces: map[logicalcluster.Name][]string{
+				core.RootCluster: {"~"},
+			},
+			discovery:   discoveryFor("root:users:ab:cd:user-name"),
+			param:       "",
+			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspace.String())},
+		},
+		{
+			name:   "workspace name, apibindings have matching permission and export claims",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -691,28 +472,14 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, apibindings don't have matching permission or export claims",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, apibindings don't have matching permission or export claims",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -726,29 +493,15 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "~, apibinding claims/exports don't match",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "~, apibinding claims/exports don't match",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				core.RootCluster: {"~"},
 			},
-			discovery: discoveryFor("root:users:ab:cd:user-name"),
-			param:     "~",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.RequestPath()},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			destination: homeWorkspaceLogicalCluster.String(),
+			discovery:   discoveryFor("root:users:ab:cd:user-name"),
+			param:       "~",
+			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
+			destination: homeWorkspace.String(),
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
 					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
@@ -758,42 +511,16 @@ func TestUse(t *testing.T) {
 			},
 			wantStdout: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				fmt.Sprintf("Current workspace is '%s'", homeWorkspaceLogicalCluster.String())},
+				fmt.Sprintf("Current workspace is '%s'", homeWorkspace.String())},
 		},
 		{
-			name: "- with existing previous context, apibinding claims/exports don't match ",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test2"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo:bar"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			name:   "- with existing previous context, apibinding claims/exports don't match ",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root:foo:bar").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			param: "-",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test2"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			param:       "-",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -807,28 +534,14 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, apibindings rejected",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, apibindings rejected",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -841,28 +554,14 @@ func TestUse(t *testing.T) {
 			noWarn: true,
 		},
 		{
-			name: "workspace name, apibindings accepted",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, apibindings accepted",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -875,28 +574,14 @@ func TestUse(t *testing.T) {
 			noWarn: true,
 		},
 		{
-			name: "workspace name, some apibindings accepted",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, some apibindings accepted",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -910,28 +595,14 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, apibindings not acknowledged",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, apibindings not acknowledged",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -944,28 +615,14 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, APIBindings unacknowledged and unspecified",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, APIBindings unacknowledged and unspecified",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -980,28 +637,14 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, multiple APIBindings unacknowledged",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, multiple APIBindings unacknowledged",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -1017,28 +660,14 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "workspace name, multiple APIBindings unspecified",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   "workspace name, multiple APIBindings unspecified",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			discovery: discoveryFor("root:foo:bar"),
-			param:     "bar",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			discovery:   discoveryFor("root:foo:bar"),
+			param:       "bar",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
 			apiBindings: []apisv1alpha1.APIBinding{
 				newBindingBuilder("a").
@@ -1052,92 +681,38 @@ func TestUse(t *testing.T) {
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
-			name: "relative change multiple jumps from non root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test2"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			name:   "relative change multiple jumps from non root",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").WithKcpPrevious("root").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"):     {"bar"},
 				logicalcluster.Name("root:foo:bar"): {"baz"},
 			},
-			discovery: discoveryFor("root:foo:bar:baz"),
-			param:     "bar:baz",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root:foo:bar:baz"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"test":  {Token: "test"},
-					"test2": {Token: "test2"},
-				},
-			},
+			discovery:   discoveryFor("root:foo:bar:baz"),
+			param:       "bar:baz",
+			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar:baz").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar:baz",
 			wantStdout: []string{
 				"Current workspace is 'root:foo:bar:baz'"},
 		},
 		{
-			name: ": real root",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   ": real root",
+			config: *NewKubeconfig().WithKcpCurrent("root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			param: ":",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/root"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			param:       ":",
+			expected:    NewKubeconfig().WithKcpCurrent("root").WithKcpPrevious("root:foo").Build(),
 			destination: "root",
 			wantStdout:  []string{"Current workspace is 'root'"},
 		},
 		{
-			name: ": custom 'my-root'",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.io/current": {Cluster: "workspace.kcp.io/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.io/current": {Server: "https://test/clusters/my-root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			name:   ": custom 'my-root'",
+			config: *NewKubeconfig().WithKcpCurrent("my-root:foo").Build(),
 			existingWorkspaces: map[logicalcluster.Name][]string{
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
-			param: ":",
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.io/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.io/current":  {Cluster: "workspace.kcp.io/current", AuthInfo: "test"},
-					"workspace.kcp.io/previous": {Cluster: "workspace.kcp.io/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.io/current":  {Server: "https://test/clusters/my-root"},
-					"workspace.kcp.io/previous": {Server: "https://test/clusters/my-root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
+			param:       ":",
+			expected:    NewKubeconfig().WithKcpCurrent("my-root").WithKcpPrevious("my-root:foo").Build(),
 			destination: "my-root",
 			wantStdout:  []string{"Current workspace is 'my-root'"},
 		},
@@ -1186,7 +761,7 @@ func TestUse(t *testing.T) {
 							Name: "user-name",
 						},
 						Spec: tenancyv1alpha1.WorkspaceSpec{
-							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.RequestPath()),
+							URL: fmt.Sprintf("https://test%s", homeWorkspace.RequestPath()),
 							Type: tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "home",
 								Path: "root",
@@ -1270,6 +845,51 @@ func TestUse(t *testing.T) {
 			}
 		})
 	}
+}
+
+type kubeconfigBuilder struct {
+	config clientcmdapi.Config
+}
+
+func NewKubeconfig() *kubeconfigBuilder {
+	return &kubeconfigBuilder{}
+}
+
+func (b *kubeconfigBuilder) WithKcpCurrent(pth string) *kubeconfigBuilder {
+	b.config.CurrentContext = "workspace.kcp.io/current"
+	if b.config.Contexts == nil {
+		b.config.Contexts = map[string]*clientcmdapi.Context{}
+	}
+	b.config.Contexts["workspace.kcp.io/current"] = &clientcmdapi.Context{Cluster: "workspace.kcp.io/current", AuthInfo: "test"}
+	if b.config.Clusters == nil {
+		b.config.Clusters = map[string]*clientcmdapi.Cluster{}
+	}
+	b.config.Clusters["workspace.kcp.io/current"] = &clientcmdapi.Cluster{Server: "https://test/clusters/" + pth}
+	if b.config.AuthInfos == nil {
+		b.config.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
+	}
+	b.config.AuthInfos["test"] = &clientcmdapi.AuthInfo{Token: "test"}
+	return b
+}
+
+func (b *kubeconfigBuilder) WithKcpPrevious(pth string) *kubeconfigBuilder {
+	if b.config.Contexts == nil {
+		b.config.Contexts = map[string]*clientcmdapi.Context{}
+	}
+	b.config.Contexts["workspace.kcp.io/previous"] = &clientcmdapi.Context{Cluster: "workspace.kcp.io/previous", AuthInfo: "test"}
+	if b.config.Clusters == nil {
+		b.config.Clusters = map[string]*clientcmdapi.Cluster{}
+	}
+	b.config.Clusters["workspace.kcp.io/previous"] = &clientcmdapi.Cluster{Server: "https://test/clusters/" + pth}
+	if b.config.AuthInfos == nil {
+		b.config.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
+	}
+	b.config.AuthInfos["test"] = &clientcmdapi.AuthInfo{Token: "test"}
+	return b
+}
+
+func (b *kubeconfigBuilder) Build() *clientcmdapi.Config {
+	return &b.config
 }
 
 type fakeClusterClientWithDiscoveryErrors struct {
