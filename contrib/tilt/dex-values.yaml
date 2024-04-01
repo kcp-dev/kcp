@@ -1,0 +1,91 @@
+# -- Application configuration.
+# See the [official documentation](https://dexidp.io/docs/).
+config:
+  issuer: https://idp.dev.local:6443
+  storage:
+    type: sqlite3
+    config:
+      file: /data/dex.db
+  web:
+    http: 0.0.0.0:5556
+    https: 0.0.0.0:5554
+    tlsCert: /etc/dex/tls/tls.crt
+    tlsKey: /etc/dex/tls/tls.key
+    allowedOrigins: ['*']
+  # Enable local users
+  enablePasswordDB: true
+  # Set up an test user
+  staticPasswords:
+    - email: "admin@kcp.dev"
+      # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+      username: "admin"
+      userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+
+  oauth2:
+    skipApprovalScreen: true
+    passwordConnector: local
+
+  staticClients:
+  - id: kcp-dev
+    public: true
+    redirectURIs:
+    - https://idp.dev.local:6443/callback
+    - http://localhost:8000
+    name: 'KCP App'
+    secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+
+certmanager:
+  enabled: true
+  selfSigned: true
+  certificates:
+    privateKeys:
+      algorithm: RSA
+      size: 2048
+    subject: {}
+certificates:
+  dnsNames:
+    - idp.dev.local
+  secretTemplate:
+    enabled: true
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kcp-alpha,kcp-beta,kcp-proxy,kcp-cache,cert-manager,idp,cluster-proxy"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "kcp-alpha,kcp-beta,kcp-proxy,kcp-cache,cert-manager,idp,cluster-proxy"
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+  tls:
+    - hosts:
+      - idp.dev.local
+      secretName: dex-tls
+  hosts:
+    - host: idp.dev.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+service:
+  ports:
+    https:
+      port: 6443
+https:
+  enabled: true
+
+volumes:
+# only to bootstrap dex
+  - name: kcp-admin-kubeconfig
+    secret:
+      secretName: kcp-admin-kubeconfig
+      items:
+        - key: kubeconfig
+          path: kubeconfig
+# overall trust ca
+  - name: kcp-ca
+    secret:
+      secretName: certs-kcp-ca
+
+persistency:
+  enabled: true

@@ -1,0 +1,336 @@
+load('ext://helm_remote', 'helm_remote')
+load('ext://helm_resource', 'helm_resource')
+load('ext://namespace', 'namespace_create', 'namespace_inject')
+load('ext://restart_process', 'docker_build_with_restart')
+load('ext://git_resource', 'git_checkout')
+load('ext://get_obj', 'get_obj')
+load('ext://cert_manager', 'deploy_cert_manager')
+
+k8s_yaml('kernel-limits-job.yaml')
+
+registry = "localhost:5000"
+default_registry(registry)
+
+current_context = k8s_context()
+
+namespace_create('grafana')
+helm_remote(
+  'grafana',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='grafana',
+  namespace='grafana',
+  version='6.38.0',
+  values=['./grafana-values.yaml'],
+  set=[]
+)
+
+k8s_resource(
+  workload='grafana',
+  port_forwards=[
+    port_forward(name="3333", local_port=3333, container_port=3000),
+  ],
+)
+
+namespace_create('loki')
+helm_remote(
+  'loki',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='loki',
+  namespace='loki',
+  # contains loki 2.8.0 -- the same we run in prod on 2023-06-27: https://artifacthub.io/packages/helm/grafana/loki/5.2.0
+  version='5.2.0',
+  values=['./loki-values.yaml'],
+  set=[]
+)
+k8s_resource(
+  workload='loki',
+  port_forwards=[
+    port_forward(name="ui", local_port=3100, container_port=3100),
+  ],
+)
+
+promtail_values = ['promtail-values.yaml']
+
+helm_remote(
+  'promtail',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='promtail',
+  namespace='loki',
+  version='3.11.0',
+  values=promtail_values,
+  set=[]
+)
+
+prometheus_values = ['prometheus-values.yaml']
+namespace_create('prometheus')
+helm_remote(
+  'prometheus',
+  repo_url='https://prometheus-community.github.io/helm-charts',
+  repo_name='prometheus-community',
+  release_name='prometheus',
+  namespace='prometheus',
+  version='25.8.2',
+  values=prometheus_values,
+  set=[]
+)
+
+k8s_resource(
+  workload='prometheus-server',
+  port_forwards=[
+    port_forward(name="ui", local_port=9091, container_port=9090),
+  ],
+)
+
+# replicator for secrets replications
+namespace_create('reflector')
+helm_remote(
+  'reflector',
+  repo_url='https://emberstack.github.io/helm-charts',
+  repo_name='emberstack',
+  release_name='kubernetes-reflector',
+  namespace='reflector',
+  version='7.1.216',
+  values=[''],
+  set=[]
+)
+
+
+# KCP development
+namespace_create('kcp-certs')
+namespace_create('kcp-proxy')
+namespace_create('kcp-cache')
+namespace_create('kcp-alpha')
+namespace_create('kcp-beta')
+if not os.path.exists('kcp-helm-charts'):
+  git_checkout(
+    'https://github.com/kcp-dev/helm-charts',
+    'kcp-helm-charts'
+  )
+
+compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp ./cmd/kcp'
+local_resource(
+  'kcp-compile',
+  compile_cmd,
+  deps=[
+    './../../pkg',
+    './../../sdk',
+    './../../cmd',
+  ],
+  allow_parallel=True,
+)
+
+docker_build_with_restart(
+  'ghcr.io/kcp-dev/kcp-server',
+  '.',
+  entrypoint=['/kcp', "start"],
+  dockerfile='Dockerfile.kcp',
+  only=[
+    './bin/kcp',
+  ],
+  build_args={'SHELL': 'with-shell-'},
+  live_update=[
+    sync('./bin/kcp', '/kcp'),
+  ],
+)
+
+compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/cache-server ./cmd/cache-server'
+local_resource(
+  'cache-compile',
+  compile_cmd,
+  deps=[
+    './../../pkg',
+    './../../sdk',
+    './../../cmd',
+  ],
+  allow_parallel=True,
+)
+
+docker_build_with_restart(
+  'ghcr.io/kcp-dev/cache-server',
+  '.',
+  entrypoint=['/cache-server', "start"],
+  dockerfile='Dockerfile.cache',
+  only=[
+    './bin/cache-server',
+  ],
+  build_args={'SHELL': 'with-shell-'},
+  live_update=[
+    sync('./bin/cache-server', '/cache-server'),
+  ],
+)
+
+
+compile_cmd = 'cd ../../ && CGO_ENABLED=0 GOOS=linux go build -o ./contrib/tilt/bin/kcp-front-proxy ./cmd/kcp-front-proxy'
+local_resource(
+  'kcp-proxy-compile',
+  compile_cmd,
+  deps=[
+    './../../pkg',
+    './../../sdk',
+    './../../cmd',
+  ],
+  allow_parallel=True,
+)
+
+docker_build_with_restart(
+  'ghcr.io/kcp-dev/kcp-frontend-proxy',
+  '.',
+  entrypoint=['/kcp-front-proxy'],
+  dockerfile='Dockerfile.proxy',
+  only=[
+    './bin/kcp-front-proxy',
+  ],
+  build_args={'SHELL': 'with-shell-'},
+  live_update=[
+    sync('./bin/kcp-front-proxy', '/kcp-front-proxy'),
+  ],
+)
+
+
+#  PKI for kcp
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/certificates',
+  # The release name, equivalent to helm --name
+  name='kcp-certs',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-certs',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase1.yaml'],
+))
+
+# certificates for kcp-alpha
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/certificates',
+  # The release name, equivalent to helm --name
+  name='kcp-alpha',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-certs',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase2-alpha.yaml'],
+))
+
+# certificates for kcp-abetalpha
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/certificates',
+  # The release name, equivalent to helm --name
+  name='kcp-beta',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-certs',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase2-beta.yaml'],
+))
+
+# certificates for kcp-proxy
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/certificates',
+  # The release name, equivalent to helm --name
+  name='kcp-proxy',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-certs',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase2-proxy.yaml'],
+))
+
+# certificates for kcp-cache
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/certificates',
+  # The release name, equivalent to helm --name
+  name='kcp-cache',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-certs',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase2-cache.yaml'],
+))
+
+# deploy cache
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/cache',
+  # The release name, equivalent to helm --name
+  name='kcp-cache',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-cache',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase3-cache.yaml'],
+  set=[
+    'cache.image=ghcr.io/kcp-dev/cache-server',
+  ]
+))
+
+# deploy alpha
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/shard',
+  # The release name, equivalent to helm --name
+  name='kcp-alpha',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-alpha',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase3-alpha.yaml'],
+  set=[
+    'kcp.image=ghcr.io/kcp-dev/kcp-server',
+  ]
+))
+
+# deploy proxy
+# TODO: Read kcp-prox svc of proxy-front-proxy-internal ip and pass it as host allias for alpha, beta for kcp.dev.local
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/proxy',
+  # The release name, equivalent to helm --name
+  name='kcp-proxy',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-proxy',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase3-proxy.yaml'],
+  set=[
+    'kcpFrontProxy.image=ghcr.io/kcp-dev/kcp-frontend-proxy',
+  ]
+))
+
+# deploy beta
+k8s_yaml(helm(
+  'kcp-helm-charts/charts/shard',
+  # The release name, equivalent to helm --name
+  name='kcp-beta',
+  # The namespace to install in, equivalent to helm --namespace
+  namespace='kcp-beta',
+  # The values file to substitute into the chart.
+  values=['kcp-helm-charts/examples/sharded/kind-values-phase3-beta.yaml'],
+  set=[
+    'kcp.image=ghcr.io/kcp-dev/kcp-server',
+  ]
+))
+
+
+k8s_resource(
+  workload='alpha',
+  port_forwards=[
+    port_forward(name="kcp-alpha", local_port=6443, container_port=6443),
+  ],
+)
+
+k8s_resource(
+  workload='proxy-front-proxy',
+  port_forwards=[
+    port_forward(name="proxy-front-proxy", local_port=8443, container_port=8443),
+  ],
+)
+
+k8s_yaml(read_file('coredns.yaml'))
+
+dexEnabled = True
+if dexEnabled:
+  dexConfig = os.getenv("DEX_CONFIG_OVERRIDE", "dex-values.yaml")
+  print("Using DEX config:"+ dexConfig)
+  namespace_create('idp')
+  helm_remote(
+    'dex',
+    repo_url='https://faroshq.github.io/dex-helm-charts/',
+    repo_name='dex-faroshq',
+    release_name='dex',
+    namespace='idp',
+    version='0.15.3-7',
+    values=[dexConfig],
+    set=[]
+  )

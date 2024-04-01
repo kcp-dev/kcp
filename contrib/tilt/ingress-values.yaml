@@ -1,0 +1,35 @@
+controller:
+  replicaCount: 1
+  ingressClass: internal
+  ingressClassResource:
+    name: internal
+  watchIngressWithoutClass: true
+  dnsPolicy: ClusterFirstWithHostNet
+  hostNetwork: true
+  service:
+    # We use host network to bind on ports 443 & 80
+    create: true
+    type: NodePort
+    nodePorts:
+      http: "30080"
+      https: "30443"
+
+  admissionWebhooks:
+    enabled: false
+  affinity:
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 100
+  metrics:
+    enabled: false
+    #service:
+    #  annotations:
+    #    prometheus.io/scrape: "true"
+    #    prometheus.io/port: "10254"
+  config:
+    enable-access-log-for-default-backend: "true"
+    enable-opentracing: "false"
+    proxy-buffer-size: "16k"
+    jaeger-collector-host: tempo.grafana-tempo.svc.cluster.local
+    jaeger-endpoint: http://tempo.grafana-tempo.svc.cluster.local:14268/api/traces

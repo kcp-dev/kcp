@@ -1,0 +1,58 @@
+test:
+  enabled: false
+monitoring:
+  lokiCanary:
+    enabled: false
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+
+gateway:
+  enabled: false
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+  rulerConfig:
+    storage:
+      local:
+        directory: /etc/loki/rules
+    alertmanager_url: http://alertmanager.prometheus:9093
+    enable_alertmanager_v2: true
+
+singleBinary:
+  replicas: 1
+  extraVolumeMounts:
+  - name: rules-fake
+    mountPath: /etc/loki/rules/fake
+  extraVolumes:
+  - name: rules-fake
+    configMap:
+      name: loki-alerting-rules
+
+extraObjects:
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: loki-alerting-rules
+    namespace: loki
+  data:
+    ### Used to test loki alerts locally
+    #alert-rules.yaml: |
+    #  groups:
+    #  - name: inventory_instances_missing
+    #    rules:
+    #    - alert: MissingInventoryInstances
+    #      expr: |
+    #        sum by (cluster_id, cluster_provider, provider_type, region) (count_over_time({job=~"console/cost-report"} |= "inventory response missing instance types" | logfmt [5m]) > 0)
+    #      for: 0m
+    #      labels:
+    #        severity: warning
+    #        environment: karolis-tilt
+    #      annotations:
+    #        summary: 'Missing instance types for {{ "{{" }} $labels.provider_type }} in {{ "{{" }} $labels.region }}'
+
