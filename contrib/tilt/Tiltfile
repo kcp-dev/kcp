@@ -320,14 +320,17 @@ k8s_resource(
 k8s_yaml(read_file('coredns.yaml'))
 
 dexEnabled = True
-namespace_create('idp')
-helm_remote(
-  'dex',
-  repo_url='https://faroshq.github.io/dex-helm-charts/',
-  repo_name='dex-faroshq',
-  release_name='dex',
-  namespace='idp',
-  version='0.15.3-7',
-  values=['dex-values.yaml'],
-  set=[]
-)
+if dexEnabled:
+  dexConfig = os.getenv("DEX_CONFIG_OVERRIDE", "dex-values.yaml")
+  print("Using DEX config:"+ dexConfig)
+  namespace_create('idp')
+  helm_remote(
+    'dex',
+    repo_url='https://faroshq.github.io/dex-helm-charts/',
+    repo_name='dex-faroshq',
+    release_name='dex',
+    namespace='idp',
+    version='0.15.3-7',
+    values=[dexConfig],
+    set=[]
+  )
