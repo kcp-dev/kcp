@@ -47,6 +47,7 @@ type APIResourceSchema struct {
 }
 
 // APIResourceSchemaSpec defines the desired state of APIResourceSchema.
+// +kubebuilder:validation:XValidation:message="Conversion must be specified when multiple versions exist",rule="size(self.versions) == 1 || (size(self.versions) > 1 && has(self.conversion))"
 type APIResourceSchemaSpec struct {
 	// group is the API group of the defined custom resource. Empty string means the
 	// core API group. 	The resources are served under `/apis/<group>/...` or `/api` for the core group.
@@ -152,7 +153,7 @@ type APIResourceVersion struct {
 }
 
 // CustomResourceConversion describes how to convert different versions of a CR.
-// +kubebuilder:validation:XValidation:message="Webhook must be specified if strategy=Webhook",rule="self.strategy == 'None' || (self.strategy == 'Webhook' && has(self.webhook))"
+// +kubebuilder:validation:XValidation:message="Webhook must be specified if strategy=Webhook",rule="(self.strategy == 'None' && !has(self.webhook))  || (self.strategy == 'Webhook' && has(self.webhook))"
 type CustomResourceConversion struct {
 	// strategy specifies how custom resources are converted between versions. Allowed values are:
 	// - `"None"`: The converter only change the apiVersion and would not touch any other field in the custom resource.

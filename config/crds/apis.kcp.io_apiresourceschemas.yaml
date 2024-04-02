@@ -115,8 +115,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: Webhook must be specified if strategy=Webhook
-                  rule: self.strategy == 'None' || (self.strategy == 'Webhook' &&
-                    has(self.webhook))
+                  rule: (self.strategy == 'None' && !has(self.webhook))  || (self.strategy
+                    == 'Webhook' && has(self.webhook))
               group:
                 description: "group is the API group of the defined custom resource.
                   Empty string means the core API group. \tThe resources are served
@@ -351,6 +351,9 @@ spec:
             - scope
             - versions
             type: object
+            x-kubernetes-validations:
+            - message: Conversion must be specified when multiple versions exist
+              rule: size(self.versions) == 1 || (size(self.versions) > 1 && has(self.conversion))
         type: object
     served: true
     storage: true
