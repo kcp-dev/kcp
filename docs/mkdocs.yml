@@ -39,10 +39,15 @@ plugins:
       module_name: 'main'
   # Configure multiple language support
   - i18n:
-      default_language: en
+      docs_structure: suffix
+      fallback_to_default: true
       languages:
-        en:
+        - build: true
+          default: true
+          locale: en
           name: English
+      reconfigure_material: true
+      reconfigure_search: true
 
 markdown_extensions:
   # Code block highlighting
