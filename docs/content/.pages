@@ -1,3 +1,6 @@
 nav:
-- Home: index.md
-- ...
+  - Home:
+    - index.md
+    - CONTRIBUTING.md
+    - GOALS.md
+  - ...
