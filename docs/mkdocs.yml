@@ -21,11 +21,39 @@ theme:
     - content.code.annotate
   logo: logo.png
   favicon: favicons/favicon.ico
+  palette:
+  # Palette toggle for automatic mode
+  - media: "(prefers-color-scheme)"
+    toggle:
+      icon: material/brightness-auto
+      name: Switch to light mode
+
+  # Palette toggle for light mode
+  - media: "(prefers-color-scheme: light)"
+    scheme: default 
+    primary: white
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+
+  # Palette toggle for dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    primary: black
+    toggle:
+      icon: material/brightness-4
+      name: Switch to system preference
 
 extra:
   version:
     # Enable mike for multi-version selection
     provider: mike
+
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kcp-dev/kcp
+    - icon: fontawesome/brands/slack
+      link: https://kubernetes.slack.com/archives/C021U8WSAFK
 
 plugins:
   # https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin
@@ -62,10 +90,6 @@ markdown_extensions:
   - pymdownx.superfences
   # Enable note/warning/etc. callouts
   - admonition
-
-# Our CSS
-extra_css:
-  - stylesheets/kcp.css
 
 # Live reload if any of these change when running 'mkdocs serve'
 watch:
