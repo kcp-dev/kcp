@@ -724,6 +724,9 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							},
 						},
 					},
+					Conversion: &apisv1alpha1.CustomResourceConversion{
+						Strategy: "None",
+					},
 				},
 			},
 			want: &apiextensionsv1.CustomResourceDefinition{
@@ -810,11 +813,104 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 							},
 						},
 					},
-					Conversion:            nil,
+					Conversion: &apiextensionsv1.CustomResourceConversion{
+						Strategy: "None",
+					},
 					PreserveUnknownFields: false,
 				},
 			},
 			wantErr: false,
+		},
+		"error when multiple versions specified but no conversion strategy type": {
+			schema: &apisv1alpha1.APIResourceSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "my-cluster",
+					},
+					Name: "my-name",
+					UID:  types.UID("my-uuid"),
+				},
+				Spec: apisv1alpha1.APIResourceSchemaSpec{
+					Group: "my-group",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:     "widgets",
+						Singular:   "widget",
+						ShortNames: []string{"w"},
+						Kind:       "Widget",
+						ListKind:   "WidgetList",
+						Categories: []string{"things"},
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Versions: []apisv1alpha1.APIResourceVersion{
+						{
+							Name:               "v1",
+							Served:             true,
+							Storage:            false,
+							Deprecated:         true,
+							DeprecationWarning: ptr.To("deprecated!"),
+							Schema: runtime.RawExtension{
+								Raw: []byte(`
+{
+	"description": "foo",
+	"type": "object"
+}
+								`),
+							},
+							Subresources: apiextensionsv1.CustomResourceSubresources{
+								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
+									SpecReplicasPath:   ".spec.replicas",
+									StatusReplicasPath: ".status.replicas",
+									LabelSelectorPath:  ptr.To(".status.selector"),
+								},
+							},
+							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+								{
+									Name:        "My Column",
+									Type:        "string",
+									Format:      "string",
+									Description: "This is my column",
+									Priority:    1,
+									JSONPath:    ".spec.myColumn",
+								},
+							},
+						},
+						{
+							Name:       "v2",
+							Served:     true,
+							Storage:    true,
+							Deprecated: false,
+							Schema: runtime.RawExtension{
+								Raw: []byte(`
+{
+	"description": "foo",
+	"type": "object"
+}
+								`),
+							},
+							Subresources: apiextensionsv1.CustomResourceSubresources{
+								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+								Scale: &apiextensionsv1.CustomResourceSubresourceScale{
+									SpecReplicasPath:   ".spec.replicas",
+									StatusReplicasPath: ".status.replicas",
+									LabelSelectorPath:  ptr.To(".status.selector"),
+								},
+							},
+							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+								{
+									Name:        "My Column",
+									Type:        "string",
+									Format:      "string",
+									Description: "This is my column",
+									Priority:    1,
+									JSONPath:    ".spec.myColumn",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
 		},
 		"error when schema is invalid": {
 			schema: &apisv1alpha1.APIResourceSchema{

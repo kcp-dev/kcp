@@ -271,27 +271,24 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			return reconcileStatusStopAndRequeue, err
 		}
 
-		// If there are multiple versions, there must be an APIConversion
-		if len(schema.Spec.Versions) > 1 {
-			if _, err := r.getAPIConversion(logicalcluster.From(schema), schema.Name); err != nil {
-				// Need to wait until the APIConversion is present before we can proceed to create the bound CRD
-				conditions.MarkFalse(
-					apiBinding,
-					apisv1alpha1.APIExportValid,
-					apisv1alpha1.InternalErrorReason,
-					conditionsv1alpha1.ConditionSeverityError,
-					"Invalid APIExport. Please contact the APIExport owner to resolve",
-				)
+		// If there are multiple versions, the conversion strategy must be defined in the APIResourceSchema
+		if len(schema.Spec.Versions) > 1 && schema.Spec.Conversion == nil {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.APIExportValid,
+				apisv1alpha1.InternalErrorReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Invalid APIExport. Please contact the APIExport owner to resolve",
+			)
 
-				return reconcileStatusContinue, fmt.Errorf(
-					"error getting APIConversion %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-					apiExportPath, schemaName,
-					bindingClusterName, apiBinding.Name,
-					apiExportPath, apiExport.Name,
-					apiExportPath, schemaName,
-					err,
-				)
-			}
+			return reconcileStatusContinue, fmt.Errorf(
+				"conversion strategy not specified %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+				apiExportPath, schemaName,
+				bindingClusterName, apiBinding.Name,
+				apiExportPath, apiExport.Name,
+				apiExportPath, schemaName,
+				err,
+			)
 		}
 
 		// Try to get the bound CRD
@@ -539,6 +536,28 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 		crdVersion.Schema = &validation
 
 		crd.Spec.Versions = append(crd.Spec.Versions, crdVersion)
+	}
+
+	if len(schema.Spec.Versions) > 1 && schema.Spec.Conversion == nil {
+		return nil, fmt.Errorf("multiple versions specified but no conversion strategy")
+	}
+
+	if len(schema.Spec.Versions) > 1 {
+		conversion := &apiextensionsv1.CustomResourceConversion{
+			Strategy: apiextensionsv1.ConversionStrategyType(schema.Spec.Conversion.Strategy),
+		}
+
+		if schema.Spec.Conversion.Strategy == "Webhook" {
+			conversion.Webhook = &apiextensionsv1.WebhookConversion{
+				ConversionReviewVersions: schema.Spec.Conversion.Webhook.ConversionReviewVersions,
+				ClientConfig: &apiextensionsv1.WebhookClientConfig{
+					URL:      &(schema.Spec.Conversion.Webhook.ClientConfig.URL),
+					CABundle: schema.Spec.Conversion.Webhook.ClientConfig.CABundle,
+				},
+			}
+		}
+
+		crd.Spec.Conversion = conversion
 	}
 
 	return crd, nil
