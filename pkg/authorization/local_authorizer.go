@@ -90,5 +90,4 @@ func (a *LocalAuthorizer) newAuthorizer(clusterName logicalcluster.Name) *rbac.R
 		)},
 		&rbac.ClusterRoleBindingLister{Lister: a.clusterRoleBindingLister.Cluster(clusterName)},
 	)
-
 }

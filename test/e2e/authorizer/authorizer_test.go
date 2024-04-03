@@ -321,6 +321,7 @@ func TestAuthorizer(t *testing.T) {
 			ws := org1.Join("workspace2")
 
 			rootShardSystemMasterClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t)))
+			require.NoError(t, err)
 
 			clusterRole := &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
