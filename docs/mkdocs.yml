@@ -21,7 +21,7 @@ theme:
     - content.code.copy
     # Enable annotations on specific lines in code blocks
     - content.code.annotate
-  logo: logo.png
+  logo: logo.svg
   favicon: favicons/favicon.ico
   palette:
   # Palette toggle for automatic mode

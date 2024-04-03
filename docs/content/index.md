@@ -1,4 +1,4 @@
-# <img src="logo.png" style="vertical-align: middle;" /> kcp Documentation
+# kcp Documentation
 
 ## Overview
 
