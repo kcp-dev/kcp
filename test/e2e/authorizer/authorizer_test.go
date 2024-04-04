@@ -29,6 +29,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -80,7 +81,7 @@ func TestAuthorizer(t *testing.T) {
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3", "user-4", "user-5"}, nil, false)
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace1"), []string{"user-1"}, nil, true)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org2.Join("workspace1"), []string{"user-2"}, nil, false)
@@ -89,7 +90,7 @@ func TestAuthorizer(t *testing.T) {
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-1"}, nil, true)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace1"), []string{"user-2"}, nil, false)
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-3", "user-4", "user-5"}, nil, false)
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1.Join("workspace2"), []string{"user-2"}, nil, true) // last, to be used for priming below
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", cfg))
@@ -99,6 +100,10 @@ func TestAuthorizer(t *testing.T) {
 	user2KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-2", cfg))
 	require.NoError(t, err)
 	user3KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-3", cfg))
+	require.NoError(t, err)
+	user4KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-4", cfg))
+	require.NoError(t, err)
+	user5KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-5", cfg))
 	require.NoError(t, err)
 
 	t.Logf("Priming the authorization cache")
@@ -266,6 +271,101 @@ func TestAuthorizer(t *testing.T) {
 				}
 				return resp.Status.Allowed, resp.Status.Reason
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "SAR should answer hypothetically that user-1 could list configmaps in %q if it had access", org2.Join("workspace1"))
+		}},
+		{"default SelfSubjectRulesReview for non-admin user should be a fixed list of rules", func(t *testing.T) {
+			ws := org1.Join("workspace2")
+
+			// user shouldn't be able to do a SelfSubjectRulesReview in a workspace they don't have access to.
+			t.Logf("verifying that user-4 cannot create SelfSubjectRulesReview in %s", org1.Join("workspace1"))
+			_, err := user4KubeClusterClient.Cluster(org1.Join("workspace1")).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
+			require.Error(t, err)
+
+			// the user has been admitted to workspace2, they should have the basic set of rules returned on a SelfSubjectRulesReview.
+			t.Logf("creating SelfSubjectRulesReview as user-4 in %s", ws)
+			review, err := user4KubeClusterClient.Cluster(ws).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			t.Logf("checking SelfSubjectRulesReview response in %s to be the expected set of default rules", org1.Join("workspace2"))
+			require.ElementsMatch(t, []authorizationv1.ResourceRule{
+				{
+					Verbs:     []string{"create"},
+					APIGroups: []string{"authorization.k8s.io"},
+					Resources: []string{"selfsubjectaccessreviews", "selfsubjectrulesreviews"},
+				},
+				{
+					Verbs:     []string{"create"},
+					APIGroups: []string{"authentication.k8s.io"},
+					Resources: []string{"selfsubjectreviews"},
+				},
+			}, review.Status.ResourceRules)
+
+			require.ElementsMatch(t, []authorizationv1.NonResourceRule{
+				{
+					Verbs:           []string{"get"},
+					NonResourceURLs: []string{"/api", "/api/*", "/apis", "/apis/*", "/healthz", "/livez", "/openapi", "/openapi/*", "/readyz", "/version", "/version/"},
+				},
+				{
+					Verbs:           []string{"get"},
+					NonResourceURLs: []string{"/healthz", "/livez", "/readyz", "/version", "/version/"},
+				},
+				{
+					Verbs:           []string{"access"},
+					NonResourceURLs: []string{"/"},
+				},
+			}, review.Status.NonResourceRules)
+
+			// no authorizer in the chain should mark this as incomplete.
+			require.False(t, review.Status.Incomplete)
+		}},
+		{"SelfSubjectRulesReview includes rules coming from system:admin ClusterRole", func(t *testing.T) {
+			ws := org1.Join("workspace2")
+
+			rootShardSystemMasterClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t)))
+			require.NoError(t, err)
+
+			clusterRole := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("kcp-bootstrap-namespace-%d", rand.Uint32()),
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"namespaces"},
+					},
+				},
+			}
+			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("%s:user-5", clusterRole.Name),
+				},
+				Subjects: []rbacv1.Subject{{
+					Kind: "User",
+					Name: "user-5",
+				}},
+				RoleRef: rbacv1.RoleRef{
+					Kind: "ClusterRole",
+					Name: clusterRole.Name,
+				},
+			}
+
+			t.Logf("creating ClusterRole %s in workspace %s", clusterRole.Name, controlplaneapiserver.LocalAdminCluster)
+			_, err = rootShardSystemMasterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			t.Logf("creating ClusterRoleBinding %s in workspace %s", clusterRoleBinding.Name, ws)
+			_, err = kubeClusterClient.Cluster(ws).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			framework.Eventually(t, func() (bool, string) {
+				review, err := user5KubeClusterClient.Cluster(ws).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
+				if err != nil {
+					return false, fmt.Sprintf("failed to create SelfSubjectRulesReview: %v", err)
+				}
+
+				t.Logf("checking if review response includes permissions granted by system:admin ClusterRole bound in %s", ws)
+				return assert.Contains(t, review.Status.ResourceRules, authorizationv1.ResourceRule{Verbs: []string{"*"}, APIGroups: []string{""}, Resources: []string{"namespaces"}}), "returned resource rules do not contain '*' verb for namespaces."
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "SelfSubjectRulesReview response in %s should contain resource rule for namespaces", org2.Join("workspace1"))
 		}},
 	}
 
