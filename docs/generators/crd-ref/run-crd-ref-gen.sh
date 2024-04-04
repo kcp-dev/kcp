@@ -39,3 +39,25 @@ $CONTAINER_ENGINE run --rm \
     -v "${REPO_ROOT}"/docs/generators/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
     quay.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
     --config /opt/crd-docs-generator/config/config.yaml
+
+# Organise CRDs by API group
+for file in ${DESTINATION}/*.md; do
+    filename=$(basename $file)
+    apigroup=$(basename $filename .md | cut -d. -f2-)
+    crdname=$(basename $filename .md | cut -d. -f1)
+    echo "${filename} | ${apigroup}"
+
+    mkdir -p "${DESTINATION}/${apigroup}"
+    mv "${file}" "${DESTINATION}/${apigroup}/${crdname}.md"
+done
+
+# Generate a .pages config file to override title case being applied to
+# folder names by default (https://github.com/mkdocs/mkdocs/issues/2086)
+echo "nav:" > ${DESTINATION}/.pages
+for dir in ${DESTINATION}/*/; do
+    if [ -d "${dir}" ]; then
+        echo ${dir}
+    fi
+    apigroup=$(basename $dir)
+    echo "  - ${apigroup}: ${apigroup}" >> ${DESTINATION}/.pages
+done
