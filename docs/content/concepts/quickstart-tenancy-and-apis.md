@@ -7,7 +7,7 @@ description: >
 
 ## Prerequisites
 
-A running kcp server. The [quickstart](../index.md#quickstart) is a good starting point.
+A running kcp server. The [quickstart](../setup/quickstart.md) is a good starting point.
 
 ## Set your KUBECONFIG
 

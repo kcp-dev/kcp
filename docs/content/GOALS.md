@@ -75,7 +75,7 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
   Multi-cluster workload scheduling and placement has a rich history within Kubernetes from the very beginning of the project, starting with Kubernetes [federation v1](https://github.com/kubernetes-retired/federation).  Even today, projects like [karmada](https://github.com/karmada-io/karmada) are exploring how to take Kube APIs and make them work across multiple clusters. We want to amplify their ideas by improving the control plane itself - make it easy to plug in a workload orchestration system above Kube that still feels like Kube, without having a pesky cluster sitting around.
 
-  See the [investigations doc for transparent multi-cluster](./developers/kcp/investigations/transparent-multi-cluster.md) for 
+  See the [investigations doc for transparent multi-cluster](./developers/investigations/transparent-multi-cluster.md) for 
   more.
 
 * Use logical tenant clusters as the basis for application and security isolation
@@ -84,7 +84,7 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
   We took inspiration from the [virtual cluster project](https://github.com/kubernetes-sigs/multi-tenancy/tree/master/incubator/virtualcluster) within sig-multicluster as well as [vcluster](https://github.com/loft-sh/vcluster) and other similar approaches that leverage cluster tenancy which led us to ask if we could make those clusters an order of magnitude cheaper by building within the kube-apiserver rather than running full copies. Most applications are small, which means amortizing costs can become a huge win. Single process sharing would let us embed significantly more powerful tenancy concepts like hierarchy across clusters, virtualizing key interfaces, and a much more resilient admission chain than what can be done in webhooks.
 
-  See the [investigations doc for logical clusters](./developers/kcp/investigations/logical-clusters.md) for more.
+  See the [investigations doc for logical clusters](./developers/investigations/logical-clusters.md) for more.
 
   Most importantly, if clusters are cheap, we can:
 
@@ -104,7 +104,7 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
   Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.
 
-  See the [investigations doc for minimal API server](./developers/kcp/investigations/minimal-api-server.md) for more on 
+  See the [investigations doc for minimal API server](./developers/investigations/minimal-api-server.md) for more on 
   improving the composability of the Kube API server.
 
 * Drive new workload APIs and explore standardization in the ecosystem

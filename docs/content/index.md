@@ -20,7 +20,7 @@ To get started with trying out kcp on your local system, check out our [Quicksta
 
 ## Contributing
 
-We ❤️ our contributors! If you're interested in helping us out, please head over to our [Contributing](CONTRIBUTING.md)
+We ❤️ our contributors! If you're interested in helping us out, please head over to our [Contributing](./contributing/index.md)
 guide.
 
 ## Getting in touch

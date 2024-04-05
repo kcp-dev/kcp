@@ -1,9 +1,9 @@
 nav:
   - Home:
     - index.md
-    - CONTRIBUTING.md
     - GOALS.md
   - Setup: setup
   - Concepts: concepts
   - Developers: developers
+  - Contributing: contributing
   - Reference: reference
