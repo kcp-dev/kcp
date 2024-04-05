@@ -16,7 +16,7 @@ providers as well as enterprise IT departments offering APIs within their compan
 
 ## Quickstart
 
-To get started with trying out kcp on your local system, we provide [Quickstart](./setup/quickstart.md) instructions.
+To get started with trying out kcp on your local system, check out our [Quickstart](./setup/quickstart.md) instructions.
 
 ## Contributing
 

@@ -1,87 +1,4 @@
----
-description: >
-    What APIs come standard, how to share APIs with others, how to consume shared APIs.
----
-
-# APIs in kcp
-
-## Overview
-
-kcp supports several built-in Kubernetes APIs, provides extensibility using CustomResourceDefinitions, and adds a new
-way to export custom APIs for sharing with other workspaces.
-
-## Built-in APIs
-
-kcp includes some, but not all, of the APIs you are likely familiar with from Kubernetes:
-
-### (core) v1
-- Namespaces
-- ConfigMaps
-- Secrets
-- Events
-- LimitRanges
-- ResourceQuotas
-- ServiceAccounts
-
-### admissionregistration.k8s.io/v1
-- MutatingWebhookConfigurations
-- ValidatingWebhookConfigurations
-
-### apiextensions.k8s.io/v1
-- CustomResourceDefinitions
-
-### authentication.k8s.io/v1
-- TokenReviews
-
-### authorization.k8s.io/v1
-- LocalSubjectAccessReviews
-- SelfSubjectAccessReviews
-- SelfSubjectRulesReviews
-- SubjectAccessReviews
-
-### certificates.k8s.io/v1
-- CertificateSigningRequests
-
-### coordination.k8s.io/v1
-- Leases
-
-### events.k8s.io/v1
-- Events
-
-### flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)
-- FlowSchemas
-- PriorityLevelConfigurations
-
-### rbac.authorization.k8s.io/v1
-- ClusterRoleBindings
-- ClusterRoles
-- RoleBindings
-- Roles
-
-Notably, workload-related APIs (Pods, ReplicaSets, Deployments, Jobs, CronJobs, StatefulSets), cluster-related APIs (
-Nodes), storage-related APIs (PersistentVolumes, PersistentVolumeClaims) are all missing - kcp does not include these,
-and it instead relies on workload clusters to provide this functionality.
-
-## CustomResourceDefinitions
-
-kcp, like Kubernetes, allows developers to add new APIs using
-[CustomResourceDefinitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
-(CRDs). Unlike Kubernetes, kcp allows multiple copies of a CRD (e.g. `widgets.example.com`) to be installed in multiple
-workspaces at the same time. Each copy is entirely independent and isolated from all other copies. This means the API
-versions and schemas can be entirely different. kcp makes this possible because each workspace is its own isolated
-"cluster."
-
-There are currently some limitations to be aware of with CRDs in kcp:
-
-- Conversion webhooks are not supported
-- `service`-based validating/mutating webhooks are not supported; you must use `url`-based  `clientConfigs` instead.
-
-CRDs are a fantastic way to add new APIs to a workspace, but if you want to share a CRD with other workspaces, you have
-to install it in each workspace separately. You also need a controller that can reconcile CRs in all the workspaces
-where your CRD is installed, which typically means 1 distinct controller per workspace. CRDs are not "cheap" in the API
-server (each one consumes memory), and kcp offers an improved workflow that significantly reduces overhead.
-
-## Exporting APIs
+# Exporting APIs
 
 If you're looking to provide APIs that can be consumed by multiple workspaces, this section is for you!
 
@@ -136,7 +53,7 @@ You'll need to do a few things:
 
 Let's look at each of these in more detail.
 
-### Define APIResourceSchemas
+## Define APIResourceSchemas
 
 An `APIResourceSchema` defines a single custom API type. It is almost identical to a CRD, but creating
 an `APIResourceSchema` instance does not add a usable API to the server. By intentionally decoupling the schema
@@ -188,7 +105,7 @@ An `APIResourceSchema`'s `spec` is immutable; if you need to make changes to you
 
 Once you've created at least one `APIResourceSchema`, you can proceed with creating your `APIExport`.
 
-### Define your APIExport
+## Define your APIExport
 
 An `APIExport` is the way an API provider makes one or more APIs (coming from `APIResourceSchemas`) available to
 workspaces.
@@ -218,7 +135,7 @@ You can optionally configure the following additional aspects of an `APIExport`:
 
 We'll talk about each of these next.
 
-#### APIExport Identity
+### APIExport Identity
 
 Each API resource type is defined by an API group name and a resource name. Each API resource type can further be
 distinguished by an API version. For example, the `roles.rbac.authorization.k8s.io` resource that we frequently interact
@@ -244,7 +161,7 @@ Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.
 a mostly transparent manner) to ensure the correct instances associated with the appropriate `APIResourceSchema` are
 served to clients. See [Run Your Controller](#Run-Your-Controller) for more information.
 
-#### Permission Claims
+### Permission Claims
 
 When a consumer creates an `APIBinding` that binds to an `APIExport`, the API provider who owns the `APIExport`
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
@@ -284,7 +201,7 @@ resources. If the consumer does not accept a permission claim, the API Provider 
 resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. For more details, see the 
 section on [APIBindings](#apibinding).
 
-#### Maximal Permission Policy
+### Maximal Permission Policy
 
 If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
@@ -364,13 +281,13 @@ perform in the `magic` workspace must be granted by **both**:
 2. the maximal permission policy RBAC settings configured in the `root` workspace for the `tenancy` APIExport
 
 
-### Run Your Controller
+## Run Your Controller
 
 TODO
 - virtual workspace URLs
 - As a controller, I need to be granted permissions on the APIExport content sub-resource
 
-### APIResourceSchema Evolution & Maintenance
+## APIResourceSchema Evolution & Maintenance
 
 TODO
 - conversions

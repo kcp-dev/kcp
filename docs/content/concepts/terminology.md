@@ -5,7 +5,7 @@ description: >
   designs is covered by those designs, and not duplicated here.
 ---
 
-# Terminology for kcp
+# Terminology
 
 ## Logical cluster
 

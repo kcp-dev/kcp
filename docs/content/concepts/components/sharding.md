@@ -11,12 +11,12 @@ serves the logical clusters under `/clusters/<cluster-name>`.
 
 A set of known shards comprises a kcp installation.
 
-# Root Logical Cluster
+## Root Logical Cluster
 
 Every kcp installation has one logical cluster called `root`. The `root` logical
 cluster holds administrational objects. Among them are shard objects.
 
-# Shard Objects
+## Shard Objects
 
 The set of shards in a kcp installation is defined by `Shard` objects in
 `core.kcp.io/v1alpha1`.
@@ -24,7 +24,7 @@ The set of shards in a kcp installation is defined by `Shard` objects in
 A shard object specifies the network addresses, one for external access (usually 
 some worldwide load balancer) and one for direct access (shard to shard).
 
-# Logical Clusters and Workspace Paths
+## Logical Clusters and Workspace Paths
 
 Logical clusters are defined through the existence of a `LogicalCluster` object
 "in themselves", similar to a `.` directory defining the existence of a directory 
@@ -38,7 +38,7 @@ cluster specified in `Workspace.spec.cluster`. If that workspace object resided
 in a logical cluster reachable via a path `path`, the referenced logical cluster
 can be reached via a path `path:name`.
 
-# Canonical Paths
+## Canonical Paths
 
 The longest path a logical cluster is reachable under is called the *canonical
 path*. By default, all canonical paths start with `root`, i.e. they start in
@@ -51,7 +51,7 @@ logical clusters with `kcp.io/path` annotation *not* starting in `root`. E.g.
 a home workspace hierarchy could start at `home:<user-name>`. There is no need
 for the parent (`home` in this case) to exist.
 
-# Front Proxy
+## Front Proxy
 
 A front-proxy is aware of all logical clusters, their shard they live on,
 their canonical paths and all `Workspaces`s. Non canoical paths can be 
@@ -67,7 +67,7 @@ right scalability and availability properties.
 There can be one front-proxy in front of a kcp installation, or many, e.g. one
 or multiple per region or cloud provider.
 
-# Consistency Domain
+## Consistency Domain
 
 Every logical cluster provides a Kubernetes-compatible API root endpoint under
 `/cluster/<path>` including its own discovery endpoint and their own set of 
@@ -80,7 +80,7 @@ resource matches that of Kubernetes.
 Across logical clusters the resource versions must be considered as unrelated,
 i.e. resource versions cannot be compared.
 
-# Wildcard Requests
+## Wildcard Requests
 
 The only exception to the upper rule are objects under a "wildcard endpoint"
 `/clusters/*/apis/<group>/<v>/[namespaces/<ns>]/resource:<identity-hash>` per
@@ -95,7 +95,7 @@ front-proxy.
 Note: for unprivileged access, virtual view apiservers can offer a highly
 secured and filtered view, usually also per shard, e.g. for owners of APIs.
 
-# Cross Logical Cluster References
+## Cross Logical Cluster References
 
 Some objects reference other logical clusters or objects in other logical
 clusters. These references can be by logical cluster name, by arbitrary logical
@@ -134,7 +134,7 @@ such logic is desired, for availability and scalability reasons some kind of
 replication is required. E.g. a child workspace must stay operation even if the
 parent is not accessible.
 
-# Cache Server Replication
+## Cache Server Replication
 
 The cache server is a special API server that can hold replicas of objects that
 must be available globally in an eventual consistent way. E.g. the `APIExport`s
@@ -175,7 +175,7 @@ tenant-internal exports. A more complex caching hierarchy would make sure the
 right objects are replicated, while the "really public" exports would only be a
 small number.
 
-# Replication
+## Replication
 
 Each shard pushes a restricted set of objects to the cache server. As the cache
 server replication is costly, this set is as minimal as possible. For example,
@@ -187,7 +187,7 @@ incomplete. For instance, the non-existence of an object in the cache server
 does not mean it does not exist in its respective shard. The replication 
 could be just delayed or the object was not identified to be worth to replicate.
 
-# Bootstrapping
+## Bootstrapping
 
 A new shard starting up will run a number of standard controllers (e.g. for
 workspaces, API bindings and more). These will need a number of standard

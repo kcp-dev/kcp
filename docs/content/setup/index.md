@@ -1,4 +1,3 @@
-# Setting up kcp
+# Setting Up kcp
 
-* [Quickstart](./quickstart.md)
-* [Helm](./helm.md)
+{% include "partials/section-overview.html" %}
