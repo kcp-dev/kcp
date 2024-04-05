@@ -44,7 +44,7 @@ Early in Kubernetes we discussed our options for extension of the core capabilit
 
 ## Use cases
 
-The use cases of logical cluster can be seen to overlap heavily with [transparent multi-cluster](transparent-multi-cluster.md) use cases, and are captured at the highest level in [GOALS.md](../GOALS.md).  The use cases below attempt to focus on logical clusters independent of the broader goals.
+The use cases of logical cluster can be seen to overlap heavily with [transparent multi-cluster](transparent-multi-cluster.md) use cases, and are captured at the highest level in [GOALS.md](../../../GOALS.md).  The use cases below attempt to focus on logical clusters independent of the broader goals.
 
 ### As a developer of CRDs / controllers / extensions
 

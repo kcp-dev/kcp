@@ -17,6 +17,8 @@ theme:
     - navigation.indexes
     # Enable navigation tabs so we can group content by persona
     - navigation.tabs
+    # Expand subsections by default for better visibility of content
+    - navigation.expand
     # Enable a copy button in code blocks
     - content.code.copy
     # Enable annotations on specific lines in code blocks

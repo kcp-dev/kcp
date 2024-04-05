@@ -14,6 +14,9 @@ kcp can be a building block for SaaS service providers who need a **massively mu
 to a large number of fully isolated tenants using Kubernetes-native APIs. The goal is to be useful to cloud
 providers as well as enterprise IT departments offering APIs within their company.
 
+## Quickstart
+
+To get started with trying out kcp on your local system, we provide [Quickstart](./setup/quickstart.md) instructions.
 
 ## Contributing
 
