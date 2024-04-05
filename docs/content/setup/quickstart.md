@@ -8,7 +8,6 @@ description: >
 ## Prerequisites
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl)
-- A Kubernetes cluster (for local testing, consider [kind](http://kind.sigs.k8s.io))
 
 ## Download kcp
 
