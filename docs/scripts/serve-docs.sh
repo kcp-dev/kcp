@@ -31,5 +31,8 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
+# for local docs testing, we don't care what the remote branch looks like.
+MIKE_OPTIONS+=(--ignore-remote-status)
+
 mike set-default "${MIKE_OPTIONS[@]}" main
 mike serve "${MIKE_OPTIONS[@]}"
