@@ -8,7 +8,7 @@ description: >
 !!! note
     This document is a brain dump of thoughts behind KCP's architecture.
     It's a work in progress and may contain incomplete or unpolished ideas. It was
-    recorded through ChatGPT (not generated), and hence might has a conversational
+    recorded through ChatGPT (not generated), and hence might have a conversational
     tone (GPT's summarizing responses have been removed) and might contain mistakes.
 
 ## KCP Overview
@@ -31,12 +31,12 @@ would expect, like namespace deletion is implemented, garbage collection is
 implemented, airbag permission management is implemented the same way as in
 Kubernetes. The big difference to Kubernetes is that one instance of KCP, we
 call that one shard in this context, can host an arbitrary number of workspaces,
-each being logically independent. ChatGPT
+each being logically independent.
 
 If you look on one shard, one instance of KCP and a number of workspaces hosted
 by that shard. Between workspaces, there can be interactions. Interactions in
 the sense of one workspace can export APIs and another workspace can bind to
-those APIs, because it export an API binding. And the objects to define those
+those APIs. And the objects to define those
 two concepts in KCP are named like that, API export and API binding. With a
 small number of exceptions, everything in KCP is implemented using those API
 export, API binding concepts. Even the workspace concept itself is based on an
@@ -97,7 +97,7 @@ a request type we call a wildcard request. And that request returns objects
 across logical clusters of a shard. And inside of that list, all objects, the
 resource versions of those objects, they follow the same linear ordering
 guarantees as in one Kubernetes cluster, which means you can wildcard list
-objects for all logical clusters on a shard and you can use that information to
+objects for all logical clusters on a shard, and you can use that information to
 back an informer, so a reflector-based informer with list and watch support. And
 we can use the same informer infrastructure of Kubernetes to have informers for
 one shard. Now we will go into details of a multi-shard architecture soon, but
@@ -112,7 +112,7 @@ workspaces, in theory, each could export the same kind in the same API group. So
 there's a problem of how to distinguish those. Different exports, same kind of
 group. What KCP is introducing, basically adding to a CRD to an export, is a
 concept called an identity of an export. The identity is a secret that the owner
-of the API export knows. In the moment you know that secret, you can export the
+of the API export knows. When you know that secret, you can export the
 same object and workspaces which use a bind to that API will then be actually
 bound to that export with that identity. So if you give away the secret, you
 leak the secret to an attacker, in theory, that attacker could export the same
@@ -126,8 +126,8 @@ owner can access objects of all tenants or users of that export, to make sure
 that this owner can only see the objects belonging to the same export, again,
 identified by the identity hash string. To make sure this is safe and nothing
 leaks, the identity hash is part of the key in the storage. So while on the
-Viya, when you do requests against the workspace, you will just use the resource
-name asyncq, but the binding carries the identity hash, and the system will make
+wire, when you do requests against the workspace, you will just use the resource
+name as-is, but the binding carries the identity hash, and the system will make
 sure that the data, the objects are stored in the key which has identity hash as
 part of it. That way, if we come back to the wildcard request, that way we can
 make sure that the owner of the export can see all objects in all logic clusters
@@ -136,13 +136,15 @@ will include the identity hash as part of the request resource name. That way,
 we can segregate wildcard requests of different exports of the same resource and
 group name. That way, we get a safe system.
 
-## API Exports Definition and Storage:
+## API Exports Definition and Storage
 
 An API export in KCP is similar to a CRD and defines resources by specifying
 details like the resource name, kind name, and list type name. In scenarios
 where multiple workspaces could export the same kind in the same API group, KCP
 introduces a way to distinguish between different exports of the same kind and
-group. Identity of an Export:
+group.
+
+### Identity of an Export
 
 KCP adds a concept called the identity of an export. This identity is
 essentially a secret known only to the owner of the API export. This secret,
@@ -152,7 +154,7 @@ security implication here is that if this secret is leaked, an attacker could
 potentially export the same kind with the same identity and intercept
 information. Utilizing the Identity Hash:
 
-To secure this system, KCP uses a SHA-256 hash of the identity as a critical
+To secure this system, KCP uses an SHA-256 hash of the identity as a critical
 part of a binding. When a workspace wants to bind to an API export, it points
 the binding to the export by path (or other methods in the future) and uses the
 identity hash to ensure binding to the correct export. Within the etcd storage
@@ -238,7 +240,7 @@ Workspace objects and Logical Cluster objects. When resolving a request to a
 WorkspacePath, it will first go Workspace object by Workspace object to resolve
 the leave of the WorkspacePath, to map it to the UID of the underlying Logical
 Cluster. In the last step, it will use the informer of the Logical Cluster
-objects and it will store a mapping from a Logical Cluster UID to the respective
+objects, and it will store a mapping from a Logical Cluster UID to the respective
 shard, each with a stored one. So the front proxy will resolve, in the last
 step, the Logical Cluster UID to the shard and send the request there. The shard
 itself will check the existence of the Logical Cluster object called Cluster to
@@ -297,7 +299,7 @@ APIs which are not contained, which are explicitly shared among users, would
 have to be replicated into the whole hierarchy of cache servers. I mentioned the
 word hierarchy here because this might be a caching hierarchy which we want to
 use. Think of this as an API app store-like thing, where companies' tenants can
-offer services to other tenants. In such a platform, they would opt-in into
+offer services to other tenants. In such a platform, they would opt in into
 sharing their API export to the world. In such a setup, the cache server
 scalability would only be a limit for the APIs which are shared in that app
 store-like way. This doesn't seem to be a limit which limits the applicability
@@ -314,7 +316,7 @@ watch multiple of them at the same time and give behavior semantics to the API
 objects on all of those shards. And you can imagine that you want some kind of
 partitioning of course if the number of shards grows. But it's pretty clear that
 some kind of awareness of KCP is necessary to run multi-workspace,
-multi.jlcluster controllers. In particular for the API exports, we talked about
+multi-cluster controllers. In particular for the API exports, we talked about
 having the URL of the virtual workspace API server in the status. In reality,
 this list of URLs or this is a list of URLs. It's not just one. There are
 multiple URLs to multiple virtual workspace API servers, one per shard. At least
@@ -323,7 +325,7 @@ That way a controller which is KCP-enabled would have to watch the API export
 status and spawn another instance either of an informer or even the whole
 controller per URL which pops up in the status of the export.
 
-## Multi-shard setups, and the workspace hierarchy.
+## Multi-shard setups, and the workspace hierarchy
 
 When creating a workspace object within another parent workspace, a
 WorkspaceScheduler will choose a shard and create a Logical Cluster object named
@@ -417,7 +419,7 @@ informers. And to start an informer, you have to know the identity hash of the
 exports of the resources you want to watch. So in the bootstrapping phase,
 before a shard is ready, it will need this root shard information, which is
 cached in the contract map, or if the contract map is not there, or incomplete,
-there's an access to the root shard. When those informers are up, the core
+there's access to the root shard. When those informers are up, the core
 controllers of the KCP shard are started and the KCP shard is ready to serve
 requests.
 
@@ -437,7 +439,7 @@ simplest case where a logical cluster has no parent, that path is equal to the
 logical cluster ID. But if there is a parent, the parent longest and unique path
 plus colon plus the workspace name of the child is the longest path for that
 child. Some controllers need that information. To make that available, there is
-a kcpio path annotation on the logical cluster object. If you have that object,
+a kcp.io path annotation on the logical cluster object. If you have that object,
 you can know the path as well, not only the logical cluster itself, the logical
 cluster UID. There are APIs which allow bypass references, like API binding, for
 example. To make that possible, the API export, which is cached in the cache
@@ -476,11 +478,10 @@ or something like that. All this complexity of a multilayer hierarchy for home
 workspaces goes away by having rootless workspaces. They can live anywhere in
 the KCP system on every shard, and the front proxy implements them just by the
 path annotation. To implement them, you need a privileged user which can create
-non-gerial cluster objects in non-existing non-gerial clusters, so very similar
+logical cluster objects in non-existing logical clusters, so very similar
 to the scheduler we talked about before. The user home workspace here is just an
-example. You could have rootless non-gerial clusters for tenants, tenant colon,
-tenant name, for example, or anything else you want to have as a start of a new
-hierarchy.
+example. You could have rootless logical clusters for tenants, `tenant:colon:tenant-name`, 
+for example, or anything else you want to have as a start of a new hierarchy.
 
 # System Masters versus Cluster Admin Users
 
@@ -501,12 +502,12 @@ which is created is not like that. The KCP Start command in a single shard setup
 will create a token-based admin user. That token is only valid during runtime.
 It's not completely correct. That token is also stored locally, but the idea is
 that that user is just for convenience and a single shard setup. If you want to
-have a multi-shard setup, you have to create an admin user outside of the
+have a multi-shard setup, you have to create an admin user outside the
 bootstrapping process. There's a flag for the KCP Start command to skip the
 admin user creation. You can use, for example, a client certificate which adds
 cluster admin permissions to a user and makes that client certificate accepted
 by all shards by passing the right client cert flags to the process. To
-summarize, the bootstrapping of KCP in a multi-shard setup is a multi-step
+summarize, the bootstrapping of KCP in a multi-shard setup is a multistep
 process. The KCP Start command alone is without any special parameters. It's
 really meant for a single shard and for that reason, pretty simplistic setup.
 This is intentional. The admin user must be created out of scope in a step on
@@ -523,10 +524,10 @@ let's collect some thoughts:
    storage. This is obviously not an instant process but might take minutes, at
    least with etcd (maybe a kine based storage could be faster).
 2. While moving, controllers need some transactional migration to the new shard.
-3. Moving could be with downtime or it can be continuous. There are ideas to use
+3. Moving could be with downtime, or it can be continuous. There are ideas to use
    some kind of progressive move-stone (like tomb-stones) logic, but this hasn't
    been implemented.
-4. Controllers would see deletion as deletions and do what what they have to do.
+4. Controllers would see deletion as deletions and do what they have to do.
    Even if we make the logical cluster immutable during deletion, there might be
    cross-workspace controllers leading to surprising effects of these deletion
    events that actually are no deletions. It might be that extending the
