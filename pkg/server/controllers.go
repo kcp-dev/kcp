@@ -76,6 +76,7 @@ import (
 	tenancyreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicatelogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacemounts"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacestatuses"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
@@ -556,6 +557,37 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		Name: workspacemounts.ControllerName,
 		Runner: func(ctx context.Context) {
 			workspaceMountsController.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installWorkspaceStatusesScheduler(ctx context.Context, config *rest.Config) error {
+	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
+	workspaceConfig := rest.CopyConfig(config)
+	workspaceConfig = rest.AddUserAgent(workspaceConfig, workspacestatuses.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	workspaceStatusesController, err := workspacestatuses.NewController(
+		kcpClusterClient,
+		dynamicClusterClient,
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: workspacestatuses.ControllerName,
+		Runner: func(ctx context.Context) {
+			workspaceStatusesController.Start(ctx, 2)
 		},
 	})
 }

@@ -59,13 +59,14 @@ const (
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
 //
-// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;NotReady
 type LogicalClusterPhaseType string
 
 const (
 	LogicalClusterPhaseScheduling   LogicalClusterPhaseType = "Scheduling"
 	LogicalClusterPhaseInitializing LogicalClusterPhaseType = "Initializing"
 	LogicalClusterPhaseReady        LogicalClusterPhaseType = "Ready"
+	LogicalClusterPhaseNotReady     LogicalClusterPhaseType = "NotReady"
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster
