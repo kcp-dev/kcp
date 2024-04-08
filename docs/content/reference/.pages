@@ -1,3 +1,4 @@
 nav:
+    - index.md
     - CLI: cli
     - CRD: crd

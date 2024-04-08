@@ -1,0 +1,5 @@
+nav:
+    - index.md
+    - quickstart.md
+    - helm.md
+    - kubectl-plugin.md

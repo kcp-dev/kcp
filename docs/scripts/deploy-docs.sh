@@ -65,6 +65,8 @@ if [[ -n "${CI:-}" ]]; then
   # Always set git user info in CI because even if we're not pushing, we need it
   git config user.name kcp-ci-bot
   git config user.email no-reply@kcp.io
+else
+  MIKE_OPTIONS+=(--ignore-remote-status)
 fi
 
 mike deploy "${MIKE_OPTIONS[@]}" "${MIKE_DEPLOY_OPTIONS[@]}" "$VERSION"

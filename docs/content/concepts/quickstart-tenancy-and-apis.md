@@ -7,7 +7,7 @@ description: >
 
 ## Prerequisites
 
-A running kcp server. The [quickstart](../index.md#quickstart) is a good starting point.
+A running kcp server. The [quickstart](../setup/quickstart.md) is a good starting point.
 
 ## Set your KUBECONFIG
 
@@ -298,7 +298,7 @@ This identity can be used in permissionClaims for referring to non-core resource
 
 `APIExportEndpointSlices` allow service provider to retrieve the URL of service endpoints, acting as a sink for them. You can think of this endpoint as behaving just like a workspace or cluster, except it searches across all workspaces for instances of the resource types provided by the `APIExport`.
 An `APIExportEndpointSlice` is created by a service provider, references a single `APIExport` and optionally a `Partition`.
-`Partitions` are a mechanism for filtering service endpoints. Within a multi-sharded kcp, each shard will offer its own service endpoint URL for an `APIExport`. Service provider may decide to have multiple instances of their controller reconciliating, for instance, resources of shards in the same region. For that they may create an `APIExportEndpointSlice` in the same workspace where a controller instance is deployed. This `APIExportEndpointSlice` will then reference a specific `Partition` by its name in the same workspace filtering the service endpoints for a subset of shards. If an `APIExportEndpointSlice` does not reference a `Partition` all the available endpoints are populated in its `status`. More on `Partitions` [here](./partitions.md).
+`Partitions` are a mechanism for filtering service endpoints. Within a multi-sharded kcp, each shard will offer its own service endpoint URL for an `APIExport`. Service provider may decide to have multiple instances of their controller reconciliating, for instance, resources of shards in the same region. For that they may create an `APIExportEndpointSlice` in the same workspace where a controller instance is deployed. This `APIExportEndpointSlice` will then reference a specific `Partition` by its name in the same workspace filtering the service endpoints for a subset of shards. If an `APIExportEndpointSlice` does not reference a `Partition` all the available endpoints are populated in its `status`. More on `Partitions` [here](./apis/partitions.md).
 
 ```shell
 $ kubectl apply -f - <<EOF
