@@ -39,4 +39,6 @@ var (
 	RootCluster = logicalcluster.Name("root")
 	// SystemCluster is the system logical cluster
 	SystemCluster = logicalcluster.Name("system")
+	// UserCluster is the user logical cluster
+	UserCluster = logicalcluster.Name("user")
 )

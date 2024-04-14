@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
+	"github.com/kcp-dev/kcp/pkg/admission/faros"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
@@ -91,6 +92,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
 	kubequota.PluginName,
+	faros.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -130,6 +132,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	permissionclaims.Register(plugins)
 	pathannotation.Register(plugins)
 	kubequota.Register(plugins)
+	faros.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.New[string](
@@ -159,6 +162,8 @@ var defaultOnPluginsInKcp = sets.New[string](
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
 	kubequota.PluginName,
+	// faros
+	faros.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
