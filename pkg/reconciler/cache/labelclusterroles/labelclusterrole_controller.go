@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -81,10 +80,6 @@ func NewController(
 
 		commit: committer.NewStatuslessCommitter[*rbacv1.ClusterRole, rbacclientv1.ClusterRoleInterface](kubeClusterClient.RbacV1().ClusterRoles(), committer.ShallowCopy[rbacv1.ClusterRole]),
 	}
-
-	indexers.AddIfNotPresentOrDie(clusterRoleBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		ClusterRoleBindingByClusterRoleName: IndexClusterRoleBindingByClusterRoleName,
-	})
 
 	_, _ = clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,

@@ -49,7 +49,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 		shardName: c.shardName,
 		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
-			obj, exists, err := info.local.GetIndexer().GetByKey(key)
+			obj, exists, err := info.Local.GetIndexer().GetByKey(key)
 			if !exists {
 				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
 			} else if err != nil {
@@ -61,19 +61,19 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 				return nil, err
 			}
 
-			if info.filter != nil && !info.filter(u) {
+			if info.Filter != nil && !info.Filter(u) {
 				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
 			}
 
 			if _, ok := obj.(*unstructured.Unstructured); ok {
 				u = u.DeepCopy()
 			}
-			u.SetKind(info.kind)
+			u.SetKind(info.Kind)
 			u.SetAPIVersion(gvr.GroupVersion().String())
 			return u, nil
 		},
 		getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
-			objs, err := info.global.GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, cluster, namespace, name))
+			objs, err := info.Global.GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, cluster, namespace, name))
 			if err != nil {
 				return nil, err // necessary to avoid non-zero nil interface
 			}
@@ -93,7 +93,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 				u = u.DeepCopy()
 			}
 
-			u.SetKind(info.kind)
+			u.SetKind(info.Kind)
 			u.SetAPIVersion(gvr.GroupVersion().String())
 			return u, nil
 		},
@@ -197,7 +197,7 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName()).Info("Updating object in global cache")
+	logger.V(2).Info("Updating object in global cache")
 	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
 	return err
 }

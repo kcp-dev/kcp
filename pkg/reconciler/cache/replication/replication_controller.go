@@ -26,9 +26,6 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -39,12 +36,7 @@ import (
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -52,6 +44,12 @@ const (
 	// ControllerName hold this controller name.
 	ControllerName = "kcp-replication-controller"
 )
+
+type ReplicatedGVR struct {
+	Kind          string
+	Filter        func(u *unstructured.Unstructured) bool
+	Global, Local cache.SharedIndexInformer
+}
 
 // NewController returns a new replication controller.
 //
@@ -65,97 +63,20 @@ func NewController(
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	gvrs map[schema.GroupVersionResource]ReplicatedGVR,
 ) (*controller, error) {
 	c := &controller{
 		shardName:          shardName,
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicCacheClient: dynamicCacheClient,
 
-		gvrs: map[schema.GroupVersionResource]replicatedGVR{
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"): {
-				kind:   "APIExport",
-				local:  localKcpInformers.Apis().V1alpha1().APIExports().Informer(),
-				global: globalKcpInformers.Apis().V1alpha1().APIExports().Informer(),
-			},
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"): {
-				kind:   "APIResourceSchema",
-				local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-				global: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-			},
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"): {
-				kind:   "APIConversion",
-				local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
-				global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
-			},
-			admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
-				kind:   "MutatingWebhookConfiguration",
-				local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-				global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-			},
-			admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
-				kind:   "ValidatingWebhookConfiguration",
-				local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-				global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-			},
-			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
-				kind:   "ValidatingAdmissionPolicy",
-				local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
-				global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
-			},
-			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
-				kind:   "ValidatingAdmissionPolicyBinding",
-				local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
-				global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
-			},
-			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
-				kind:   "Shard",
-				local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
-				global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
-			},
-			corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
-				kind: "LogicalCluster",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
-				global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
-			},
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
-				kind:   "WorkspaceType",
-				local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
-				global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
-			},
-			rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
-				kind: "ClusterRole",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				local:  localKubeInformers.Rbac().V1().ClusterRoles().Informer(),
-				global: globalKubeInformers.Rbac().V1().ClusterRoles().Informer(),
-			},
-			rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"): {
-				kind: "ClusterRoleBinding",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				local:  localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
-				global: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
-			},
-		},
+		gvrs: gvrs,
 	}
 
 	for gvr, info := range c.gvrs {
-		indexers.AddIfNotPresentOrDie(
-			info.global.GetIndexer(),
-			cache.Indexers{
-				ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-			},
-		)
-
 		// shadow gvr to get the right value in the closure
 		gvr := gvr
-
-		_, _ = info.local.AddEventHandler(cache.FilteringResourceEventHandler{
+		_, _ = info.Local.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName,
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
@@ -164,7 +85,7 @@ func NewController(
 			},
 		})
 
-		_, _ = info.global.AddEventHandler(cache.FilteringResourceEventHandler{
+		_, _ = info.Global.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName, // not really needed, but cannot harm
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
@@ -263,11 +184,5 @@ type controller struct {
 
 	dynamicCacheClient kcpdynamic.ClusterInterface
 
-	gvrs map[schema.GroupVersionResource]replicatedGVR
-}
-
-type replicatedGVR struct {
-	kind          string
-	filter        func(u *unstructured.Unstructured) bool
-	global, local cache.SharedIndexInformer
+	gvrs map[schema.GroupVersionResource]ReplicatedGVR
 }

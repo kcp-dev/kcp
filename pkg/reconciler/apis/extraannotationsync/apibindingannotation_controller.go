@@ -106,14 +106,6 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
-	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
-	})
-
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger) },

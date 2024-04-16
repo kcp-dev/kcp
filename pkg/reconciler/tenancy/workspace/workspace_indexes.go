@@ -21,29 +21,12 @@ import (
 	"strings"
 
 	"github.com/martinlindhe/base36"
-
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 const (
 	byBase36Sha224Name = "byBase36Sha224Name"
 	unschedulable      = "unschedulable"
 )
-
-func indexUnschedulable(obj interface{}) ([]string, error) {
-	workspace := obj.(*tenancyv1alpha1.Workspace)
-	if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
-		return []string{"true"}, nil
-	}
-	return []string{}, nil
-}
-
-func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
-	s := obj.(*corev1alpha1.Shard)
-	return []string{ByBase36Sha224NameValue(s.Name)}, nil
-}
 
 func ByBase36Sha224NameValue(name string) string {
 	hash := sha256.Sum224([]byte(name))

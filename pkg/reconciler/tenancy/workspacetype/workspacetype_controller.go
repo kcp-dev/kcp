@@ -74,10 +74,6 @@ func NewController(
 		commit: committer.NewCommitter[*WorkspaceType, Patcher, *WorkspaceTypeSpec, *WorkspaceTypeStatus](kcpClusterClient.TenancyV1alpha1().WorkspaceTypes()),
 	}
 
-	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
 	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj)

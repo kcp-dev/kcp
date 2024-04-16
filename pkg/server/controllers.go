@@ -29,13 +29,19 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -48,6 +54,7 @@ import (
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
@@ -60,6 +67,7 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -80,10 +88,22 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/sdk/client"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+)
+
+const (
+	byBase36Sha224Name                      = "byBase36Sha224Name"
+	unschedulable                           = "unschedulable"
+	indexAPIExportsByAPIResourceSchema      = "apiExportsByAPIResourceSchema"
+	indexAPIExportEndpointSliceByAPIExport  = "indexAPIExportEndpointSliceByAPIExport"
+	indexAPIExportEndpointSlicesByPartition = "indexAPIExportEndpointSlicesByPartition"
 )
 
 type RunFunc func(ctx context.Context)
@@ -93,6 +113,69 @@ type controllerWrapper struct {
 	Name   string
 	Runner RunFunc
 	Wait   WaitFunc
+}
+
+func indexUnschedulable(obj interface{}) ([]string, error) {
+	workspace := obj.(*tenancyv1alpha1.Workspace)
+	if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
+		return []string{"true"}, nil
+	}
+	return []string{}, nil
+}
+
+func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
+	s := obj.(*corev1alpha1.Shard)
+	return []string{workspace.ByBase36Sha224NameValue(s.Name)}, nil
+}
+
+// indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
+func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) {
+	apiExport, ok := obj.(*apisv1alpha1.APIExport)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
+	}
+
+	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
+	for i := range apiExport.Spec.LatestResourceSchemas {
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
+	}
+
+	return ret, nil
+}
+
+// indexAPIExportEndpointSliceByAPIExportFunc indexes the APIExportEndpointSlice by their APIExport's Reference Path and Name.
+func indexAPIExportEndpointSliceByAPIExportFunc(obj interface{}) ([]string, error) {
+	apiExportEndpointSlice, ok := obj.(*apisv1alpha1.APIExportEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExportEndpointSlice", obj)
+	}
+
+	path := logicalcluster.NewPath(apiExportEndpointSlice.Spec.APIExport.Path)
+	if path.Empty() {
+		path = logicalcluster.From(apiExportEndpointSlice).Path()
+	}
+	return []string{path.Join(apiExportEndpointSlice.Spec.APIExport.Name).String()}, nil
+}
+
+// indexAPIExportEndpointSlicesByPartitionFunc is an index function that maps a Partition to the key for its
+// spec.partition.
+func indexAPIExportEndpointSlicesByPartitionFunc(obj interface{}) ([]string, error) {
+	slice, ok := obj.(*apisv1alpha1.APIExportEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIExportEndpointSlice, but is %T", obj)
+	}
+
+	if slice.Spec.Partition != "" {
+		clusterName := logicalcluster.From(slice).Path()
+		if !ok {
+			// this will never happen due to validation
+			return []string{}, fmt.Errorf("cluster information missing")
+		}
+		key := client.ToClusterAwareKey(clusterName, slice.Spec.Partition)
+		return []string{key}, nil
+	}
+
+	return []string{}, nil
 }
 
 func (s *Server) startControllers(ctx context.Context) {
@@ -140,13 +223,13 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 	if err != nil {
 		return err
 	}
-	c := clusterroleaggregation.NewClusterRoleAggregation(
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		kubeClient.RbacV1())
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
 		Runner: func(ctx context.Context) {
+			c := clusterroleaggregation.NewClusterRoleAggregation(
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+				kubeClient.RbacV1())
 			c.Run(ctx, 5)
 		},
 	})
@@ -345,15 +428,14 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 		return err
 	}
 
-	controller := tenancylogicalcluster.NewController(
-		kubeClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: tenancylogicalcluster.ControllerName,
 		Runner: func(ctx context.Context) {
+			controller := tenancylogicalcluster.NewController(
+				kubeClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+			)
 			controller.Start(ctx, 10)
 		},
 	})
@@ -384,20 +466,19 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 		return err
 	}
 
-	logicalClusterDeletionController := logicalclusterdeletion.NewController(
-		kubeClusterClient,
-		kcpClusterClient,
-		logicalClusterAdminConfig,
-		externalLogicalClusterAdminConfig,
-		metadataClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		discoverResourcesFn,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterdeletion.ControllerName,
 		Runner: func(ctx context.Context) {
+			logicalClusterDeletionController := logicalclusterdeletion.NewController(
+				kubeClusterClient,
+				kcpClusterClient,
+				logicalClusterAdminConfig,
+				externalLogicalClusterAdminConfig,
+				metadataClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				discoverResourcesFn,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+			)
 			logicalClusterDeletionController.Start(ctx, 10)
 		},
 	})
@@ -422,24 +503,33 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	externalLogicalClusterAdminConfig = rest.CopyConfig(externalLogicalClusterAdminConfig)
 	externalLogicalClusterAdminConfig = rest.AddUserAgent(externalLogicalClusterAdminConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
 
-	workspaceController, err := workspace.NewController(
-		s.Options.Extra.ShardName,
-		kcpClusterClient,
-		kubeClusterClient,
-		logicalClusterAdminConfig,
-		externalLogicalClusterAdminConfig,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-	)
-	if err != nil {
-		return err
-	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Informer().GetIndexer(), cache.Indexers{
+		unschedulable: indexUnschedulable,
+	})
+	indexers.AddIfNotPresentOrDie(s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().GetIndexer(), cache.Indexers{
+		byBase36Sha224Name: indexByBase36Sha224Name,
+	})
+	indexers.AddIfNotPresentOrDie(s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	if err := s.registerController(&controllerWrapper{
 		Name: workspace.ControllerName,
 		Runner: func(ctx context.Context) {
+			workspaceController, err := workspace.NewController(
+				s.Options.Extra.ShardName,
+				kcpClusterClient,
+				kubeClusterClient,
+				logicalClusterAdminConfig,
+				externalLogicalClusterAdminConfig,
+				s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+				s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+				s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			workspaceController.Start(ctx, 2)
 		},
 	}); err != nil {
@@ -453,25 +543,25 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	var workspaceShardController *shard.Controller
-	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-		workspaceShardController, err = shard.NewController(
-			kcpClusterClient,
-			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		)
-		if err != nil {
-			return err
-		}
-	}
-	if workspaceShardController != nil {
-		if err := s.registerController(&controllerWrapper{
-			Name: shard.ControllerName,
-			Runner: func(ctx context.Context) {
+	if err := s.registerController(&controllerWrapper{
+		Name: shard.ControllerName,
+		Runner: func(ctx context.Context) {
+			var workspaceShardController *shard.Controller
+			if s.Options.Extra.ShardName == corev1alpha1.RootShard {
+				workspaceShardController, err = shard.NewController(
+					kcpClusterClient,
+					s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+			if workspaceShardController != nil {
 				workspaceShardController.Start(ctx, 2)
-			},
-		}); err != nil {
-			return err
-		}
+			}
+		},
+	}); err != nil {
+		return err
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)
@@ -480,19 +570,20 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-
-	workspaceTypeController, err := workspacetype.NewController(
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-	)
-	if err != nil {
-		return err
-	}
-
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 	if err := s.registerController(&controllerWrapper{
 		Name: workspacetype.ControllerName,
 		Runner: func(ctx context.Context) {
+			workspaceTypeController, err := workspacetype.NewController(
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+				s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			workspaceTypeController.Start(ctx, 2)
 		},
 	}); err != nil {
@@ -514,22 +605,20 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
-
-	universalController, err := bootstrap.NewController(
-		dynamicClusterClient,
-		bootstrapKcpClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
-		configuniversal.Bootstrap,
-		sets.New[string](s.Options.Extra.BatteriesIncluded...),
-	)
-	if err != nil {
-		return err
-	}
-
 	return s.registerController(&controllerWrapper{
 		Name: universalControllerName,
 		Runner: func(ctx context.Context) {
+			universalController, err := bootstrap.NewController(
+				dynamicClusterClient,
+				bootstrapKcpClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
+				configuniversal.Bootstrap,
+				sets.New[string](s.Options.Extra.BatteriesIncluded...),
+			)
+			if err != nil {
+				panic(err)
+			}
 			universalController.Start(ctx, 2)
 		},
 	})
@@ -554,19 +643,18 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		return err
 	}
 
-	workspaceMountsController, err := workspacemounts.NewController(
-		kcpClusterClient,
-		dynamicClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.DiscoveringDynamicSharedInformerFactory,
-	)
-	if err != nil {
-		return err
-	}
-
 	return s.registerController(&controllerWrapper{
 		Name: workspacemounts.ControllerName,
 		Runner: func(ctx context.Context) {
+			workspaceMountsController, err := workspacemounts.NewController(
+				kcpClusterClient,
+				dynamicClusterClient,
+				s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+				s.DiscoveringDynamicSharedInformerFactory,
+			)
+			if err != nil {
+				panic(err)
+			}
 			workspaceMountsController.Start(ctx, 2)
 		},
 	})
@@ -580,18 +668,17 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 		return err
 	}
 
-	logicalClusterController, err := logicalclusterctrl.NewController(
-		s.CompletedConfig.ShardExternalURL,
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-	)
-	if err != nil {
-		return err
-	}
-
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterctrl.ControllerName,
 		Runner: func(ctx context.Context) {
+			logicalClusterController, err := logicalclusterctrl.NewController(
+				s.CompletedConfig.ShardExternalURL,
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			logicalClusterController.Start(ctx, 2)
 		},
 	})
@@ -612,21 +699,20 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	c, err := apibinding.NewController(
-		crdClusterClient,
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-	)
-	if err != nil {
-		return err
-	}
+	// APIBinding indexers
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
+
+	// APIExport indexers
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
+	indexers.AddIfNotPresentOrDie(s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
 
 	if err := s.registerController(&controllerWrapper{
 		Name: apibinding.ControllerName,
@@ -645,6 +731,21 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
+			c, err := apibinding.NewController(
+				crdClusterClient,
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+				s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	}); err != nil {
@@ -663,21 +764,24 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	permissionClaimLabelController, err := permissionclaimlabel.NewController(
-		kcpClusterClient,
-		dynamicClusterClient,
-		ddsif,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-	)
-	if err != nil {
-		return err
-	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ControllerName,
 		Runner: func(ctx context.Context) {
+			permissionClaimLabelController, err := permissionclaimlabel.NewController(
+				kcpClusterClient,
+				dynamicClusterClient,
+				ddsif,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			permissionClaimLabelController.Start(ctx, 5)
 		},
 	}); err != nil {
@@ -695,21 +799,33 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	permissionClaimLabelResourceController, err := permissionclaimlabel.NewResourceController(
-		kcpClusterClient,
-		dynamicClusterClient,
-		ddsif,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-	)
-	if err != nil {
+
+	if err := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(
+		cache.Indexers{
+			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+		},
+	); err != nil {
 		return err
 	}
+
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ResourceControllerName,
 		Runner: func(ctx context.Context) {
+			permissionClaimLabelResourceController, err := permissionclaimlabel.NewResourceController(
+				kcpClusterClient,
+				dynamicClusterClient,
+				ddsif,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			permissionClaimLabelResourceController.Start(ctx, 2)
 		},
 	}); err != nil {
@@ -727,15 +843,15 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	apibindingDeletionController := apibindingdeletion.NewController(
-		metadataClient,
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-	)
 
 	return s.registerController(&controllerWrapper{
 		Name: apibindingdeletion.ControllerName,
 		Runner: func(ctx context.Context) {
+			apibindingDeletionController := apibindingdeletion.NewController(
+				metadataClient,
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+			)
 			apibindingDeletionController.Start(ctx, 10)
 		},
 	})
@@ -783,25 +899,36 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		resyncPeriod,
 	)
 
-	c, err := initialization.NewAPIBinder(
-		initializingWorkspacesKcpClusterClient,
-		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-	)
-	if err != nil {
-		return err
-	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	return s.registerController(&controllerWrapper{
 		Name: initialization.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
+				initializingWorkspacesKcpInformers.Start(ctx.Done())
+				logicalClusterCacheSynced := initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
+				return logicalClusterCacheSynced, nil
+			})
+		},
 		Runner: func(ctx context.Context) {
-			initializingWorkspacesKcpInformers.Start(ctx.Done())
-			initializingWorkspacesKcpInformers.WaitForCacheSync(ctx.Done())
-
+			c, err := initialization.NewAPIBinder(
+				initializingWorkspacesKcpClusterClient,
+				initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
+				s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+				s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -816,18 +943,24 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	c, err := crdcleanup.NewController(
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-		crdClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	indexers.AddIfNotPresentOrDie(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIBindingByBoundResourceUID: indexers.IndexAPIBindingByBoundResourceUID,
+		},
 	)
-	if err != nil {
-		return err
-	}
 
 	return s.registerController(&controllerWrapper{
 		Name: crdcleanup.ControllerName,
 		Runner: func(ctx context.Context) {
+			c, err := crdcleanup.NewController(
+				s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+				crdClusterClient,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -845,24 +978,17 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	c, err := apiexport.NewController(
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+	indexers.AddIfNotPresentOrDie(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
+			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
+		},
 	)
-	if err != nil {
-		return err
-	}
 
 	return s.registerController(&controllerWrapper{
 		Name: apiexport.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
-			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
-			// and the controllers must run as soon as these two informers are up in order to bootstrap
-			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
 			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
@@ -870,6 +996,17 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			})
 		},
 		Runner: func(ctx context.Context) {
+			c, err := apiexport.NewController(
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+				s.KubeSharedInformerFactory.Core().V1().Secrets(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -882,16 +1019,17 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 	if err != nil {
 		return err
 	}
-
-	c := apisreplicateclusterrole.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-	)
-
+	indexers.AddIfNotPresentOrDie(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(), cache.Indexers{
+		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
+	})
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrole.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := apisreplicateclusterrole.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -904,17 +1042,19 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 	if err != nil {
 		return err
 	}
-
-	c := coresreplicateclusterrole.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-	)
-
+	indexers.AddIfNotPresentOrDie(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(), cache.Indexers{
+		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
+	})
 	return s.registerController(&controllerWrapper{
 		Name: coresreplicateclusterrole.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := coresreplicateclusterrole.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			)
+
 			c.Start(ctx, 2)
 		},
 	})
@@ -927,16 +1067,19 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 	if err != nil {
 		return err
 	}
-
-	c := apisreplicateclusterrolebinding.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-	)
+	indexers.AddIfNotPresentOrDie(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(), cache.Indexers{
+		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
+	})
 
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrolebinding.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := apisreplicateclusterrolebinding.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+			)
+
 			c.Start(ctx, 2)
 		},
 	})
@@ -950,15 +1093,14 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 		return err
 	}
 
-	c := apisreplicatelogicalcluster.NewController(
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicatelogicalcluster.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := apisreplicatelogicalcluster.NewController(
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -972,15 +1114,14 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 		return err
 	}
 
-	c := tenancyreplicatelogicalcluster.NewController(
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicatelogicalcluster.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := tenancyreplicatelogicalcluster.NewController(
+				kcpClusterClient,
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -994,16 +1135,15 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 		return err
 	}
 
-	c := corereplicateclusterrolebinding.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: corereplicateclusterrolebinding.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := corereplicateclusterrolebinding.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -1017,15 +1157,14 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 		return err
 	}
 
-	c := tenancyreplicateclusterrole.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrole.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := tenancyreplicateclusterrole.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -1039,15 +1178,14 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 		return err
 	}
 
-	c := tenancyreplicateclusterrolebinding.NewController(
-		kubeClusterClient,
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
-	)
-
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrolebinding.ControllerName,
 		Runner: func(ctx context.Context) {
+			c := tenancyreplicateclusterrolebinding.NewController(
+				kubeClusterClient,
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+				s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+			)
 			c.Start(ctx, 2)
 		},
 	})
@@ -1062,21 +1200,41 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		return err
 	}
 
-	c, err := apiexportendpointslice.NewController(
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
-		// Shards and APIExports get retrieved from cache server
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
-		kcpClusterClient,
-	)
-	if err != nil {
-		return err
-	}
+	indexers.AddIfNotPresentOrDie(s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().GetIndexer(), cache.Indexers{
+		indexAPIExportEndpointSliceByAPIExport: indexAPIExportEndpointSliceByAPIExportFunc,
+	})
+
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().GetIndexer(), cache.Indexers{
+		indexAPIExportEndpointSlicesByPartition: indexAPIExportEndpointSlicesByPartitionFunc,
+	})
 
 	return s.registerController(&controllerWrapper{
 		Name: apiexportendpointslice.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
+				apiexportEndpointSliceCache := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced()
+				shardCacheSynced := s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced()
+				apiexportendpointcacheSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+				partitionSynced := s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced()
+				return apiexportEndpointSliceCache && shardCacheSynced && apiexportendpointcacheSynced && partitionSynced, nil
+			})
+		},
 		Runner: func(ctx context.Context) {
+			c, err := apiexportendpointslice.NewController(
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+				// Shards and APIExports get retrieved from cache server
+				s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+				s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
+				kcpClusterClient,
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -1091,19 +1249,27 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 		return err
 	}
 
-	c, err := partitionset.NewController(
-		s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets(),
-		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		kcpClusterClient,
-	)
-	if err != nil {
-		return err
-	}
-
 	return s.registerController(&controllerWrapper{
 		Name: partitionset.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
+				partitionsetSynced := s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets().Informer().HasSynced()
+				partitionSynced := s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced()
+				shardSynced := s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced()
+				return partitionsetSynced && partitionSynced && shardSynced, nil
+			})
+		},
+
 		Runner: func(ctx context.Context) {
+			c, err := partitionset.NewController(
+				s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets(),
+				s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
+				s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+				kcpClusterClient,
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -1117,17 +1283,24 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 		return err
 	}
 
-	c, err := extraannotationsync.NewController(kcpClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-	)
-	if err != nil {
-		return err
-	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
 
 	return s.registerController(&controllerWrapper{
 		Name: extraannotationsync.ControllerName,
 		Runner: func(ctx context.Context) {
+			c, err := extraannotationsync.NewController(kcpClusterClient,
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+				s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
@@ -1152,23 +1325,22 @@ func (s *Server) installKubeQuotaController(
 		workersPerLogicalCluster = 1
 	)
 
-	c, err := kubequota.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		kubeClusterClient,
-		s.KubeSharedInformerFactory,
-		s.DiscoveringDynamicSharedInformerFactory,
-		quotaResyncPeriod,
-		replenishmentPeriod,
-		workersPerLogicalCluster,
-		s.syncedCh,
-	)
-	if err != nil {
-		return err
-	}
-
 	if err := s.registerController(&controllerWrapper{
 		Name: kubequota.ControllerName,
 		Runner: func(ctx context.Context) {
+			c, err := kubequota.NewController(
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				kubeClusterClient,
+				s.KubeSharedInformerFactory,
+				s.DiscoveringDynamicSharedInformerFactory,
+				quotaResyncPeriod,
+				replenishmentPeriod,
+				workersPerLogicalCluster,
+				s.syncedCh,
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	}); err != nil {
@@ -1191,29 +1363,133 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
-	if err != nil {
-		return err
-	}
 
 	return s.registerController(&controllerWrapper{
 		Name: identitycache.ControllerName,
 		Runner: func(ctx context.Context) {
+			c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 1)
 		},
 	})
 }
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config) error {
-	// TODO(sttts): set user agent
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
-	if err != nil {
-		return err
+	localKcpInformers := s.KcpSharedInformerFactory
+	globalKcpInformers := s.CacheKcpSharedInformerFactory
+	localKubeInformers := s.KubeSharedInformerFactory
+	globalKubeInformers := s.CacheKubeSharedInformerFactory
+
+	gvrs := map[schema.GroupVersionResource]replication.ReplicatedGVR{
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"): {
+			Kind:   "APIExport",
+			Local:  localKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+		},
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"): {
+			Kind:   "APIResourceSchema",
+			Local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+		},
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"): {
+			Kind:   "APIConversion",
+			Local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
+			Kind:   "MutatingWebhookConfiguration",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
+			Kind:   "ValidatingWebhookConfiguration",
+			Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+		},
+		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
+			Kind:   "ValidatingAdmissionPolicy",
+			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+		},
+		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
+			Kind:   "ValidatingAdmissionPolicyBinding",
+			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+		},
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
+			Kind:   "Shard",
+			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+		},
+		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
+			Kind: "LogicalCluster",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+			Global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+		},
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
+			Kind:   "WorkspaceType",
+			Local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+			Global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+		},
+		rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
+			Kind: "ClusterRole",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKubeInformers.Rbac().V1().ClusterRoles().Informer(),
+			Global: globalKubeInformers.Rbac().V1().ClusterRoles().Informer(),
+		},
+		rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"): {
+			Kind: "ClusterRoleBinding",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
+			Global: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
+		},
 	}
 
+	for _, controller := range gvrs {
+		indexers.AddIfNotPresentOrDie(
+			controller.Global.GetIndexer(),
+			cache.Indexers{
+				replication.ByShardAndLogicalClusterAndNamespaceAndName: replication.IndexByShardAndLogicalClusterAndNamespace,
+			},
+		)
+	}
 	return s.registerController(&controllerWrapper{
 		Name: replication.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
+				for _, controller := range gvrs {
+					globalSynced := controller.Global.HasSynced()
+					localSynced := controller.Local.HasSynced()
+					if !globalSynced || !localSynced {
+						return false, nil
+					}
+				}
+				return true, nil
+			})
+		},
 		Runner: func(ctx context.Context) {
+			// TODO(sttts): set user agent
+			controller, err := replication.NewController(
+				s.Options.Extra.ShardName,
+				s.CacheDynamicClient,
+				s.KcpSharedInformerFactory,
+				s.CacheKcpSharedInformerFactory,
+				s.KubeSharedInformerFactory,
+				s.CacheKubeSharedInformerFactory,
+				gvrs,
+			)
+			if err != nil {
+				panic(err)
+			}
 			controller.Start(ctx, 2)
 		},
 	})
@@ -1238,21 +1514,20 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		workersPerLogicalCluster = 1
 	)
 
-	c, err := garbagecollector.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		kubeClusterClient,
-		metadataClient,
-		s.DiscoveringDynamicSharedInformerFactory,
-		workersPerLogicalCluster,
-		s.syncedCh,
-	)
-	if err != nil {
-		return err
-	}
-
 	return s.registerController(&controllerWrapper{
 		Name: garbagecollector.ControllerName,
 		Runner: func(ctx context.Context) {
+			c, err := garbagecollector.NewController(
+				s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+				kubeClusterClient,
+				metadataClient,
+				s.DiscoveringDynamicSharedInformerFactory,
+				workersPerLogicalCluster,
+				s.syncedCh,
+			)
+			if err != nil {
+				panic(err)
+			}
 			c.Start(ctx, 2)
 		},
 	})
