@@ -26,6 +26,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
+	"time"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
@@ -199,6 +200,9 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Setting the default restConfig timeout to 30 seconds to avoid any client is waiting infinitely
+	c.GenericConfig.LoopbackClientConfig.Timeout = time.Second * 30
 
 	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
