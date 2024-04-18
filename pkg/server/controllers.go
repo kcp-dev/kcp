@@ -78,6 +78,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacemounts"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
+	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -147,6 +148,17 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		Name: controllerName,
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 5)
+		},
+	})
+}
+
+func (s *Server) installOpenAPIv3Controller(ctx context.Context, config *rest.Config) error {
+	controllerName := openapiv3.ControllerName
+
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Runner: func(ctx context.Context) {
+			s.openAPIv3Controller.Run(ctx)
 		},
 	})
 }

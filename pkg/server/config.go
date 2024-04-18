@@ -63,6 +63,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
@@ -112,8 +113,10 @@ type ExtraConfig struct {
 	ExternalLogicalClusterAdminConfig *rest.Config // client config connecting to the front proxy
 
 	// misc
-	preHandlerChainMux   *handlerChainMuxes
-	quotaAdmissionStopCh chan struct{}
+	preHandlerChainMux    *handlerChainMuxes
+	quotaAdmissionStopCh  chan struct{}
+	openAPIv3Controller   *openapiv3.Controller
+	openAPIv3ServiceCache *openapiv3.ServiceCache
 
 	// URL getters depending on genericspiserver.ExternalAddress which is initialized on server run
 	ShardBaseURL             func() string
@@ -389,6 +392,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// to give handlers below one mux.Handle func to call.
 	c.preHandlerChainMux = &handlerChainMuxes{}
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
+		apiHandler = openapiv3.WithOpenAPIv3(apiHandler, c.openAPIv3ServiceCache) // will be initialized further down after apiextensions-apiserver
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
@@ -518,8 +522,10 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	apiextGenericConfig := *c.GenericConfig
+	apiextGenericConfig.SkipOpenAPIInstallation = true // we run our own OpenAPI service
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
-		*c.GenericConfig,
+		apiextGenericConfig,
 		informerfactoryhack.Wrap(c.KubeSharedInformerFactory),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
@@ -550,6 +556,9 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.ApiExtensions.ExtraConfig.Client = c.ApiExtensionsClusterClient
 	c.ApiExtensions.ExtraConfig.Informers = c.ApiExtensionsSharedInformerFactory
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
+
+	c.openAPIv3Controller = openapiv3.NewController(c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())
+	c.openAPIv3ServiceCache = openapiv3.NewServiceCache(c.GenericConfig.OpenAPIV3Config, c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister, c.openAPIv3Controller, openapiv3.DefaultServiceCacheSize)
 
 	c.MiniAggregator = &miniaggregator.MiniAggregatorConfig{
 		GenericConfig: *c.GenericConfig,
