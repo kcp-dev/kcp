@@ -23,16 +23,22 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
 type deletionReconciler struct {
 	getLogicalCluster    func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
 	deleteLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) error
+
+	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
+
+	kcpLogicalClusterAdminClientFor func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
 }
 
 func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -62,10 +68,35 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		clusterName = logicalcluster.Name(a)
 	}
 
-	logicalCluster, err := r.getLogicalCluster(ctx, clusterName.Path())
-	if err != nil && !apierrors.IsNotFound(err) {
-		return reconcileStatusStopAndRequeue, err
-	} else if apierrors.IsNotFound(err) {
+	logicalCluster, getErr := r.getLogicalCluster(ctx, clusterName.Path())
+	if getErr != nil && !apierrors.IsNotFound(getErr) {
+		// try again with a direct connection. It might be that the front-proxy
+		// does not know about the logical cluster. We don't want to leak, so
+		// try extra hard.
+		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		if !hasShard {
+			// nothing we can do beyond retrying
+			return reconcileStatusStopAndRequeue, getErr
+		}
+
+		shard, err := r.getShardByHash(shardNameHash)
+		if err != nil {
+			return reconcileStatusStopAndRequeue, err
+		}
+
+		logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
+		if err != nil {
+			return reconcileStatusStopAndRequeue, err
+		}
+
+		logicalCluster, getErr = logicalClusterAdminClient.Cluster(clusterName.Path()).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		if getErr != nil && !apierrors.IsNotFound(getErr) {
+			return reconcileStatusStopAndRequeue, getErr
+		}
+
+		// fall-through
+	}
+	if apierrors.IsNotFound(getErr) {
 		finalizers := sets.New[string](workspace.Finalizers...)
 		if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
 			logger.Info(fmt.Sprintf("Removing finalizer %s", corev1alpha1.LogicalClusterFinalizer))
