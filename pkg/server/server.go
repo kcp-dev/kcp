@@ -123,6 +123,10 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, fmt.Errorf("failed to install APIs: %w", err)
 	}
 
+	if err := s.openAPIv3ServiceCache.RegisterStaticAPIs(s.Apis.GenericAPIServer.Handler.GoRestfulContainer); err != nil {
+		return nil, err
+	}
+
 	s.MiniAggregator, err = c.MiniAggregator.New(s.Apis.GenericAPIServer, s.Apis, s.ApiExtensions)
 	if err != nil {
 		return nil, err
@@ -387,6 +391,10 @@ func (s *Server) Run(ctx context.Context) error {
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
 	controllerConfig := rest.CopyConfig(s.IdentityConfig)
+
+	if err := s.installOpenAPIv3Controller(ctx, controllerConfig); err != nil {
+		return err
+	}
 
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err

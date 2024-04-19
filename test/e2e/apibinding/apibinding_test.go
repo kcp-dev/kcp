@@ -242,6 +242,12 @@ func TestAPIBinding(t *testing.T) {
 		require.False(t, groupExists(groups, wildwest.GroupName),
 			"should not have seen %s API group in %q group discovery", wildwest.GroupName, providerPath)
 
+		t.Logf("Make sure cowboys API group does NOT show up in workspace %q openapi v3 endpoint", providerPath)
+		providerOpenAPIV3 := providerWorkspaceClient.Cluster(providerPath).Discovery().OpenAPIV3()
+		paths, err := providerOpenAPIV3.Paths()
+		require.NoError(t, err, "error retrieving %q openapi v3 paths", providerPath)
+		require.NotContainsf(t, paths, "apis/"+wildwestv1alpha1.SchemeGroupVersion.String(), "should not have %s API group in %q openapi v3 paths", wildwest.GroupName, providerPath)
+
 		consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err)
 
@@ -262,6 +268,12 @@ func TestAPIBinding(t *testing.T) {
 
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(rest.CopyConfig(cfg))
 		require.NoError(t, err)
+
+		t.Logf("Make sure cowboys API group DOES show up in workspace %q openapi v3 endpoint", consumerWorkspace)
+		consumerOpenAPIV3 := consumerWorkspaceClient.Cluster(consumerWorkspace).Discovery().OpenAPIV3()
+		paths, err = consumerOpenAPIV3.Paths()
+		require.NoError(t, err, "error retrieving %q openapi v3 paths", consumerWorkspace)
+		require.Containsf(t, paths, "apis/"+wildwestv1alpha1.SchemeGroupVersion.String(), "should have %s API group in %q openapi v3 paths", wildwest.GroupName, consumerWorkspace)
 
 		t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumerWorkspace)
 
