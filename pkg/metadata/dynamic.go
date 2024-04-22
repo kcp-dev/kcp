@@ -71,6 +71,10 @@ func (t *metadataTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return t.RoundTripper.RoundTrip(req)
 }
 
+func (t *metadataTransport) WrappedRoundTripper() http.RoundTripper {
+	return t.RoundTripper
+}
+
 func partialType(req *http.Request) (string, error) {
 	// strip off /clusters/<lcluster>
 	baseReq := *req
