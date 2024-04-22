@@ -87,6 +87,10 @@ func (c *ShardRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	return c.delegate.RoundTrip(req)
 }
 
+func (c *ShardRoundTripper) WrappedRoundTripper() http.RoundTripper {
+	return c.delegate
+}
+
 // generatePath formats the request path to target the specified shard.
 func generatePath(originalPath string, shard clientshard.Name) (string, error) {
 	// if the originalPath already has the shard then the path was already modified and no change needed
@@ -149,6 +153,10 @@ func (c *DefaultShardRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 		req = req.WithContext(WithShardInContext(req.Context(), c.shard))
 	}
 	return c.delegate.RoundTrip(req)
+}
+
+func (c *DefaultShardRoundTripper) WrappedRoundTripper() http.RoundTripper {
+	return c.delegate
 }
 
 // WithShardNameFromObjectRoundTripper wraps an existing config with ShardNameFromObjectRoundTripper.
@@ -221,6 +229,10 @@ func (c *ShardNameFromObjectRoundTripper) RoundTrip(req *http.Request) (*http.Re
 	return c.delegate.RoundTrip(req)
 }
 
+func (c *ShardNameFromObjectRoundTripper) WrappedRoundTripper() http.RoundTripper {
+	return c.delegate
+}
+
 // WithCacheServiceRoundTripper wraps an existing config's with CacheServiceRoundTripper.
 func WithCacheServiceRoundTripper(cfg *rest.Config) *rest.Config {
 	cfg.Wrap(func(rt http.RoundTripper) http.RoundTripper {
@@ -259,4 +271,8 @@ func (c *CacheServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 		req.URL = newURL
 	}
 	return c.delegate.RoundTrip(req)
+}
+
+func (c *CacheServiceRoundTripper) WrappedRoundTripper() http.RoundTripper {
+	return c.delegate
 }

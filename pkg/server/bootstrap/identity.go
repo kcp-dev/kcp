@@ -226,33 +226,43 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 	}
 }
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
+type roundTripperFunc struct {
+	delegate http.RoundTripper
+	fn       func(*http.Request) (*http.Response, error)
+}
 
-var _ http.RoundTripper = roundTripperFunc(nil)
+var _ http.RoundTripper = roundTripperFunc{}
 
 func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return rt(r)
+	return rt.fn(r)
+}
+
+func (rt roundTripperFunc) WrappedRoundTripper() http.RoundTripper {
+	return rt.delegate
 }
 
 // injectKcpIdentities injects the KCP identities into the request URLs.
 func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundTripper {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return roundTripperFunc(func(origReq *http.Request) (*http.Response, error) {
-			urlPath, err := decorateWildcardPathsWithResourceIdentities(origReq.URL.Path, ids)
-			if err != nil {
-				return nil, err
-			}
-			if urlPath == origReq.URL.Path {
-				return rt.RoundTrip(origReq)
-			}
+		return roundTripperFunc{
+			delegate: rt,
+			fn: func(origReq *http.Request) (*http.Response, error) {
+				urlPath, err := decorateWildcardPathsWithResourceIdentities(origReq.URL.Path, ids)
+				if err != nil {
+					return nil, err
+				}
+				if urlPath == origReq.URL.Path {
+					return rt.RoundTrip(origReq)
+				}
 
-			req := *origReq // shallow copy
-			req.URL = &url.URL{}
-			*req.URL = *origReq.URL
-			req.URL.Path = urlPath
+				req := *origReq // shallow copy
+				req.URL = &url.URL{}
+				*req.URL = *origReq.URL
+				req.URL.Path = urlPath
 
-			return rt.RoundTrip(&req)
-		})
+				return rt.RoundTrip(&req)
+			},
+		}
 	}
 }
 
