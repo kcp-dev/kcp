@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp
 
-go 1.20
+go 1.21
 
 require (
 	github.com/abiosoft/lineprefix v0.1.4
