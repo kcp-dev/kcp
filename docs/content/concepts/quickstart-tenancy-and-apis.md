@@ -148,20 +148,6 @@ Status:
 ...
 ```
 
-## Workspaces FAQs
-
-Q: Why do we have both `ClusterWorkspaces` and `Workspaces`?
-
-A: `Workspaces` are intended to be the user-facing resource, whereas `ClusterWorkspaces` is a low-level resource for kcp
-platform admins.
-
-`Workspaces` are actually a "projected resource", there is no such resource stored in etcd, instead it is served as a
-transformation of the `ClusterWorkspace` resource. `ClusterWorkspaces` contain details like shard assignment, which are
-low-level fields that users should not see.
-
-We are working on a change of this system behind the scenes. That will probably promote Workspaces to a normal,
-non-projected resource, and ClusterWorkspaces will change in its role.
-
 ## Publish some APIs as a service provider
 
 kcp offers `APIExport` and `APIBinding` resources which allow a service provider operating in one workspace to offer its
