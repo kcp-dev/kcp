@@ -54,7 +54,7 @@ func updateAttr(shard, old *corev1alpha1.Shard) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(shard),
 		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("Workspace").WithVersion("v1alpha1"),
 		"",
 		shard.Name,
 		corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
@@ -105,10 +105,10 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 	a := admission.NewAttributesRecord(
 		&unstructured.Unstructured{},
 		nil,
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("Workspace").WithVersion("v1alpha1"),
 		"",
 		"test",
-		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Resource("workspaces").WithVersion("v1alpha1"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},

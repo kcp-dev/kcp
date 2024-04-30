@@ -268,13 +268,13 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 
 // decorateWildcardPathsWithResourceIdentities adds per-API-group identity to wildcard URL paths, e.g.
 //
-//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces/root
+//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root
 //
 // becomes
 //
-//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces:<identity>/root
+//	/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:<identity>/root
 func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities) (string, error) {
-	// Check for: /clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces/root
+	// Check for: /clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root
 	if !strings.HasPrefix(urlPath, "/clusters/*/apis/") {
 		return urlPath, nil
 	}

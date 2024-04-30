@@ -467,5 +467,5 @@ func (l fakeLogicalClusterLister) GetWithContext(ctx context.Context, name strin
 			return t, nil
 		}
 	}
-	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspace"), name)
+	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("workspace"), name)
 }
