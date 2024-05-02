@@ -31,7 +31,7 @@ import (
 )
 
 type AdmissionWebhookServer struct {
-	Response     admissionv1.AdmissionResponse
+	ResponseFn   func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error)
 	ObjectGVK    schema.GroupVersionKind
 	Deserializer runtime.Decoder
 
@@ -137,7 +137,13 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 	responseAdmissionReview := &admissionv1.AdmissionReview{
 		TypeMeta: requestedAdmissionReview.TypeMeta,
 	}
-	responseAdmissionReview.Response = &s.Response
+	r, err := s.ResponseFn(requestedAdmissionReview)
+	if err != nil {
+		s.t.Logf("%v", err)
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	responseAdmissionReview.Response = r
 	responseAdmissionReview.Response.UID = requestedAdmissionReview.Request.UID
 
 	respBytes, err := json.Marshal(responseAdmissionReview)

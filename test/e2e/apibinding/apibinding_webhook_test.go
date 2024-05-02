@@ -30,7 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
-	v1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,7 +118,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	scheme := runtime.NewScheme()
 	err = admissionregistrationv1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add admission registration v1 scheme")
-	err = v1.AddToScheme(scheme)
+	err = admissionv1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add admission v1 scheme")
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
@@ -131,8 +131,8 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			Response: v1.AdmissionResponse{
-				Allowed: true,
+			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
 				Group:   "wildwest.dev",
@@ -265,7 +265,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	scheme := runtime.NewScheme()
 	err = admissionregistrationv1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add admission registration v1 scheme")
-	err = v1.AddToScheme(scheme)
+	err = admissionv1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add admission v1 scheme")
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
@@ -278,8 +278,8 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			Response: v1.AdmissionResponse{
-				Allowed: true,
+			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
 				Group:   "wildwest.dev",

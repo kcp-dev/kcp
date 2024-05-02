@@ -28,6 +28,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -122,6 +123,17 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 		return fmt.Errorf("error validating ValidatingAdmissionWebhook initialization: %w", err)
 	}
 
+	// Add cluster annotation on create
+	if attr.GetOperation() == admission.Create {
+		u, ok := attr.GetObject().(metav1.Object)
+		if !ok {
+			return fmt.Errorf("unexpected type %T", attr.GetObject())
+		}
+		if undo := SetClusterAnnotation(u, clusterName); undo != nil {
+			defer undo()
+		}
+	}
+
 	return plugin.Validate(ctx, attr, o)
 }
 
@@ -186,5 +198,33 @@ func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInf
 func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 		return local.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+	}
+}
+
+// SetClusterAnnotation sets the cluster annotation on the given object to the given clusterName,
+// returning an undo function that can be used to revert the change.
+func SetClusterAnnotation(obj metav1.Object, clusterName logicalcluster.Name) (undoFn func()) {
+	anns := obj.GetAnnotations()
+	if anns == nil {
+		obj.SetAnnotations(map[string]string{logicalcluster.AnnotationKey: clusterName.String()})
+		return func() { obj.SetAnnotations(nil) }
+	}
+
+	old, ok := anns[logicalcluster.AnnotationKey]
+	if old == clusterName.String() {
+		return nil
+	}
+
+	anns[logicalcluster.AnnotationKey] = clusterName.String()
+	obj.SetAnnotations(anns)
+	if ok {
+		return func() {
+			anns[logicalcluster.AnnotationKey] = old
+			obj.SetAnnotations(anns)
+		}
+	}
+	return func() {
+		delete(anns, logicalcluster.AnnotationKey)
+		obj.SetAnnotations(anns)
 	}
 }
