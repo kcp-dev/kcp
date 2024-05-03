@@ -28,6 +28,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -37,6 +38,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -120,6 +122,17 @@ func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		return fmt.Errorf("error validating MutatingWebhook initialization: %w", err)
+	}
+
+	// Add cluster annotation on create
+	if attr.GetOperation() == admission.Create {
+		u, ok := attr.GetObject().(metav1.Object)
+		if !ok {
+			return fmt.Errorf("unexpected type %T", attr.GetObject())
+		}
+		if undo := validatingwebhook.SetClusterAnnotation(u, clusterName); undo != nil {
+			defer undo()
+		}
 	}
 
 	return plugin.Admit(ctx, attr, o)

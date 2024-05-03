@@ -18,7 +18,9 @@ package conformance
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,11 +33,13 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -66,9 +70,15 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	codecs := serializer.NewCodecFactory(scheme)
 	deserializer := codecs.UniversalDeserializer()
 
+	var clusterInReviewObject atomic.Value
 	testWebhook := webhookserver.AdmissionWebhookServer{
-		Response: v1.AdmissionResponse{
-			Allowed: true,
+		ResponseFn: func(review *v1.AdmissionReview) (*v1.AdmissionResponse, error) {
+			var u unstructured.Unstructured
+			if err := json.Unmarshal(review.Request.Object.Raw, &u.Object); err != nil {
+				return nil, err
+			}
+			clusterInReviewObject.Store(logicalcluster.From(&u).String())
+			return &v1.AdmissionResponse{Allowed: true}, nil
 		},
 		ObjectGVK: schema.GroupVersionKind{
 			Group:   "wildwest.dev",
@@ -84,9 +94,10 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	workspaces := []logicalcluster.Path{ws1Path, ws2Path}
+	ws1Path, ws1 := framework.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, ws2 := framework.NewWorkspaceFixture(t, server, orgPath)
+	paths := []logicalcluster.Path{ws1Path, ws2Path}
+	workspaces := []*tenancyv1alpha1.Workspace{ws1, ws2}
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
@@ -96,7 +107,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	t.Logf("Install the Cowboy resources into logical clusters")
-	for _, wsPath := range workspaces {
+	for _, wsPath := range paths {
 		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", wsPath)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, wsPath, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
@@ -128,7 +139,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			AdmissionReviewVersions: []string{"v1"},
 		}},
 	}
-	_, err = kubeClusterClient.Cluster(workspaces[0]).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(paths[0]).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to add mutating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{
@@ -140,17 +151,18 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in first logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(workspaces[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(paths[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
 		return testWebhook.Calls() >= 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	require.Equal(t, workspaces[0].Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has the kcp.io/cluster annotation set")
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(workspaces[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(paths[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -183,8 +195,8 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	testWebhook := webhookserver.AdmissionWebhookServer{
-		Response: v1.AdmissionResponse{
-			Allowed: true,
+		ResponseFn: func(review *v1.AdmissionReview) (*v1.AdmissionResponse, error) {
+			return &v1.AdmissionResponse{Allowed: true}, nil
 		},
 		ObjectGVK: schema.GroupVersionKind{
 			Group:   "wildwest.dev",
