@@ -8,8 +8,6 @@ on:
   push:
     tags:
     - 'v*'
-    - 'cli/v*'
-    - 'sdk/v*'
 
 permissions:
   contents: write
