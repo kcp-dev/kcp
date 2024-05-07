@@ -782,15 +782,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#clusterworkspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      ClusterWorkspaces
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#user-home-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       User Home Workspaces
@@ -803,7 +794,7 @@
           <li class="md-nav__item">
   <a href="#bucket-configuration-options" class="md-nav__link">
     <span class="md-ellipsis">
-      Bucket configuration options
+      Bucket Configuration Options
     </span>
   </a>
   
@@ -2737,15 +2728,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#clusterworkspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      ClusterWorkspaces
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#user-home-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
       User Home Workspaces
@@ -2758,7 +2740,7 @@
           <li class="md-nav__item">
   <a href="#bucket-configuration-options" class="md-nav__link">
     <span class="md-ellipsis">
-      Bucket configuration options
+      Bucket Configuration Options
     </span>
   </a>
   
@@ -2836,14 +2818,20 @@
 <p>Multi-tenancy is implemented through workspaces. A workspace is a Kubernetes-cluster-like
 HTTPS endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime
 and others) and user interfaces (kubectl, helm, web console, ...) can talk to like to a
-Kubernetes cluster.</p>
-<p>Workspaces can be backed by a traditional REST store implementation through CRDs
-or native resources persisted in etcd. But there can be alternative implementations
-for special access patterns, e.g. a virtual workspace apiserver that transforms
-other APIs e.g. by projections (Workspace in kcp is a projection of ClusterWorkspace)
-or by applying visibility filters (e.g. showing all workspaces or all namespaces
-the current user has access to).</p>
-<p>Workspaces are represented to the user via the Workspace kind, e.g.</p>
+Kubernetes cluster. Workspaces become available under
+<code>/clusters/&lt;parent-workspace-name&gt;:&lt;cluster-workspace-name&gt;</code>.</p>
+<p>Workspaces are backed by logical clusters, which means they are persisted in etcd on a shard
+with disjoint etcd prefix ranges, i.e. they have independent behaviour and no workspace
+sees objects from other workspaces. In contrast to namespace in Kubernetes, this includes
+non-namespaced objects, e.g. like CRDs where each workspace can have its own set of CRDs installed.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For workspaces not backed by storage, check out <a href="../virtual-workspaces/">virtual workspaces</a>
+that transform other APIs e.g. by projections or by applying visibility filters
+(e.g. showing all workspaces or all namespaces the current user has access to).
+Virtual workspaces are not part of the <code>/clusters/</code> path structure.</p>
+</div>
+<p>Workspaces are represented to the user via the <code>Workspace</code> kind, e.g.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">spec</span><span class="p">:</span>
@@ -2855,8 +2843,13 @@ the current user has access to).</p>
 in a tree.  Each type of workspace may restrict the types of its
 children and may restrict the types it may be a child of; a
 parent-child relationship is allowed if and only if the parent allows
-the child and the child allows the parent.  The kcp binary has a
-built-in set of workspace types, and the admin may create objects that
+the child and the child allows the parent.</p>
+<p>Workspaces have a type. A type is defined by a <code>WorkspaceType</code>. A type
+defines initializers. They are set on new Workspace objects and block the
+workspace from leaving the initializing phase. Both system components and
+3rd party components can use initializers to customize Workspaces on creation,
+e.g. to bootstrap resources inside the workspace, or to set up permission in its parent.</p>
+<p>kcp comes with a built-in set of workspace types, and the admin may create objects that
 define additional types.</p>
 <ul>
 <li><strong>Root Workspace</strong> is a singleton.  It holds some data that applies
@@ -2873,39 +2866,30 @@ define additional types.</p>
 <li><strong>Home Workspace</strong> is a user's home workspace.  These hold user
   resources such as applications with services, secrets, configmaps,
   deployments, etc.  Can only be a child of a HomeBucket workspace.</li>
-<li><strong>Organization Workspace</strong> are workspaces holding organizational
-  data, e.g. definitions of user workspaces, roles, policies,
-  accounting data.  Can only be a child of root.</li>
-<li><strong>Team Workspace</strong> can only be a child of an Organization workspace.</li>
 <li><strong>Universal Workspace</strong> is a basic type of workspace with no
   particular nature.  Has no restrictions on parent or child workspace
   types.</li>
 </ul>
-<h2 id="clusterworkspaces">ClusterWorkspaces</h2>
-<p>ClusterWorkspaces define traditional etcd-based, CRD enabled workspaces, available
-under <code>/clusters/&lt;parent-workspace-name&gt;:&lt;cluster-workspace-name&gt;</code>. E.g. organization
-workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>. A user workspace is
-accessible at <code>/clusters/root:users:&lt;bucket-d1&gt;:..:&lt;bucket-dN&gt;:&lt;user-workspace-name&gt;</code>.</p>
-<p>ClusterWorkspaces have a type. A type is defined by a WorkspaceType. A type
-defines initializers. They are set on new ClusterWorkspace objects and block the
-cluster workspace from leaving the initializing phase. Both system components and
-3rd party components can use initializers to customize ClusterWorkspaces on creation,
-e.g. to bootstrap resources inside the workspace, or to set up permission in its parent.</p>
-<p>A cluster workspace of type <code>Universal</code> is a workspace without further initialization
+<p>The following workspace types are created by kcp if the <code>workspace-types</code> battery
+is enabled:</p>
+<ul>
+<li><strong>Organization Workspace</strong> are workspaces holding organizational
+  data, e.g. definitions of user workspaces, roles, policies,
+  accounting data. Can only be a child of root.</li>
+<li><strong>Team Workspace</strong> can only be a child of an Organization workspace.</li>
+</ul>
+<p>A workspace of type <code>Universal</code> is a workspace without further initialization
 or special properties by default, and it can be used without a corresponding
-WorkspaceType object (though one can be added and its initializers will be
-applied). ClusterWorkSpaces of type <code>Organization</code> are described in the next section.</p>
+<code>WorkspaceType</code> object (though one can be added and its initializers will be
+applied).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>In order to create cluster workspaces of a given type (including <code>Universal</code>)
+<p>In order to create workspaces of a given type (including <code>Universal</code>)
 you must have <code>use</code> permissions against the <code>workspacetypes</code> resources with the
 lower-case name of the cluster workspace type (e.g. <code>universal</code>). All <code>system:authenticated</code>
 users inherit this permission automatically for type <code>Universal</code>.</p>
 </div>
-<p>ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges, i.e.
-they have independent behaviour and no cluster workspace sees objects from other
-cluster workspaces. In contrast to namespace in Kubernetes, this includes non-namespaced
-objects, e.g. like CRDs where each workspace can have its own set of CRDs installed.</p>
+<p>The different workspace types are discussed below.</p>
 <h2 id="user-home-workspaces">User Home Workspaces</h2>
 <p>User home workspaces are an optional feature of kcp. If enabled (through <code>--enable-home-workspaces</code>), there is a special
 virtual <code>Workspace</code> called <code>~</code> in the root workspace. It is used by <code>kubectl ws</code> to derive the full path to the user
@@ -2917,7 +2901,7 @@ derived from the user name (via some hash). Example for user <code>adam</code> w
 <p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
 the system to only incur the cost of these workspaces when they are needed. Only users of the configured
 home-creator-groups (default <code>system:authenticated</code>) will have a home workspace.</p>
-<h3 id="bucket-configuration-options">Bucket configuration options</h3>
+<h3 id="bucket-configuration-options">Bucket Configuration Options</h3>
 <p>The <code>kcp</code> administrator can configure:</p>
 <ul>
 <li><code>&lt;prefix&gt;</code>, which defaults to <code>root:users</code></li>
@@ -3016,7 +3000,7 @@ will be sufficient.</p>
 </tbody>
 </table>
 <h2 id="organization-workspaces">Organization Workspaces</h2>
-<p>Organization workspaces are ClusterWorkspaces of type <code>Organization</code>, defined in the
+<p>Organization workspaces are workspaces of type <code>Organization</code>, defined in the
 root workspace. Organization workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -3024,27 +3008,27 @@ root workspace. Organization workspaces are accessible at <code>/clusters/root:&
 verified through admission.</p>
 </div>
 <p>Organization workspaces have standard resources (on-top of <code>Universal</code> workspaces)
-which include the <code>ClusterWorkspace</code> API defined through an CRD deployed during
+which include the <code>Workspace</code> API defined through an CRD deployed during
 organization workspace initialization.</p>
 <h2 id="root-workspace">Root Workspace</h2>
-<p>The root workspace is a singleton in the system accessible under <code>/clusters/root</code>.
-It is not represented by a ClusterWorkspace anywhere, but shares the same properties.</p>
+<p>The default root workspace is a singleton in the system accessible under <code>/clusters/root</code>.
+It is not represented by a <code>Workspace</code> anywhere, but shares the same properties.</p>
 <p>Inside the root workspace at least the following resources are bootstrapped on
 kcp startup:</p>
 <ul>
-<li>ClusterWorkspace CRD</li>
-<li>WorkspaceShard CRD</li>
-<li>Cluster CRD.</li>
+<li>Workspace CRD</li>
+<li>WorkspaceType CRD</li>
+<li>Shard CRD</li>
+<li>Partion CRD</li>
+<li>PartionSet CRD</li>
 </ul>
-<p>The root workspace is the only one that holds WorkspaceShard objects. WorkspaceShards
-are used to schedule a new ClusterWorkspace to, i.e. to select in which etcd the
-cluster workspace content is to be persisted.</p>
+<p>The root workspace is the only one that holds <code>Shard</code> objects. Shards
+are used to schedule a new Workspace to, i.e. to select in which etcd the
+workspace content is to be persisted.</p>
 <h2 id="system-workspaces">System Workspaces</h2>
 <p>System workspaces are local to a shard and are named in the pattern <code>system:&lt;system-workspace-name&gt;</code>.</p>
-<p>They are only accessible to a shard-local admin user and there is neither a definition
-via a ClusterWorkspace nor any per-request check for workspace existence.</p>
 <p>System workspace are only accessible to a shard-local admin user, and there is
-neither a definition via a ClusterWorkspace, nor is there any validation of requests
+neither a definition via a Workspace, nor is there any validation of requests
 that the system workspace exists.</p>
 <p>As an example, the <code>system:admin</code> workspace exists for administrative objects
 that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if

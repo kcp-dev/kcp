@@ -1133,15 +1133,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#workspaces-faqs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Workspaces FAQs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#publish-some-apis-as-a-service-provider" class="md-nav__link">
     <span class="md-ellipsis">
       Publish some APIs as a service provider
@@ -2794,15 +2785,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#workspaces-faqs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Workspaces FAQs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#publish-some-apis-as-a-service-provider" class="md-nav__link">
     <span class="md-ellipsis">
       Publish some APIs as a service provider
@@ -2994,15 +2976,6 @@ hierarchy of <code>homebucket</code> workspaces based on a hash of their name.</
 <a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="w">    </span>Type:<span class="w">                  </span>Ready
 <a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>...
 </code></pre></div>
-<h2 id="workspaces-faqs">Workspaces FAQs</h2>
-<p>Q: Why do we have both <code>ClusterWorkspaces</code> and <code>Workspaces</code>?</p>
-<p>A: <code>Workspaces</code> are intended to be the user-facing resource, whereas <code>ClusterWorkspaces</code> is a low-level resource for kcp
-platform admins.</p>
-<p><code>Workspaces</code> are actually a "projected resource", there is no such resource stored in etcd, instead it is served as a
-transformation of the <code>ClusterWorkspace</code> resource. <code>ClusterWorkspaces</code> contain details like shard assignment, which are
-low-level fields that users should not see.</p>
-<p>We are working on a change of this system behind the scenes. That will probably promote Workspaces to a normal,
-non-projected resource, and ClusterWorkspaces will change in its role.</p>
 <h2 id="publish-some-apis-as-a-service-provider">Publish some APIs as a service provider</h2>
 <p>kcp offers <code>APIExport</code> and <code>APIBinding</code> resources which allow a service provider operating in one workspace to offer its
 capabilities to service consumers in other workspaces.</p>
