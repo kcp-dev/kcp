@@ -42,6 +42,7 @@ fi
 
 MIKE_OPTIONS=()
 MIKE_DEPLOY_OPTIONS=()
+MIKE_ALIASES=()
 
 if [[ -n "${REMOTE:-}" ]]; then
   MIKE_OPTIONS+=(--remote "$REMOTE")
@@ -53,7 +54,8 @@ fi
 
 LATEST=$(git describe --tags --match="v[0-9]*" `git rev-list --tags --max-count=1` | grep -o '^v[0-9]\+\.[0-9]\+')
 if [[ "${LATEST:-}" == "${VERSION:-}" ]]; then
-  MIKE_DEPLOY_OPTIONS+=(--update-aliases "$VERSION" latest)
+  MIKE_DEPLOY_OPTIONS+=(--update-aliases)
+  MIKE_ALIASES+=(latest)
 fi
 
 if [[ -n "${CI:-}" ]]; then
@@ -69,7 +71,7 @@ else
   MIKE_OPTIONS+=(--ignore-remote-status)
 fi
 
-mike deploy "${MIKE_OPTIONS[@]}" "${MIKE_DEPLOY_OPTIONS[@]}" "$VERSION"
+mike deploy "${MIKE_OPTIONS[@]}" "${MIKE_DEPLOY_OPTIONS[@]}" "$VERSION" "${MIKE_ALIASES[@]}"
 
 if [[ -n "${CI:-}" ]]; then
   if [[ "${GITHUB_EVENT_NAME:-}" == "push" ]] || [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
