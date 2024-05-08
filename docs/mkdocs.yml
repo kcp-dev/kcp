@@ -80,6 +80,9 @@ plugins:
           name: English
       reconfigure_material: true
       reconfigure_search: true
+  # Configure multi-version plugin
+  - mike:
+      alias_type: redirect
 
 markdown_extensions:
   # Code block highlighting
