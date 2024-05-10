@@ -304,10 +304,10 @@ func TestWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Remove initializer")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					logicalCluster, err := server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.Name(workspace.Spec.Cluster).Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+					logicalCluster, err := server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(workspace.Spec.Cluster.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 					require.NoError(t, err)
 					logicalCluster.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(wt), logicalCluster.Status.Initializers)
-					_, err = server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.Name(workspace.Spec.Cluster).Path()).UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
+					_, err = server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(workspace.Spec.Cluster.Path()).UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err)

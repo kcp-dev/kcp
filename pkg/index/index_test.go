@@ -487,15 +487,15 @@ func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, 
 	}
 }
 
-func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Workspace {
+func newWorkspace(name string, cluster, scheduledCluster logicalcluster.Name) *tenancyv1alpha1.Workspace {
 	return &tenancyv1alpha1.Workspace{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"kcp.io/cluster": cluster}},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"kcp.io/cluster": cluster.String()}},
 		Spec:       tenancyv1alpha1.WorkspaceSpec{Cluster: scheduledCluster},
 		Status:     tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 	}
 }
 
-func newWorkspaceWithAnnotation(name, cluster, scheduledCluster string, annotations map[string]string) *tenancyv1alpha1.Workspace {
+func newWorkspaceWithAnnotation(name string, cluster, scheduledCluster logicalcluster.Name, annotations map[string]string) *tenancyv1alpha1.Workspace {
 	ws := newWorkspace(name, cluster, scheduledCluster)
 	for k, v := range annotations {
 		ws.Annotations[k] = v

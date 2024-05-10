@@ -987,7 +987,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	t.Helper()
 
 	path, ws := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"), TODO_WithoutMultiShardSupport())
-	logicalClusterName := logicalcluster.Name(ws.Spec.Cluster)
+	logicalClusterName := ws.Spec.Cluster
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
 	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", path)

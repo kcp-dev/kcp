@@ -265,7 +265,7 @@ func TestAuthorizer(t *testing.T) {
 			deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
 			require.NoError(t, err)
 			framework.Eventually(t, func() (bool, string) {
-				resp, err = deepSARClient.Cluster(logicalcluster.NewPath(org2Workspace1.Spec.Cluster)).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+				resp, err = deepSARClient.Cluster(org2Workspace1.Spec.Cluster.Path()).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("failed to create SAR: %v", err)
 				}

@@ -70,8 +70,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	_, ws1 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 	_, ws2 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
 	logicalClusters := []logicalcluster.Name{
-		logicalcluster.Name(ws1.Spec.Cluster),
-		logicalcluster.Name(ws2.Spec.Cluster),
+		ws1.Spec.Cluster,
+		ws2.Spec.Cluster,
 	}
 	expectedWorkspaces := sets.New[string]()
 	for i, clusterName := range logicalClusters {

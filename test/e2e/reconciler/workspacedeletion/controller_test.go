@@ -23,7 +23,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -201,7 +200,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				t.Logf("Create a workspace with in the org workspace")
 				_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("org-ws-cleanup"), framework.WithRootShard())
-				wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
+				wsClusterName := ws.Spec.Cluster
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {

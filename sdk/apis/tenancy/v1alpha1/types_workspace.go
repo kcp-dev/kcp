@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -168,7 +170,7 @@ type WorkspaceSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
-	Cluster string `json:"cluster,omitempty"`
+	Cluster logicalcluster.Name `json:"cluster,omitempty"`
 
 	// URL is the address under which the Kubernetes-cluster-like endpoint
 	// can be found. This URL can be used to access the workspace with standard Kubernetes
