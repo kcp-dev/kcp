@@ -165,7 +165,7 @@ func (p *Plugin) getSourceClusterForGroupResource(clusterName logicalcluster.Nam
 		for _, br := range apiBinding.Status.BoundResources {
 			if br.Group == groupResource.Group && br.Resource == groupResource.Resource {
 				// GroupResource comes from an APIBinding/APIExport
-				return logicalcluster.Name(apiBinding.Status.APIExportClusterName), nil
+				return apiBinding.Status.APIExportClusterName, nil
 			}
 		}
 	}

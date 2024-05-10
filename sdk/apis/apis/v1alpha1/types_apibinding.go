@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -142,7 +144,7 @@ type APIBindingStatus struct {
 	// APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.
 	//
 	// +optional
-	APIExportClusterName string `json:"apiExportClusterName,omitempty"`
+	APIExportClusterName logicalcluster.Name `json:"apiExportClusterName,omitempty"`
 
 	// boundResources records the state of bound APIs.
 	//
