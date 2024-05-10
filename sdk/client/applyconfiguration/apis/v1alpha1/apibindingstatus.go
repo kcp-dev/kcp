@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v3 "github.com/kcp-dev/logicalcluster/v3"
+
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
@@ -26,7 +28,7 @@ import (
 // APIBindingStatusApplyConfiguration represents an declarative configuration of the APIBindingStatus type for use
 // with apply.
 type APIBindingStatusApplyConfiguration struct {
-	APIExportClusterName    *string                              `json:"apiExportClusterName,omitempty"`
+	APIExportClusterName    *v3.Name                             `json:"apiExportClusterName,omitempty"`
 	BoundResources          []BoundAPIResourceApplyConfiguration `json:"boundResources,omitempty"`
 	Phase                   *apisv1alpha1.APIBindingPhaseType    `json:"phase,omitempty"`
 	Conditions              *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
@@ -43,7 +45,7 @@ func APIBindingStatus() *APIBindingStatusApplyConfiguration {
 // WithAPIExportClusterName sets the APIExportClusterName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIExportClusterName field is set to the value of the last call.
-func (b *APIBindingStatusApplyConfiguration) WithAPIExportClusterName(value string) *APIBindingStatusApplyConfiguration {
+func (b *APIBindingStatusApplyConfiguration) WithAPIExportClusterName(value v3.Name) *APIBindingStatusApplyConfiguration {
 	b.APIExportClusterName = &value
 	return b
 }
