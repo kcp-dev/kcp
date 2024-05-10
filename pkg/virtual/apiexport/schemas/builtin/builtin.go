@@ -21,6 +21,7 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -281,5 +282,25 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		Instance:      &corev1alpha1.LogicalCluster{},
 		ResourceScope: apiextensionsv1.ClusterScoped,
 		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "subjectaccessreviews",
+			Singular: "subjectaccessreview",
+			Kind:     "SubjectAccessReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.SubjectAccessReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "localsubjectaccessreviews",
+			Singular: "localsubjectaccessreview",
+			Kind:     "LocalSubjectAccessReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.LocalSubjectAccessReview{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
 	},
 }
