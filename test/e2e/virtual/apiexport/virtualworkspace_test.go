@@ -33,6 +33,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -53,6 +54,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
@@ -624,6 +626,8 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("Verify that we get empty lists for all claimed resources (other than apibindings) because the claims have not been accepted yet")
 	dynamicVWClusterClient, err := kcpdynamic.NewForConfig(consumer1VWCfg)
 	require.NoError(t, err)
+	kubeVWClusterClient, err := kcpkubernetesclientset.NewForConfig(consumer1VWCfg)
+	require.NoError(t, err)
 	sheriffsGVR := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
 	claimedGVRs := []schema.GroupVersionResource{
 		{Version: "v1", Resource: "configmaps"},
@@ -631,10 +635,17 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		{Version: "v1", Resource: "serviceaccounts"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
+		{Group: "authorization.k8s.io", Version: "v1", Resource: "subjectaccessreviews"},
+		{Group: "authorization.k8s.io", Version: "v1", Resource: "localsubjectaccessreviews"},
 		sheriffsGVR,
 		apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"),
 	}
 	for _, gvr := range claimedGVRs {
+		if _, notPersisted := permissionclaim.NonPersistedResourcesClaimable[gvr.GroupResource()]; notPersisted {
+			// these are create-only
+			continue
+		}
+
 		t.Logf("Trying to wildcard list %q", gvr)
 		list, err := dynamicVWClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing %q", gvr)
@@ -774,9 +785,45 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		require.NoError(t, err)
 		return len(list.Items) == 0, fmt.Sprintf("waiting for empty list, got: %#v", list.Items)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to eventually get 0 sheriffs")
+
+	t.Logf("Verify that we can do SubjectAccessReview")
+	sar := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:     "",
+				Version:   "v1",
+				Resource:  "configmaps",
+				Verb:      "list",
+				Namespace: "default",
+			},
+			User:   "elephant", // does not matter here, we only check that the API is available
+			Groups: []string{"mammals", "system:masters"},
+			UID:    "123",
+		},
+	}
+	_, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer1.Spec.Cluster)).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Verify that we can do LocalSubjectAccessReview")
+	lsar := &authorizationv1.LocalSubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:     "",
+				Version:   "v1",
+				Resource:  "configmaps",
+				Verb:      "list",
+				Namespace: "default",
+			},
+			User:   "elephant", // does not matter here, we only check that the API is available
+			Groups: []string{"mammals", "system:masters"},
+			UID:    "123",
+		},
+	}
+	_, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer1.Spec.Cluster)).AuthorizationV1().LocalSubjectAccessReviews("default").Create(ctx, lsar, metav1.CreateOptions{})
+	require.NoError(t, err)
 }
 
-func TestAPIExportInternalAPIsDrift(t *testing.T) {
+func TestAPIExportClaimableBuiltInAPIsDrift(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -786,12 +833,13 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	discoveryClient, err := kcpdiscovery.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct discovery client for server")
 
+	t.Logf("Creating a normal workspace")
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	anyPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 
-	apis, err := gatherInternalAPIs(t, discoveryClient.Cluster(anyPath))
+	t.Logf("Gathering APIs for %s", anyPath)
+	apis, err := gatherClaimableBuiltInAPIs(t, discoveryClient.Cluster(anyPath))
 	require.NoError(t, err, "failed to gather built-in apis for server")
-
 	sort.Slice(apis, func(i, j int) bool {
 		if apis[i].GroupVersion.String() == apis[j].GroupVersion.String() {
 			return apis[i].Names.Plural < apis[j].Names.Plural
@@ -800,7 +848,6 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	})
 
 	expected := apiexportbuiltin.BuiltInAPIs
-
 	sort.Slice(expected, func(i, j int) bool {
 		if expected[i].GroupVersion.String() == expected[j].GroupVersion.String() {
 			return expected[i].Names.Plural < expected[j].Names.Plural
@@ -808,32 +855,33 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 		return expected[i].GroupVersion.String() < expected[j].GroupVersion.String()
 	})
 
-	require.Empty(t, cmp.Diff(apis, expected))
+	require.Empty(t, cmp.Diff(apis, expected), "unexpected internal APIs found")
 }
 
-func gatherInternalAPIs(t *testing.T, discoveryClient discovery.DiscoveryInterface) ([]internalapis.InternalAPI, error) {
+func gatherClaimableBuiltInAPIs(t *testing.T, discoveryClient discovery.DiscoveryInterface) ([]internalapis.InternalAPI, error) {
 	t.Helper()
 
 	_, apiResourcesLists, err := discoveryClient.ServerGroupsAndResources()
 	if err != nil {
 		return nil, err
 	}
-	t.Logf("gathering internal apis, found %d", len(apiResourcesLists))
 
 	apisByGVK := map[schema.GroupVersionKind]internalapis.InternalAPI{}
-
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		require.NoError(t, err)
-		// ignore kcp resources except for core.kcp.io
+
+		// skip kcp resources except for core.kcp.io
 		if strings.HasSuffix(gv.Group, ".kcp.io") && gv.Group != "core.kcp.io" {
 			continue
 		}
-		// ignore authn/authz non-crud apis
-		if gv.Group == "authentication.k8s.io" || gv.Group == "authorization.k8s.io" {
-			continue
-		}
+
 		for _, apiResource := range apiResourcesList.APIResources {
+			claimable, notPersisted := permissionclaim.NonPersistedResourcesClaimable[schema.GroupResource{Group: gv.Group, Resource: apiResource.Name}]
+			if notPersisted && !claimable {
+				continue
+			}
+
 			gvk := schema.GroupVersionKind{Kind: apiResource.Kind, Version: gv.Version, Group: gv.Group}
 
 			hasStatus := false
@@ -913,6 +961,14 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
+			All:           true,
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
+			All:           true,
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
 			All:           true,
 		},
 		{

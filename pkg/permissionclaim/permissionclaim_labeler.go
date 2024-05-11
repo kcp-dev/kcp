@@ -22,6 +22,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -33,6 +35,18 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 )
+
+// NonPersistedResourcesClaimable is a list of resources that are not persisted
+// to etcd, and therefore should not be labeled with permission claims. The value
+// means whether they are claimable or not.
+var NonPersistedResourcesClaimable = map[schema.GroupResource]bool{
+	authorizationv1.SchemeGroupVersion.WithResource("localsubjectaccessreviews").GroupResource(): true,
+	authorizationv1.SchemeGroupVersion.WithResource("selfsubjectaccessreviews").GroupResource():  false,
+	authorizationv1.SchemeGroupVersion.WithResource("selfsubjectrulesreviews").GroupResource():   false,
+	authorizationv1.SchemeGroupVersion.WithResource("subjectaccessreviews").GroupResource():      true,
+	authenticationv1.SchemeGroupVersion.WithResource("selfsubjectreviews").GroupResource():       false,
+	authenticationv1.SchemeGroupVersion.WithResource("tokenreviews").GroupResource():             false,
+}
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
 type Labeler struct {
@@ -70,6 +84,9 @@ func NewLabeler(
 // associated APIExports that are claiming group-resource.
 func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
 	labels := map[string]string{}
+	if _, nonPersisted := NonPersistedResourcesClaimable[groupResource]; nonPersisted {
+		return labels, nil
+	}
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
