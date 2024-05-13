@@ -36,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -106,6 +107,10 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	for _, s := range sets.List[string](allChanges) {
 		claim := claimFromSetKey(s)
+		if _, nonPersisted := permissionclaim.NonPersistedResourcesClaimable[schema.GroupResource{Group: claim.Group, Resource: claim.Resource}]; nonPersisted {
+			continue
+		}
+
 		claimLogger := logger.WithValues("claim", s)
 
 		informer, gvr, err := c.getInformerForGroupResource(claim.Group, claim.Resource)
