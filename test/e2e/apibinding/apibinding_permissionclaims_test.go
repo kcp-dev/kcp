@@ -28,6 +28,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -138,6 +139,14 @@ func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
 			All:           true,
 			IdentityHash:  identityHash,
 		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
+			All:           true,
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
+			All:           true,
+		},
 	}
 }
 
@@ -193,6 +202,20 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 				IdentityHash:  identityHash,
+				All:           true,
+			},
+			State: apisv1alpha1.ClaimAccepted,
+		},
+		{
+			PermissionClaim: apisv1alpha1.PermissionClaim{
+				GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
+				All:           true,
+			},
+			State: apisv1alpha1.ClaimAccepted,
+		},
+		{
+			PermissionClaim: apisv1alpha1.PermissionClaim{
+				GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
 				All:           true,
 			},
 			State: apisv1alpha1.ClaimAccepted,
