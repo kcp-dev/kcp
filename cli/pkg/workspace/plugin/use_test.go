@@ -75,6 +75,7 @@ func TestUse(t *testing.T) {
 
 		expected   *clientcmdapi.Config
 		wantStdout []string
+		wantStderr []string
 		wantErrors []string
 		wantErr    bool
 		noWarn     bool
@@ -451,7 +452,10 @@ func TestUse(t *testing.T) {
 			param:       "",
 			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
 			destination: homeWorkspace.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is '%s'.\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspace.String())},
+			wantStderr: []string{
+				"Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.",
+			},
+			wantStdout: []string{fmt.Sprintf("Current workspace is '%s'.", homeWorkspace.String())},
 		},
 		{
 			name:   "workspace name, apibindings have matching permission and export claims",
@@ -488,9 +492,10 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
-			wantStdout: []string{
+			wantStderr: []string{
 				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is 'root:foo:bar'"},
+			},
+			wantStdout: []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name:   "~, apibinding claims/exports don't match",
@@ -509,8 +514,10 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
+			wantStderr: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+			},
 			wantStdout: []string{
-				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				fmt.Sprintf("Current workspace is '%s'", homeWorkspace.String())},
 		},
 		{
@@ -529,8 +536,10 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
+			wantStderr: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+			},
 			wantStdout: []string{
-				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
@@ -590,8 +599,10 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
+			wantStderr: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+			},
 			wantStdout: []string{
-				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
@@ -610,8 +621,10 @@ func TestUse(t *testing.T) {
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
+			wantStderr: []string{
+				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.",
+			},
 			wantStdout: []string{
-				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
@@ -631,9 +644,11 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
+			wantStderr: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.",
+			},
 			wantStdout: []string{
-				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
 				"Current workspace is 'root:foo:bar'"},
 		},
 		{
@@ -654,10 +669,11 @@ func TestUse(t *testing.T) {
 					WithExportClaim("test2.kcp.io", "test2", "abcdef").
 					Build(),
 			},
-			wantStdout: []string{
-				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Warning: claim for test2.test2.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.\n",
-				"Current workspace is 'root:foo:bar'"},
+			wantStderr: []string{
+				"Warning: claim for test.test.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.",
+				"Warning: claim for test2.test2.kcp.io:abcdef specified on APIBinding a but not accepted or rejected.",
+			},
+			wantStdout: []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name:   "workspace name, multiple APIBindings unspecified",
@@ -675,10 +691,11 @@ func TestUse(t *testing.T) {
 					WithExportClaim("", "configmaps", "").
 					Build(),
 			},
-			wantStdout: []string{
-				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Warning: claim for test.test.kcp.io:abcdef exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
-				"Current workspace is 'root:foo:bar'"},
+			wantStderr: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+				"Warning: claim for test.test.kcp.io:abcdef exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.",
+			},
+			wantStdout: []string{"Current workspace is 'root:foo:bar'"},
 		},
 		{
 			name:   "relative change multiple jumps from non root",
@@ -836,7 +853,10 @@ func TestUse(t *testing.T) {
 				require.Contains(t, stdout.String(), s)
 			}
 			if tt.noWarn {
-				require.NotContains(t, stdout.String(), "Warning")
+				require.NotContains(t, stderr.String(), "Warning")
+			}
+			for _, s := range tt.wantStderr {
+				require.Contains(t, stderr.String(), s)
 			}
 			if err != nil {
 				for _, s := range tt.wantErrors {
