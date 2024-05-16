@@ -78,7 +78,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacemounts"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
-	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -88,6 +87,10 @@ import (
 
 type RunFunc func(ctx context.Context)
 type WaitFunc func(ctx context.Context, s *Server) error
+
+const (
+	waitPollInterval = time.Millisecond * 100
+)
 
 type controllerWrapper struct {
 	Name   string
@@ -146,19 +149,13 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 5)
-		},
-	})
-}
-
-func (s *Server) installOpenAPIv3Controller(ctx context.Context, config *rest.Config) error {
-	controllerName := openapiv3.ControllerName
-
-	return s.registerController(&controllerWrapper{
-		Name: controllerName,
-		Runner: func(ctx context.Context) {
-			s.openAPIv3Controller.Run(ctx)
 		},
 	})
 }
@@ -201,6 +198,11 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 10)
 		},
@@ -227,6 +229,12 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Core().V1().ServiceAccounts().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 1)
 		},
@@ -279,6 +287,12 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Core().V1().ServiceAccounts().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			controller.Run(
 				ctx,
@@ -319,6 +333,12 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 2)
 		},
@@ -353,6 +373,12 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 
 	return s.registerController(&controllerWrapper{
 		Name: tenancylogicalcluster.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			controller.Start(ctx, 10)
 		},
@@ -397,6 +423,12 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterdeletion.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			logicalClusterDeletionController.Start(ctx, 10)
 		},
@@ -439,6 +471,14 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	if err := s.registerController(&controllerWrapper{
 		Name: workspace.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			workspaceController.Start(ctx, 2)
 		},
@@ -466,6 +506,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if workspaceShardController != nil {
 		if err := s.registerController(&controllerWrapper{
 			Name: shard.ControllerName,
+			Wait: func(ctx context.Context, s *Server) error {
+				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+					return s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+				})
+			},
 			Runner: func(ctx context.Context) {
 				workspaceShardController.Start(ctx, 2)
 			},
@@ -492,6 +537,12 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	if err := s.registerController(&controllerWrapper{
 		Name: workspacetype.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			workspaceTypeController.Start(ctx, 2)
 		},
@@ -529,6 +580,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	return s.registerController(&controllerWrapper{
 		Name: universalControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			universalController.Start(ctx, 2)
 		},
@@ -566,6 +622,15 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 
 	return s.registerController(&controllerWrapper{
 		Name: workspacemounts.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				if len(notSynced) > 0 {
+					return false, nil
+				}
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			workspaceMountsController.Start(ctx, 2)
 		},
@@ -591,6 +656,11 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterctrl.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			logicalClusterController.Start(ctx, 2)
 		},
@@ -634,14 +704,13 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
-				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-				cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-				schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
-				cacheSchemasSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
-				bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-				return crdsSynced && exportsSynced && cacheExportsSynced && schemasSynced && cacheSchemasSynced && bindingsSynced, nil
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -677,6 +746,13 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			permissionClaimLabelController.Start(ctx, 5)
 		},
@@ -709,6 +785,13 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ResourceControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			permissionClaimLabelResourceController.Start(ctx, 2)
 		},
@@ -735,6 +818,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 	return s.registerController(&controllerWrapper{
 		Name: apibindingdeletion.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			apibindingDeletionController.Start(ctx, 10)
 		},
@@ -798,6 +886,15 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	return s.registerController(&controllerWrapper{
 		Name: initialization.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			initializingWorkspacesKcpInformers.Start(ctx.Done())
 			initializingWorkspacesKcpInformers.WaitForCacheSync(ctx.Done())
@@ -827,6 +924,12 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 
 	return s.registerController(&controllerWrapper{
 		Name: crdcleanup.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -863,10 +966,11 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 			// and the controllers must run as soon as these two informers are up in order to bootstrap
 			// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-			return wait.PollUntilContextCancel(ctx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
-				crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-				exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-				return crdsSynced && exportsSynced, nil
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -891,6 +995,12 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrole.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -914,6 +1024,13 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 
 	return s.registerController(&controllerWrapper{
 		Name: coresreplicateclusterrole.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -936,6 +1053,12 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrolebinding.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -958,6 +1081,12 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicatelogicalcluster.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -980,6 +1109,12 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicatelogicalcluster.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1003,6 +1138,13 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 
 	return s.registerController(&controllerWrapper{
 		Name: corereplicateclusterrolebinding.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1025,6 +1167,12 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrole.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1047,6 +1195,12 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrolebinding.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1076,6 +1230,14 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 
 	return s.registerController(&controllerWrapper{
 		Name: apiexportendpointslice.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1103,6 +1265,13 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 
 	return s.registerController(&controllerWrapper{
 		Name: partitionset.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1127,6 +1296,12 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 
 	return s.registerController(&controllerWrapper{
 		Name: extraannotationsync.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1168,6 +1343,16 @@ func (s *Server) installKubeQuotaController(
 
 	if err := s.registerController(&controllerWrapper{
 		Name: kubequota.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				if len(notSynced) > 0 {
+					return false, nil
+				}
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.KubeSharedInformerFactory.Core().V1().ResourceQuotas().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
@@ -1198,6 +1383,11 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 
 	return s.registerController(&controllerWrapper{
 		Name: identitycache.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() && s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 1)
 		},
@@ -1213,6 +1403,16 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 
 	return s.registerController(&controllerWrapper{
 		Name: replication.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				for _, gvr := range controller.Gvrs {
+					if !gvr.Local.HasSynced() || !gvr.Global.HasSynced() {
+						return false, nil
+					}
+				}
+				return true, nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			controller.Start(ctx, 2)
 		},
@@ -1252,6 +1452,15 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 
 	return s.registerController(&controllerWrapper{
 		Name: garbagecollector.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				if len(notSynced) > 0 {
+					return false, nil
+				}
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},

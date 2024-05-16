@@ -178,6 +178,163 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	return s, nil
 }
 
+/* Deregister the controllers when the leader election is lost. */
+func (s *Server) uninstallControllers() {
+	for key := range s.controllers {
+		delete(s.controllers, key)
+	}
+}
+
+/* Registering all controllers and informers before starting informers. */
+func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.Config) error {
+	logger := klog.FromContext(ctx).WithValues("component", "kcp")
+	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	if err := s.installClusterRoleAggregationController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	if err := s.installKubeServiceAccountController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	if err := s.installKubeServiceAccountTokenController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	if err := s.installRootCAConfigMapController(ctx, s.Apis.GenericAPIServer.LoopbackClientConfig); err != nil {
+		return err
+	}
+
+	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
+		return err
+	}
+	if err := s.installReplicationController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
+	enabled := sets.New[string](s.Options.Controllers.IndividuallyEnabled...)
+	if len(enabled) > 0 {
+		logger.WithValues("controllers", enabled).Info("starting controllers individually")
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
+		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
+			return err
+		}
+		if err := s.installWorkspaceMountsScheduler(ctx, controllerConfig); err != nil {
+			return err
+		}
+		if err := s.installTenancyLogicalClusterController(ctx, controllerConfig); err != nil {
+			return err
+		}
+		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
+			return err
+		}
+		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
+		if err := s.installAPIBindingController(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
+			return err
+		}
+		if err := s.installCRDCleanupController(ctx, controllerConfig); err != nil {
+			return err
+		}
+		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
+		if err := s.installAPIExportController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
+		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrolebinding") {
+		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicatelogicalcluster") {
+		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicatelogicalcluster") {
+		if err := s.installTenancyReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrole") {
+		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrolebinding") {
+		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
+		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicationclusterrolebinding") {
+		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
+		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
+		if err := s.installAPIBinderController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
+		if err := s.installPartitionSetController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("quota") {
+		if err := s.installKubeQuotaController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
+		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 func (s *Server) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
 	ctx = klog.NewContext(ctx, logger)
@@ -391,156 +548,12 @@ func (s *Server) Run(ctx context.Context) error {
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
 	controllerConfig := rest.CopyConfig(s.IdentityConfig)
+	controllerConfig.Timeout = time.Second * 30
 
-	if err := s.installOpenAPIv3Controller(ctx, controllerConfig); err != nil {
+	// Adding the bootup time controllers and informers initialization
+	if err := s.installControllers(ctx, controllerConfig); err != nil {
 		return err
 	}
-
-	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
-		return err
-	}
-
-	if err := s.installClusterRoleAggregationController(ctx, controllerConfig); err != nil {
-		return err
-	}
-
-	if err := s.installKubeServiceAccountController(ctx, controllerConfig); err != nil {
-		return err
-	}
-
-	if err := s.installKubeServiceAccountTokenController(ctx, controllerConfig); err != nil {
-		return err
-	}
-
-	if err := s.installRootCAConfigMapController(ctx, s.Apis.GenericAPIServer.LoopbackClientConfig); err != nil {
-		return err
-	}
-
-	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
-		return err
-	}
-	if err := s.installReplicationController(ctx, controllerConfig); err != nil {
-		return err
-	}
-
-	enabled := sets.New[string](s.Options.Controllers.IndividuallyEnabled...)
-	if len(enabled) > 0 {
-		logger.WithValues("controllers", enabled).Info("starting controllers individually")
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
-		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
-			return err
-		}
-		if err := s.installWorkspaceMountsScheduler(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installTenancyLogicalClusterController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
-			return err
-		}
-		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
-			return err
-		}
-		if err := s.installCRDCleanupController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
-		if err := s.installAPIExportController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
-		if err := s.installApisReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrolebinding") {
-		if err := s.installApisReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicatelogicalcluster") {
-		if err := s.installApisReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicatelogicalcluster") {
-		if err := s.installTenancyReplicateLogicalClusterControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrole") {
-		if err := s.installCoreReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("corereplicateclusterrolebinding") {
-		if err := s.installCoreReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicateclusterrole") {
-		if err := s.installTenancyReplicateClusterRoleControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-	if s.Options.Controllers.EnableAll || enabled.Has("tenancyreplicationclusterrolebinding") {
-		if err := s.installTenancyReplicateClusterRoleBindingControllers(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice") {
-		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
-		if err := s.installAPIBinderController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
-		if err := s.installPartitionSetController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("quota") {
-		if err := s.installKubeQuotaController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
-	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
-		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
 	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err
@@ -552,8 +565,6 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 	}
-
-	// add post start hook that starts all registered controllers.
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
 		controllerCtx := klog.NewContext(goContext(hookContext), logger)
@@ -578,6 +589,19 @@ func (s *Server) Run(ctx context.Context) error {
 			s.startControllers(controllerCtx)
 		}
 
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// add post start hook that starts the OpenAPIv3 controller.
+	if err := s.AddPostStartHook("kcp-start-openapiv3-controller", func(srvcontext genericapiserver.PostStartHookContext) error {
+		if err := wait.PollUntilContextCancel(goContext(srvcontext), time.Second, true, func(ctx context.Context) (bool, error) {
+			return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+		}); err != nil {
+			return err
+		}
+		go s.openAPIv3Controller.Run(ctx)
 		return nil
 	}); err != nil {
 		return err
@@ -649,9 +673,16 @@ loop:
 				Callbacks: leaderelection.LeaderCallbacks{
 					OnStartedLeading: func(leaderElectionCtx context.Context) {
 						electionLogger.Info("started leading")
+						if len(s.controllers) == 0 {
+							if err = s.installControllers(ctx, config); err != nil {
+								logger.Error(err, "error in re-registering controllers")
+								return
+							}
+						}
 						s.startControllers(leaderElectionCtx)
 					},
 					OnStoppedLeading: func() {
+						s.uninstallControllers()
 						electionLogger.Info("stopped leading")
 					},
 					OnNewLeader: func(current_id string) {
