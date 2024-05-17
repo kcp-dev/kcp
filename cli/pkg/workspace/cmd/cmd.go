@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/cli/pkg/workspace/plugin"
 )
@@ -100,6 +101,12 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		},
 	}
 	cmdOpts.BindFlags(cmd)
+
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
+	}
 
 	useWorkspaceOpts := plugin.NewUseWorkspaceOptions(streams)
 	useCmd := &cobra.Command{
