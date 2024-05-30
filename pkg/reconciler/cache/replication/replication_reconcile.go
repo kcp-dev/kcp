@@ -43,13 +43,13 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 	gvr := schema.GroupVersionResource{Version: gvrParts[0], Resource: gvrParts[1], Group: gvrParts[2]}
 	key := keyParts[1]
 
-	info := c.gvrs[gvr]
+	info := c.Gvrs[gvr]
 
 	r := &reconciler{
 		shardName: c.shardName,
 		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
-			obj, exists, err := info.local.GetIndexer().GetByKey(key)
+			obj, exists, err := info.Local.GetIndexer().GetByKey(key)
 			if !exists {
 				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
 			} else if err != nil {
@@ -73,7 +73,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			return u, nil
 		},
 		getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
-			objs, err := info.global.GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, cluster, namespace, name))
+			objs, err := info.Global.GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, cluster, namespace, name))
 			if err != nil {
 				return nil, err // necessary to avoid non-zero nil interface
 			}
