@@ -48,7 +48,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 	case corev1alpha1.LogicalClusterPhaseInitializing:
 		logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
-		logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
+		logicalCluster, err := r.getLogicalCluster(ctx, workspace.Spec.Cluster.Path())
 		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsNotFound(err) {
@@ -78,7 +78,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		if !workspace.DeletionTimestamp.IsZero() {
 			logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
-			logicalCluster, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
+			logicalCluster, err := r.getLogicalCluster(ctx, workspace.Spec.Cluster.Path())
 			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStopAndRequeue, err
 			} else if apierrors.IsNotFound(err) {

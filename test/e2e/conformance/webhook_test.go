@@ -77,7 +77,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			if err := json.Unmarshal(review.Request.Object.Raw, &u.Object); err != nil {
 				return nil, err
 			}
-			clusterInReviewObject.Store(logicalcluster.From(&u).String())
+			clusterInReviewObject.Store(logicalcluster.From(&u))
 			return &v1.AdmissionResponse{Allowed: true}, nil
 		},
 		ObjectGVK: schema.GroupVersionKind{

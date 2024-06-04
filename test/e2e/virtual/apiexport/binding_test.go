@@ -24,7 +24,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +140,7 @@ spec:
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	framework.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
+		err = apply(t, ctx, consumerWorkspace.Spec.Cluster.Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
 metadata:
@@ -188,7 +187,7 @@ roleRef:
 `))
 
 	framework.Eventually(t, func() (bool, string) {
-		err := apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
+		err := apply(t, ctx, consumerWorkspace.Spec.Cluster.Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
 metadata:

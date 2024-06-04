@@ -95,7 +95,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	serviceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
+	consumerClusterName := consumerWorkspace.Spec.Cluster
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
@@ -408,10 +408,10 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
+			if clusterName == ws1.Spec.Cluster && b.Name == "binding1" {
 				continue
 			}
-			if clusterName == logicalcluster.Name(ws2.Spec.Cluster) && b.Name == "binding1" {
+			if clusterName == ws2.Spec.Cluster && b.Name == "binding1" {
 				continue
 			}
 
@@ -425,7 +425,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
+			if clusterName == ws1.Spec.Cluster && b.Name == "binding2" {
 				continue
 			}
 
@@ -482,8 +482,8 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
-			if clusterName != logicalcluster.Name(ws1.Spec.Cluster) {
-				if clusterName == logicalcluster.Name(ws2.Spec.Cluster) && b.Name == "binding1" {
+			if clusterName != ws1.Spec.Cluster {
+				if clusterName == ws2.Spec.Cluster && b.Name == "binding1" {
 					continue
 				}
 
@@ -505,7 +505,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
+			if clusterName == ws1.Spec.Cluster && b.Name == "binding2" {
 				continue
 			}
 
@@ -536,10 +536,10 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
+			if clusterName == ws1.Spec.Cluster && b.Name == "binding1" {
 				continue
 			}
-			if clusterName == logicalcluster.Name(ws2.Spec.Cluster) && b.Name == "binding1" {
+			if clusterName == ws2.Spec.Cluster && b.Name == "binding1" {
 				continue
 			}
 

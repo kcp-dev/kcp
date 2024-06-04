@@ -337,7 +337,7 @@ func replicateResource(ctx context.Context, t *testing.T,
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	if clusterName.Empty() {
 		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
-		clusterName = logicalcluster.Name(ws.Spec.Cluster)
+		clusterName = ws.Spec.Cluster
 	}
 	resMeta, err := meta.Accessor(res)
 	require.NoError(t, err)
@@ -390,7 +390,7 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	if clusterName.Empty() {
 		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
-		clusterName = logicalcluster.Name(ws.Spec.Cluster)
+		clusterName = ws.Spec.Cluster
 	}
 	resMeta, err := meta.Accessor(res)
 	require.NoError(t, err)
