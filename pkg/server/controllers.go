@@ -85,6 +85,8 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
+const defaultWorkerThreads = 10
+
 type RunFunc func(ctx context.Context)
 type WaitFunc func(ctx context.Context, s *Server) error
 
@@ -196,6 +198,11 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		corev1.FinalizerKubernetes,
 	)
 
+	numOfThreads, ok := s.controllerThreads[controllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -204,7 +211,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Run(ctx, 10)
+			c.Run(ctx, numOfThreads)
 		},
 	})
 }
@@ -227,6 +234,11 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 		return fmt.Errorf("error creating ServiceAccount controller: %w", err)
 	}
 
+	numOfThreads, ok := s.controllerThreads[controllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -236,7 +248,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Run(ctx, 1)
+			c.Run(ctx, numOfThreads)
 		},
 	})
 }
@@ -331,6 +343,11 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		return fmt.Errorf("error creating %s controller: %w", controllerName, err)
 	}
 
+	numOfThreads, ok := s.controllerThreads[controllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: controllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -340,7 +357,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Run(ctx, 2)
+			c.Run(ctx, numOfThreads)
 		},
 	})
 }
@@ -371,6 +388,11 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[tenancylogicalcluster.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: tenancylogicalcluster.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -380,7 +402,7 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 			})
 		},
 		Runner: func(ctx context.Context) {
-			controller.Start(ctx, 10)
+			controller.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -421,6 +443,11 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[logicalclusterdeletion.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterdeletion.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -430,7 +457,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 			})
 		},
 		Runner: func(ctx context.Context) {
-			logicalClusterDeletionController.Start(ctx, 10)
+			logicalClusterDeletionController.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -469,6 +496,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[workspace.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: workspace.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -480,7 +512,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			})
 		},
 		Runner: func(ctx context.Context) {
-			workspaceController.Start(ctx, 2)
+			workspaceController.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
@@ -504,6 +536,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}
 	}
 	if workspaceShardController != nil {
+		numOfThreads, ok := s.controllerThreads[shard.ControllerName]
+		if !ok {
+			numOfThreads = defaultWorkerThreads
+		}
+
 		if err := s.registerController(&controllerWrapper{
 			Name: shard.ControllerName,
 			Wait: func(ctx context.Context, s *Server) error {
@@ -512,7 +549,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 				})
 			},
 			Runner: func(ctx context.Context) {
-				workspaceShardController.Start(ctx, 2)
+				workspaceShardController.Start(ctx, numOfThreads)
 			},
 		}); err != nil {
 			return err
@@ -535,6 +572,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	numOfThreads, ok = s.controllerThreads[workspacetype.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: workspacetype.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -544,7 +586,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			})
 		},
 		Runner: func(ctx context.Context) {
-			workspaceTypeController.Start(ctx, 2)
+			workspaceTypeController.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
@@ -578,6 +620,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	numOfThreads, ok = s.controllerThreads[universalControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: universalControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -586,7 +633,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			})
 		},
 		Runner: func(ctx context.Context) {
-			universalController.Start(ctx, 2)
+			universalController.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -620,6 +667,11 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[workspacemounts.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: workspacemounts.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -632,7 +684,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 			})
 		},
 		Runner: func(ctx context.Context) {
-			workspaceMountsController.Start(ctx, 2)
+			workspaceMountsController.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -654,6 +706,11 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[logicalclusterctrl.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: logicalclusterctrl.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -662,7 +719,7 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 			})
 		},
 		Runner: func(ctx context.Context) {
-			logicalClusterController.Start(ctx, 2)
+			logicalClusterController.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -698,6 +755,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[apibinding.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: apibinding.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -714,7 +776,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
@@ -744,6 +806,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	numOfThreads, ok = s.controllerThreads[permissionclaimlabel.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -754,7 +821,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			permissionClaimLabelController.Start(ctx, 5)
+			permissionClaimLabelController.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
@@ -783,6 +850,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	numOfThreads, ok = s.controllerThreads[permissionclaimlabel.ResourceControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: permissionclaimlabel.ResourceControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -793,7 +865,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			permissionClaimLabelResourceController.Start(ctx, 2)
+			permissionClaimLabelResourceController.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
@@ -816,6 +888,11 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
+	numOfThreads, ok = s.controllerThreads[apibindingdeletion.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apibindingdeletion.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -824,7 +901,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			apibindingDeletionController.Start(ctx, 10)
+			apibindingDeletionController.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -884,6 +961,11 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[initialization.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: initialization.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -899,7 +981,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 			initializingWorkspacesKcpInformers.Start(ctx.Done())
 			initializingWorkspacesKcpInformers.WaitForCacheSync(ctx.Done())
 
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -922,6 +1004,11 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[crdcleanup.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: crdcleanup.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -931,7 +1018,7 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -960,6 +1047,11 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[apiexport.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apiexport.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -974,7 +1066,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -993,6 +1085,11 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[apisreplicateclusterrole.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrole.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1002,7 +1099,7 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1022,6 +1119,11 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[coresreplicateclusterrole.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: coresreplicateclusterrole.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1032,7 +1134,7 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1051,6 +1153,11 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[apisreplicateclusterrolebinding.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicateclusterrolebinding.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1060,7 +1167,7 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1079,6 +1186,11 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[apisreplicatelogicalcluster.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apisreplicatelogicalcluster.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1088,7 +1200,7 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1107,6 +1219,11 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[tenancyreplicatelogicalcluster.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicatelogicalcluster.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1116,7 +1233,7 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1136,6 +1253,11 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[corereplicateclusterrolebinding.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: corereplicateclusterrolebinding.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1146,7 +1268,7 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1165,6 +1287,11 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[tenancyreplicateclusterrole.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrole.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1174,7 +1301,7 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1193,6 +1320,11 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 
+	numOfThreads, ok := s.controllerThreads[tenancyreplicateclusterrolebinding.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: tenancyreplicateclusterrolebinding.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1202,7 +1334,7 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1228,6 +1360,11 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[apiexportendpointslice.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: apiexportendpointslice.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1239,7 +1376,7 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1263,6 +1400,11 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[partitionset.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: partitionset.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1273,7 +1415,7 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1294,6 +1436,11 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[extraannotationsync.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	return s.registerController(&controllerWrapper{
 		Name: extraannotationsync.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1303,7 +1450,7 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	})
 }
@@ -1341,6 +1488,11 @@ func (s *Server) installKubeQuotaController(
 		return err
 	}
 
+	numOfThreads, ok := s.controllerThreads[kubequota.ControllerName]
+	if !ok {
+		numOfThreads = defaultWorkerThreads
+	}
+
 	if err := s.registerController(&controllerWrapper{
 		Name: kubequota.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
@@ -1354,7 +1506,7 @@ func (s *Server) installKubeQuotaController(
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, numOfThreads)
 		},
 	}); err != nil {
 		return err
