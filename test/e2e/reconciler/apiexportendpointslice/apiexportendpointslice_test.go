@@ -19,6 +19,7 @@ package apiexportendpointslice
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,11 +160,11 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	require.True(t, conditions.IsTrue(slice, apisv1alpha1.APIExportEndpointSliceURLsReady), "expecting the URLs ready condition")
 }
 
-func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
+func TestAPIExportEndpointSliceWithNewShard(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := framework.PrivateKcpServer(t)
+	server := framework.SharedKcpServer(t)
 
 	// Create Organization and Workspaces
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
@@ -265,11 +266,14 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "not expecting any endpoint")
 
 	// Endpoint tests require the edition of shards.
-	// These tests are run on a private cluster to avoid side effects on other e2e tests.
+	// Newly added shards are annotated to avoid side effects on other e2e tests.
 	// They require the resources previously created: APIExport, APIExportEndpointSlice, etc.
 	shard := &corev1alpha1.Shard{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "my-shard",
+			Annotations: map[string]string{
+				"experimental.core.kcp.io/unschedulable": "true",
+			},
 			Labels: map[string]string{
 				"region": "apiexportendpointslice-test-region",
 			},
@@ -352,12 +356,28 @@ func TestAPIExportEndpointSliceWithPartitionPrivate(t *testing.T) {
 
 	sliceWithAllName := sliceWithAll.Name
 
+	t.Logf("Getting the total number of shards in the system")
+	shards, err := shardClient.Cluster(core.RootCluster.Path()).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing Shards")
+
 	framework.Eventually(t, func() (bool, string) {
 		sliceWithAll, err := kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceWithAllName, metav1.GetOptions{})
 		require.NoError(t, err)
-		if len(sliceWithAll.Status.APIExportEndpoints) == 1 {
+		if len(sliceWithAll.Status.APIExportEndpoints) == len(shards.Items) {
+			for _, apiExportEndpoint := range sliceWithAll.Status.APIExportEndpoints {
+				found := false
+				for _, shard := range shards.Items {
+					if strings.Contains(apiExportEndpoint.URL, shard.Spec.VirtualWorkspaceURL) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return false, fmt.Sprintf("didn't find matching shard for %v endpoint, shards: %#v", apiExportEndpoint.URL, shards.Items)
+				}
+			}
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected 1 endpoint, but got: %#v", sliceWithAll.Status.APIExportEndpoints)
+		return false, fmt.Sprintf("expected %d endpoint, but got: %#v", len(shards.Items), sliceWithAll.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expecting a single endpoint for the root shard, got %d", len(sliceWithAll.Status.APIExportEndpoints))
 }
