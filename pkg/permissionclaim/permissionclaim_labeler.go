@@ -60,10 +60,6 @@ func NewLabeler(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) *Labeler {
-	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
@@ -147,4 +143,11 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	}
 
 	return labels, nil
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(apiExportInformer apisv1alpha1informers.APIExportClusterInformer) {
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }

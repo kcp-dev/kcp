@@ -31,11 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -55,14 +53,6 @@ func NewResourceController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*resourceController, error) {
-	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
-		cache.Indexers{
-			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
-		},
-	); err != nil {
-		return nil, err
-	}
-
 	c := &resourceController{
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ResourceControllerName),
 		kcpClusterClient:       kcpClusterClient,
