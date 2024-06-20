@@ -73,22 +73,22 @@ func WithOpenAPIv3(handler http.Handler, c *ServiceCache) http.Handler {
 // ServiceCache implements a cluster-aware OpenAPI v3 handler, sharing the
 // OpenAPI service for equal API surface configurations.
 type ServiceCache struct {
-	config *common.Config
+	config *common.OpenAPIV3Config
 
 	specGetter CRDSpecGetter
 	crdLister  kcp.ClusterAwareCRDClusterLister
 
 	services    *lru.Cache
-	staticSpecs map[string]cached.Data[*spec3.OpenAPI]
+	staticSpecs map[string]cached.Value[*spec3.OpenAPI]
 }
 
-func NewServiceCache(config *common.Config, crdLister kcp.ClusterAwareCRDClusterLister, specGetter CRDSpecGetter, serviceCacheSize int) *ServiceCache {
+func NewServiceCache(config *common.OpenAPIV3Config, crdLister kcp.ClusterAwareCRDClusterLister, specGetter CRDSpecGetter, serviceCacheSize int) *ServiceCache {
 	return &ServiceCache{
 		config:      config,
 		specGetter:  specGetter,
 		crdLister:   crdLister,
 		services:    lru.New(serviceCacheSize),
-		staticSpecs: map[string]cached.Data[*spec3.OpenAPI]{},
+		staticSpecs: map[string]cached.Value[*spec3.OpenAPI]{},
 	}
 }
 
@@ -101,15 +101,20 @@ func (c *ServiceCache) RegisterStaticAPIs(cont *restful.Container) error {
 		byGVPath[gvPath] = []*restful.WebService{t}
 	}
 	for gvPath, ws := range byGVPath {
-		spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), c.config)
-		if err != nil {
-			return fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
-		}
-		etag, err := computeEtag(spec)
-		if err != nil {
-			return fmt.Errorf("failed to compute OpenAPI v3 spec etag for %s: %w", gvPath, err)
-		}
-		c.staticSpecs[gvPath] = cached.NewResultOK(spec, etag)
+		c.staticSpecs[gvPath] = cached.Once(cached.Func[*spec3.OpenAPI](
+			func() (value *spec3.OpenAPI, etag string, err error) {
+				spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), c.config)
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
+				}
+				etag, err = computeEtag(spec)
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to compute OpenAPI v3 spec etag for %s: %w", gvPath, err)
+				}
+
+				return spec, etag, nil
+			},
+		))
 	}
 
 	return nil
@@ -139,7 +144,7 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(byClusterAndName(orderedCRDs))
 
 	// get the specs for all CRDs
-	specs := make([]map[string]cached.Data[*spec3.OpenAPI], 0, len(orderedCRDs))
+	specs := make([]map[string]cached.Value[*spec3.OpenAPI], 0, len(orderedCRDs))
 	for _, crd := range orderedCRDs {
 		versionSpecs, err := c.specGetter.GetCRDSpecs(logicalcluster.From(crd), crd.Name)
 		if err != nil {
@@ -150,7 +155,11 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get the OpenAPI service from cache or create a new one
-	key := apiConfigurationKey(orderedCRDs, specs)
+	key, err := apiConfigurationKey(orderedCRDs, specs)
+	if err != nil {
+		responsewriters.InternalError(w, r, err)
+		return
+	}
 	log = log.WithValues("key", key)
 	entry, ok := c.services.Get(key)
 	if !ok {
@@ -182,11 +191,11 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	service.ServeHTTP(w, r)
 }
 
-func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Data[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Data[*spec3.OpenAPI], log logr.Logger) error {
+func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI], log logr.Logger) error {
 	// start with static specs
-	byGroupVersionSpecs := make(map[string][]cached.Data[*spec3.OpenAPI])
+	byGroupVersionSpecs := make(map[string][]cached.Value[*spec3.OpenAPI])
 	for gvPath, spec := range static {
-		byGroupVersionSpecs[gvPath] = []cached.Data[*spec3.OpenAPI]{spec}
+		byGroupVersionSpecs[gvPath] = []cached.Value[*spec3.OpenAPI]{spec}
 	}
 
 	// add dynamic specs
@@ -208,30 +217,32 @@ func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Data[*s
 
 	// lazily merge spec and add to service
 	for gvPath, specs := range byGroupVersionSpecs {
-		gvSpec := cached.NewListMerger(func(results []cached.Result[*spec3.OpenAPI]) cached.Result[*spec3.OpenAPI] {
-			log.V(6).Info("Merging OpenAPI v3 specs", "gvPath", gvPath)
-			specs := make([]*spec3.OpenAPI, 0, len(results))
-			etags := make([]string, 0, len(results))
-			for _, result := range results {
-				if result.Err != nil {
-					continue
+		gvSpec := cached.MergeList(
+			func(results []cached.Result[*spec3.OpenAPI]) (*spec3.OpenAPI, string, error) {
+				log.V(6).Info("Merging OpenAPI v3 specs", "gvPath", gvPath)
+				specs := make([]*spec3.OpenAPI, 0, len(results))
+				etags := make([]string, 0, len(results))
+				for _, result := range results {
+					if result.Err != nil {
+						continue
+					}
+					specs = append(specs, result.Value)
+					etags = append(etags, result.Etag)
 				}
-				specs = append(specs, result.Data)
-				etags = append(etags, result.Etag)
-			}
-			merged, err := builder.MergeSpecsV3(specs...)
-			if err != nil {
-				return cached.NewResultErr[*spec3.OpenAPI](fmt.Errorf("failed to merge specs: %v", err))
-			}
-			return cached.NewResultOK[*spec3.OpenAPI](merged, fmt.Sprintf("%X", sha512.Sum512([]byte(strings.Join(etags, ",")))))
-		}, specs)
+				merged, err := builder.MergeSpecsV3(specs...)
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to merge specs: %v", err)
+				}
+				return merged, fmt.Sprintf("%X", sha512.Sum512([]byte(strings.Join(etags, ",")))), nil
+			},
+			specs)
 		service.UpdateGroupVersionLazy(gvPath, gvSpec)
 	}
 
 	return nil
 }
 
-func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Data[*spec3.OpenAPI]) string {
+func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI]) (string, error) {
 	var buf bytes.Buffer
 	for i, crd := range orderedCRDs {
 		spec := specs[i]
@@ -251,7 +262,11 @@ func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition
 			}
 			buf.WriteString(v.Name)
 			buf.WriteRune(':')
-			buf.WriteString(versionSpec.Get().Etag)
+			_, etag, err := versionSpec.Get()
+			if err != nil {
+				return "", err
+			}
+			buf.WriteString(etag)
 
 			firstVersion = false
 		}
@@ -259,7 +274,7 @@ func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition
 		buf.WriteRune(';')
 	}
 
-	return buf.String()
+	return buf.String(), nil
 }
 
 func groupVersionToOpenAPIV3Path(gv schema.GroupVersion) string {
