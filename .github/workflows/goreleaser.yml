@@ -22,7 +22,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-go@v5
       with:
-        go-version: v1.21
+        go-version: v1.22.0
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
     - name: Set LDFLAGS
