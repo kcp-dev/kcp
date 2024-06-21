@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/util/retry"
+    apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 )
@@ -145,9 +146,10 @@ func ProvideReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc Dy
 			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
-			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			structuralSchema,
 			nil, // no status here
 			nil, // no scale here
+			[]apiextensionsv1.SelectableField{},
 		)
 
 		storage, _ := NewStorage(
