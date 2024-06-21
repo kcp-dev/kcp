@@ -243,6 +243,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	kubeClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
 	garbageCollector, err := garbagecollector.NewGarbageCollector(
+		ctx,
 		kubeClient,
 		c.metadataClient.Cluster(clusterName.Path()),
 		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),

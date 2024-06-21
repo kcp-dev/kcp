@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -121,7 +122,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 	}
 
 	// Sets up a union Authenticator for all enabled auth methods
-	authenticationInfo.Authenticator, _, err = authenticatorConfig.New()
+	authenticationInfo.Authenticator, _, _, _, err = authenticatorConfig.New(context.TODO()) // TODO(embik): wire server context in?
 	if err != nil {
 		return err
 	}
