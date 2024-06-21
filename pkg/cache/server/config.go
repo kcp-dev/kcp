@@ -34,9 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
-	"k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -148,7 +146,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		return apiHandler
 	}
 
-	opts.Etcd.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 	// this is where the true decodable levels come from.
 	opts.Etcd.StorageConfig.Codec = apiextensionsapiserver.Codecs.LegacyCodec(apiextensionsv1beta1.SchemeGroupVersion, apiextensionsv1.SchemeGroupVersion)
 	// prefer the more compact serialization (v1beta1) for storage until http://issue.k8s.io/82292 is resolved for objects whose v1 serialization is too big but whose v1beta1 serialization can be stored
