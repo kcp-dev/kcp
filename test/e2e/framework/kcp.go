@@ -868,7 +868,7 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 
 func (c *kcpServer) loadCfg() error {
 	var lastError error
-	if err := wait.PollUntilContextTimeout(c.ctx, 100*time.Millisecond, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(c.ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
 		config, err := LoadKubeConfig(c.kubeconfigPath, "base")
 		if err != nil {
