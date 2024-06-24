@@ -28,7 +28,8 @@ import (
 
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
@@ -69,6 +70,7 @@ type KubeValidatingAdmissionPolicy struct {
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 	serverDone                      <-chan struct{}
 	featureGates                    featuregate.FeatureGate
+	authorizer                      authorizer.Authorizer
 
 	lock      sync.RWMutex
 	delegates map[logicalcluster.Name]*stoppableValidatingAdmissionPolicy
@@ -82,6 +84,7 @@ var _ = initializers.WantsKubeClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializer.WantsFeatures(&KubeValidatingAdmissionPolicy{})
+var _ = initializer.WantsAuthorizer(&KubeValidatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeValidatingAdmissionPolicy{})
 
 func (k *KubeValidatingAdmissionPolicy) SetKubeClusterClient(kubeClusterClient kcpkubernetesclientset.ClusterInterface) {
@@ -107,6 +110,10 @@ func (k *KubeValidatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.Clu
 
 func (k *KubeValidatingAdmissionPolicy) InspectFeatureGates(featureGates featuregate.FeatureGate) {
 	k.featureGates = featureGates
+}
+
+func (k *KubeValidatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
+	k.authorizer = authz
 }
 
 func (k *KubeValidatingAdmissionPolicy) ValidateInitialization() error {
@@ -161,19 +168,16 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 		}
 	}()
 
-	plugin, err := validatingadmissionpolicy.NewPlugin()
-	if err != nil {
-		return nil, err
-	}
+	plugin := validating.NewPlugin(nil)
 
 	delegate = &stoppableValidatingAdmissionPolicy{
-		CELAdmissionPlugin: plugin,
-		stop:               cancel,
+		Plugin: plugin,
+		stop:   cancel,
 	}
 
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetValidatingAdmissionPoliciesInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Cluster(clusterName))
-	plugin.SetValidatingAdmissionPolicyBindingsInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Cluster(clusterName))
+	plugin.SetPolicyInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Cluster(clusterName).Informer())
+	plugin.SetBindingInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Cluster(clusterName).Informer())
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
 
 	// TODO(ncdc): this is super inefficient to do per workspace
@@ -184,6 +188,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(clusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.InspectFeatureGates(k.featureGates)
+	plugin.SetAuthorizer(k.authorizer)
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		cancel()
@@ -215,6 +220,6 @@ func (k *KubeValidatingAdmissionPolicy) logicalClusterDeleted(clusterName logica
 }
 
 type stoppableValidatingAdmissionPolicy struct {
-	*validatingadmissionpolicy.CELAdmissionPlugin
+	*validating.Plugin
 	stop func()
 }
