@@ -96,14 +96,6 @@ func NewAPIBinder(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
-	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueLogicalCluster(obj, logger)
@@ -319,4 +311,15 @@ func (b *APIBinder) process(ctx context.Context, key string) error {
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer) {
+	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }

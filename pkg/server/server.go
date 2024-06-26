@@ -30,6 +30,7 @@ import (
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -53,6 +54,8 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -186,7 +189,7 @@ func (s *Server) uninstallControllers() {
 }
 
 /* Registering all controllers and informers before starting informers. */
-func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.Config) error {
+func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err
@@ -211,7 +214,7 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
-	if err := s.installReplicationController(ctx, controllerConfig); err != nil {
+	if err := s.installReplicationController(ctx, controllerConfig, gvrs); err != nil {
 		return err
 	}
 
@@ -550,8 +553,16 @@ func (s *Server) Run(ctx context.Context) error {
 	controllerConfig := rest.CopyConfig(s.IdentityConfig)
 	controllerConfig.Timeout = time.Second * 30
 
-	// Adding the bootup time controllers and informers initialization
-	if err := s.installControllers(ctx, controllerConfig); err != nil {
+	gvrs := s.addIndexersToInformers(ctx)
+	if err := s.installControllers(ctx, controllerConfig, gvrs); err != nil {
+		return err
+	}
+
+	// Adding this to bootup sequence to not cause re-intialization errors
+	if err := s.AddPreShutdownHook(kubequota.ControllerName, func() error {
+		close(s.quotaAdmissionStopCh)
+		return nil
+	}); err != nil {
 		return err
 	}
 	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
@@ -584,7 +595,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return fmt.Errorf("failed to determine local shard admin workspace: %w", err)
 			}
 
-			go s.leaderElectAndStartControllers(controllerCtx, id, leaderElectionConfig)
+			go s.leaderElectAndStartControllers(controllerCtx, id, leaderElectionConfig, controllerConfig, gvrs)
 		} else {
 			s.startControllers(controllerCtx)
 		}
@@ -634,7 +645,7 @@ func (s *Server) WaitForPhase1Finished() {
 	<-s.rootPhase1FinishedCh
 }
 
-func (s *Server) leaderElectAndStartControllers(ctx context.Context, id string, config *rest.Config) {
+func (s *Server) leaderElectAndStartControllers(ctx context.Context, id string, leaseconfig, controllerConfig *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) {
 	logger := klog.FromContext(ctx).WithValues("identity", id)
 
 	rl, err := resourcelock.NewFromKubeconfig("leases",
@@ -643,7 +654,7 @@ func (s *Server) leaderElectAndStartControllers(ctx context.Context, id string, 
 		resourcelock.ResourceLockConfig{
 			Identity: id,
 		},
-		config,
+		leaseconfig,
 		time.Second*30,
 	)
 
@@ -674,7 +685,7 @@ loop:
 					OnStartedLeading: func(leaderElectionCtx context.Context) {
 						electionLogger.Info("started leading")
 						if len(s.controllers) == 0 {
-							if err = s.installControllers(ctx, config); err != nil {
+							if err = s.installControllers(ctx, controllerConfig, gvrs); err != nil {
 								logger.Error(err, "error in re-registering controllers")
 								return
 							}

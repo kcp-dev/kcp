@@ -65,96 +65,19 @@ func NewController(
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	gvrs map[schema.GroupVersionResource]ReplicatedGVR,
 ) (*controller, error) {
 	c := &controller{
 		shardName:          shardName,
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicCacheClient: dynamicCacheClient,
 
-		Gvrs: map[schema.GroupVersionResource]replicatedGVR{
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"): {
-				kind:   "APIExport",
-				Local:  localKcpInformers.Apis().V1alpha1().APIExports().Informer(),
-				Global: globalKcpInformers.Apis().V1alpha1().APIExports().Informer(),
-			},
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"): {
-				kind:   "APIResourceSchema",
-				Local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-				Global: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-			},
-			apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"): {
-				kind:   "APIConversion",
-				Local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
-				Global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
-			},
-			admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
-				kind:   "MutatingWebhookConfiguration",
-				Local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-				Global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-			},
-			admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
-				kind:   "ValidatingWebhookConfiguration",
-				Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-				Global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-			},
-			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
-				kind:   "ValidatingAdmissionPolicy",
-				Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
-				Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
-			},
-			admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
-				kind:   "ValidatingAdmissionPolicyBinding",
-				Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
-				Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
-			},
-			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
-				kind:   "Shard",
-				Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
-				Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
-			},
-			corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
-				kind: "LogicalCluster",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				Local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
-				Global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
-			},
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
-				kind:   "WorkspaceType",
-				Local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
-				Global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
-			},
-			rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
-				kind: "ClusterRole",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				Local:  localKubeInformers.Rbac().V1().ClusterRoles().Informer(),
-				Global: globalKubeInformers.Rbac().V1().ClusterRoles().Informer(),
-			},
-			rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"): {
-				kind: "ClusterRoleBinding",
-				filter: func(u *unstructured.Unstructured) bool {
-					return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
-				},
-				Local:  localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
-				Global: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
-			},
-		},
+		Gvrs: gvrs,
 	}
 
 	for gvr, info := range c.Gvrs {
-		indexers.AddIfNotPresentOrDie(
-			info.Global.GetIndexer(),
-			cache.Indexers{
-				ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-			},
-		)
-
 		// shadow gvr to get the right value in the closure
 		gvr := gvr
-
 		_, _ = info.Local.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName,
 			Handler: cache.ResourceEventHandlerFuncs{
@@ -263,11 +186,99 @@ type controller struct {
 
 	dynamicCacheClient kcpdynamic.ClusterInterface
 
-	Gvrs map[schema.GroupVersionResource]replicatedGVR
+	Gvrs map[schema.GroupVersionResource]ReplicatedGVR
 }
 
-type replicatedGVR struct {
-	kind          string
-	filter        func(u *unstructured.Unstructured) bool
+type ReplicatedGVR struct {
+	Kind          string
+	Filter        func(u *unstructured.Unstructured) bool
 	Global, Local cache.SharedIndexInformer
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(
+	localKcpInformers kcpinformers.SharedInformerFactory,
+	globalKcpInformers kcpinformers.SharedInformerFactory,
+	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory) map[schema.GroupVersionResource]ReplicatedGVR {
+	gvrs := map[schema.GroupVersionResource]ReplicatedGVR{
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"): {
+			Kind:   "APIExport",
+			Local:  localKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+		},
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"): {
+			Kind:   "APIResourceSchema",
+			Local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+		},
+		apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"): {
+			Kind:   "APIConversion",
+			Local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingwebhookconfigurations"): {
+			Kind:   "MutatingWebhookConfiguration",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
+			Kind:   "ValidatingWebhookConfiguration",
+			Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+		},
+		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
+			Kind:   "ValidatingAdmissionPolicy",
+			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+		},
+		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
+			Kind:   "ValidatingAdmissionPolicyBinding",
+			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+		},
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
+			Kind:   "Shard",
+			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+		},
+		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
+			Kind: "LogicalCluster",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+			Global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+		},
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
+			Kind:   "WorkspaceType",
+			Local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+			Global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+		},
+		rbacv1.SchemeGroupVersion.WithResource("clusterroles"): {
+			Kind: "ClusterRole",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKubeInformers.Rbac().V1().ClusterRoles().Informer(),
+			Global: globalKubeInformers.Rbac().V1().ClusterRoles().Informer(),
+		},
+		rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"): {
+			Kind: "ClusterRoleBinding",
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[core.ReplicateAnnotationKey] != ""
+			},
+			Local:  localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
+			Global: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
+		},
+	}
+	for _, info := range gvrs {
+		indexers.AddIfNotPresentOrDie(
+			info.Global.GetIndexer(),
+			cache.Indexers{
+				ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+			},
+		)
+	}
+	return gvrs
 }

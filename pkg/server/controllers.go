@@ -32,6 +32,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -49,6 +50,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -60,6 +62,8 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -1341,7 +1345,7 @@ func (s *Server) installKubeQuotaController(
 		return err
 	}
 
-	if err := s.registerController(&controllerWrapper{
+	return s.registerController(&controllerWrapper{
 		Name: kubequota.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
@@ -1356,13 +1360,6 @@ func (s *Server) installKubeQuotaController(
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
-	}); err != nil {
-		return err
-	}
-
-	return s.AddPreShutdownHook(kubequota.ControllerName, func() error {
-		close(s.quotaAdmissionStopCh)
-		return nil
 	})
 }
 
@@ -1394,9 +1391,9 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	})
 }
 
-func (s *Server) installReplicationController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	// TODO(sttts): set user agent
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory)
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory, gvrs)
 	if err != nil {
 		return err
 	}
@@ -1477,4 +1474,43 @@ func (s *Server) WaitForSync(stop <-chan struct{}) error {
 	case <-s.syncedCh:
 		return nil
 	}
+}
+
+// addIndexerstoInformers is separated out from controllers as the re-election calls for controller re-initialization,
+// it would panics in indexer addition to informers as they are already started at bootup.
+func (s *Server) addIndexersToInformers(ctx context.Context) map[schema.GroupVersionResource]replication.ReplicatedGVR {
+	permissionclaimlabel.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
+	permissionclaimlabler.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
+	apibinding.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports())
+	apiexport.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
+	apiexportendpointslice.InstallIndexers(s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices())
+	labelclusterrolebindings.InstallIndexers(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings())
+	labelclusterroles.InstallIndexers(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings())
+	workspace.InstallIndexers(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
+
+	extraannotationsync.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
+
+	// Replicationcontroller indexers
+	localKcpInformers := s.KcpSharedInformerFactory
+	globalKcpInformers := s.CacheKcpSharedInformerFactory
+	localKubeInformers := s.KubeSharedInformerFactory
+	globalKubeInformers := s.CacheKubeSharedInformerFactory
+
+	gvrs := replication.InstallIndexers(localKcpInformers,
+		globalKcpInformers, localKubeInformers,
+		globalKubeInformers)
+
+	initialization.InstallIndexers(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
+	crdcleanup.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
+	return gvrs
 }

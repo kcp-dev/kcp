@@ -61,14 +61,14 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 				return nil, err
 			}
 
-			if info.filter != nil && !info.filter(u) {
+			if info.Filter != nil && !info.Filter(u) {
 				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
 			}
 
 			if _, ok := obj.(*unstructured.Unstructured); ok {
 				u = u.DeepCopy()
 			}
-			u.SetKind(info.kind)
+			u.SetKind(info.Kind)
 			u.SetAPIVersion(gvr.GroupVersion().String())
 			return u, nil
 		},
@@ -93,7 +93,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 				u = u.DeepCopy()
 			}
 
-			u.SetKind(info.kind)
+			u.SetKind(info.Kind)
 			u.SetAPIVersion(gvr.GroupVersion().String())
 			return u, nil
 		},

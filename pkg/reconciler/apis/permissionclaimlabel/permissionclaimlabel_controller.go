@@ -78,10 +78,6 @@ func NewController(
 		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
-	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 		UpdateFunc: func(_, newObj interface{}) {
@@ -214,4 +210,19 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(apiExportInformer apisv1alpha1informers.APIExportClusterInformer, apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
+		cache.Indexers{
+			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+		},
+	); err != nil {
+		panic(err)
+	}
 }

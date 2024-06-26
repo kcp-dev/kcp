@@ -87,16 +87,6 @@ func NewController(
 		commit: committer.NewCommitter[*tenancyv1alpha1.Workspace, tenancyv1alpha1client.WorkspaceInterface, *tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus](kcpClusterClient.TenancyV1alpha1().Workspaces()),
 	}
 
-	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
-		unschedulable: indexUnschedulable,
-	})
-	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
-		byBase36Sha224Name: indexByBase36Sha224Name,
-	})
-	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
 	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
@@ -278,4 +268,20 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	}
 
 	return requeue, utilerrors.NewAggregate(errs)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
+	globalShardInformer corev1alpha1informers.ShardClusterInformer,
+	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
+) {
+	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
+		unschedulable: indexUnschedulable,
+	})
+	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
+		byBase36Sha224Name: indexByBase36Sha224Name,
+	})
+	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }
