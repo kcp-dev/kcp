@@ -35,6 +35,7 @@ spec:
               items:
                 type: string
               type: array
+              x-kubernetes-list-type: atomic
           type: object
         status:
           description: 'Status describes the current status of a Namespace. More info:
