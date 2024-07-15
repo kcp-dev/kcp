@@ -26,6 +26,7 @@ pushd "${SCRIPT_ROOT}"
 BOILERPLATE_HEADER="$( pwd )/hack/boilerplate/boilerplate.go.txt"
 popd
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
+OPENAPI_PKG=${OPENAPI_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/kube-openapi)}
 
 # TODO: use generate-groups.sh directly instead once https://github.com/kubernetes/kubernetes/pull/114987 is available
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
@@ -35,31 +36,31 @@ go install "${CODEGEN_PKG}"/cmd/client-gen
 chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
 
 "$GOPATH"/bin/applyconfiguration-gen \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
-  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
-  --output-package github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+  --output-pkg github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
+  --output-dir "${SCRIPT_ROOT}/sdk/client/applyconfiguration" \
+  github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
+  k8s.io/apimachinery/pkg/apis/meta/v1 \
+  k8s.io/apimachinery/pkg/runtime \
+  k8s.io/apimachinery/pkg/version
 
 "$GOPATH"/bin/client-gen \
+  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
+  --output-pkg github.com/kcp-dev/kcp/sdk/client/clientset \
+  --output-dir "${SCRIPT_ROOT}/sdk/client/clientset" \
   --input github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   --input github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
   --input github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
   --input github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
   --input-base="" \
   --apply-configuration-package=github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
-  --clientset-name "versioned"  \
-  --output-package github.com/kcp-dev/kcp/sdk/client/clientset \
-  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+  --clientset-name "versioned"
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
+bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
   github.com/kcp-dev/kcp/sdk/client github.com/kcp-dev/kcp/sdk/apis \
   "core:v1alpha1 tenancy:v1alpha1 apis:v1alpha1 topology:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
@@ -76,31 +77,29 @@ ${CODE_GENERATOR} \
 popd
 
 "$GOPATH"/bin/applyconfiguration-gen \
-  --input-dirs github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
-  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1 \
-  --output-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
+  --output-pkg github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+  --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/applyconfiguration" \
+  github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
+  k8s.io/apimachinery/pkg/apis/meta/v1
 
 "$GOPATH"/bin/client-gen \
   --input github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
   --input-base="" \
   --apply-configuration-package=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
   --clientset-name "versioned"  \
-  --output-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset \
+  --output-pkg github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+  --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/clientset"
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
+bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
   github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
   "conditions:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
+bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
   github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis \
   "wildwest:v1alpha1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
@@ -116,16 +115,18 @@ ${CODE_GENERATOR} \
   "output:dir=./../client"
 popd
 
-go install "${CODEGEN_PKG}"/cmd/openapi-gen
+go install "${OPENAPI_PKG}"/cmd/openapi-gen
 
 "$GOPATH"/bin/openapi-gen \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
-  --input-dirs github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
-  --input-dirs k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
-  --output-package github.com/kcp-dev/kcp/pkg/openapi -O zz_generated.openapi \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+  --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
+  --output-file zz_generated.openapi.go \
+  --output-dir "${SCRIPT_ROOT}/pkg/openapi" \
+  github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
+  k8s.io/apimachinery/pkg/apis/meta/v1 \
+  k8s.io/apimachinery/pkg/runtime \
+  k8s.io/apimachinery/pkg/version
