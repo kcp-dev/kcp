@@ -19,8 +19,9 @@ package builtin
 import (
 	"testing"
 
-	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 func TestInit(t *testing.T) {
