@@ -2,8 +2,6 @@ module github.com/kcp-dev/kcp
 
 go 1.22.0
 
-toolchain go1.22.4
-
 require (
 	github.com/abiosoft/lineprefix v0.1.4
 	github.com/davecgh/go-spew v1.1.1
@@ -14,8 +12,8 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.3.1
-	github.com/kcp-dev/apimachinery/v2 v2.0.0-alpha.0.0.20240510131959-2fa3992332d0
-	github.com/kcp-dev/client-go v0.0.0-20240515123258-607e9d833b0e
+	github.com/kcp-dev/apimachinery/v2 v2.0.0
+	github.com/kcp-dev/client-go v0.0.0-20240712152257-bf1c9b833763
 	github.com/kcp-dev/kcp/cli v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
@@ -40,7 +38,7 @@ require (
 	k8s.io/component-base v0.30.0
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
-	k8s.io/kubernetes v1.28.1
+	k8s.io/kubernetes v1.30.0
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.3.0
