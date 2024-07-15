@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
@@ -22,14 +21,19 @@ spec:
         description: WorkspaceType specifies behaviour of workspaces of this type.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             properties:
@@ -48,13 +52,14 @@ spec:
               additionalWorkspaceLabels:
                 additionalProperties:
                   type: string
-                description: additionalWorkspaceLabels are a set of labels that will
-                  be added to a Workspace on creation.
+                description: |-
+                  additionalWorkspaceLabels are a set of labels that will be added to a
+                  Workspace on creation.
                 type: object
               defaultAPIBindings:
-                description: defaultAPIBindings are the APIs to bind during initialization
-                  of workspaces created from this type. The APIBinding names will
-                  be generated dynamically.
+                description: |-
+                  defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
+                  The APIBinding names will be generated dynamically.
                 items:
                   description: APIExportReference provides the fields necessary to
                     resolve an APIExport.
@@ -63,9 +68,9 @@ spec:
                       description: export is the name of the APIExport.
                       type: string
                     path:
-                      description: path is the fully-qualified path to the workspace
-                        containing the APIExport. If it is empty, the current workspace
-                        is assumed.
+                      description: |-
+                        path is the fully-qualified path to the workspace containing the APIExport. If it is
+                        empty, the current workspace is assumed.
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   required:
@@ -76,11 +81,12 @@ spec:
                 default:
                   name: universal
                   path: root
-                description: defaultChildWorkspaceType is the WorkspaceType that will
-                  be used by default if another, nested Workspace is created in a
-                  workspace of this type. When this field is unset, the user must
-                  specify a type when creating nested workspaces. Extending another
-                  WorkspaceType does not inherit its defaultChildWorkspaceType.
+                description: |-
+                  defaultChildWorkspaceType is the WorkspaceType that will be used
+                  by default if another, nested Workspace is created in a workspace
+                  of this type. When this field is unset, the user must specify a type when
+                  creating nested workspaces. Extending another WorkspaceType does
+                  not inherit its defaultChildWorkspaceType.
                 properties:
                   name:
                     description: name is the name of the WorkspaceType
@@ -95,20 +101,25 @@ spec:
                 - name
                 type: object
               extend:
-                description: "extend is a list of other WorkspaceTypes whose initializers
-                  and limitAllowedChildren and limitAllowedParents this WorkspaceType
-                  is inheriting. By (transitively) extending another WorkspaceType,
-                  this WorkspaceType will be considered as that other type in evaluation
-                  of limitAllowedChildren and limitAllowedParents constraints. \n
-                  A dependency cycle stop this WorkspaceType from being admitted as
-                  the type of a Workspace. \n A non-existing dependency stop this
-                  WorkspaceType from being admitted as the type of a Workspace."
+                description: |-
+                  extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
+                  and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
+                  another WorkspaceType, this WorkspaceType will be considered as that
+                  other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
+
+
+                  A dependency cycle stop this WorkspaceType from being admitted as the type
+                  of a Workspace.
+
+
+                  A non-existing dependency stop this WorkspaceType from being admitted as the type
+                  of a Workspace.
                 properties:
                   with:
-                    description: with are WorkspaceTypes whose initializers are added
-                      to the list for the owning type, and for whom the owning type
-                      becomes an alias, as long as all of their required types are
-                      not mentioned in without.
+                    description: |-
+                      with are WorkspaceTypes whose initializers are added to the list
+                      for the owning type, and for whom the owning type becomes an alias, as long
+                      as all of their required types are not mentioned in without.
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a workspace type.
@@ -128,20 +139,23 @@ spec:
                     type: array
                 type: object
               initializer:
-                description: "initializer determines if this WorkspaceType has an
-                  associated initializing controller. These controllers are used to
-                  add functionality to a Workspace; all controllers must finish their
-                  work before the Workspace becomes ready for use. \n One initializing
-                  controller is supported per WorkspaceType; the identifier for this
-                  initializer will be a colon-delimited string using the workspace
-                  in which the WorkspaceType is defined, and the type's name. For
-                  example, if a WorkspaceType `example` is created in the `root:org`
-                  workspace, the implicit initializer name is `root:org:Example`."
+                description: |-
+                  initializer determines if this WorkspaceType has an associated initializing
+                  controller. These controllers are used to add functionality to a Workspace;
+                  all controllers must finish their work before the Workspace becomes ready
+                  for use.
+
+
+                  One initializing controller is supported per WorkspaceType; the identifier
+                  for this initializer will be a colon-delimited string using the workspace in which
+                  the WorkspaceType is defined, and the type's name. For example, if a
+                  WorkspaceType `example` is created in the `root:org` workspace, the implicit
+                  initializer name is `root:org:Example`.
                 type: boolean
               limitAllowedChildren:
-                description: limitAllowedChildren specifies constraints for sub-workspaces
-                  created in workspaces of this type. These are in addition to child
-                  constraints of types this one extends.
+                description: |-
+                  limitAllowedChildren specifies constraints for sub-workspaces created in workspaces
+                  of this type. These are in addition to child constraints of types this one extends.
                 oneOf:
                 - required:
                   - none
@@ -152,10 +166,13 @@ spec:
                     description: none means that no type matches.
                     type: boolean
                   types:
-                    description: "types is a list of WorkspaceTypes that match. A
-                      workspace type extending another workspace type automatically
-                      is considered as that extended type as well (even transitively).
-                      \n An empty list matches all types."
+                    description: |-
+                      types is a list of WorkspaceTypes that match. A workspace type extending
+                      another workspace type automatically is considered as that extended type as well
+                      (even transitively).
+
+
+                      An empty list matches all types.
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a workspace type.
@@ -176,9 +193,10 @@ spec:
                     type: array
                 type: object
               limitAllowedParents:
-                description: limitAllowedParents specifies constraints for the parent
-                  workspace that workspaces of this type are created in. These are
-                  in addition to parent constraints of types this one extends.
+                description: |-
+                  limitAllowedParents specifies constraints for the parent workspace that workspaces
+                  of this type are created in. These are in addition to parent constraints of types this one
+                  extends.
                 oneOf:
                 - required:
                   - none
@@ -189,10 +207,13 @@ spec:
                     description: none means that no type matches.
                     type: boolean
                   types:
-                    description: "types is a list of WorkspaceTypes that match. A
-                      workspace type extending another workspace type automatically
-                      is considered as that extended type as well (even transitively).
-                      \n An empty list matches all types."
+                    description: |-
+                      types is a list of WorkspaceTypes that match. A workspace type extending
+                      another workspace type automatically is considered as that extended type as well
+                      (even transitively).
+
+
+                      An empty list matches all types.
                     items:
                       description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a workspace type.
@@ -224,37 +245,37 @@ spec:
                     state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status
-                        to another. This should be when the underlying condition changed.
-                        If that is not known, then using the time when the API field
-                        changed is acceptable.
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about
-                        the transition. This field may be empty.
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition
-                        in CamelCase. The specific API may choose whether or not this
-                        field is considered a guaranteed API. This field may not be
-                        empty.
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of
-                        Reason code, so the users or machines can immediately understand
-                        the current situation and act accordingly. The Severity field
-                        MUST be set only when Status=False.
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important.
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
                       type: string
                   required:
                   - lastTransitionTime

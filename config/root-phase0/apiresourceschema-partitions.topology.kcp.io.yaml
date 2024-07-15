@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221115-9b370eb8.partitions.topology.kcp.io
+  name: v240715-7835dfb5a.partitions.topology.kcp.io
 spec:
   group: topology.kcp.io
   names:
@@ -23,19 +23,24 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: Partition defines the selection of a set of shards along multiple
-        dimensions. Partitions can get automatically generated through a partitioner
-        or manually crafted.
+      description: |-
+        Partition defines the selection of a set of shards along multiple dimensions.
+        Partitions can get automatically generated through a partitioner or manually crafted.
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
           type: object
@@ -50,24 +55,25 @@ spec:
                   description: matchExpressions is a list of label selector requirements.
                     The requirements are ANDed.
                   items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
+                    description: |-
+                      A label selector requirement is a selector that contains values, a key, and an operator that
+                      relates the key and values.
                     properties:
                       key:
                         description: key is the label key that the selector applies
                           to.
                         type: string
                       operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
+                        description: |-
+                          operator represents a key's relationship to a set of values.
+                          Valid operators are In, NotIn, Exists and DoesNotExist.
                         type: string
                       values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
+                        description: |-
+                          values is an array of string values. If the operator is In or NotIn,
+                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                          the values array must be empty. This array is replaced during a strategic
+                          merge patch.
                         items:
                           type: string
                         type: array
@@ -79,11 +85,10 @@ spec:
                 matchLabels:
                   additionalProperties:
                     type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
+                  description: |-
+                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                    operator is "In", and the values array contains only "value". The requirements are ANDed.
                   type: object
               type: object
               x-kubernetes-map-type: atomic

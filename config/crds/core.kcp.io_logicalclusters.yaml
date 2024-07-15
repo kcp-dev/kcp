@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
@@ -31,19 +30,27 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "LogicalCluster describes the current logical cluster. It is
-          used to authorize requests to the logical cluster and to track state. \n
-          A LogicalCluster is always named \"cluster\"."
+        description: |-
+          LogicalCluster describes the current logical cluster. It is used to authorize
+          requests to the logical cluster and to track state.
+
+
+          A LogicalCluster is always named "cluster".
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             properties:
@@ -59,25 +66,30 @@ spec:
             properties:
               directlyDeletable:
                 default: false
-                description: DirectlyDeletable indicates that this logical cluster
-                  can be directly deleted by the user from within by deleting the
-                  LogicalCluster object.
+                description: |-
+                  DirectlyDeletable indicates that this logical cluster can be directly deleted by the user
+                  from within by deleting the LogicalCluster object.
                 type: boolean
               initializers:
-                description: initializers are set on creation by the system and copied
-                  to status when initialization starts.
+                description: |-
+                  initializers are set on creation by the system and copied to status when
+                  initialization starts.
                 items:
-                  description: LogicalClusterInitializer is a unique string corresponding
-                    to a logical cluster initialization controller.
+                  description: |-
+                    LogicalClusterInitializer is a unique string corresponding to a logical cluster
+                    initialization controller.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
               owner:
-                description: "owner is a reference to a resource controlling the life-cycle
-                  of this logical cluster. On deletion of the LogicalCluster, the
-                  finalizer core.kcp.io/logicalcluster is removed from the owner.
-                  \n When this object is deleted, but the owner is not deleted, the
-                  owner is deleted too."
+                description: |-
+                  owner is a reference to a resource controlling the life-cycle of this logical cluster.
+                  On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is
+                  removed from the owner.
+
+
+                  When this object is deleted, but the owner is not deleted, the owner is deleted
+                  too.
                 properties:
                   apiVersion:
                     description: apiVersion is the group and API version of the owner.
@@ -116,10 +128,10 @@ spec:
               Workspace.
             properties:
               URL:
-                description: url is the address under which the Kubernetes-cluster-like
-                  endpoint can be found. This URL can be used to access the logical
-                  cluster with standard Kubernetes client libraries and command line
-                  tools.
+                description: |-
+                  url is the address under which the Kubernetes-cluster-like endpoint
+                  can be found. This URL can be used to access the logical cluster with standard Kubernetes
+                  client libraries and command line tools.
                 type: string
               conditions:
                 description: Current processing state of the LogicalCluster.
@@ -128,37 +140,37 @@ spec:
                     state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status
-                        to another. This should be when the underlying condition changed.
-                        If that is not known, then using the time when the API field
-                        changed is acceptable.
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about
-                        the transition. This field may be empty.
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition
-                        in CamelCase. The specific API may choose whether or not this
-                        field is considered a guaranteed API. This field may not be
-                        empty.
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of
-                        Reason code, so the users or machines can immediately understand
-                        the current situation and act accordingly. The Severity field
-                        MUST be set only when Status=False.
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important.
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -167,13 +179,14 @@ spec:
                   type: object
                 type: array
               initializers:
-                description: initializers are set on creation by the system and must
-                  be cleared by a controller before the logical cluster can be used.
-                  The LogicalCluster object will stay in the phase "Initializing"
-                  state until all initializers are cleared.
+                description: |-
+                  initializers are set on creation by the system and must be cleared
+                  by a controller before the logical cluster can be used. The LogicalCluster object
+                  will stay in the phase "Initializing" state until all initializers are cleared.
                 items:
-                  description: LogicalClusterInitializer is a unique string corresponding
-                    to a logical cluster initialization controller.
+                  description: |-
+                    LogicalClusterInitializer is a unique string corresponding to a logical cluster
+                    initialization controller.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
