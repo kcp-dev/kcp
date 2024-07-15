@@ -112,11 +112,11 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 					t.Fatalf("Missing status condition %v", expCondition.Type)
 				}
 
-				if cond.Status != expCondition.Status {
+				if cond != nil && cond.Status != expCondition.Status {
 					t.Errorf("expect condition status %q, got %q for type %s", expCondition.Status, cond.Status, cond.Type)
 				}
 
-				if cond.Reason != expCondition.Reason {
+				if cond != nil && cond.Reason != expCondition.Reason {
 					t.Errorf("expect condition reason %q, got %q for type %s", expCondition.Reason, cond.Reason, cond.Type)
 				}
 			}
