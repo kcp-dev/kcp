@@ -71,13 +71,6 @@ func NewController(
 		},
 	}
 
-	indexers.AddIfNotPresentOrDie(
-		apiBindingInformer.Informer().GetIndexer(),
-		cache.Indexers{
-			indexers.APIBindingByBoundResourceUID: indexers.IndexAPIBindingByBoundResourceUID,
-		},
-	)
-
 	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
@@ -251,4 +244,14 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	return nil
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
+	indexers.AddIfNotPresentOrDie(
+		apiBindingInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIBindingByBoundResourceUID: indexers.IndexAPIBindingByBoundResourceUID,
+		},
+	)
 }

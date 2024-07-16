@@ -106,14 +106,6 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-
-	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
-	})
-
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger) },
@@ -302,4 +294,15 @@ func syncExtraAnnotationPatch(a1, a2 map[string]string) ([]byte, error) {
 	}
 
 	return json.Marshal(patch)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(apiExportInformer apisinformers.APIExportClusterInformer, apiBindingInformer apisinformers.APIBindingClusterInformer) {
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
 }

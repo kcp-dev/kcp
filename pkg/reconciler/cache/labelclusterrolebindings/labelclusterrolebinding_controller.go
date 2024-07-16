@@ -83,10 +83,6 @@ func NewController(
 		commit: committer.NewStatuslessCommitter[*rbacv1.ClusterRoleBinding, rbacclientv1.ClusterRoleBindingInterface](kubeClusterClient.RbacV1().ClusterRoleBindings(), committer.ShallowCopy[rbacv1.ClusterRoleBinding]),
 	}
 
-	indexers.AddIfNotPresentOrDie(clusterRoleBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
-	})
-
 	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -277,4 +273,11 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	}
 
 	return requeue, utilerrors.NewAggregate(errs)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer) {
+	indexers.AddIfNotPresentOrDie(clusterRoleBindingInformer.Informer().GetIndexer(), cache.Indexers{
+		labelclusterroles.ClusterRoleBindingByClusterRoleName: labelclusterroles.IndexClusterRoleBindingByClusterRoleName,
+	})
 }

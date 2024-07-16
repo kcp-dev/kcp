@@ -121,14 +121,6 @@ func NewController(
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
 	}
 
-	indexers.AddIfNotPresentOrDie(
-		apiExportInformer.Informer().GetIndexer(),
-		cache.Indexers{
-			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
-			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
-		},
-	)
-
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
@@ -337,4 +329,15 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(apiExportInformer apisv1alpha1informers.APIExportClusterInformer) {
+	indexers.AddIfNotPresentOrDie(
+		apiExportInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
+			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
+		},
+	)
 }
