@@ -22,11 +22,11 @@ providers as well as enterprise IT departments offering APIs within their compan
 
 ## Documentation
 
-Please visit [docs.kcp.io/kcp](https://docs.kcp.io/kcp) for our documentation.
+Please visit [docs.kcp.io/kcp](https://docs.kcp.io/kcp/latest) for our documentation.
 
 ## Contributing
 
-We ❤️ our contributors! If you're interested in helping us out, please check out [contributing to kcp](https://docs.kcp.io/kcp/main/en/CONTRIBUTING).
+We ❤️ our contributors! If you're interested in helping us out, please check out [contributing to kcp](https://docs.kcp.io/kcp/main/contributing/).
 
 This community has a [Code of Conduct](./code-of-conduct.md). Please make sure to follow it.
 
