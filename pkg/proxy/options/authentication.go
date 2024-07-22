@@ -83,7 +83,7 @@ func (c *Authentication) serviceAccountAuthEnabled() bool {
 	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
 }
 
-func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
+func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
 	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
 	// can reduce the dependencies pulled in from auth methods which aren't enabled
 	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
@@ -122,7 +122,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 	}
 
 	// Sets up a union Authenticator for all enabled auth methods
-	authenticationInfo.Authenticator, _, _, _, err = authenticatorConfig.New(context.TODO()) // TODO(embik): wire server context in?
+	authenticationInfo.Authenticator, _, _, _, err = authenticatorConfig.New(ctx)
 	if err != nil {
 		return err
 	}
