@@ -31,12 +31,18 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	pluginvalidatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
+	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -44,6 +50,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/clusterroleaggregation"
 	"k8s.io/kubernetes/pkg/controller/namespace"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
+	"k8s.io/kubernetes/pkg/controller/validatingadmissionpolicystatus"
+	"k8s.io/kubernetes/pkg/generated/openapi"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
@@ -345,6 +353,53 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		},
 		Runner: func(ctx context.Context) {
 			c.Run(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installKubeValidatingAdmissionPolicyStatusController(_ context.Context, config *rest.Config) error {
+	controllerName := fmt.Sprintf("kube-%s", validatingadmissionpolicystatus.ControllerName)
+	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	schemaResolver := resolver.NewDefinitionsSchemaResolver(openapi.GetOpenAPIDefinitions, k8sscheme.Scheme, apiextensionsscheme.Scheme)
+
+	typeCheckerFn := func(clusterName logicalcluster.Path) (*pluginvalidatingadmissionpolicy.TypeChecker, error) {
+		logicalClusterConfig := rest.CopyConfig(config)
+		logicalClusterConfig.Host += clusterName.RequestPath()
+		kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
+
+		discoveryClient := memory.NewMemCacheClient(kubeClient.Cluster(clusterName).Discovery())
+
+		return &pluginvalidatingadmissionpolicy.TypeChecker{
+			SchemaResolver: schemaResolver.Combine(&resolver.ClientDiscoveryResolver{Discovery: discoveryClient}),
+			RestMapper:     restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient),
+		}, nil
+	}
+
+	c, err := validatingadmissionpolicystatus.NewController(
+		s.KubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies(),
+		kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
+		typeCheckerFn)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Run(ctx, 5)
 		},
 	})
 }
