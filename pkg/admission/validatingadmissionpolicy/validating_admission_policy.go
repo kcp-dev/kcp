@@ -176,8 +176,8 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	}
 
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetPolicyInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Cluster(clusterName).Informer())
-	plugin.SetBindingInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Cluster(clusterName).Informer())
+	plugin.SetPolicyInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Cluster(clusterName).Informer())
+	plugin.SetBindingInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Cluster(clusterName).Informer())
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
 
 	// TODO(ncdc): this is super inefficient to do per workspace

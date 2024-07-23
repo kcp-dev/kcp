@@ -18,7 +18,7 @@ spec:
     singular: validatingadmissionpolicy
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - name: v1
     schema:
       openAPIV3Schema:
         description: ValidatingAdmissionPolicy describes the definition of an admission
@@ -39,14 +39,97 @@ spec:
           spec:
             description: Specification of the desired behavior of the ValidatingAdmissionPolicy.
             properties:
+              auditAnnotations:
+                description: auditAnnotations contains CEL expressions which are used
+                  to produce audit annotations for the audit event of the API request.
+                  validations and auditAnnotations may not both be empty; a least
+                  one of validations or auditAnnotations is required.
+                items:
+                  description: AuditAnnotation describes how to produce an audit annotation
+                    for an API request.
+                  properties:
+                    key:
+                      description: |-
+                        key specifies the audit annotation key. The audit annotation keys of a ValidatingAdmissionPolicy must be unique. The key must be a qualified name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
+
+                        The key is combined with the resource name of the ValidatingAdmissionPolicy to construct an audit annotation key: "{ValidatingAdmissionPolicy name}/{key}".
+
+                        If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy and the same audit annotation key, the annotation key will be identical. In this case, the first annotation written with the key will be included in the audit event and all subsequent annotations with the same key will be discarded.
+
+                        Required.
+                      type: string
+                    valueExpression:
+                      description: |-
+                        valueExpression represents the expression which is evaluated by CEL to produce an audit annotation value. The expression must evaluate to either a string or null value. If the expression evaluates to a string, the audit annotation is included with the string value. If the expression evaluates to null or empty string the audit annotation will be omitted. The valueExpression may be no longer than 5kb in length. If the result of the valueExpression is more than 10kb in length, it will be truncated to 10kb.
+
+                        If multiple ValidatingAdmissionPolicyBinding resources match an API request, then the valueExpression will be evaluated for each binding. All unique values produced by the valueExpressions will be joined together in a comma-separated list.
+
+                        Required.
+                      type: string
+                  required:
+                  - key
+                  - valueExpression
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               failurePolicy:
-                description: FailurePolicy defines how to handle failures for the
-                  admission policy. Failures can occur from invalid or mis-configured
-                  policy definitions or bindings. A policy is invalid if spec.paramKind
-                  refers to a non-existent Kind. A binding is invalid if spec.paramRef.name
-                  refers to a non-existent resource. Allowed values are Ignore or
-                  Fail. Defaults to Fail.
+                description: |-
+                  failurePolicy defines how to handle failures for the admission policy. Failures can occur from CEL expression parse errors, type check errors, runtime errors and invalid or mis-configured policy definitions or bindings.
+
+                  A policy is invalid if spec.paramKind refers to a non-existent Kind. A binding is invalid if spec.paramRef.name refers to a non-existent resource.
+
+                  failurePolicy does not define how validations that evaluate to false are handled.
+
+                  When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions define how failures are enforced.
+
+                  Allowed values are Ignore or Fail. Defaults to Fail.
+
+                  Possible enum values:
+                   - `"Fail"` means that an error calling the webhook causes the admission to fail.
+                   - `"Ignore"` means that an error calling the webhook is ignored.
                 type: string
+              matchConditions:
+                description: |-
+                  MatchConditions is a list of conditions that must be met for a request to be validated. Match conditions filter requests that have already been matched by the rules, namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests. There are a maximum of 64 match conditions allowed.
+
+                  If a parameter object is provided, it can be accessed via the `params` handle in the same manner as validation expressions.
+
+                  The exact matching logic is (in order):
+                    1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+                    2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+                    3. If any matchCondition evaluates to an error (but none are FALSE):
+                       - If failurePolicy=Fail, reject the request
+                       - If failurePolicy=Ignore, the policy is skipped
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool. CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests. 'oldObject' - The existing object. The value is null for CREATE requests. 'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest). 'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions, as well as providing an identifier for logging purposes. A good name should be descriptive of the associated expression. Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               matchConstraints:
                 description: MatchConstraints specifies what resources this policy
                   is designed to validate. The AdmissionPolicy cares about a request
@@ -132,6 +215,10 @@ spec:
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version. For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1, and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`, a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                       Defaults to "Equivalent"
+
+                      Possible enum values:
+                       - `"Equivalent"` means requests should be sent to the webhook if they modify a resource listed in rules via another API group or version.
+                       - `"Exact"` means requests should only be sent to the webhook if they exactly match a given rule.
                     type: string
                   namespaceSelector:
                     description: |-
@@ -193,11 +280,13 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - key
                           - operator
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -247,11 +336,13 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - key
                           - operator
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -349,8 +440,8 @@ spec:
                 type: object
               validations:
                 description: Validations contain CEL expressions which is used to
-                  apply the validation. A minimum of one validation is required for
-                  a policy definition. Required.
+                  apply the validation. Validations and AuditAnnotations may not both
+                  be empty; a minimum of one Validations or AuditAnnotations is required.
                 items:
                   description: Validation specifies the CEL expression which is used
                     to apply the validation.
@@ -358,14 +449,24 @@ spec:
                     expression:
                       description: "Expression represents the expression which will
                         be evaluated by CEL. ref: https://github.com/google/cel-spec
-                        CEL expressions have access to the contents of the Admission
-                        request/response, organized into CEL variables as well as
-                        some other useful variables:\n\n'object' - The object from
-                        the incoming request. The value is null for DELETE requests.
-                        'oldObject' - The existing object. The value is null for CREATE
-                        requests. 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).
-                        'params' - Parameter resource referred to by the policy binding
-                        being evaluated. Only populated if the policy has a ParamKind.\n\nThe
+                        CEL expressions have access to the contents of the API request/response,
+                        organized into CEL variables as well as some other useful
+                        variables:\n\n- 'object' - The object from the incoming request.
+                        The value is null for DELETE requests. - 'oldObject' - The
+                        existing object. The value is null for CREATE requests. -
+                        'request' - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).
+                        - 'params' - Parameter resource referred to by the policy
+                        binding being evaluated. Only populated if the policy has
+                        a ParamKind. - 'namespaceObject' - The namespace object that
+                        the incoming object belongs to. The value is null for cluster-scoped
+                        resources. - 'variables' - Map of composited variables, from
+                        its name to its lazily evaluated value.\n  For example, a
+                        variable named 'foo' can be accessed as 'variables.foo'.\n-
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization
+                        checks for the principal (user or service account) of the
+                        request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed
+                        from the 'authorizer' and configured with the\n  request resource.\n\nThe
                         `apiVersion`, `kind`, `metadata.name` and `metadata.generateName`
                         are always accessible from the root of the object. No other
                         metadata properties are accessible.\n\nOnly property names
@@ -406,6 +507,25 @@ spec:
                         not contain line breaks. If unset, the message is "failed
                         Expression: {Expression}".'
                       type: string
+                    messageExpression:
+                      description: 'messageExpression declares a CEL expression that
+                        evaluates to the validation failure message that is returned
+                        when this rule fails. Since messageExpression is used as a
+                        failure message, it must evaluate to a string. If both message
+                        and messageExpression are present on a validation, then messageExpression
+                        will be used if validation fails. If messageExpression results
+                        in a runtime error, the runtime error is logged, and the validation
+                        failure message is produced as if the messageExpression field
+                        were unset. If messageExpression evaluates to an empty string,
+                        a string with only spaces, or a string that contains line
+                        breaks, then the validation failure message will also be produced
+                        as if the messageExpression field were unset, and the fact
+                        that messageExpression produced an empty string/string with
+                        only spaces/string with line breaks will be logged. messageExpression
+                        has access to all the same variables as the `expression` except
+                        for ''authorizer'' and ''authorizer.requestResource''. Example:
+                        "object.x must be less than max ("+string(params.max)+")"'
+                      type: string
                     reason:
                       description: 'Reason represents a machine-readable description
                         of why this validation failed. If this is the first validation
@@ -420,17 +540,134 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-            required:
-            - validations
+              variables:
+                description: |-
+                  Variables contain definitions of variables that can be used in composition of other expressions. Each variable is defined as a named CEL expression. The variables defined here will be available under `variables` in other expressions of the policy except MatchConditions because MatchConditions are evaluated before the rest of the policy.
+
+                  The expression of a variable can refer to other variables defined earlier in the list but not those after. Thus, Variables must be sorted by the order of first appearance and acyclic.
+                items:
+                  description: Variable is the definition of a variable that is used
+                    for composition. A variable is defined as a named expression.
+                  properties:
+                    expression:
+                      description: Expression is the expression that will be evaluated
+                        as the value of the variable. The CEL expression has access
+                        to the same identifiers as the CEL expressions in Validation.
+                      type: string
+                    name:
+                      description: Name is the name of the variable. The name must
+                        be a valid CEL identifier and unique among all variables.
+                        The variable can be accessed in other expressions through
+                        `variables` For example, if name is "foo", the variable will
+                        be available as `variables.foo`
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            type: object
+          status:
+            description: The status of the ValidatingAdmissionPolicy, including warnings
+              that are useful to determine if the policy behaves in the expected way.
+              Populated by the system. Read-only.
+            properties:
+              conditions:
+                description: The conditions represent the latest available observations
+                  of a policy's current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: The generation observed by the controller.
+                format: int64
+                type: integer
+              typeChecking:
+                description: The results of type checking for each expression. Presence
+                  of this field indicates the completion of the type checking.
+                properties:
+                  expressionWarnings:
+                    description: The type checking warnings for each expression.
+                    items:
+                      description: ExpressionWarning is a warning information that
+                        targets a specific expression.
+                      properties:
+                        fieldRef:
+                          description: The path to the field that refers the expression.
+                            For example, the reference to the expression of the first
+                            item of validations is "spec.validations[0].expression"
+                          type: string
+                        warning:
+                          description: The content of type checking information in
+                            a human-readable form. Each line of the warning contains
+                            the type that the expression is checked against, followed
+                            by the type check error from the compiler.
+                          type: string
+                      required:
+                      - fieldRef
+                      - warning
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
             type: object
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
     plural: ""
   conditions: null
   storedVersions:
-  - v1alpha1
+  - v1
