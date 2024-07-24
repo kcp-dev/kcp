@@ -171,6 +171,11 @@ var defaultValidationOpts = crdvalidation.ValidationOptions{
 	// Here this does not matter. The whole resource is always immutable.
 	RequireImmutableNames: false,
 
+	// in Kube, the validation on CRD update will set it to true for unchanged schemas
+	// (ratcheting validation). Here, as everything is immutable, this case never
+	// happens. Hence, we can statically set it to false.
+	SuppressPerExpressionCost: false,
+
 	RequireOpenAPISchema:               true,
 	RequireValidPropertyType:           true,
 	RequireStructuralSchema:            true,
