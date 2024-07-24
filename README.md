@@ -49,7 +49,7 @@ There are several ways to communicate with us:
 
 - [Platform Engineering Day Europe 2024: Building a Platform Engineering API Layer with kcp – Marvin Beckers](https://www.youtube.com/watch?v=az5Rm8Snms4)
 - [KubeCon EU 2024: Why Kubernetes Is Inappropriate for Platforms, and How to Make It Better – Stefan Schimanski, Mangirdas Judeikis Sebastian Scheele](https://www.youtube.com/watch?v=7op_r9R0fCo)
-- [KubeCon EU 2024: Kubernetes-style APIs for SaaS-like Control Planes with kcp – Marvin Beckers, Marvin Beckers, Mangirdas Judeikis](https://www.youtube.com/watch?v=-P1kUo5zZR4)
+- [KubeCon EU 2024: Kubernetes-style APIs for SaaS-like Control Planes with kcp – Marvin Beckers, Mangirdas Judeikis](https://www.youtube.com/watch?v=-P1kUo5zZR4)
 - [KubeCon US 2022: Kcp: Towards 1,000,000 Clusters, Name^WWorkspaced CRDs - Stefan Schimanski](https://www.youtube.com/watch?v=fGv5dpQ8X5I)
 - [Rejekts US 2022: What if namespaces provided more isolation than just names? – Stefan Schimanski](https://www.youtube.com/watch?v=WGrPUyx7qQE)
 - [Let's Learn kcp - A minimal Kubernetes API server with Saiyam Pathak - July 7, 2021](https://www.youtube.com/watch?v=M4mn_LlCyzk)
