@@ -26,12 +26,17 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
@@ -79,8 +84,8 @@ type KubeValidatingAdmissionPolicy struct {
 }
 
 var _ admission.ValidationInterface = &KubeValidatingAdmissionPolicy{}
-var _ = initializers.WantsKcpInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsKubeClusterClient(&KubeValidatingAdmissionPolicy{})
+var _ = initializers.WantsKubeInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializer.WantsFeatures(&KubeValidatingAdmissionPolicy{})
@@ -176,8 +181,6 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	}
 
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetPolicyInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Cluster(clusterName).Informer())
-	plugin.SetBindingInformer(k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Cluster(clusterName).Informer())
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
 
 	// TODO(ncdc): this is super inefficient to do per workspace
@@ -189,6 +192,20 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.InspectFeatureGates(k.featureGates)
 	plugin.SetAuthorizer(k.authorizer)
+	plugin.SetClusterName(clusterName)
+	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, clusterName logicalcluster.Name) generic.Source[validating.PolicyHook] {
+		return generic.NewPolicySource(
+			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer().Cluster(clusterName),
+			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer().Cluster(clusterName),
+			validating.NewValidatingAdmissionPolicyAccessor,
+			validating.NewValidatingAdmissionPolicyBindingAccessor,
+			validating.CompilePolicy,
+			nil,
+			dynamicClient,
+			restMapper,
+			clusterName,
+		)
+	})
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		cancel()
