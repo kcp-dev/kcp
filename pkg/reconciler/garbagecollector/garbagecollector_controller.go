@@ -243,6 +243,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	kubeClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
 	garbageCollector, err := garbagecollector.NewGarbageCollector(
+		ctx,
 		kubeClient,
 		c.metadataClient.Cluster(clusterName.Path()),
 		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
@@ -263,6 +264,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
+			//nolint:errcheck
 			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 		},
 	}
@@ -285,6 +287,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
 	go func() {
 		// Make sure the GC monitors are synced at least once
+		//nolint:errcheck
 		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 
 		go garbageCollector.Run(ctx, c.workersPerLogicalCluster)

@@ -20,8 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle"
+	validatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	mutatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	validatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	kubeapiserveroptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
@@ -186,7 +186,6 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	certsubjectrestriction.PluginName,       // CertificateSubjectRestriction
 	defaultingressclass.PluginName,          // DefaultIngressClass
 	podsecurity.PluginName,                  // PodSecurity
-	validatingadmissionpolicy.PluginName,    // ValidatingAdmissionPolicy, only active when feature gate ValidatingAdmissionPolicy is enabled
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.

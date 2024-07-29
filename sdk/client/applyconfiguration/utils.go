@@ -21,6 +21,7 @@ package applyconfiguration
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -30,7 +31,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
-	metav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
+	applyconfigurationmetav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 )
@@ -124,18 +125,22 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcorev1alpha1.ShardStatusApplyConfiguration{}
 
 		// Group=meta.k8s.io, Version=v1
+	case v1.SchemeGroupVersion.WithKind("Condition"):
+		return &metav1.ConditionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DeleteOptions"):
+		return &metav1.DeleteOptionsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LabelSelector"):
-		return &metav1.LabelSelectorApplyConfiguration{}
+		return &applyconfigurationmetav1.LabelSelectorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LabelSelectorRequirement"):
-		return &metav1.LabelSelectorRequirementApplyConfiguration{}
+		return &applyconfigurationmetav1.LabelSelectorRequirementApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ManagedFieldsEntry"):
-		return &metav1.ManagedFieldsEntryApplyConfiguration{}
+		return &applyconfigurationmetav1.ManagedFieldsEntryApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ObjectMeta"):
-		return &metav1.ObjectMetaApplyConfiguration{}
+		return &applyconfigurationmetav1.ObjectMetaApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OwnerReference"):
-		return &metav1.OwnerReferenceApplyConfiguration{}
+		return &applyconfigurationmetav1.OwnerReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TypeMeta"):
-		return &metav1.TypeMetaApplyConfiguration{}
+		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):

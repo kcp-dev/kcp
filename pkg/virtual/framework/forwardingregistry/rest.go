@@ -19,6 +19,7 @@ package forwardingregistry
 import (
 	"context"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
@@ -145,9 +146,10 @@ func ProvideReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc Dy
 			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
-			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			structuralSchema,
 			nil, // no status here
 			nil, // no scale here
+			[]apiextensionsv1.SelectableField{},
 		)
 
 		storage, _ := NewStorage(

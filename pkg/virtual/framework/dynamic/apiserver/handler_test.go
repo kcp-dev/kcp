@@ -904,7 +904,7 @@ func TestBuildOpenAPIModelsForApply(t *testing.T) {
 	schema := exampleAPIResourceSchema()
 	for i, test := range tests {
 		_ = schema.Spec.Versions[0].SetSchema(test.OpenAPIV3Schema)
-		swagger, err := buildOpenAPIV2(schema, &schema.Spec.Versions[0], builder.Options{V2: true, SkipFilterSchemaForKubectlOpenAPIV2Validation: true, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
+		swagger, err := buildOpenAPIV2(schema, &schema.Spec.Versions[0], builder.Options{V2: true, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
 		require.NoError(t, err)
 
 		openAPIModels, err := utilopenapi.ToProtoModels(swagger)

@@ -54,10 +54,3 @@ func generatePartitionName(name string, matchLabels map[string]string, dimension
 	name = name[:min(validation.DNS1123SubdomainMaxLength-1, len(name))]
 	return name
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

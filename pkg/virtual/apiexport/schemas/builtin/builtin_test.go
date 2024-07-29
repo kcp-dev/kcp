@@ -20,8 +20,34 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 func TestInit(t *testing.T) {
-	require.Equal(t, len(BuiltInAPIs), len(builtInAPIResourceSchemas))
+	// Note: This test previously checked len(BuiltInAPIs) == len(builtInAPIResourceSchemas).
+	// testing for equal length in BuiltInAPIs and builtInAPIResourceSchemas is not enough because
+	// BuiltInAPIs has an entry per API version. If a resource is served from multiple API group versions,
+	// it will be in that list several times, but only once in the resource schemas (because resource schemas
+	// include multiple versions potentially).
+
+	visitedResourceSchemas := map[v1alpha1.GroupResource]bool{}
+
+	for _, api := range BuiltInAPIs {
+		gr := v1alpha1.GroupResource{Group: api.GroupVersion.Group, Resource: api.Names.Plural}
+		schema, ok := builtInAPIResourceSchemas[gr]
+		require.Truef(t, ok, "could not find %s in built-in API resource schemas", api.GroupVersion.String())
+		visitedResourceSchemas[gr] = true
+
+		versionFound := false
+		for _, version := range schema.Spec.Versions {
+			if api.GroupVersion.Version == version.Name {
+				versionFound = true
+				break
+			}
+		}
+		require.Truef(t, versionFound, "could not find version %s in API resource schema %s", api.GroupVersion.String(), schema.Name)
+	}
+
+	require.Equal(t, len(builtInAPIResourceSchemas), len(visitedResourceSchemas))
 }

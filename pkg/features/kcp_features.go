@@ -92,15 +92,9 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	WorkspaceMounts: {Default: false, PreRelease: featuregate.Alpha},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-	genericfeatures.APIResponseCompression:              {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.APIListChunking:                     {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.CustomResourceValidationExpressions: {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.OpenAPIEnums:                        {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.OpenAPIV3:                           {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.29
-	genericfeatures.ServerSideFieldValidation:           {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	genericfeatures.ValidatingAdmissionPolicy:           {Default: false, PreRelease: featuregate.Beta},
+	genericfeatures.APIResponseCompression:    {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.OpenAPIEnums:              {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.ServerSideFieldValidation: {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 
 	logsapi.LoggingBetaOptions: {Default: true, PreRelease: featuregate.Beta},
 	logsapi.ContextualLogging:  {Default: true, PreRelease: featuregate.Alpha},

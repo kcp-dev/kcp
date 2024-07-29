@@ -69,7 +69,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 }
 
 // NewConfig returns a new Config for the given options.
-func NewConfig(opts *proxyoptions.Options) (*Config, error) {
+func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error) {
 	c := &Config{
 		Options: opts,
 	}
@@ -89,7 +89,7 @@ func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 	if err := c.Options.SecureServing.ApplyTo(&c.ServingInfo, &loopbackClientConfig); err != nil {
 		return nil, err
 	}
-	if err := c.Options.Authentication.ApplyTo(&c.AuthenticationInfo, c.ServingInfo, c.RootShardConfig); err != nil {
+	if err := c.Options.Authentication.ApplyTo(ctx, &c.AuthenticationInfo, c.ServingInfo, c.RootShardConfig); err != nil {
 		return nil, err
 	}
 

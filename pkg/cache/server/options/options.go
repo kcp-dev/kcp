@@ -78,7 +78,6 @@ func NewOptions(rootDir string) *Options {
 		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
 	}
 
-	o.ServerRunOptions.EnablePriorityAndFairness = false
 	o.SecureServing.ServerCert.CertDirectory = rootDir
 	o.SecureServing.BindPort = 6443
 	o.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}

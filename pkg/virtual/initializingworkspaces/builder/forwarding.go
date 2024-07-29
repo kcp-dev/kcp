@@ -23,6 +23,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
@@ -115,9 +116,10 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			path.ValidatePathSegmentName,
 			schemaValidator,
 			statusSchemaValidate,
-			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			structuralSchema,
 			statusSpec,
 			scaleSpec,
+			[]apiextensionsv1.SelectableField{},
 		)
 
 		storage, statusStorage := registry.NewStorage(

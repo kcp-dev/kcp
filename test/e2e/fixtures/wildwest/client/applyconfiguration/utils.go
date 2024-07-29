@@ -21,9 +21,10 @@ package applyconfiguration
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	metav1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
+	applyconfigurationmetav1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 )
 
@@ -32,14 +33,22 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=meta.k8s.io, Version=v1
+	case v1.SchemeGroupVersion.WithKind("Condition"):
+		return &metav1.ConditionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DeleteOptions"):
+		return &metav1.DeleteOptionsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LabelSelector"):
+		return &metav1.LabelSelectorApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LabelSelectorRequirement"):
+		return &metav1.LabelSelectorRequirementApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ManagedFieldsEntry"):
-		return &metav1.ManagedFieldsEntryApplyConfiguration{}
+		return &applyconfigurationmetav1.ManagedFieldsEntryApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ObjectMeta"):
-		return &metav1.ObjectMetaApplyConfiguration{}
+		return &applyconfigurationmetav1.ObjectMetaApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OwnerReference"):
-		return &metav1.OwnerReferenceApplyConfiguration{}
+		return &applyconfigurationmetav1.OwnerReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TypeMeta"):
-		return &metav1.TypeMetaApplyConfiguration{}
+		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
 		// Group=wildwest.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithKind("Cowboy"):

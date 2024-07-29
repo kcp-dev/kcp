@@ -18,12 +18,15 @@ spec:
     singular: validatingadmissionpolicybinding
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - name: v1
     schema:
       openAPIV3Schema:
-        description: ValidatingAdmissionPolicyBinding binds the ValidatingAdmissionPolicy
-          with paramerized resources. ValidatingAdmissionPolicyBinding and parameter
-          CRDs together define how cluster administrators configure policies for clusters.
+        description: |-
+          ValidatingAdmissionPolicyBinding binds the ValidatingAdmissionPolicy with paramerized resources. ValidatingAdmissionPolicyBinding and parameter CRDs together define how cluster administrators configure policies for clusters.
+
+          For a given admission request, each binding will cause its policy to be evaluated N times, where N is 1 for policies/bindings that don't use params, otherwise N is the number of parameters selected by the binding.
+
+          The CEL expressions of a policy must have a computed CEL cost below the maximum CEL budget. Each evaluation of the policy is given an independent CEL cost budget. Adding/removing policies, bindings, or params can not affect whether a given (policy, binding, param) combination is within its own CEL budget.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -128,6 +131,10 @@ spec:
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version. For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1, and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`, a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                       Defaults to "Equivalent"
+
+                      Possible enum values:
+                       - `"Equivalent"` means requests should be sent to the webhook if they modify a resource listed in rules via another API group or version.
+                       - `"Exact"` means requests should only be sent to the webhook if they exactly match a given rule.
                     type: string
                   namespaceSelector:
                     description: |-
@@ -189,11 +196,13 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - key
                           - operator
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -243,11 +252,13 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - key
                           - operator
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -327,20 +338,92 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
               paramRef:
-                description: ParamRef specifies the parameter resource used to configure
+                description: paramRef specifies the parameter resource used to configure
                   the admission control policy. It should point to a resource of the
                   type specified in ParamKind of the bound ValidatingAdmissionPolicy.
                   If the policy specifies a ParamKind and the resource referred to
                   by ParamRef does not exist, this binding is considered mis-configured
                   and the FailurePolicy of the ValidatingAdmissionPolicy applied.
+                  If the policy does not specify a ParamKind then this field is ignored,
+                  and the rules are evaluated without a param.
                 properties:
                   name:
-                    description: Name of the resource being referenced.
+                    description: |-
+                      name is the name of the resource being referenced.
+
+                      One of `name` or `selector` must be set, but `name` and `selector` are mutually exclusive properties. If one is set, the other must be unset.
+
+                      A single parameter used for all admission requests can be configured by setting the `name` field, leaving `selector` blank, and setting namespace if `paramKind` is namespace-scoped.
                     type: string
                   namespace:
-                    description: Namespace of the referenced resource. Should be empty
-                      for the cluster-scoped resources
+                    description: |-
+                      namespace is the namespace of the referenced resource. Allows limiting the search for params to a specific namespace. Applies to both `name` and `selector` fields.
+
+                      A per-namespace parameter may be used by specifying a namespace-scoped `paramKind` in the policy and leaving this field empty.
+
+                      - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this field results in a configuration error.
+
+                      - If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used when this field is left unset. Take care that if this is left empty the binding must not match any cluster-scoped resources, which will result in an error.
                     type: string
+                  parameterNotFoundAction:
+                    description: |-
+                      `parameterNotFoundAction` controls the behavior of the binding when the resource exists, and name or selector is valid, but there are no parameters matched by the binding. If the value is set to `Allow`, then no matched parameters will be treated as successful validation by the binding. If set to `Deny`, then no matched parameters will be subject to the `failurePolicy` of the policy.
+
+                      Allowed values are `Allow` or `Deny`
+
+                      Required
+                    type: string
+                  selector:
+                    description: |-
+                      selector can be used to match multiple param objects based on their labels. Supply selector: {} to match all resources of the ParamKind.
+
+                      If multiple params are found, they are all evaluated with the policy expressions and the results are ANDed together.
+
+                      One of `name` or `selector` must be set, but `name` and `selector` are mutually exclusive properties. If one is set, the other must be unset.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
                 type: object
               policyName:
                 description: PolicyName references a ValidatingAdmissionPolicy name
@@ -348,6 +431,31 @@ spec:
                   resource does not exist, this binding is considered invalid and
                   will be ignored Required.
                 type: string
+              validationActions:
+                description: |-
+                  validationActions declares how Validations of the referenced ValidatingAdmissionPolicy are enforced. If a validation evaluates to false it is always enforced according to these actions.
+
+                  Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according to these actions only if the FailurePolicy is set to Fail, otherwise the failures are ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.
+
+                  validationActions is declared as a set of action values. Order does not matter. validationActions may not contain duplicates of the same action.
+
+                  The supported actions values are:
+
+                  "Deny" specifies that a validation failure results in a denied request.
+
+                  "Warn" specifies that a validation failure is reported to the request client in HTTP Warning headers, with a warning code of 299. Warnings can be sent both for allowed or denied admission responses.
+
+                  "Audit" specifies that a validation failure is included in the published audit event for the request. The audit event will contain a `validation.policy.admission.k8s.io/validation_failure` audit annotation with a value containing the details of the validation failures, formatted as a JSON list of objects, each with the following fields: - message: The validation failure message string - policy: The resource name of the ValidatingAdmissionPolicy - binding: The resource name of the ValidatingAdmissionPolicyBinding - expressionIndex: The index of the failed validations in the ValidatingAdmissionPolicy - validationActions: The enforcement actions enacted for the validation failure Example audit annotation: `"validation.policy.admission.k8s.io/validation_failure": "[{"message": "Invalid value", {"policy": "policy.example.com", {"binding": "policybinding.example.com", {"expressionIndex": "1", {"validationActions": ["Audit"]}]"`
+
+                  Clients should expect to handle additional values by ignoring any values not recognized.
+
+                  "Deny" and "Warn" may not be used together since this combination needlessly duplicates the validation failure both in the API response body and the HTTP warning headers.
+
+                  Required.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
             type: object
         type: object
     served: true
@@ -359,4 +467,4 @@ status:
     plural: ""
   conditions: null
   storedVersions:
-  - v1alpha1
+  - v1

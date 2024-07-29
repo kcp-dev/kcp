@@ -91,6 +91,6 @@ func TestImportInternalAPIs(t *testing.T) {
 		require.NoError(t, err)
 		actualContent, err := yaml.Marshal(schema)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")))
+		require.Emptyf(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")), "%s was not identical to the expected content", schema.Name)
 	}
 }

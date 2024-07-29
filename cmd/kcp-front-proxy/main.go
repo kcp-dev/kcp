@@ -74,7 +74,7 @@ routed based on paths.`,
 				go http.ListenAndServe(options.Proxy.ProfilerAddress, nil)
 			}
 
-			config, err := proxy.NewConfig(options.Proxy)
+			config, err := proxy.NewConfig(ctx, options.Proxy)
 			if err != nil {
 				return err
 			}

@@ -48,7 +48,7 @@ import (
 const ControllerName = "kcp-openapiv3"
 
 type CRDSpecGetter interface {
-	GetCRDSpecs(clusterName logicalcluster.Name, name string) (specs map[string]cached.Data[*spec3.OpenAPI], err error)
+	GetCRDSpecs(clusterName logicalcluster.Name, name string) (specs map[string]cached.Value[*spec3.OpenAPI], err error)
 }
 
 // Controller watches CustomResourceDefinitions and publishes OpenAPI v3.
@@ -60,7 +60,7 @@ type Controller struct {
 
 	// specs per version, logical cluster and per CRD name
 	lock                 sync.Mutex
-	byClusterNameVersion map[logicalcluster.Name]map[string]map[string]cached.Data[*spec3.OpenAPI]
+	byClusterNameVersion map[logicalcluster.Name]map[string]map[string]cached.Value[*spec3.OpenAPI]
 }
 
 // NewController creates a new Controller with input CustomResourceDefinition informer.
@@ -69,7 +69,7 @@ func NewController(crdInformer kcpapiextensionsv1informers.CustomResourceDefinit
 		crdLister:            crdInformer.Lister(),
 		crdsSynced:           crdInformer.Informer().HasSynced,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "crd_openapi_v3_controller"),
-		byClusterNameVersion: map[logicalcluster.Name]map[string]map[string]cached.Data[*spec3.OpenAPI]{},
+		byClusterNameVersion: map[logicalcluster.Name]map[string]map[string]cached.Value[*spec3.OpenAPI]{},
 	}
 
 	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{ //nolint:errcheck
@@ -192,22 +192,25 @@ func (c *Controller) processCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 			continue
 		}
 
-		spec := cached.NewStaticSource[*spec3.OpenAPI](func() cached.Result[*spec3.OpenAPI] {
-			spec, err := builder.BuildOpenAPIV3(crd, v.Name, builder.Options{V2: false})
-			if err != nil {
-				return cached.NewResultErr[*spec3.OpenAPI](err)
-			}
-			bs, err := json.Marshal(spec)
-			if err != nil {
-				return cached.NewResultErr[*spec3.OpenAPI](err)
-			}
-			return cached.NewResultOK[*spec3.OpenAPI](spec, fmt.Sprintf("%X", sha512.Sum512(bs)))
-		})
+		spec := cached.Once(cached.Func[*spec3.OpenAPI](
+			func() (value *spec3.OpenAPI, etag string, err error) {
+				spec, err := builder.BuildOpenAPIV3(crd, v.Name, builder.Options{V2: false})
+				if err != nil {
+					return nil, "", err
+				}
+				bs, err := json.Marshal(spec)
+				if err != nil {
+					return nil, "", err
+				}
+				return spec, fmt.Sprintf("%X", sha512.Sum512(bs)), nil
+			},
+		))
+
 		if c.byClusterNameVersion[clusterName] == nil {
-			c.byClusterNameVersion[clusterName] = map[string]map[string]cached.Data[*spec3.OpenAPI]{}
+			c.byClusterNameVersion[clusterName] = map[string]map[string]cached.Value[*spec3.OpenAPI]{}
 		}
 		if c.byClusterNameVersion[clusterName][crd.Name] == nil {
-			c.byClusterNameVersion[clusterName][crd.Name] = map[string]cached.Data[*spec3.OpenAPI]{}
+			c.byClusterNameVersion[clusterName][crd.Name] = map[string]cached.Value[*spec3.OpenAPI]{}
 		}
 		c.byClusterNameVersion[clusterName][crd.Name][v.Name] = spec
 	}
@@ -247,7 +250,7 @@ func (c *Controller) enqueue(obj *apiextensionsv1.CustomResourceDefinition) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) GetCRDSpecs(clusterName logicalcluster.Name, name string) (specs map[string]cached.Data[*spec3.OpenAPI], err error) {
+func (c *Controller) GetCRDSpecs(clusterName logicalcluster.Name, name string) (specs map[string]cached.Value[*spec3.OpenAPI], err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

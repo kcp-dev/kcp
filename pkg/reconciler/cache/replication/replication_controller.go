@@ -27,7 +27,6 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -71,8 +70,7 @@ func NewController(
 		shardName:          shardName,
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicCacheClient: dynamicCacheClient,
-
-		Gvrs: gvrs,
+		Gvrs:               gvrs,
 	}
 
 	for gvr, info := range c.Gvrs {
@@ -227,15 +225,15 @@ func InstallIndexers(
 			Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 			Global: globalKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 		},
-		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
+		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingadmissionpolicies"): {
 			Kind:   "ValidatingAdmissionPolicy",
-			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
-			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies().Informer(),
+			Local:  localKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer(),
 		},
-		admissionregistrationv1alpha1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
+		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingadmissionpolicybindings"): {
 			Kind:   "ValidatingAdmissionPolicyBinding",
-			Local:  localKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
-			Global: globalKubeInformers.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings().Informer(),
+			Local:  localKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 			Kind:   "Shard",

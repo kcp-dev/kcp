@@ -126,7 +126,6 @@ func NewOptions(rootDir string) *Options {
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 	o.GenericControlPlane.Authorization = nil // we have our own
-	o.GenericControlPlane.GenericServerRunOptions.EnablePriorityAndFairness = false
 
 	// override set of admission plugins
 	kcpadmission.RegisterAllKcpAdmissionPlugins(o.GenericControlPlane.Admission.GenericAdmission.Plugins)
