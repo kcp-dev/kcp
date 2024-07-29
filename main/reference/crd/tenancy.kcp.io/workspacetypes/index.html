@@ -2728,7 +2728,10 @@
 </div>
 
 <div class="property-description">
-<p>APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
+<p>APIVersion defines the versioned schema of this representation of an object.
+Servers should convert recognized schemas to the latest internal value, and
+may reject unrecognized values.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
 
 </div>
 
@@ -2746,7 +2749,11 @@
 </div>
 
 <div class="property-description">
-<p>Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
+<p>Kind is a string value representing the REST resource this object represents.
+Servers may infer this from the endpoint the client submits requests to.
+Cannot be updated.
+In CamelCase.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
 
 </div>
 
@@ -2803,7 +2810,8 @@
 </div>
 
 <div class="property-description">
-<p>additionalWorkspaceLabels are a set of labels that will be added to a Workspace on creation.</p>
+<p>additionalWorkspaceLabels are a set of labels that will be added to a
+Workspace on creation.</p>
 
 </div>
 
@@ -2821,7 +2829,8 @@
 </div>
 
 <div class="property-description">
-<p>defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type. The APIBinding names will be generated dynamically.</p>
+<p>defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
+The APIBinding names will be generated dynamically.</p>
 
 </div>
 
@@ -2875,7 +2884,8 @@
 </div>
 
 <div class="property-description">
-<p>path is the fully-qualified path to the workspace containing the APIExport. If it is empty, the current workspace is assumed.</p>
+<p>path is the fully-qualified path to the workspace containing the APIExport. If it is
+empty, the current workspace is assumed.</p>
 
 </div>
 
@@ -2893,7 +2903,11 @@
 </div>
 
 <div class="property-description">
-<p>defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested Workspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.</p>
+<p>defaultChildWorkspaceType is the WorkspaceType that will be used
+by default if another, nested Workspace is created in a workspace
+of this type. When this field is unset, the user must specify a type when
+creating nested workspaces. Extending another WorkspaceType does
+not inherit its defaultChildWorkspaceType.</p>
 
 </div>
 
@@ -2947,9 +2961,16 @@
 </div>
 
 <div class="property-description">
-<p>extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
- A dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.
- A non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.</p>
+<p>extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
+and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
+another WorkspaceType, this WorkspaceType will be considered as that
+other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.</p>
+
+<p>A dependency cycle stop this WorkspaceType from being admitted as the type
+of a Workspace.</p>
+
+<p>A non-existing dependency stop this WorkspaceType from being admitted as the type
+of a Workspace.</p>
 
 </div>
 
@@ -2967,7 +2988,9 @@
 </div>
 
 <div class="property-description">
-<p>with are WorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias, as long as all of their required types are not mentioned in without.</p>
+<p>with are WorkspaceTypes whose initializers are added to the list
+for the owning type, and for whom the owning type becomes an alias, as long
+as all of their required types are not mentioned in without.</p>
 
 </div>
 
@@ -3039,8 +3062,16 @@
 </div>
 
 <div class="property-description">
-<p>initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.
- One initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type&rsquo;s name. For example, if a WorkspaceType <code>example</code> is created in the <code>root:org</code> workspace, the implicit initializer name is <code>root:org:Example</code>.</p>
+<p>initializer determines if this WorkspaceType has an associated initializing
+controller. These controllers are used to add functionality to a Workspace;
+all controllers must finish their work before the Workspace becomes ready
+for use.</p>
+
+<p>One initializing controller is supported per WorkspaceType; the identifier
+for this initializer will be a colon-delimited string using the workspace in which
+the WorkspaceType is defined, and the type&rsquo;s name. For example, if a
+WorkspaceType <code>example</code> is created in the <code>root:org</code> workspace, the implicit
+initializer name is <code>root:org:Example</code>.</p>
 
 </div>
 
@@ -3058,7 +3089,8 @@
 </div>
 
 <div class="property-description">
-<p>limitAllowedChildren specifies constraints for sub-workspaces created in workspaces of this type. These are in addition to child constraints of types this one extends.</p>
+<p>limitAllowedChildren specifies constraints for sub-workspaces created in workspaces
+of this type. These are in addition to child constraints of types this one extends.</p>
 
 </div>
 
@@ -3094,8 +3126,11 @@
 </div>
 
 <div class="property-description">
-<p>types is a list of WorkspaceTypes that match. A workspace type extending another workspace type automatically is considered as that extended type as well (even transitively).
- An empty list matches all types.</p>
+<p>types is a list of WorkspaceTypes that match. A workspace type extending
+another workspace type automatically is considered as that extended type as well
+(even transitively).</p>
+
+<p>An empty list matches all types.</p>
 
 </div>
 
@@ -3167,7 +3202,9 @@
 </div>
 
 <div class="property-description">
-<p>limitAllowedParents specifies constraints for the parent workspace that workspaces of this type are created in. These are in addition to parent constraints of types this one extends.</p>
+<p>limitAllowedParents specifies constraints for the parent workspace that workspaces
+of this type are created in. These are in addition to parent constraints of types this one
+extends.</p>
 
 </div>
 
@@ -3203,8 +3240,11 @@
 </div>
 
 <div class="property-description">
-<p>types is a list of WorkspaceTypes that match. A workspace type extending another workspace type automatically is considered as that extended type as well (even transitively).
- An empty list matches all types.</p>
+<p>types is a list of WorkspaceTypes that match. A workspace type extending
+another workspace type automatically is considered as that extended type as well
+(even transitively).</p>
+
+<p>An empty list matches all types.</p>
 
 </div>
 
@@ -3330,7 +3370,9 @@
 </div>
 
 <div class="property-description">
-<p>Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.</p>
+<p>Last time the condition transitioned from one status to another.
+This should be when the underlying condition changed. If that is not known, then using the time when
+the API field changed is acceptable.</p>
 
 </div>
 
@@ -3348,7 +3390,8 @@
 </div>
 
 <div class="property-description">
-<p>A human readable message indicating details about the transition. This field may be empty.</p>
+<p>A human readable message indicating details about the transition.
+This field may be empty.</p>
 
 </div>
 
@@ -3366,7 +3409,9 @@
 </div>
 
 <div class="property-description">
-<p>The reason for the condition&rsquo;s last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.</p>
+<p>The reason for the condition&rsquo;s last transition in CamelCase.
+The specific API may choose whether or not this field is considered a guaranteed API.
+This field may not be empty.</p>
 
 </div>
 
@@ -3384,7 +3429,9 @@
 </div>
 
 <div class="property-description">
-<p>Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.</p>
+<p>Severity provides an explicit classification of Reason code, so the users or machines can immediately
+understand the current situation and act accordingly.
+The Severity field MUST be set only when Status=False.</p>
 
 </div>
 
@@ -3420,7 +3467,9 @@
 </div>
 
 <div class="property-description">
-<p>Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
+<p>Type of condition in CamelCase or in foo.example.com/CamelCase.
+Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
 
 </div>
 

@@ -6,7 +6,8 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match the name of the APIResourceSchema for the conversions to take effect.
+        <meta name="description" content="APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
+the name of the APIResourceSchema for the conversions to take effect.
 ">
       
       
@@ -2691,7 +2692,8 @@
   <h1>APIConversion</h1>
 
 <h2 id="apiconversion-crd-schema-reference-group-apiskcpio">APIConversion CRD schema reference (group apis.kcp.io)</h2>
-<div class="lead">APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match the name of the APIResourceSchema for the conversions to take effect.
+<div class="lead">APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
+the name of the APIResourceSchema for the conversions to take effect.
 </div>
 
 <dl class="crd-meta">
@@ -2728,7 +2730,10 @@
 </div>
 
 <div class="property-description">
-<p>APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
+<p>APIVersion defines the versioned schema of this representation of an object.
+Servers should convert recognized schemas to the latest internal value, and
+may reject unrecognized values.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
 
 </div>
 
@@ -2746,7 +2751,11 @@
 </div>
 
 <div class="property-description">
-<p>Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
+<p>Kind is a string value representing the REST resource this object represents.
+Servers may infer this from the endpoint the client submits requests to.
+Cannot be updated.
+In CamelCase.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
 
 </div>
 
@@ -2813,7 +2822,10 @@
 </div>
 
 <div class="property-description">
-<p>APIVersionConversion contains rules to convert between two specific API versions in an APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that contains a new field to one that doesn&rsquo;t and back again, you can specify a list of fields to preserve (these are stored in annotations).</p>
+<p>APIVersionConversion contains rules to convert between two specific API versions in an
+APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that
+contains a new field to one that doesn&rsquo;t and back again, you can specify a list of fields to
+preserve (these are stored in annotations).</p>
 
 </div>
 
@@ -2849,7 +2861,8 @@
 </div>
 
 <div class="property-description">
-<p>preserve contains a list of JSONPath expressions to fields to preserve in the originating version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
+<p>preserve contains a list of JSONPath expressions to fields to preserve in the originating version
+of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -2916,7 +2929,8 @@
 </div>
 
 <div class="property-description">
-<p>destination is a JSONPath expression to the field in the target version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
+<p>destination is a JSONPath expression to the field in the target version of the object, relative to
+its root, such as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -2934,7 +2948,8 @@
 </div>
 
 <div class="property-description">
-<p>field is a JSONPath expression to the field in the originating version of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
+<p>field is a JSONPath expression to the field in the originating version of the object, relative to its root, such
+as &lsquo;.spec.name.first&rsquo;.</p>
 
 </div>
 
@@ -2952,7 +2967,8 @@
 </div>
 
 <div class="property-description">
-<p>transformation is an optional CEL expression used to execute user-specified rules to transform the originating field &ndash; identified by &lsquo;self&rsquo; &ndash; to the destination field.</p>
+<p>transformation is an optional CEL expression used to execute user-specified rules to transform the
+originating field &ndash; identified by &lsquo;self&rsquo; &ndash; to the destination field.</p>
 
 </div>
 

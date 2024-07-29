@@ -6,8 +6,11 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="APIResourceSchema describes a resource, identified by (group, version, resource, schema). 
- An APIResourceSchema is immutable and cannot be deleted if they are referenced by an APIExport in the same workspace.
+        <meta name="description" content="APIResourceSchema describes a resource, identified by (group, version, resource, schema).
+
+
+An APIResourceSchema is immutable and cannot be deleted if they are referenced by
+an APIExport in the same workspace.
 ">
       
       
@@ -2692,8 +2695,11 @@
   <h1>APIResourceSchema</h1>
 
 <h2 id="apiresourceschema-crd-schema-reference-group-apiskcpio">APIResourceSchema CRD schema reference (group apis.kcp.io)</h2>
-<div class="lead">APIResourceSchema describes a resource, identified by (group, version, resource, schema). 
- An APIResourceSchema is immutable and cannot be deleted if they are referenced by an APIExport in the same workspace.
+<div class="lead">APIResourceSchema describes a resource, identified by (group, version, resource, schema).
+
+
+An APIResourceSchema is immutable and cannot be deleted if they are referenced by
+an APIExport in the same workspace.
 </div>
 
 <dl class="crd-meta">
@@ -2730,7 +2736,10 @@
 </div>
 
 <div class="property-description">
-<p>APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
+<p>APIVersion defines the versioned schema of this representation of an object.
+Servers should convert recognized schemas to the latest internal value, and
+may reject unrecognized values.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
 
 </div>
 
@@ -2748,7 +2757,11 @@
 </div>
 
 <div class="property-description">
-<p>Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
+<p>Kind is a string value representing the REST resource this object represents.
+Servers may infer this from the endpoint the client submits requests to.
+Cannot be updated.
+In CamelCase.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
 
 </div>
 
@@ -2815,7 +2828,10 @@
 </div>
 
 <div class="property-description">
-<p>strategy specifies how custom resources are converted between versions. Allowed values are: - <code>&quot;None&quot;</code>: The converter only change the apiVersion and would not touch any other field in the custom resource. - <code>&quot;Webhook&quot;</code>: API Server will call to an external webhook to do the conversion. Additional information is needed for this option. This requires spec.preserveUnknownFields to be false, and spec.conversion.webhook to be set.</p>
+<p>strategy specifies how custom resources are converted between versions. Allowed values are:
+- <code>&quot;None&quot;</code>: The converter only change the apiVersion and would not touch any other field in the custom resource.
+- <code>&quot;Webhook&quot;</code>: API Server will call to an external webhook to do the conversion. Additional information
+  is needed for this option. This requires spec.preserveUnknownFields to be false, and spec.conversion.webhook to be set.</p>
 
 </div>
 
@@ -2869,7 +2885,8 @@
 </div>
 
 <div class="property-description">
-<p>caBundle is a PEM encoded CA bundle which will be used to validate the webhook&rsquo;s server certificate. If unspecified, system trust roots on the apiserver are used.</p>
+<p>caBundle is a PEM encoded CA bundle which will be used to validate the webhook&rsquo;s server certificate.
+If unspecified, system trust roots on the apiserver are used.</p>
 
 </div>
 
@@ -2887,12 +2904,26 @@
 </div>
 
 <div class="property-description">
-<p>url gives the location of the webhook, in standard URL form (<code>scheme://host:port/path</code>).
- Please note that using <code>localhost</code> or <code>127.0.0.1</code> as a <code>host</code> is risky unless you take great care to run this webhook on all hosts which run an apiserver which might need to make calls to this webhook. Such installs are likely to be non-portable, i.e., not easy to turn up in a new cluster.
- The scheme must be &ldquo;https&rdquo;; the URL must begin with &ldquo;https://&rdquo;.
- A path is optional, and if present may be any string permissible in a URL. You may use the path to pass an arbitrary string to the webhook, for example, a cluster identifier.
- Attempting to use a user or basic auth e.g. &ldquo;user:password@&rdquo; is not allowed. Fragments (&ldquo;#&hellip;&rdquo;) and query parameters (&ldquo;?&hellip;&rdquo;) are not allowed, either.
- Note: kcp does not support provided service names like Kubernetes does.</p>
+<p>url gives the location of the webhook, in standard URL form
+(<code>scheme://host:port/path</code>).</p>
+
+<p>Please note that using <code>localhost</code> or <code>127.0.0.1</code> as a <code>host</code> is
+risky unless you take great care to run this webhook on all hosts
+which run an apiserver which might need to make calls to this
+webhook. Such installs are likely to be non-portable, i.e., not easy
+to turn up in a new cluster.</p>
+
+<p>The scheme must be &ldquo;https&rdquo;; the URL must begin with &ldquo;https://&rdquo;.</p>
+
+<p>A path is optional, and if present may be any string permissible in
+a URL. You may use the path to pass an arbitrary string to the
+webhook, for example, a cluster identifier.</p>
+
+<p>Attempting to use a user or basic auth e.g. &ldquo;user:password@&rdquo; is not
+allowed. Fragments (&ldquo;#&hellip;&rdquo;) and query parameters (&ldquo;?&hellip;&rdquo;) are not
+allowed, either.</p>
+
+<p>Note: kcp does not support provided service names like Kubernetes does.</p>
 
 </div>
 
@@ -2910,7 +2941,12 @@
 </div>
 
 <div class="property-description">
-<p>conversionReviewVersions is an ordered list of preferred <code>ConversionReview</code> versions the Webhook expects. The API server will use the first version in the list which it supports. If none of the versions specified in this list are supported by API server, conversion will fail for the custom resource. If a persisted Webhook configuration specifies allowed versions and does not include any versions known to the API Server, calls to the webhook will fail.</p>
+<p>conversionReviewVersions is an ordered list of preferred <code>ConversionReview</code>
+versions the Webhook expects. The API server will use the first version in
+the list which it supports. If none of the versions specified in this list
+are supported by API server, conversion will fail for the custom resource.
+If a persisted Webhook configuration specifies allowed versions and does not
+include any versions known to the API Server, calls to the webhook will fail.</p>
 
 </div>
 
@@ -2941,7 +2977,8 @@
 </div>
 
 <div class="property-description">
-<p>group is the API group of the defined custom resource. Empty string means the core API group.    The resources are served under <code>/apis/&lt;group&gt;/...</code> or <code>/api</code> for the core group.</p>
+<p>group is the API group of the defined custom resource. Empty string means the
+core API group.     The resources are served under <code>/apis/&lt;group&gt;/...</code> or <code>/api</code> for the core group.</p>
 
 </div>
 
@@ -2959,8 +2996,15 @@
 </div>
 
 <div class="property-description">
-<p>nameValidation can be used to configure name validation for bound APIs. Allowed values are <code>DNS1123Subdomain</code> and <code>PathSegmentName</code>. - DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, &lsquo;-&rsquo; or &lsquo;.&rsquo;, and must start and end with an alphanumeric character. Regex used is &lsquo;<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?(\.<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?)*&rsquo; - PathSegmentName: validates the name can be safely encoded as a path segment. The name may not be &lsquo;.&rsquo; or &lsquo;..&rsquo; and the name may not contain &lsquo;/&rsquo; or &lsquo;%&rsquo;.
- Defaults to <code>DNS1123Subdomain</code>, matching the behaviour of CRDs.</p>
+<p>nameValidation can be used to configure name validation for bound APIs.
+Allowed values are <code>DNS1123Subdomain</code> and <code>PathSegmentName</code>.
+- DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case
+  alphanumeric characters, &lsquo;-&rsquo; or &lsquo;.&rsquo;, and must start and end with an alphanumeric character.
+  Regex used is &lsquo;<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?(\.<a href="[-a-z0-9]*[a-z0-9]">a-z0-9</a>?)*&rsquo;
+- PathSegmentName: validates the name can be safely encoded as a path segment.
+  The name may not be &lsquo;.&rsquo; or &lsquo;..&rsquo; and the name may not contain &lsquo;/&rsquo; or &lsquo;%&rsquo;.</p>
+
+<p>Defaults to <code>DNS1123Subdomain</code>, matching the behaviour of CRDs.</p>
 
 </div>
 
@@ -2996,7 +3040,9 @@
 </div>
 
 <div class="property-description">
-<p>categories is a list of grouped resources this custom resource belongs to (e.g. &lsquo;all&rsquo;). This is published in API discovery documents, and used by clients to support invocations like <code>kubectl get all</code>.</p>
+<p>categories is a list of grouped resources this custom resource belongs to (e.g. &lsquo;all&rsquo;).
+This is published in API discovery documents, and used by clients to support invocations like
+<code>kubectl get all</code>.</p>
 
 </div>
 
@@ -3027,7 +3073,8 @@
 </div>
 
 <div class="property-description">
-<p>kind is the serialized kind of the resource. It is normally CamelCase and singular. Custom resource instances will use this value as the <code>kind</code> attribute in API calls.</p>
+<p>kind is the serialized kind of the resource. It is normally CamelCase and singular.
+Custom resource instances will use this value as the <code>kind</code> attribute in API calls.</p>
 
 </div>
 
@@ -3063,7 +3110,10 @@
 </div>
 
 <div class="property-description">
-<p>plural is the plural name of the resource to serve. The custom resources are served under <code>/apis/&lt;group&gt;/&lt;version&gt;/.../&lt;plural&gt;</code>. Must match the name of the CustomResourceDefinition (in the form <code>&lt;names.plural&gt;.&lt;group&gt;</code>). Must be all lowercase.</p>
+<p>plural is the plural name of the resource to serve.
+The custom resources are served under <code>/apis/&lt;group&gt;/&lt;version&gt;/.../&lt;plural&gt;</code>.
+Must match the name of the CustomResourceDefinition (in the form <code>&lt;names.plural&gt;.&lt;group&gt;</code>).
+Must be all lowercase.</p>
 
 </div>
 
@@ -3081,7 +3131,9 @@
 </div>
 
 <div class="property-description">
-<p>shortNames are short names for the resource, exposed in API discovery documents, and used by clients to support invocations like <code>kubectl get &lt;shortname&gt;</code>. It must be all lowercase.</p>
+<p>shortNames are short names for the resource, exposed in API discovery documents,
+and used by clients to support invocations like <code>kubectl get &lt;shortname&gt;</code>.
+It must be all lowercase.</p>
 
 </div>
 
@@ -3130,7 +3182,8 @@
 </div>
 
 <div class="property-description">
-<p>scope indicates whether the defined custom resource is cluster- or namespace-scoped. Allowed values are <code>Cluster</code> and <code>Namespaced</code>.</p>
+<p>scope indicates whether the defined custom resource is cluster- or namespace-scoped.
+Allowed values are <code>Cluster</code> and <code>Namespaced</code>.</p>
 
 </div>
 
@@ -3148,8 +3201,10 @@
 </div>
 
 <div class="property-description">
-<p>versions is the API version of the defined custom resource.
- Note: the OpenAPI v3 schemas must be equal for all versions until CEL version migration is supported.</p>
+<p>versions is the API version of the defined custom resource.</p>
+
+<p>Note: the OpenAPI v3 schemas must be equal for all versions until CEL
+      version migration is supported.</p>
 
 </div>
 
@@ -3185,7 +3240,9 @@
 </div>
 
 <div class="property-description">
-<p>additionalPrinterColumns specifies additional columns returned in Table output. See <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables">https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables</a> for details. If no columns are specified, a single column displaying the age of the custom resource is used.</p>
+<p>additionalPrinterColumns specifies additional columns returned in Table output.
+See <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables">https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables</a> for details.
+If no columns are specified, a single column displaying the age of the custom resource is used.</p>
 
 </div>
 
@@ -3239,7 +3296,9 @@
 </div>
 
 <div class="property-description">
-<p>format is an optional OpenAPI type definition for this column. The &lsquo;name&rsquo; format is applied to the primary identifier column to assist in clients identifying column is the resource name. See <a href="https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types">https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types</a> for details.</p>
+<p>format is an optional OpenAPI type definition for this column. The &lsquo;name&rsquo; format is applied
+to the primary identifier column to assist in clients identifying column is the resource name.
+See <a href="https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types">https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types</a> for details.</p>
 
 </div>
 
@@ -3257,7 +3316,8 @@
 </div>
 
 <div class="property-description">
-<p>jsonPath is a simple JSON path (i.e. with array notation) which is evaluated against each custom resource to produce the value for this column.</p>
+<p>jsonPath is a simple JSON path (i.e. with array notation) which is evaluated against
+each custom resource to produce the value for this column.</p>
 
 </div>
 
@@ -3293,7 +3353,9 @@
 </div>
 
 <div class="property-description">
-<p>priority is an integer defining the relative importance of this column compared to others. Lower numbers are considered higher priority. Columns that may be omitted in limited space scenarios should be given a priority greater than 0.</p>
+<p>priority is an integer defining the relative importance of this column compared to others. Lower
+numbers are considered higher priority. Columns that may be omitted in limited space scenarios
+should be given a priority greater than 0.</p>
 
 </div>
 
@@ -3311,7 +3373,8 @@
 </div>
 
 <div class="property-description">
-<p>type is an OpenAPI type definition for this column. See <a href="https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types">https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types</a> for details.</p>
+<p>type is an OpenAPI type definition for this column.
+See <a href="https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types">https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types</a> for details.</p>
 
 </div>
 
@@ -3329,7 +3392,9 @@
 </div>
 
 <div class="property-description">
-<p>deprecated indicates this version of the custom resource API is deprecated. When set to true, API requests to this version receive a warning header in the server response. Defaults to false.</p>
+<p>deprecated indicates this version of the custom resource API is deprecated.
+When set to true, API requests to this version receive a warning header in the server response.
+Defaults to false.</p>
 
 </div>
 
@@ -3347,7 +3412,10 @@
 </div>
 
 <div class="property-description">
-<p>deprecationWarning overrides the default warning returned to API clients. May only be set when <code>deprecated</code> is true. The default warning indicates this version is deprecated and recommends use of the newest served version of equal or greater stability, if one exists.</p>
+<p>deprecationWarning overrides the default warning returned to API clients.
+May only be set when <code>deprecated</code> is true.
+The default warning indicates this version is deprecated and recommends use
+of the newest served version of equal or greater stability, if one exists.</p>
 
 </div>
 
@@ -3365,7 +3433,8 @@
 </div>
 
 <div class="property-description">
-<p>name is the version name, e.g. “v1”, “v2beta1”, etc. The custom resources are served under this version at <code>/apis/&lt;group&gt;/&lt;version&gt;/...</code> if <code>served</code> is true.</p>
+<p>name is the version name, e.g. “v1”, “v2beta1”, etc.
+The custom resources are served under this version at <code>/apis/&lt;group&gt;/&lt;version&gt;/...</code> if <code>served</code> is true.</p>
 
 </div>
 
@@ -3383,7 +3452,8 @@
 </div>
 
 <div class="property-description">
-<p>schema describes the structural schema used for validation, pruning, and defaulting of this version of the custom resource.</p>
+<p>schema describes the structural schema used for validation, pruning, and defaulting
+of this version of the custom resource.</p>
 
 </div>
 
@@ -3419,7 +3489,8 @@
 </div>
 
 <div class="property-description">
-<p>storage indicates this version should be used when persisting custom resources to storage. There must be exactly one version with storage=true.</p>
+<p>storage indicates this version should be used when persisting custom resources to storage.
+There must be exactly one version with storage=true.</p>
 
 </div>
 
@@ -3473,7 +3544,15 @@
 </div>
 
 <div class="property-description">
-<p>labelSelectorPath defines the JSON path inside of a custom resource that corresponds to Scale <code>status.selector</code>. Only JSON paths without the array notation are allowed. Must be a JSON Path under <code>.status</code> or <code>.spec</code>. Must be set to work with HorizontalPodAutoscaler. The field pointed by this JSON path must be a string field (not a complex selector struct) which contains a serialized label selector in string form. More info: <a href="https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions#scale-subresource">https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions#scale-subresource</a> If there is no value under the given path in the custom resource, the <code>status.selector</code> value in the <code>/scale</code> subresource will default to the empty string.</p>
+<p>labelSelectorPath defines the JSON path inside of a custom resource that corresponds to Scale <code>status.selector</code>.
+Only JSON paths without the array notation are allowed.
+Must be a JSON Path under <code>.status</code> or <code>.spec</code>.
+Must be set to work with HorizontalPodAutoscaler.
+The field pointed by this JSON path must be a string field (not a complex selector struct)
+which contains a serialized label selector in string form.
+More info: <a href="https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions#scale-subresource">https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions#scale-subresource</a>
+If there is no value under the given path in the custom resource, the <code>status.selector</code> value in the <code>/scale</code>
+subresource will default to the empty string.</p>
 
 </div>
 
@@ -3491,7 +3570,10 @@
 </div>
 
 <div class="property-description">
-<p>specReplicasPath defines the JSON path inside of a custom resource that corresponds to Scale <code>spec.replicas</code>. Only JSON paths without the array notation are allowed. Must be a JSON Path under <code>.spec</code>. If there is no value under the given path in the custom resource, the <code>/scale</code> subresource will return an error on GET.</p>
+<p>specReplicasPath defines the JSON path inside of a custom resource that corresponds to Scale <code>spec.replicas</code>.
+Only JSON paths without the array notation are allowed.
+Must be a JSON Path under <code>.spec</code>.
+If there is no value under the given path in the custom resource, the <code>/scale</code> subresource will return an error on GET.</p>
 
 </div>
 
@@ -3509,7 +3591,11 @@
 </div>
 
 <div class="property-description">
-<p>statusReplicasPath defines the JSON path inside of a custom resource that corresponds to Scale <code>status.replicas</code>. Only JSON paths without the array notation are allowed. Must be a JSON Path under <code>.status</code>. If there is no value under the given path in the custom resource, the <code>status.replicas</code> value in the <code>/scale</code> subresource will default to 0.</p>
+<p>statusReplicasPath defines the JSON path inside of a custom resource that corresponds to Scale <code>status.replicas</code>.
+Only JSON paths without the array notation are allowed.
+Must be a JSON Path under <code>.status</code>.
+If there is no value under the given path in the custom resource, the <code>status.replicas</code> value in the <code>/scale</code> subresource
+will default to 0.</p>
 
 </div>
 
@@ -3527,7 +3613,10 @@
 </div>
 
 <div class="property-description">
-<p>status indicates the custom resource should serve a <code>/status</code> subresource. When enabled: 1. requests to the custom resource primary endpoint ignore changes to the <code>status</code> stanza of the object. 2. requests to the custom resource <code>/status</code> subresource ignore changes to anything other than the <code>status</code> stanza of the object.</p>
+<p>status indicates the custom resource should serve a <code>/status</code> subresource.
+When enabled:
+1. requests to the custom resource primary endpoint ignore changes to the <code>status</code> stanza of the object.
+2. requests to the custom resource <code>/status</code> subresource ignore changes to anything other than the <code>status</code> stanza of the object.</p>
 
 </div>
 

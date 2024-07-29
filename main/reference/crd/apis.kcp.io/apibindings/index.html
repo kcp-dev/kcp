@@ -6,8 +6,11 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="APIBinding enables a set of resources and their behaviour through an external service provider in this workspace. 
- The service provider uses an APIExport to expose the API.
+        <meta name="description" content="APIBinding enables a set of resources and their behaviour through an external
+service provider in this workspace.
+
+
+The service provider uses an APIExport to expose the API.
 ">
       
       
@@ -2692,8 +2695,11 @@
   <h1>APIBinding</h1>
 
 <h2 id="apibinding-crd-schema-reference-group-apiskcpio">APIBinding CRD schema reference (group apis.kcp.io)</h2>
-<div class="lead">APIBinding enables a set of resources and their behaviour through an external service provider in this workspace. 
- The service provider uses an APIExport to expose the API.
+<div class="lead">APIBinding enables a set of resources and their behaviour through an external
+service provider in this workspace.
+
+
+The service provider uses an APIExport to expose the API.
 </div>
 
 <dl class="crd-meta">
@@ -2730,7 +2736,10 @@
 </div>
 
 <div class="property-description">
-<p>APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
+<p>APIVersion defines the versioned schema of this representation of an object.
+Servers should convert recognized schemas to the latest internal value, and
+may reject unrecognized values.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
 
 </div>
 
@@ -2748,7 +2757,11 @@
 </div>
 
 <div class="property-description">
-<p>Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
+<p>Kind is a string value representing the REST resource this object represents.
+Servers may infer this from the endpoint the client submits requests to.
+Cannot be updated.
+In CamelCase.
+More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
 
 </div>
 
@@ -2797,7 +2810,10 @@
 </div>
 
 <div class="property-description">
-<p>permissionClaims records decisions about permission claims requested by the API service provider. Individual claims can be accepted or rejected. If accepted, the API service provider gets the requested access to the specified resources in this workspace. Access is granted per GroupResource, identity, and other properties.</p>
+<p>permissionClaims records decisions about permission claims requested by the API service provider.
+Individual claims can be accepted or rejected. If accepted, the API service provider gets the
+requested access to the specified resources in this workspace. Access is granted per
+GroupResource, identity, and other properties.</p>
 
 </div>
 
@@ -2833,7 +2849,8 @@
 </div>
 
 <div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
+<p>all claims all resources for the given group/resource.
+This is mutually exclusive with resourceSelector.</p>
 
 </div>
 
@@ -2851,7 +2868,8 @@
 </div>
 
 <div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
+<p>group is the name of an API group.
+For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
 
 </div>
 
@@ -2869,7 +2887,10 @@
 </div>
 
 <div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
+<p>This is the identity for a given APIExport that the APIResourceSchema belongs to.
+The hash can be found on APIExport and APIResourceSchema&rsquo;s status.
+It will be empty for core types.
+Note that one must look this up for a particular KCP instance.</p>
 
 </div>
 
@@ -2887,7 +2908,9 @@
 </div>
 
 <div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
+<p>resource is the name of the resource.
+Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+not provided by an api export.</p>
 
 </div>
 
@@ -2936,7 +2959,9 @@
 </div>
 
 <div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
+<p>name of an object within a claimed group/resource.
+It matches the metadata.name field of the underlying object.
+If namespace is unset, all objects matching that name will be claimed.</p>
 
 </div>
 
@@ -2954,7 +2979,8 @@
 </div>
 
 <div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
+<p>namespace containing the named object. Matches metadata.namespace field.
+If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
 
 </div>
 
@@ -3003,7 +3029,9 @@
 </div>
 
 <div class="property-description">
-<p>export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb <code>bind</code> in order to bind to it.</p>
+<p>export is a reference to an APIExport by cluster name and export name.
+The creator of the APIBinding needs to have access to the APIExport with the
+verb <code>bind</code> in order to bind to it.</p>
 
 </div>
 
@@ -3039,7 +3067,8 @@
 </div>
 
 <div class="property-description">
-<p>path is a logical cluster path where the APIExport is defined. If the path is unset, the logical cluster of the APIBinding is used.</p>
+<p>path is a logical cluster path where the APIExport is defined.
+If the path is unset, the logical cluster of the APIBinding is used.</p>
 
 </div>
 
@@ -3093,7 +3122,9 @@
 </div>
 
 <div class="property-description">
-<p>appliedPermissionClaims is a list of the permission claims the system has seen and applied, according to the requests of the API service provider in the APIExport and the acceptance state in spec.permissionClaims.</p>
+<p>appliedPermissionClaims is a list of the permission claims the system has seen and applied,
+according to the requests of the API service provider in the APIExport and the acceptance
+state in spec.permissionClaims.</p>
 
 </div>
 
@@ -3111,7 +3142,9 @@
 </div>
 
 <div class="property-description">
-<p>PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.</p>
+<p>PermissionClaim identifies an object by GR and identity hash.
+Its purpose is to determine the added permissions that a service provider may
+request and that a consumer may accept and allow the service provider access to.</p>
 
 </div>
 
@@ -3129,7 +3162,8 @@
 </div>
 
 <div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
+<p>all claims all resources for the given group/resource.
+This is mutually exclusive with resourceSelector.</p>
 
 </div>
 
@@ -3147,7 +3181,8 @@
 </div>
 
 <div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
+<p>group is the name of an API group.
+For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
 
 </div>
 
@@ -3165,7 +3200,10 @@
 </div>
 
 <div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
+<p>This is the identity for a given APIExport that the APIResourceSchema belongs to.
+The hash can be found on APIExport and APIResourceSchema&rsquo;s status.
+It will be empty for core types.
+Note that one must look this up for a particular KCP instance.</p>
 
 </div>
 
@@ -3183,7 +3221,9 @@
 </div>
 
 <div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
+<p>resource is the name of the resource.
+Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+not provided by an api export.</p>
 
 </div>
 
@@ -3232,7 +3272,9 @@
 </div>
 
 <div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
+<p>name of an object within a claimed group/resource.
+It matches the metadata.name field of the underlying object.
+If namespace is unset, all objects matching that name will be claimed.</p>
 
 </div>
 
@@ -3250,7 +3292,8 @@
 </div>
 
 <div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
+<p>namespace containing the named object. Matches metadata.namespace field.
+If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
 
 </div>
 
@@ -3322,8 +3365,9 @@
 </div>
 
 <div class="property-description">
-<p>resource is the resource of the bound API.
- kubebuilder:validation:MinLength=1</p>
+<p>resource is the resource of the bound API.</p>
+
+<p>kubebuilder:validation:MinLength=1</p>
 
 </div>
 
@@ -3377,7 +3421,11 @@
 </div>
 
 <div class="property-description">
-<p>identityHash is the hash of the API identity that this schema is bound to. The API identity determines the etcd prefix used to persist the object. Different identity means that the objects are effectively served and stored under a distinct resource. A CRD of the same GroupVersionResource uses a different identity and hence a separate etcd prefix.</p>
+<p>identityHash is the hash of the API identity that this schema is bound to.
+The API identity determines the etcd prefix used to persist the object.
+Different identity means that the objects are effectively served and stored
+under a distinct resource. A CRD of the same GroupVersionResource uses a
+different identity and hence a separate etcd prefix.</p>
 
 </div>
 
@@ -3413,8 +3461,13 @@
 </div>
 
 <div class="property-description">
-<p>storageVersions lists all versions of a resource that were ever persisted. Tracking these versions allows a migration path for stored versions in etcd. The field is mutable so a migration controller can finish a migration to another version (ensuring no old objects are left in storage), and then remove the rest of the versions from this list.
- Versions may not be removed while they exist in this list.</p>
+<p>storageVersions lists all versions of a resource that were ever persisted. Tracking these
+versions allows a migration path for stored versions in etcd. The field is mutable
+so a migration controller can finish a migration to another version (ensuring
+no old objects are left in storage), and then remove the rest of the
+versions from this list.</p>
+
+<p>Versions may not be removed while they exist in this list.</p>
 
 </div>
 
@@ -3481,7 +3534,9 @@
 </div>
 
 <div class="property-description">
-<p>Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.</p>
+<p>Last time the condition transitioned from one status to another.
+This should be when the underlying condition changed. If that is not known, then using the time when
+the API field changed is acceptable.</p>
 
 </div>
 
@@ -3499,7 +3554,8 @@
 </div>
 
 <div class="property-description">
-<p>A human readable message indicating details about the transition. This field may be empty.</p>
+<p>A human readable message indicating details about the transition.
+This field may be empty.</p>
 
 </div>
 
@@ -3517,7 +3573,9 @@
 </div>
 
 <div class="property-description">
-<p>The reason for the condition&rsquo;s last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.</p>
+<p>The reason for the condition&rsquo;s last transition in CamelCase.
+The specific API may choose whether or not this field is considered a guaranteed API.
+This field may not be empty.</p>
 
 </div>
 
@@ -3535,7 +3593,9 @@
 </div>
 
 <div class="property-description">
-<p>Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.</p>
+<p>Severity provides an explicit classification of Reason code, so the users or machines can immediately
+understand the current situation and act accordingly.
+The Severity field MUST be set only when Status=False.</p>
 
 </div>
 
@@ -3571,7 +3631,9 @@
 </div>
 
 <div class="property-description">
-<p>Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
+<p>Type of condition in CamelCase or in foo.example.com/CamelCase.
+Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
 
 </div>
 
@@ -3589,7 +3651,8 @@
 </div>
 
 <div class="property-description">
-<p>exportPermissionClaims records the permissions that the export provider is asking for the binding to grant.</p>
+<p>exportPermissionClaims records the permissions that the export provider is asking for
+the binding to grant.</p>
 
 </div>
 
@@ -3607,7 +3670,9 @@
 </div>
 
 <div class="property-description">
-<p>PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.</p>
+<p>PermissionClaim identifies an object by GR and identity hash.
+Its purpose is to determine the added permissions that a service provider may
+request and that a consumer may accept and allow the service provider access to.</p>
 
 </div>
 
@@ -3625,7 +3690,8 @@
 </div>
 
 <div class="property-description">
-<p>all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.</p>
+<p>all claims all resources for the given group/resource.
+This is mutually exclusive with resourceSelector.</p>
 
 </div>
 
@@ -3643,7 +3709,8 @@
 </div>
 
 <div class="property-description">
-<p>group is the name of an API group. For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
+<p>group is the name of an API group.
+For core groups this is the empty string &lsquo;&ldquo;&rdquo;&rsquo;.</p>
 
 </div>
 
@@ -3661,7 +3728,10 @@
 </div>
 
 <div class="property-description">
-<p>This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema&rsquo;s status. It will be empty for core types. Note that one must look this up for a particular KCP instance.</p>
+<p>This is the identity for a given APIExport that the APIResourceSchema belongs to.
+The hash can be found on APIExport and APIResourceSchema&rsquo;s status.
+It will be empty for core types.
+Note that one must look this up for a particular KCP instance.</p>
 
 </div>
 
@@ -3679,7 +3749,9 @@
 </div>
 
 <div class="property-description">
-<p>resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.</p>
+<p>resource is the name of the resource.
+Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+not provided by an api export.</p>
 
 </div>
 
@@ -3728,7 +3800,9 @@
 </div>
 
 <div class="property-description">
-<p>name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.</p>
+<p>name of an object within a claimed group/resource.
+It matches the metadata.name field of the underlying object.
+If namespace is unset, all objects matching that name will be claimed.</p>
 
 </div>
 
@@ -3746,7 +3820,8 @@
 </div>
 
 <div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field. If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
+<p>namespace containing the named object. Matches metadata.namespace field.
+If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
 
 </div>
 
@@ -3764,7 +3839,10 @@
 </div>
 
 <div class="property-description">
-<p>phase is the current phase of the APIBinding: - &ldquo;&rdquo;: the APIBinding has just been created, waiting to be bound. - Binding: the APIBinding is being bound. - Bound: the APIBinding is bound and the referenced APIs are available in the workspace.</p>
+<p>phase is the current phase of the APIBinding:
+- &ldquo;&rdquo;: the APIBinding has just been created, waiting to be bound.
+- Binding: the APIBinding is being bound.
+- Bound: the APIBinding is bound and the referenced APIs are available in the workspace.</p>
 
 </div>
 
