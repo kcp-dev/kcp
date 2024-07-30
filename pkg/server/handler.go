@@ -28,7 +28,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	jwt2 "gopkg.in/square/go-jose.v2/jwt"
+	jwtv3 "github.com/go-jose/go-jose/v3/jwt"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
@@ -196,7 +196,7 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handle
 		token = token[len(prefix):]
 
 		var claims map[string]interface{}
-		decoded, err := jwt2.ParseSigned(token)
+		decoded, err := jwtv3.ParseSigned(token)
 		if err != nil { // just ignore
 			handler.ServeHTTP(w, req)
 			return
