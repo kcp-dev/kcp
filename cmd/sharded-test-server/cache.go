@@ -52,7 +52,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	)
 	cacheWorkingDir := filepath.Join(workingDir, ".kcp-cache")
 	cachePort := 8012
-	commandLine := framework.DirectOrGoRunCommand("cache-server")
+	commandLine := framework.Command("cache-server", "cache")
 	commandLine = append(
 		commandLine,
 		fmt.Sprintf("--root-directory=%s", cacheWorkingDir),

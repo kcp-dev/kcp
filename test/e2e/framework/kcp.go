@@ -572,15 +572,19 @@ func RepositoryBinDir() string {
 
 // StartKcpCommand returns the string tokens required to start kcp in
 // the currently configured mode (direct or via `go run`).
-func StartKcpCommand() []string {
-	command := DirectOrGoRunCommand("kcp")
+func StartKcpCommand(identity string) []string {
+	command := Command("kcp", identity)
 	return append(command, "start")
 }
 
-// DirectOrGoRunCommand returns the string tokens required to start
+// Command returns the string tokens required to start
 // the given executable in the currently configured mode (direct or
 // via `go run`).
-func DirectOrGoRunCommand(executableName string) []string {
+func Command(executableName, identity string) []string {
+	if RunDelveEnvSet() {
+		cmdPath := filepath.Join(RepositoryDir(), "cmd", executableName)
+		return []string{"dlv", "debug", "--api-version=2", "--headless", fmt.Sprintf("--listen=unix:dlv-%s.sock", identity), cmdPath, "--"}
+	}
 	if NoGoRunEnvSet() {
 		cmdPath := filepath.Join(RepositoryBinDir(), executableName)
 		return []string{cmdPath}
@@ -620,7 +624,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	})
 	c.ctx = ctx
 
-	commandLine := append(StartKcpCommand(), c.args...)
+	commandLine := append(StartKcpCommand("KCP"), c.args...)
 	c.t.Logf("running: %v", strings.Join(commandLine, " "))
 
 	// run kcp start in-process for easier debugging
@@ -1131,6 +1135,11 @@ func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Obj
 
 func NoGoRunEnvSet() bool {
 	envSet, _ := strconv.ParseBool(os.Getenv("NO_GORUN"))
+	return envSet
+}
+
+func RunDelveEnvSet() bool {
+	envSet, _ := strconv.ParseBool(os.Getenv("RUN_DELVE"))
 	return envSet
 }
 
