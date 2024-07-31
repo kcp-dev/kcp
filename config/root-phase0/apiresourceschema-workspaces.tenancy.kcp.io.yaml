@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240715-7835dfb5a.workspaces.tenancy.kcp.io
+  name: v240731-370e3c746.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -131,11 +131,13 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - key
                         - operator
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     matchLabels:
                       additionalProperties:
                         type: string

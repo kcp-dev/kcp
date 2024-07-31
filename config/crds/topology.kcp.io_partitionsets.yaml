@@ -101,6 +101,7 @@ spec:
                             pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
@@ -114,6 +115,7 @@ spec:
                           : true)'
                     maxItems: 10
                     type: array
+                    x-kubernetes-list-type: atomic
                   matchLabels:
                     additionalProperties:
                       maxLength: 380

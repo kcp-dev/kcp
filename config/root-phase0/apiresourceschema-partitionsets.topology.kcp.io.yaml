@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240715-7835dfb5a.partitionsets.topology.kcp.io
+  name: v240731-370e3c746.partitionsets.topology.kcp.io
 spec:
   group: topology.kcp.io
   names:
@@ -98,6 +98,7 @@ spec:
                           pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - key
                     - operator
@@ -111,6 +112,7 @@ spec:
                         : true)'
                   maxItems: 10
                   type: array
+                  x-kubernetes-list-type: atomic
                 matchLabels:
                   additionalProperties:
                     maxLength: 380
