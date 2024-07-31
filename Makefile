@@ -167,7 +167,8 @@ update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 .PHONY: generate-cli-docs
 generate-cli-docs: ## Generate cli docs
 	git clean -fdX docs/content/reference/cli
-	go run ./docs/generators/cli-doc/gen-cli-doc.go -output docs/content/reference/cli
+	pushd . && cd docs/generators/cli-doc && go build . && popd
+	./docs/generators/cli-doc/cli-doc -output docs/content/reference/cli
 
 .PHONY: generate-api-docs
 generate-api-docs: ## Generate api docs

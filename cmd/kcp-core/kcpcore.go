@@ -36,11 +36,11 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/cli/pkg/help"
 	"github.com/kcp-dev/kcp/cmd/kcp-core/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
+	"github.com/kcp-dev/kcp/sdk/cmd/help"
 )
 
 func main() {

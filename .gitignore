@@ -31,4 +31,6 @@ go.work
 go.work.*
 go.work.sum
 
+docs/generators/cli-doc/cli-doc
+
 /contrib/tilt/bin/*

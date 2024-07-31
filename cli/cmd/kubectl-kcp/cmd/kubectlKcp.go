@@ -30,8 +30,8 @@ import (
 	bindcmd "github.com/kcp-dev/kcp/cli/pkg/bind/cmd"
 	claimscmd "github.com/kcp-dev/kcp/cli/pkg/claims/cmd"
 	crdcmd "github.com/kcp-dev/kcp/cli/pkg/crd/cmd"
-	"github.com/kcp-dev/kcp/cli/pkg/help"
 	workspacecmd "github.com/kcp-dev/kcp/cli/pkg/workspace/cmd"
+	"github.com/kcp-dev/kcp/sdk/cmd/help"
 )
 
 func KubectlKcpCommand() *cobra.Command {
