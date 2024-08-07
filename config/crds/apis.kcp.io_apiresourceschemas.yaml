@@ -164,6 +164,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                   kind:
                     description: |-
                       kind is the serialized kind of the resource. It is normally CamelCase and singular.
@@ -188,6 +189,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                   singular:
                     description: singular is the singular name of the resource. It
                       must be all lowercase. Defaults to lowercased `kind`.

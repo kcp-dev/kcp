@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kcp-dev/kcp/cli/pkg/help"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
+	"github.com/kcp-dev/kcp/sdk/cmd/help"
 )
 
 func main() {

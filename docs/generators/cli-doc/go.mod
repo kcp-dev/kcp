@@ -1,22 +1,16 @@
-module github.com/kcp-dev/kcp/cli
+module github.com/kcp-dev/kcp/docs/generators/cli-doc
 
 go 1.22.0
 
 require (
-	github.com/google/go-cmp v0.6.0
-	github.com/kcp-dev/client-go v0.0.0-20240712152257-bf1c9b833763
-	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster/v3 v3.0.5
-	github.com/spf13/cobra v1.7.0
-	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
-	github.com/stretchr/testify v1.8.4
-	github.com/xlab/treeprint v1.2.0
-	k8s.io/apiextensions-apiserver v0.30.0
-	k8s.io/apimachinery v0.30.0
-	k8s.io/cli-runtime v0.30.0
-	k8s.io/client-go v0.30.0
-	k8s.io/component-base v0.30.0
-	k8s.io/klog/v2 v2.120.1
+	github.com/kcp-dev/kcp v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/kcp/cli v0.0.0-00010101000000-000000000000
+)
+
+replace (
+	github.com/kcp-dev/kcp => ../../../
+	github.com/kcp-dev/kcp/cli => ../../../cli
+	github.com/kcp-dev/kcp/sdk => ../../../sdk
 )
 
 require (
@@ -34,6 +28,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.1 // indirect
@@ -43,6 +38,8 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kcp-dev/apimachinery/v2 v2.0.0 // indirect
+	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000 // indirect
+	github.com/kcp-dev/logicalcluster/v3 v3.0.5 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
@@ -55,8 +52,10 @@ require (
 	github.com/onsi/gomega v1.31.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/spf13/cobra v1.7.0 // indirect
+	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace // indirect
+	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
@@ -71,6 +70,12 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.30.0 // indirect
+	k8s.io/apiextensions-apiserver v0.30.0 // indirect
+	k8s.io/apimachinery v0.30.0 // indirect
+	k8s.io/cli-runtime v0.30.0 // indirect
+	k8s.io/client-go v0.30.0 // indirect
+	k8s.io/component-base v0.30.0 // indirect
+	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
@@ -80,4 +85,3 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/kcp-dev/kcp/sdk => ../sdk
