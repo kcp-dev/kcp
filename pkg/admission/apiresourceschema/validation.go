@@ -183,7 +183,7 @@ var defaultValidationOpts = crdvalidation.ValidationOptions{
 	RequireAtomicSetType:               true,
 	RequireMapListKeysMapSetValidation: true,
 
-	CELEnvironmentSet: environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()),
+	CELEnvironmentSet: environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), true),
 }
 
 func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIResourceVersion, fldPath *field.Path) field.ErrorList {
