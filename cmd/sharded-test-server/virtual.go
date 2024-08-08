@@ -186,7 +186,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		auditFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d-audit.log", v.index))
 	}
 
-	commandLine := framework.DirectOrGoRunCommand("virtual-workspaces")
+	commandLine := framework.Command("virtual-workspaces", strings.ToLower(prefix))
 	commandLine = append(commandLine, v.args...)
 	commandLine = append(
 		commandLine,

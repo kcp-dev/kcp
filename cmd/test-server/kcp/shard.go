@@ -93,7 +93,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	}
 
 	// setup command
-	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
+	commandLine := append(framework.StartKcpCommand(s.name), framework.TestServerArgs()...)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
 		"--audit-log-maxsize", "1024",

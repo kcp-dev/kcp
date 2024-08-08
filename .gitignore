@@ -34,3 +34,7 @@ go.work.sum
 docs/generators/cli-doc/cli-doc
 
 /contrib/tilt/bin/*
+
+# Ignore UNIX sockets and delve binaries
+*.sock
+__debug_*
