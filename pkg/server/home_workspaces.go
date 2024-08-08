@@ -307,7 +307,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			CreationTimestamp: logicalCluster.CreationTimestamp,
 		},
 		Spec: tenancyv1alpha1.WorkspaceSpec{
-			Cluster: logicalcluster.From(logicalCluster).String(),
+			Cluster: logicalcluster.From(logicalCluster),
 			URL:     logicalCluster.Status.URL,
 		},
 		Status: tenancyv1alpha1.WorkspaceStatus{

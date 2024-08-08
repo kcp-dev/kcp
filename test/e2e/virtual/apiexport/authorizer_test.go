@@ -432,7 +432,7 @@ metadata:
 
 	t.Logf("verify that service-provider-2-admin can lists sherriffs resources in the tenant workspace %q via the virtual apiexport apiserver", tenantPath)
 	framework.Eventually(t, func() (success bool, reason string) {
-		_, err = serviceProvider2DynamicVWClientForTenantWorkspace.Cluster(logicalcluster.Name(tenantWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+		_, err = serviceProvider2DynamicVWClientForTenantWorkspace.Cluster(tenantWorkspace.Spec.Cluster.Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("error while waiting to list sherriffs: %v", err)
 		}
@@ -458,7 +458,7 @@ metadata:
 
 	t.Logf("verify that service-provider-2-admin cannot list CRD shadowed cowboy resources in the tenant workspace %q via the virtual apiexport apiserver", tenantShadowCRDPath)
 	framework.Eventually(t, func() (bool, string) {
-		_, err = serviceProvider2DynamicVWClientForShadowTenantWorkspace.Cluster(logicalcluster.Name(tenantShadowCRDWorkspace.Spec.Cluster).Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
+		_, err = serviceProvider2DynamicVWClientForShadowTenantWorkspace.Cluster(tenantShadowCRDWorkspace.Spec.Cluster.Path()).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
 		if err == nil {
 			return false, "expected error, got none"
 		}
@@ -551,7 +551,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 
 	servicePath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("provider"))
 	userPath, userWorkspace := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer"))
-	userClusterName := logicalcluster.Name(userWorkspace.Spec.Cluster)
+	userClusterName := userWorkspace.Spec.Cluster
 
 	cfg := server.BaseConfig(t)
 
