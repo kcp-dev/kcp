@@ -21,14 +21,13 @@ import (
 
 	cliflag "k8s.io/component-base/cli/flag"
 
-	kcpcoreoptions "github.com/kcp-dev/kcp/cmd/kcp-core/options"
 	serveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 )
 
 type Options struct {
 	Output io.Writer
 
-	Generic kcpcoreoptions.GenericOptions
+	Generic GenericOptions
 	Server  serveroptions.Options
 	Extra   ExtraOptions
 }
@@ -40,7 +39,7 @@ func NewOptions(rootDir string) *Options {
 		Output: nil,
 
 		Server:  *serveroptions.NewOptions(rootDir),
-		Generic: *kcpcoreoptions.NewGeneric(rootDir),
+		Generic: *NewGeneric(rootDir),
 		Extra:   ExtraOptions{},
 	}
 
@@ -50,7 +49,7 @@ func NewOptions(rootDir string) *Options {
 type completedOptions struct {
 	Output io.Writer
 
-	Generic kcpcoreoptions.GenericOptions
+	Generic GenericOptions
 	Server  serveroptions.CompletedOptions
 	Extra   ExtraOptions
 }
