@@ -14,6 +14,8 @@ kcp includes some, but not all, of the APIs you are likely familiar with from Ku
 ## admissionregistration.k8s.io/v1
 - MutatingWebhookConfigurations
 - ValidatingWebhookConfigurations
+- ValidatingAdmissionPolicies
+- ValidatingAdmissionPolicyBindings
 
 ## apiextensions.k8s.io/v1
 - CustomResourceDefinitions
