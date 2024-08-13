@@ -1,0 +1,4 @@
+nav:
+    - index.md
+    - workspace-types.md
+    - virtual-workspaces.md

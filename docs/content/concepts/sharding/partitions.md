@@ -3,7 +3,7 @@ description: >
   How to create shard partitions.
 ---
 
-# Partition API
+# Partitions
 
 `Partitions` and `PartitionSets` build an API that allows service providers and cluster administrators to create shard Partitions. These partitions can then be leveraged:
 
