@@ -1,5 +1,6 @@
 site_name: docs.kcp.io
 repo_url: https://github.com/kcp-dev/kcp
+repo_name: kcp-dev/kcp
 site_url: https://docs.kcp.io/kcp/
 
 # Site content
