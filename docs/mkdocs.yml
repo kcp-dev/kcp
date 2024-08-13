@@ -19,6 +19,8 @@ theme:
     - navigation.tabs
     # Expand subsections by default for better visibility of content
     - navigation.expand
+    # Show "back to top" button
+    - navigation.top
     # Enable a copy button in code blocks
     - content.code.copy
     # Enable annotations on specific lines in code blocks
