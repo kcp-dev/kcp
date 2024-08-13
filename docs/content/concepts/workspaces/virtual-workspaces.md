@@ -9,8 +9,8 @@ Virtual workspaces are proxy-like apiservers under a custom URL that provide som
 
 ## Examples
 
-1. controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In [April 19's community call this virtual workspace was showcased](https://www.youtube.com/watch?v=Ca3vh3lS6YI&t=1280s), developed during v0.4 phase.
-1. if we keep the initializer model with `WorkspaceType`, there must be a virtual workspace for the "workspace type owner" that gives access to initializing workspaces.
+1. Controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In [April 19's community call this virtual workspace was showcased](https://www.youtube.com/watch?v=Ca3vh3lS6YI&t=1280s), developed during v0.4 phase.
+1. If we keep the initializer model with `WorkspaceType`, there must be a virtual workspace for the "workspace type owner" that gives access to initializing workspaces.
 
 ## FAQ
 

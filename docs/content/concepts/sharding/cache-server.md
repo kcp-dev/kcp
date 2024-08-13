@@ -14,7 +14,7 @@ The web of connections would be hard to reason about, maintain and troubleshoot.
 Thus, the cache server serves as a central place for shards to store and read common data.
 Note, that the final topology can have more than one cache server, i.e. one in some geographic region.
 
-### High-level overview
+### High-level Overview
 
 The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.
 Conceptually it supports two modes of operations.
@@ -33,7 +33,7 @@ Thanks to having a separate informer for interacting with the cache server
 a shard can implement a different resiliency strategy.
 For example, it can tolerate the unavailability of the secondary during startup and become ready.
 
-### Running the server
+### Running the Server
 
 The cache server can be run as a standalone binary or as part of a kcp server.
 
@@ -41,7 +41,7 @@ The standalone binary is in <https://github.com/kcp-dev/kcp/tree/main/cmd/cache-
 
 To run it as part of a kcp server, pass `--cache-url` flag to the kcp binary.
 
-### Client-side functionality
+### Client-side Functionality
 
 In order to interact with the cache server from a shard, the <https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client>
 repository provides the following client-side functionality:
@@ -71,7 +71,7 @@ ctx = cacheclient.WithShardInContext(ctx, shard.New("cache"))
 
 Not implemented at the moment
 
-### Built-in resources
+### Built-in Resources
 
 Out of the box, the server supports the following resources:
 
@@ -82,19 +82,19 @@ Out of the box, the server supports the following resources:
 All those resources are represented as CustomResourceDefinitions and
 stored in `system:cache:server` shard under `system:system-crds` cluster.
 
-### Adding new resources
+### Adding New Resources
 
 Not implemented at the moment.
 Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
 In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.
 
-### Deletion of data
+### Deletion of Data
 
 Not implemented at the moment.
 Only deleting resources explicitly is possible.
 In the future, some form of automatic removal will be implemented.
 
-### Design details
+### Design Details
 
 The cache server is implemented as the `apiextensions-apiserver`.
 It is based on the same fork used by the kcp server, extended with shard support.
@@ -103,7 +103,7 @@ Since the server serves as a secondary replica it doesn't support versioning, va
 All resources persisted by the server are deprived of schema.
 That means the schema is implicit, maintained, and enforced by the shards pushing/pulling data into/from the server.
 
-#### On the HTTP level
+#### On the HTTP Level
 
 The server exposes the following path:
 
@@ -127,7 +127,7 @@ For example:
 
 `/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha1/apiexports`: for listing apiexports for sapphire shard stored in system:sapphire cluster
 
-#### On the storage layer
+#### On the Storage Layer
 
 All resources stored by the cache server are prefixed with `/cache`.
 Thanks to that the server can share the same database with the kcp server.

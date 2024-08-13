@@ -3,7 +3,7 @@ description: >
     Information on the different types of URLs that kcp serves.
 ---
 
-# REST access patterns
+# REST Access Patterns
 
 This describes the various REST access patterns the kcp apiserver supports.
 

@@ -7,7 +7,7 @@ description: >
 
 # Terminology
 
-## Logical cluster
+## Logical Cluster
 
 A logical cluster is a way to subdivide a single kube-apiserver + etcd storage into multiple clusters (different APIs,
 separate semantics for access, policy, and control) without requiring multiple instances.  A logical cluster is a
@@ -49,7 +49,7 @@ name, a workspace subdivides the universe into chunks of meaningful work.
 
 Workspaces are the containers for all API objects, so users orient by viewing lists of workspaces from APIs.
 
-## Workspace type
+## Workspace Type
 
 Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed.  For instance, a
 workspace intended for use deploying Kube applications might expose the same API objects a user would encounter on a

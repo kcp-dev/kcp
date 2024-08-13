@@ -12,7 +12,7 @@ Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
 contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file for details.
 
-## Getting started
+## Getting Started
 
 ### Prerequisites
 
@@ -22,7 +22,7 @@ contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file f
 
 Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/.ci-operator.yaml, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/.ci-operator.yaml the go version is indicated by the "tag" attribute. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version"
 
-### Build & verify
+### Build & Verify
 1. In one terminal, build and start `kcp`:
 ```
 go run ./cmd/kcp start
@@ -40,7 +40,7 @@ export KUBECONFIG=.kcp/admin.kubeconfig
 kubectl api-resources
 ```
 
-## Finding areas to contribute
+## Finding Areas to Contribute
 
 Starting to participate in a new project can sometimes be overwhelming, and you may not know where to begin. Fortunately, we are here to help! We track all of our tasks here in GitHub, and we label our issues to categorize them. Here are a couple of handy links to check out:
 
@@ -56,7 +56,7 @@ Sometimes you might get an amazing idea and start working on a huge amount of co
 Finally, we welcome and value all types of contributions, beyond "just code"! Other types include triaging bugs, tracking down and fixing flaky tests, improving our documentation, helping answer community questions, proposing and reviewing designs, etc.
 
 
-## Priorities & milestones
+## Priorities & Milestones
 
 We prioritize issues and features both synchronously (during community meetings) and asynchronously (Slack/GitHub conversations).
 
@@ -79,7 +79,7 @@ We use the [epic label](https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Ai
 
 Please make sure that you fill in all the sections of the template (it's ok if some of this is done later, after creating the issue). If you need help with anything, please let us know.
 
-### Story tasks
+### Story Tasks
 
 Story tasks in an epic should generally represent an independent chunk of work that can be implemented. These don't necessarily need to be copied to standalone GitHub issues; it's ok if we just track the story in the epic as a task. On a case by case basis, if a story seems large enough that it warrants its own issue, we can discuss creating one.
 
@@ -89,17 +89,17 @@ When you open a PR for a story task, please edit the epic description and add a 
 
 When the PR has been merged, please make sure the task is checked off in the epic.
 
-## Tracking work
+## Tracking Work
 
-### Issue status and project board
+### Issue Status and Project Board
 
 We use the Github projects beta for project management, compare [our project board](https://github.com/orgs/kcp-dev/projects/1). Please add issues and PRs into the kcp project and update the status (new, in-progress, ...) for those you are actively working on.
 
-### Unplanned/untracked work
+### Unplanned/Untracked Work
 If you find yourself working on something that is unplanned and/or untracked (i.e., not an open GitHub issue or story task in an epic), that's 100% ok, but we'd like to track this type of work too! Please file a new issue for it, and when you have a PR ready, mark the PR as fixing the issue.
 
 
-## Coding guidelines & conventions
+## Coding Guidelines & Conventions
 
 - Always be clear about what clients or client configs target. Never use an unqualified `client`. Instead, always qualify. For example:
     - `rootClient`
@@ -201,13 +201,14 @@ Here are the most important links:
 - [.github/workflows/ci.yaml](https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml) defines the Github Actions based jobs.
 - [kcp-dev/kcp/.prow.yaml](https://github.com/kcp-dev/kcp/blob/main/.prow.yaml) defines the prow based jobs.
 
-## Debugging flakes
+## Debugging Flakes
 
 Tests that sometimes pass and sometimes fail are known as flakes. Sometimes, there is only an issue with the test, while
 other times, there is an actual bug in the main code. Regardless of the root cause, it's important to try to eliminate
 as many flakes as possible.
 
-### Unit test flakes
+### Unit Test Flakes
+
 If you're trying to debug a unit test flake, you can try to do something like this:
 
 ```shell
@@ -221,7 +222,7 @@ need to dig into the test condition that is failing. Work backwards from the con
 condition is correct, and if it should be that way all the time. Look at the code under test and see if there are any
 reasons things might not be deterministic.
 
-### End to end test flakes
+### End to End Test Flakes
 
 Debugging an end-to-end (e2e) test that is flaky can be a bit trickier than a unit test. Our e2e tests run in one of
 two modes:
@@ -265,7 +266,7 @@ or affected by the change.
 
 Approvers are also reviewers.
 
-### Management of `OWNERS` files
+### Management of `OWNERS` Files
 
 If a reviewer or approver no longer wishes to be in their current role it is requested that a PR
 be opened to update the `OWNERS` file. `OWNERS` files may be periodically reviewed and updated based on project activity

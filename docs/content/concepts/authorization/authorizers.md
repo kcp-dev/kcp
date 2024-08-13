@@ -42,7 +42,7 @@ They are related in the following way:
 [ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWhgYGBjoxSpVAppGlGZBVklpRAuTEKClQGzya0vNoSgPRaEJMTB4N3NCEIUBde9B9OW0XyE6f%2FOTEHIWA%2FJzM5EqgkjnYPfloyh6SENmaSNWDaQQsIEF0Ijx9wSSgoVqUWliaWlwCtk9BITy%2FKLu4IDE5VQEqAKODgMoyi1JTFBASIMo3sUJPISC1KDezuDgzPw8uiWw1ZuRCrMbnflCMAM1xzs8rSc0rwRqGUCXuRfmlBcW44gYWnUjeB0vAI38JVOMUUpL9DMw0CXaLI1Igo4QeFgmYPJbgwQw1hPy0PUM9NWIC%2FyDkrEjtrA5LiKQVbKCg3kQrpwBpp%2Fz8kuKSosQCBZQ8QVXrUNM0pJCDZQioEnghN4NmJXkiStqnsieR7EEToI09pBUTMUq1SrUA%2FWv8Mg%3D%3D)
 
 
-### Workspace Content authorizer
+### Workspace Content Authorizer
 
 The workspace content authorizer checks whether the user is granted access to the workspace. 
 Access is granted access through `verb=access` non-resource permission to `/` inside of the workspace.
@@ -104,13 +104,13 @@ parent workspace.
 
 Service accounts declared within a workspace don't have access to initializing workspaces.
 
-### Maximal permission policy authorizer
+### Maximal Permission Policy Authorizer
 
 If the requested resource type is part of an API binding, then this authorizer verifies that
 the request is not exceeding the maximum permission policy of the related API export.
 Currently, the "local policy" maximum permission policy type is supported.
 
-#### Local policy
+#### Local Policy
 
 The local maximum permission policy delegates the decision to the RBAC of the related API export.
 To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
@@ -171,12 +171,12 @@ roleRef:
 
 TBD: Example
 
-### Kubernetes Bootstrap Policy authorizer
+### Kubernetes Bootstrap Policy Authorizer
 
 The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
 defined in the `system:admin` system workspace.
 
-### Local Policy authorizer
+### Local Policy Authorizer
 
 Once the top-level organization authorizer and the workspace content authorizer granted access to a
 workspace, RBAC rules contained in the workspace derived from the request context are evaluated.

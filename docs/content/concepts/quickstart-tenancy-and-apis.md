@@ -40,7 +40,7 @@ apiexports                                     apis.kcp.io/v1alpha1             
 workspaces                        ws           tenancy.kcp.io/v1alpha1               false        Workspace
 ```
 
-## Create and navigate some workspaces
+## Create and Navigate Some Workspaces
 
 The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces, and to create new ones:
 
@@ -84,7 +84,7 @@ CURRENT   NAME                         CLUSTER                      AUTHINFO    
           workspace.kcp.io/previous   workspace.kcp.io/previous   kcp-admin
 ```
 
-## Understand workspace types
+## Understand Workspace Types
 
 As we can see above, workspaces can contain sub-workspaces, and workspaces have different types. A workspace type
 defines which sub-workspace types can be created under such workspaces. So, for example:
@@ -148,7 +148,7 @@ Status:
 ...
 ```
 
-## Publish some APIs as a service provider
+## Publish Some APIs as a Service Provider
 
 kcp offers `APIExport` and `APIBinding` resources which allow a service provider operating in one workspace to offer its
 capabilities to service consumers in other workspaces.
@@ -189,7 +189,7 @@ apiexport.apis.kcp.io/wildwest.dev created
 You can think of an `APIResourceSchema` as being equivalent to a CRD, and an `APIExport` makes a set of schemas
 available to consumers.
 
-## Use those APIs as a service consumer
+## Use Those APIs as a Service Consumer
 
 Now we can adopt the service consumer persona and create a workspace from which we will use this new `APIExport`:
 
@@ -233,7 +233,7 @@ EOF
 cowboy.wildwest.dev/one created
 ```
 
-## Managing permissions
+## Managing Permissions
 
 Besides publishing APIs and reconciliating the related resources service providers' controllers may need access to core resources or resources exported by other services in the user workspaces as part of their duties. This access needs for security reason to get authorized. `permissionClaims` address this need.
 
@@ -259,7 +259,7 @@ spec:
 
 There is the possibility to further limit the access claim to single resources.
 
-## Dig deeper into APIExports
+## Dig Deeper into APIExports
 
 Switching back to the service provider persona:
 
