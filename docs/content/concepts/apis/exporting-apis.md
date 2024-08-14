@@ -63,12 +63,12 @@ possibility of a new `APIDeployment` resource that coordinates rolling out API u
 Here is an example for a `widgets` resource:
 
 ```yaml
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v220801.widgets.example.kcp.dev # (1)
+  name: v220801.widgets.example.kcp.io # (1)
 spec:
-  group: example.kcp.dev
+  group: example.kcp.io
   names:
     categories:
     - kcp
@@ -99,27 +99,27 @@ spec:
 1. `name` must be of the format `<some prefix>.<plural resource name>.<group name>`. For this example:
        - `<some prefix>` is `v220801`
        - `<plural resource name>` is `widgets`
-       - `<group name>` is `example.kcp.dev`
+       - `<group name>` is `example.kcp.io`
 
 An `APIResourceSchema`'s `spec` is immutable; if you need to make changes to your API schema, you create a new instance.
 
 Once you've created at least one `APIResourceSchema`, you can proceed with creating your `APIExport`.
 
-## Define your APIExport
+## Define Your APIExport
 
 An `APIExport` is the way an API provider makes one or more APIs (coming from `APIResourceSchemas`) available to
 workspaces.
 
-Here is an example `APIExport` called `example.kcp.dev` that exports 1 resource: `widgets`.
+Here is an example `APIExport` called `example.kcp.io` that exports 1 resource: `widgets`.
 
 ```yaml
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIExport
 metadata:
-  name: example.kcp.dev
+  name: example.kcp.io
 spec:
   latestResourceSchemas:
-  - v220801.widgets.example.kcp.dev
+  - v220801.widgets.example.kcp.io
 ```
 
 At a minimum, you specify the names of the `APIResourceSchema`s you want to export in the `spec.latestResourceSchemas`
@@ -147,7 +147,7 @@ does not support competing definitions for `rbac.authorization.k8s.io,roles,v1` 
 In kcp, however, it is possible for multiple API providers to each define the same API `<group>,<resource>,<version>`,
 _without interference_! This is where `APIExport` "identity" becomes critical.
 
-When you create an `APIExport` and you don't specify its identity (as is the case in the `example.kcp.dev` example
+When you create an `APIExport` and you don't specify its identity (as is the case in the `example.kcp.io` example
 above), kcp automatically generates one for you. The identity is always stored in a secret in the same workspace as
 the `APIExport.` By default, it is created in the `kcp-system` namespace in a secret whose name is the name of
 the `APIExport`.
@@ -157,7 +157,7 @@ An `APIExport`'s identity is similar to a private key; you should never share it
 The identity's **hash** is similar to a public key; it is not private and there are times when other consumers of your
 exported APIs need to know and reference it.
 
-Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.dev`, kcp uses the identity hash (in
+Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.io`, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate `APIResourceSchema` are
 served to clients. See [Run Your Controller](#Run-Your-Controller) for more information.
 
@@ -172,13 +172,13 @@ identity hash to their `APIExport`. Let's take the example `APIExport` from abov
 `ConfigMaps` and `Things`:
 
 ```yaml
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIExport
 metadata:
-  name: example.kcp.dev
+  name: example.kcp.io
 spec:
   latestResourceSchemas:
-  - v220801.widgets.example.kcp.dev
+  - v220801.widgets.example.kcp.io
   permissionClaims:
   - group: "" # (1)
     resource: configmaps
@@ -280,12 +280,88 @@ perform in the `magic` workspace must be granted by **both**:
    in the `magic` workspace itself, **and**
 2. the maximal permission policy RBAC settings configured in the `root` workspace for the `tenancy` APIExport
 
+## Build Your Controller
 
-## Run Your Controller
+Controllers to reconcile resources backed by `APIExports` can be developed with kcp's [controller-runtime fork](https://github.com/kcp-dev/controller-runtime). The fork follows upstream and allows to write both kcp-aware and vanilla Kubernetes controllers at the same time. There is an [example controller](https://github.com/kcp-dev/controller-runtime/tree/kcp-0.18/examples/kcp) that serves as reference for implementations.
 
-TODO
-- virtual workspace URLs
-- As a controller, I need to be granted permissions on the APIExport content sub-resource
+When reconciling exported APIs, controllers usually interact with the API resources of said `APIExport` through a [virtual workspace](../workspaces/virtual-workspaces.md). Because kcp can be sharded, it is possible that there are multiple virtual workspaces (across the different shards) that show a subset of API resources created across a sharded kcp instance.
+
+### Endpoint Slices
+
+An API provider that implements a controller should also create something called an `APIExportEndpointSlice` alongside their `APIExport`. This will "slice and dice" the list of available virtual workspace endpoints. For example, a [Partition](../sharding/partitions.md) can be provided to restrict provided virtual workspace URLs to a part of the sharded kcp setup.
+
+This is what the resource looks like:
+
+```yaml title="APIExportEndpointSlice for a partition's virtual workspace endpoints"
+kind: APIExportEndpointSlice
+apiVersion: apis.kcp.io/v1alpha1
+metadata:
+    name: example-gcp-europe
+spec:
+    export:
+        path: root # (1)
+        name: example.kcp.io
+    # optional
+    partition: cloud-region-gcp-europe-xdfgs
+```
+
+1. The workspace path at which the `APIExport` sits. This can be in a different workspace than the `APIExportEndpointSlice`
+
+Based on this, only virtual workspace URLs for the `cloud-region-gcp-europe-xdfgs` partition will be populated into this endpoint slice. If you wish to get a full list of virtual workspace endpoints, just omit the `spec.partition` field from the example above.
+
+Once created, the `status` field of the `APIExportEndpointSlice` will be populated according to its specification:
+
+```shell
+$ kubectl get apiexportendpointslice example-gcp-europe -o yaml
+kind: APIExportEndpointSlice
+apiVersion: apis.kcp.io/v1alpha1
+metadata:
+    name: example-gcp-europe
+...
+status:
+    endpoints
+        - url: https://host1:6443/services/apiexport/root/example.kcp.io
+        - url: https://host2:6443/services/apiexport/root/example.kcp.io
+...
+```
+
+Controller implementations need to watch the `APIExportEndpointSlice` and use all endpoints provided by the status. Each virtual workspace endpoint is its own Kubernetes-like API endpoint. This means that it's likely necessary to spin up managers that each "own" one of the endpoints and process them.
+
+### Authorization
+
+Controllers need to run with proper authorization. That means they need to be able to access the `APIExportEndpointSlice` above (read-only access is sufficient). The `ClusterRole` in the workspace hosting the `APIExportEndpointSlice` could look like this:
+
+```yaml title="ClusterRole for APIExportEndpointSlice access"
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: example.kcp.io:access-endpointslice
+rules:
+- apiGroups: ["apis.kcp.io"]
+  verbs: ["list", "watch", "get"]
+  resources:
+  - apiexportendpointslices
+```
+
+In addition, the user used by the controller needs to be authorized to access the content of the `APIExport` virtual workspace. For that, authorization needs to be given for the `content` subresource of the `APIExport` resource (which might exist in a different workspace than the `APIExportEndpointSlice`). A suitable `ClusterRole` would look like this:
+
+```yaml title="ClusterRole for APIExport content access"
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: example.kcp.io:access-content
+rules:
+- apiGroups: ["apis.kcp.io"]
+  verbs: ["*"] # (1)
+  resources:
+  - apiexports/content
+  resourceNames:
+  - example.kcp.io
+```
+
+1. Allows read and write access to resources created from this `APIExport` across all workspaces
+
+<!--
 
 ## APIResourceSchema Evolution & Maintenance
 
@@ -293,7 +369,9 @@ TODO
 - conversions
 - doc when it's ok to delete "old"/no longer used APIResourceSchemas
 
-## Binding to Exported APIs
+-->
+
+## Bind to Exported APIs
 
 ### APIBinding
 TODO
