@@ -54,7 +54,7 @@ for the parent (`home` in this case) to exist.
 ## Front Proxy
 
 A front-proxy is aware of all logical clusters, their shard they live on,
-their canonical paths and all `Workspaces`s. Non canoical paths can be 
+their canonical paths and all `Workspaces`s. Non canonical paths can be 
 reconstructed from the canonical path prefixes and the worksapce names.
 
 Requests to `/cluster/<path>` are forwarded to the shard via inverse proxying.
@@ -199,6 +199,6 @@ installation as it is cryptographically created during creation of the `APIExpor
 
 The core and tenancy APIs have their `APIExport` in the root logical cluster.
 A new shard will connect to that root logical cluster in order to extract the
-identies for these APIs. It will cache these for later use in case of a network
+identities for these APIs. It will cache these for later use in case of a network
 partition or unavailability of the root shard. After retrieving these identities
 the informers can be started.

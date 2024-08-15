@@ -144,7 +144,7 @@ func TestBoundCRDDeletion(t *testing.T) {
 			testController(tt.creationTimestamp, tt.expectDeletion)
 
 			if tt.expectRequeue != q.requeueHappened {
-				t.Errorf("Expected requeue: %t, but instead acutal requeue: %t", tt.expectRequeue, q.requeueHappened)
+				t.Errorf("Expected requeue: %t, but instead actual requeue: %t", tt.expectRequeue, q.requeueHappened)
 			}
 
 			if tt.expectRequeue {

@@ -33,7 +33,7 @@ func TestSyncExtraAnnotationPatch(t *testing.T) {
 		wantPatch             string
 	}{
 		{
-			name: "nil annotaion",
+			name: "nil annotation",
 		},
 		{
 			name:                  "nothing to patch",

@@ -372,7 +372,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	create(ws2Path, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml", func(bs []byte) ([]byte, error) {
 		var binding apisv1alpha1.APIBinding
 		err := yaml.Unmarshal(bs, &binding)
-		require.NoError(t, err, "error unmarshaling binding")
+		require.NoError(t, err, "error unmarshalling binding")
 		binding.Spec.Reference.Export.Path = ws1Path.String()
 		out, err := yaml.Marshal(&binding)
 		require.NoError(t, err, "error marshaling binding")

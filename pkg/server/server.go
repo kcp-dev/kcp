@@ -562,7 +562,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Adding this to bootup sequence to not cause re-intialization errors
+	// Adding this to bootup sequence to not cause re-initialization errors
 	if err := s.AddPreShutdownHook(kubequota.ControllerName, func() error {
 		close(s.quotaAdmissionStopCh)
 		return nil
