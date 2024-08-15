@@ -58,8 +58,8 @@ const (
 )
 
 var (
-	background        = metav1.DeletePropagationBackground
-	backgroudDeletion = metav1.DeleteOptions{PropagationPolicy: &background}
+	background         = metav1.DeletePropagationBackground
+	backgroundDeletion = metav1.DeleteOptions{PropagationPolicy: &background}
 )
 
 func NewController(
@@ -285,11 +285,11 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 			// should be handled by garbage collection when the controller is
 			// implemented.
 			logger.Info("deleting cluster roles")
-			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroundDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete clusterroles for logical cluster %s: %w", clusterName, err)
 			}
 			logger.Info("deleting cluster role bindings")
-			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroundDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete clusterrolebindings for logical cluster %s: %w", clusterName, err)
 			}
 

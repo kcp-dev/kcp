@@ -103,7 +103,7 @@ roleRef:
 
 A service-account defined in a workspace implicitly is granted access to it.
 
-A service-account defined in a differant workspace is NOT given access to it.
+A service-account defined in a different workspace is NOT given access to it.
 
 ### Required Groups Authorizer
 

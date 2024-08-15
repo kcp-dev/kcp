@@ -15,7 +15,7 @@ kcp has a concept called [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/
 
 ## Will KCP be able to pass the K8S conformance tests in [CNCF Conformance Suites](https://www.cncf.io/certification/software-conformance/)?
 
-No, the Kubernets conformance suites require that all Kubernetes APIs are supported and kcp does not support all APIs out of the box (for instance, Pods).
+No, the Kubernetes conformance suites require that all Kubernetes APIs are supported and kcp does not support all APIs out of the box (for instance, Pods).
 
 ## Are these ideas being presented to the Kubernetes community?
 

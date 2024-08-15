@@ -53,7 +53,7 @@ if [ -n "${PULL_BASE_REF:-}" ]; then
     version="$(git rev-parse --short "$PULL_BASE_REF")"
     branchName="$PULL_BASE_REF"
   else
-    # If PULL_BASE_REF is a tag, there is no branch availabe locally, plus
+    # If PULL_BASE_REF is a tag, there is no branch available locally, plus
     # there is no guarantee that vX.Y.Z is tagged _only_ in the release-X.Y
     # branch; because of this we have to deduce the branch name from the tag
     branchName="$(echo "$version" | sed -E 's/^v([0-9]+)\.([0-9]+)\..*/release-\1.\2/')"

@@ -218,7 +218,7 @@ func TestValidate(t *testing.T) {
 			wantErr: "spec.initializers is immutable",
 		},
 		{
-			name:        "fails if spec.initializers is changed when intializing",
+			name:        "fails if spec.initializers is changed when initializing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -272,7 +272,7 @@ func TestValidate(t *testing.T) {
 					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 				}).LogicalCluster,
 			),
-			wantErr: "status.initializers is immutable after initilization",
+			wantErr: "status.initializers is immutable after initialization",
 		},
 		{
 			name:        "spec and status initializing must match when switching to initializing",

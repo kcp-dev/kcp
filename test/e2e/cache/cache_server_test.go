@@ -319,10 +319,10 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	cachedCucumberDB = &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCucumberDBJson, cachedCucumberDB))
 	if cachedCucumberDB.Spec.Size != 1111 {
-		t.Fatalf("unexpected spec.size %v after an update of amber|%s/%s (shard|cluster/name), epxected %v", cachedCucumberDB.Spec.Size, cluster, initialCucumberDB.Name, 1111)
+		t.Fatalf("unexpected spec.size %v after an update of amber|%s/%s (shard|cluster/name), expected %v", cachedCucumberDB.Spec.Size, cluster, initialCucumberDB.Name, 1111)
 	}
 	if cachedCucumberDB.Status.Condition != "run out" {
-		t.Fatalf("unexpected status.condition %v after an update of amber|%s/%s (shard|cluster/name), epxected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
+		t.Fatalf("unexpected status.condition %v after an update of amber|%s/%s (shard|cluster/name), expected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
 	}
 }
 

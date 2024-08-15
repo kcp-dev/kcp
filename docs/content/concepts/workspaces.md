@@ -55,7 +55,7 @@ define additional types.
   of workspaces that contains the user home workspaces as descendants.
   Can only be a child of the root workspace, and can only have
   HomeBucket children.
-- **HomeBucket Workspace** are intermediate vertices in the hierarhcy
+- **HomeBucket Workspace** are intermediate vertices in the hierarchy
   between the HomeRoot and the user home workspaces.  Can be a child
   of the root or another HomeBucket workspace.  Allowed children are
   home and HomeBucket workspaces.

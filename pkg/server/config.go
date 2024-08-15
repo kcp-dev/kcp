@@ -87,7 +87,7 @@ type Config struct {
 }
 
 type ExtraConfig struct {
-	// resolveIdenties is to be called on server start until it succeeds. It injects the kcp
+	// resolveIdentities is to be called on server start until it succeeds. It injects the kcp
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	resolveIdentities func(ctx context.Context) error

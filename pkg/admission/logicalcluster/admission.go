@@ -170,7 +170,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		}
 
 		if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.Equal(newStatus) {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers is immutable after initilization"))
+			return admission.NewForbidden(a, fmt.Errorf("status.initializers is immutable after initialization"))
 		}
 
 		if old.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
