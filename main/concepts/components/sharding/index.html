@@ -2908,7 +2908,7 @@ a home workspace hierarchy could start at <code>home:&lt;user-name&gt;</code>. T
 for the parent (<code>home</code> in this case) to exist.</p>
 <h2 id="front-proxy">Front Proxy</h2>
 <p>A front-proxy is aware of all logical clusters, their shard they live on,
-their canonical paths and all <code>Workspaces</code>s. Non canoical paths can be 
+their canonical paths and all <code>Workspaces</code>s. Non canonical paths can be 
 reconstructed from the canonical path prefixes and the worksapce names.</p>
 <p>Requests to <code>/cluster/&lt;path&gt;</code> are forwarded to the shard via inverse proxying.</p>
 <p>A front-proxy in its most simplistic (toy) implementation watches all shards.
@@ -3018,7 +3018,7 @@ and watching the corresponding cache server.</p>
 installation as it is cryptographically created during creation of the <code>APIExport</code>.</p>
 <p>The core and tenancy APIs have their <code>APIExport</code> in the root logical cluster.
 A new shard will connect to that root logical cluster in order to extract the
-identies for these APIs. It will cache these for later use in case of a network
+identities for these APIs. It will cache these for later use in case of a network
 partition or unavailability of the root shard. After retrieving these identities
 the informers can be started.</p>
 
