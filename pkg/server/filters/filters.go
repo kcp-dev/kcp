@@ -28,6 +28,7 @@ import (
 	"github.com/munnerz/goautoneg"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,6 +36,9 @@ import (
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	informersv1alpha1 "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
 type (
@@ -43,6 +47,10 @@ type (
 
 const (
 	workspaceAnnotation = "tenancy.kcp.io/workspace"
+
+	// inactiveAnnotation is the annotation denoting a logical cluster should be
+	// deemed unreachable.
+	inactiveAnnotation = "internal.kcp.io/inactive"
 
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
@@ -72,6 +80,49 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 		cluster := request.ClusterFrom(req.Context())
 		if cluster != nil {
 			kaudit.AddAuditAnnotation(req.Context(), workspaceAnnotation, cluster.Name.String())
+		}
+
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithBlockInactiveLogicalClusters ensures that any requests to logical
+// clusters marked inactive are rejected.
+func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient informersv1alpha1.LogicalClusterClusterInformer) http.HandlerFunc {
+	allowedPathPrefixes := []string{
+		"/openapi",
+		"/apis/core.kcp.io/v1alpha1/logicalclusters",
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		_, newURL, _, err := ClusterPathFromAndStrip(req)
+		if err != nil {
+			responsewriters.InternalError(w, req, err)
+			return
+		}
+
+		isException := false
+		for _, prefix := range allowedPathPrefixes {
+			if strings.HasPrefix(newURL.String(), prefix) {
+				isException = true
+			}
+		}
+
+		cluster := request.ClusterFrom(req.Context())
+		if cluster != nil && !cluster.Name.Empty() && !isException {
+			logicalCluster, err := kcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
+			if err == nil {
+				if ann, ok := logicalCluster.ObjectMeta.Annotations[inactiveAnnotation]; ok && ann == "true" {
+					responsewriters.ErrorNegotiated(
+						apierrors.NewBadRequest("logical cluster is marked inactive"),
+						errorCodecs, schema.GroupVersion{}, w, req,
+					)
+					return
+				}
+			} else if !kerrors.IsNotFound(err) {
+				responsewriters.InternalError(w, req, err)
+				return
+			}
 		}
 
 		handler.ServeHTTP(w, req)

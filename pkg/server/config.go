@@ -445,6 +445,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = filters.WithWarningRecorder(apiHandler)
 
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
+		apiHandler = kcpfilters.WithBlockInactiveLogicalClusters(apiHandler, c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 
 		// Add a mux before the chain, for other handlers with their own handler chain to hook in. For example, when
 		// the virtual workspace server is running as part of kcp, it registers /services with the mux so it can handle
