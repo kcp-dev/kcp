@@ -199,7 +199,7 @@ const (
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.all) && self.all) != (has(self.resourceSelector) && size(self.resourceSelector) > 0)",message="either \"all\" or \"resourceSelector\" must be set"
 type PermissionClaim struct {
-	GroupResource `json:","`
+	GroupResource `json:",inline"`
 
 	// all claims all resources for the given group/resource.
 	// This is mutually exclusive with resourceSelector.
