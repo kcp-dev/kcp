@@ -96,7 +96,7 @@
 				],
 			},
 			{
-				"name": "Manage workspaces through the kubectl workspace plugin",
+				"name": "Manage workspaces through the 'kubectl ws' plugin",
 				"type": "go",
 				"request": "launch",
 				"mode": "debug",

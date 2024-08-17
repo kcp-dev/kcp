@@ -122,8 +122,6 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
     	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o $(ROOT_DIR)/bin ./...; \
 		popd; \
     done
-	ln -sf kubectl-workspace bin/kubectl-workspaces
-	ln -sf kubectl-workspace bin/kubectl-ws
 .PHONY: build
 
 .PHONY: build-all
@@ -136,8 +134,6 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
   		W=$$(echo "$${W}" | sed 's,^\./,github.com/kcp-dev/kcp/,') && \
   		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $${W}; \
   	done
-	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
-	ln -sf $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
 .PHONY: install
 
 $(GOLANGCI_LINT):

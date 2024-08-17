@@ -65,7 +65,7 @@ In kcp an application should be able to describe the constraints it needs in its
 
 Shards in kcp represent a single apiserver and etcd/db instance.  This is how kcp would like to split workspaces across many kcp instances since etcd will have storage limits.
 
-## Where can I get the kubectl workspace plugin?
+## Where can I get the kubectl ws plugin?
 
 You're in the right place. Clone this repo and run `make install WHAT=./cli/cmd/kubectl-kcp`.
 
