@@ -39,7 +39,6 @@ func AcceptablePermissionClaim() *AcceptablePermissionClaimApplyConfiguration {
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Group field is set to the value of the last call.
 func (b *AcceptablePermissionClaimApplyConfiguration) WithGroup(value string) *AcceptablePermissionClaimApplyConfiguration {
-	b.ensureGroupResourceApplyConfigurationExists()
 	b.Group = &value
 	return b
 }
@@ -48,15 +47,8 @@ func (b *AcceptablePermissionClaimApplyConfiguration) WithGroup(value string) *A
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Resource field is set to the value of the last call.
 func (b *AcceptablePermissionClaimApplyConfiguration) WithResource(value string) *AcceptablePermissionClaimApplyConfiguration {
-	b.ensureGroupResourceApplyConfigurationExists()
 	b.Resource = &value
 	return b
-}
-
-func (b *AcceptablePermissionClaimApplyConfiguration) ensureGroupResourceApplyConfigurationExists() {
-	if b.GroupResourceApplyConfiguration == nil {
-		b.GroupResourceApplyConfiguration = &GroupResourceApplyConfiguration{}
-	}
 }
 
 // WithAll sets the All field in the declarative configuration to the given value

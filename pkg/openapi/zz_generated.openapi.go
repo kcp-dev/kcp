@@ -1299,6 +1299,21 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 				Description: "AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"all": {
 						SchemaProps: spec.SchemaProps{
 							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
@@ -1335,7 +1350,7 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"state"},
+				Required: []string{"resource", "state"},
 			},
 		},
 		Dependencies: []string{
@@ -1609,6 +1624,21 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 				Description: "PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"all": {
 						SchemaProps: spec.SchemaProps{
 							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
@@ -1638,6 +1668,7 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"resource"},
 			},
 		},
 		Dependencies: []string{
