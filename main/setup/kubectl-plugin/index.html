@@ -25,7 +25,7 @@
     
     
       
-        <title>kubectl plugin - docs.kcp.io</title>
+        <title>kubectl plugins - docs.kcp.io</title>
       
     
     
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#kubectl-plugin" class="md-skip">
+        <a href="#kubectl-plugins" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kubectl plugin
+              kubectl plugins
             
           </span>
         </div>
@@ -605,7 +605,7 @@
         
   
   <span class="md-ellipsis">
-    kubectl plugin
+    kubectl plugins
   </span>
   
 
@@ -1747,8 +1747,6 @@
       
         
       
-        
-      
     
     
       
@@ -1983,27 +1981,6 @@
   
   <span class="md-ellipsis">
     kcp workspace create-context
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    kcp workspace create
   </span>
   
 
@@ -2638,43 +2615,56 @@
   
 
 
-<h1 id="kubectl-plugin">kubectl plugin</h1>
-<p>kcp provides a kubectl plugin that simplifies the operations with the kcp server.</p>
-<p>You can install the plugin from the current repo:</p>
+<h1 id="kubectl-plugins">kubectl plugins</h1>
+<p>kcp provides kubectl plugins that simplify the operations with the kcp server.</p>
+<p>You can install the plugins from the current repo:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>make<span class="w"> </span>install
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>go<span class="w"> </span>install<span class="w"> </span>./cmd/...
 </code></pre></div>
-<p>The plugin will be <a href="https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/">automatically discovered by your current <code>kubectl</code> binary</a>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span>kubectl-kcp
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>KCP<span class="w"> </span>is<span class="w"> </span>the<span class="w"> </span>easiest<span class="w"> </span>way<span class="w"> </span>to<span class="w"> </span>manage<span class="w"> </span>Kubernetes<span class="w"> </span>applications<span class="w"> </span>against<span class="w"> </span>one<span class="w"> </span>or<span class="w"> </span>more<span class="w"> </span>clusters,<span class="w"> </span>by<span class="w"> </span>giving<span class="w"> </span>you<span class="w"> </span>a<span class="w"> </span>personal<span class="w"> </span>control<span class="w"> </span>plane<span class="w"> </span>that<span class="w"> </span>schedules<span class="w"> </span>your<span class="w"> </span>workloads<span class="w"> </span>onto<span class="w"> </span>one<span class="w"> </span>or<span class="w"> </span>many<span class="w"> </span>clusters,<span class="w"> </span>and<span class="w"> </span>making<span class="w"> </span>it<span class="w"> </span>simple<span class="w"> </span>to<span class="w"> </span>pick<span class="w"> </span>up<span class="w"> </span>and<span class="w"> </span>move.<span class="w"> </span>Advanced<span class="w"> </span>use<span class="w"> </span>cases<span class="w"> </span>including<span class="w"> </span>spreading<span class="w"> </span>your<span class="w"> </span>apps<span class="w"> </span>across<span class="w"> </span>clusters<span class="w"> </span><span class="k">for</span><span class="w"> </span>resiliency,<span class="w"> </span>scheduling<span class="w"> </span>batch<span class="w"> </span>workloads<span class="w"> </span>onto<span class="w"> </span>clusters<span class="w"> </span>with<span class="w"> </span>free<span class="w"> </span>capacity,<span class="w"> </span>and<span class="w"> </span>enabling<span class="w"> </span>collaboration<span class="w"> </span><span class="k">for</span><span class="w"> </span>individual<span class="w"> </span>teams<span class="w"> </span>without<span class="w"> </span>having<span class="w"> </span>access<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>underlying<span class="w"> </span>clusters.
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>This<span class="w"> </span><span class="nb">command</span><span class="w"> </span>provides<span class="w"> </span>KCP<span class="w"> </span>specific<span class="w"> </span>sub-command<span class="w"> </span><span class="k">for</span><span class="w"> </span>kubectl.
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Usage:
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>kcp<span class="w"> </span><span class="o">[</span>command<span class="o">]</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>Available<span class="w"> </span>Commands:
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>completion<span class="w">  </span>generate<span class="w"> </span>the<span class="w"> </span>autocompletion<span class="w"> </span>script<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>specified<span class="w"> </span>shell
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nb">help</span><span class="w">        </span>Help<span class="w"> </span>about<span class="w"> </span>any<span class="w"> </span><span class="nb">command</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>workspace<span class="w">   </span>Manages<span class="w"> </span>KCP<span class="w"> </span>workspaces
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>Flags:
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span>--add_dir_header<span class="w">                   </span>If<span class="w"> </span>true,<span class="w"> </span>adds<span class="w"> </span>the<span class="w"> </span>file<span class="w"> </span>directory<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>header<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>messages
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">      </span>--alsologtostderr<span class="w">                  </span>log<span class="w"> </span>to<span class="w"> </span>standard<span class="w"> </span>error<span class="w"> </span>as<span class="w"> </span>well<span class="w"> </span>as<span class="w"> </span>files
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span>-h,<span class="w"> </span>--help<span class="w">                             </span><span class="nb">help</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>kcp
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span>--log_backtrace_at<span class="w"> </span>traceLocation<span class="w">   </span>when<span class="w"> </span>logging<span class="w"> </span>hits<span class="w"> </span>line<span class="w"> </span>file:N,<span class="w"> </span>emit<span class="w"> </span>a<span class="w"> </span>stack<span class="w"> </span>trace<span class="w"> </span><span class="o">(</span>default<span class="w"> </span>:0<span class="o">)</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span>--log_dir<span class="w"> </span>string<span class="w">                   </span>If<span class="w"> </span>non-empty,<span class="w"> </span>write<span class="w"> </span>log<span class="w"> </span>files<span class="w"> </span><span class="k">in</span><span class="w"> </span>this<span class="w"> </span>directory
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span>--log_file<span class="w"> </span>string<span class="w">                  </span>If<span class="w"> </span>non-empty,<span class="w"> </span>use<span class="w"> </span>this<span class="w"> </span>log<span class="w"> </span>file
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">      </span>--log_file_max_size<span class="w"> </span>uint<span class="w">           </span>Defines<span class="w"> </span>the<span class="w"> </span>maximum<span class="w"> </span>size<span class="w"> </span>a<span class="w"> </span>log<span class="w"> </span>file<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>to.<span class="w"> </span>Unit<span class="w"> </span>is<span class="w"> </span>megabytes.<span class="w"> </span>If<span class="w"> </span>the<span class="w"> </span>value<span class="w"> </span>is<span class="w"> </span><span class="m">0</span>,<span class="w"> </span>the<span class="w"> </span>maximum<span class="w"> </span>file<span class="w"> </span>size<span class="w"> </span>is<span class="w"> </span>unlimited.<span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="m">1800</span><span class="o">)</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">      </span>--logtostderr<span class="w">                      </span>log<span class="w"> </span>to<span class="w"> </span>standard<span class="w"> </span>error<span class="w"> </span>instead<span class="w"> </span>of<span class="w"> </span>files<span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="nb">true</span><span class="o">)</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">      </span>--one_output<span class="w">                       </span>If<span class="w"> </span>true,<span class="w"> </span>only<span class="w"> </span>write<span class="w"> </span>logs<span class="w"> </span>to<span class="w"> </span>their<span class="w"> </span>native<span class="w"> </span>severity<span class="w"> </span>level<span class="w"> </span><span class="o">(</span>vs<span class="w"> </span>also<span class="w"> </span>writing<span class="w"> </span>to<span class="w"> </span>each<span class="w"> </span>lower<span class="w"> </span>severity<span class="w"> </span>level<span class="o">)</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">      </span>--skip_headers<span class="w">                     </span>If<span class="w"> </span>true,<span class="w"> </span>avoid<span class="w"> </span>header<span class="w"> </span>prefixes<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>messages
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">      </span>--skip_log_headers<span class="w">                 </span>If<span class="w"> </span>true,<span class="w"> </span>avoid<span class="w"> </span>headers<span class="w"> </span>when<span class="w"> </span>opening<span class="w"> </span>log<span class="w"> </span>files
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">      </span>--stderrthreshold<span class="w"> </span>severity<span class="w">         </span>logs<span class="w"> </span>at<span class="w"> </span>or<span class="w"> </span>above<span class="w"> </span>this<span class="w"> </span>threshold<span class="w"> </span>go<span class="w"> </span>to<span class="w"> </span>stderr<span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="m">2</span><span class="o">)</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">  </span>-v,<span class="w"> </span>--v<span class="w"> </span>Level<span class="w">                          </span>number<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>level<span class="w"> </span>verbosity
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">      </span>--vmodule<span class="w"> </span>moduleSpec<span class="w">               </span>comma-separated<span class="w"> </span>list<span class="w"> </span>of<span class="w"> </span><span class="nv">pattern</span><span class="o">=</span>N<span class="w"> </span>settings<span class="w"> </span><span class="k">for</span><span class="w"> </span>file-filtered<span class="w"> </span>logging
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>Use<span class="w"> </span><span class="s2">&quot;kcp [command] --help&quot;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information<span class="w"> </span>about<span class="w"> </span>a<span class="w"> </span>command.
+<p>or use <a href="https://krew.sigs.k8s.io/">krew</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>index<span class="w"> </span>add<span class="w"> </span>kcp-dev<span class="w"> </span>https://github.com/kcp-dev/krew-index.git
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/kcp
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/ws
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/create-workspace
+</code></pre></div>
+<p>The plugins will be <a href="https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/">automatically discovered by your current <code>kubectl</code> binary</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>kcp
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>KCP<span class="w"> </span>is<span class="w"> </span>the<span class="w"> </span>easiest<span class="w"> </span>way<span class="w"> </span>to<span class="w"> </span>manage<span class="w"> </span>Kubernetes<span class="w"> </span>applications<span class="w"> </span>against<span class="w"> </span>one<span class="w"> </span>or<span class="w"> </span>more<span class="w"> </span>clusters,<span class="w"> </span>by<span class="w"> </span>giving<span class="w"> </span>you<span class="w"> </span>a<span class="w"> </span>personal<span class="w"> </span>control<span class="w"> </span>plane<span class="w"> </span>that<span class="w"> </span>schedules<span class="w"> </span>your<span class="w"> </span>workloads<span class="w"> </span>onto<span class="w"> </span>one<span class="w"> </span>or<span class="w"> </span>many<span class="w"> </span>clusters,<span class="w"> </span>and<span class="w"> </span>making<span class="w"> </span>it<span class="w"> </span>simple<span class="w"> </span>to<span class="w"> </span>pick<span class="w"> </span>up<span class="w"> </span>and<span class="w"> </span>move.<span class="w"> </span>Advanced<span class="w"> </span>use<span class="w"> </span>cases<span class="w"> </span>including<span class="w"> </span>spreading<span class="w"> </span>your<span class="w"> </span>apps<span class="w"> </span>across<span class="w"> </span>clusters<span class="w"> </span><span class="k">for</span><span class="w"> </span>resiliency,<span class="w"> </span>scheduling<span class="w"> </span>batch<span class="w"> </span>workloads<span class="w"> </span>onto<span class="w"> </span>clusters<span class="w"> </span>with<span class="w"> </span>free<span class="w"> </span>capacity,<span class="w"> </span>and<span class="w"> </span>enabling<span class="w"> </span>collaboration<span class="w"> </span><span class="k">for</span><span class="w"> </span>individual<span class="w"> </span>teams<span class="w"> </span>without<span class="w"> </span>having<span class="w"> </span>access<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>underlying<span class="w"> </span>clusters.
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>This<span class="w"> </span><span class="nb">command</span><span class="w"> </span>provides<span class="w"> </span>KCP<span class="w"> </span>specific<span class="w"> </span>sub-command<span class="w"> </span><span class="k">for</span><span class="w"> </span>kubectl.
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>Usage:
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>kcp<span class="w"> </span><span class="o">[</span>command<span class="o">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Available<span class="w"> </span>Commands:
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nb">bind</span><span class="w">        </span>Bind<span class="w"> </span>different<span class="w"> </span>types<span class="w"> </span>into<span class="w"> </span>current<span class="w"> </span>workspace.
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>claims<span class="w">      </span>Operations<span class="w"> </span>related<span class="w"> </span>to<span class="w"> </span>viewing<span class="w"> </span>or<span class="w"> </span>updating<span class="w"> </span>permission<span class="w"> </span>claims
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span>completion<span class="w">  </span>Generate<span class="w"> </span>the<span class="w"> </span>autocompletion<span class="w"> </span>script<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>specified<span class="w"> </span>shell
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span>crd<span class="w">         </span>CRD<span class="w"> </span>related<span class="w"> </span>operations
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nb">help</span><span class="w">        </span>Help<span class="w"> </span>about<span class="w"> </span>any<span class="w"> </span><span class="nb">command</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span>workspace<span class="w">   </span>Manages<span class="w"> </span>KCP<span class="w"> </span>workspaces
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>Flags:
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">      </span>--add_dir_header<span class="w">                   </span>If<span class="w"> </span>true,<span class="w"> </span>adds<span class="w"> </span>the<span class="w"> </span>file<span class="w"> </span>directory<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>header<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>messages
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">      </span>--alsologtostderr<span class="w">                  </span>log<span class="w"> </span>to<span class="w"> </span>standard<span class="w"> </span>error<span class="w"> </span>as<span class="w"> </span>well<span class="w"> </span>as<span class="w"> </span>files<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">  </span>-h,<span class="w"> </span>--help<span class="w">                             </span><span class="nb">help</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>kcp
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">      </span>--log_backtrace_at<span class="w"> </span>traceLocation<span class="w">   </span>when<span class="w"> </span>logging<span class="w"> </span>hits<span class="w"> </span>line<span class="w"> </span>file:N,<span class="w"> </span>emit<span class="w"> </span>a<span class="w"> </span>stack<span class="w"> </span>trace<span class="w"> </span><span class="o">(</span>default<span class="w"> </span>:0<span class="o">)</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">      </span>--log_dir<span class="w"> </span>string<span class="w">                   </span>If<span class="w"> </span>non-empty,<span class="w"> </span>write<span class="w"> </span>log<span class="w"> </span>files<span class="w"> </span><span class="k">in</span><span class="w"> </span>this<span class="w"> </span>directory<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">      </span>--log_file<span class="w"> </span>string<span class="w">                  </span>If<span class="w"> </span>non-empty,<span class="w"> </span>use<span class="w"> </span>this<span class="w"> </span>log<span class="w"> </span>file<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">      </span>--log_file_max_size<span class="w"> </span>uint<span class="w">           </span>Defines<span class="w"> </span>the<span class="w"> </span>maximum<span class="w"> </span>size<span class="w"> </span>a<span class="w"> </span>log<span class="w"> </span>file<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>to<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>.<span class="w"> </span>Unit<span class="w"> </span>is<span class="w"> </span>megabytes.<span class="w"> </span>If<span class="w"> </span>the<span class="w"> </span>value<span class="w"> </span>is<span class="w"> </span><span class="m">0</span>,<span class="w"> </span>the<span class="w"> </span>maximum<span class="w"> </span>file<span class="w"> </span>size<span class="w"> </span>is<span class="w"> </span>unlimited.<span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="m">1800</span><span class="o">)</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">      </span>--logtostderr<span class="w">                      </span>log<span class="w"> </span>to<span class="w"> </span>standard<span class="w"> </span>error<span class="w"> </span>instead<span class="w"> </span>of<span class="w"> </span>files<span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">      </span>--one_output<span class="w">                       </span>If<span class="w"> </span>true,<span class="w"> </span>only<span class="w"> </span>write<span class="w"> </span>logs<span class="w"> </span>to<span class="w"> </span>their<span class="w"> </span>native<span class="w"> </span>severity<span class="w"> </span>level<span class="w"> </span><span class="o">(</span>vs<span class="w"> </span>also<span class="w"> </span>writing<span class="w"> </span>to<span class="w"> </span>each<span class="w"> </span>lower<span class="w"> </span>severity<span class="w"> </span>level<span class="p">;</span><span class="w"> </span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">      </span>--skip_headers<span class="w">                     </span>If<span class="w"> </span>true,<span class="w"> </span>avoid<span class="w"> </span>header<span class="w"> </span>prefixes<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>messages
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">      </span>--skip_log_headers<span class="w">                 </span>If<span class="w"> </span>true,<span class="w"> </span>avoid<span class="w"> </span>headers<span class="w"> </span>when<span class="w"> </span>opening<span class="w"> </span>log<span class="w"> </span>files<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">      </span>--stderrthreshold<span class="w"> </span>severity<span class="w">         </span>logs<span class="w"> </span>at<span class="w"> </span>or<span class="w"> </span>above<span class="w"> </span>this<span class="w"> </span>threshold<span class="w"> </span>go<span class="w"> </span>to<span class="w"> </span>stderr<span class="w"> </span>when<span class="w"> </span>writing<span class="w"> </span>to<span class="w"> </span>files<span class="w"> </span>and<span class="w"> </span>stderr<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>effect<span class="w"> </span>when<span class="w"> </span>-logtostderr<span class="o">=</span><span class="nb">true</span><span class="w"> </span>or<span class="w"> </span>-alsologtostderr<span class="o">=</span><span class="nb">true</span><span class="o">)</span><span class="w"> </span><span class="o">(</span>default<span class="w"> </span><span class="m">2</span><span class="o">)</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">  </span>-v,<span class="w"> </span>--v<span class="w"> </span>Level<span class="w">                          </span>number<span class="w"> </span><span class="k">for</span><span class="w"> </span>the<span class="w"> </span>log<span class="w"> </span>level<span class="w"> </span>verbosity
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">      </span>--version<span class="w">                          </span>version<span class="w"> </span><span class="k">for</span><span class="w"> </span>kcp
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">      </span>--vmodule<span class="w"> </span>moduleSpec<span class="w">               </span>comma-separated<span class="w"> </span>list<span class="w"> </span>of<span class="w"> </span><span class="nv">pattern</span><span class="o">=</span>N<span class="w"> </span>settings<span class="w"> </span><span class="k">for</span><span class="w"> </span>file-filtered<span class="w"> </span>logging
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>Use<span class="w"> </span><span class="s2">&quot;kcp [command] --help&quot;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information<span class="w"> </span>about<span class="w"> </span>a<span class="w"> </span>command.
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>.<span class="w">                                </span><span class="c1"># a short-cut for kubectl kcp workspace</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>$<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w">       </span><span class="c1"># a short-cut for kubectl kcp workspace create</span>
 </code></pre></div>
 
 
