@@ -150,27 +150,10 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	}
 	currentWorkspaceOpts.BindFlags(currentCmd)
 
-	createWorkspaceOpts := plugin.NewCreateWorkspaceOptions(streams)
-	createCmd := &cobra.Command{
-		Use:          "create",
-		Short:        "Creates a new workspace",
-		Example:      "kcp workspace create <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
-		SilenceUsage: true,
-		Args:         cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
-			if err := createWorkspaceOpts.Validate(); err != nil {
-				return err
-			}
-			if err := createWorkspaceOpts.Complete(args); err != nil {
-				return err
-			}
-			return createWorkspaceOpts.Run(cmd.Context())
-		},
+	createCmd, err := NewCreate(streams)
+	if err != nil {
+		return nil, err
 	}
-	createWorkspaceOpts.BindFlags(createCmd)
 
 	createContextOpts := plugin.NewCreateContextOptions(streams)
 	createContextCmd := &cobra.Command{
@@ -219,5 +202,32 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmd.AddCommand(currentCmd)
 	cmd.AddCommand(createCmd)
 	cmd.AddCommand(createContextCmd)
+	return cmd, nil
+}
+
+// NewCreate returns a cobra.Command for workspace create action.
+func NewCreate(streams genericclioptions.IOStreams) (*cobra.Command, error) {
+	createWorkspaceOpts := plugin.NewCreateWorkspaceOptions(streams)
+	cmd := &cobra.Command{
+		Use:          "create",
+		Short:        "Creates a new workspace",
+		Example:      "kcp workspace create <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
+		SilenceUsage: true,
+		Args:         cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			if err := createWorkspaceOpts.Validate(); err != nil {
+				return err
+			}
+			if err := createWorkspaceOpts.Complete(args); err != nil {
+				return err
+			}
+			return createWorkspaceOpts.Run(cmd.Context())
+		},
+	}
+	createWorkspaceOpts.BindFlags(cmd)
+
 	return cmd, nil
 }

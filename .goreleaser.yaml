@@ -86,6 +86,28 @@ builds:
   env:
   - CGO_ENABLED=0
 
+- id: "kubectl-create-workspace"
+  main: ./cmd/kubectl-create-workspace
+  dir: cli
+  binary: bin/kubectl-create-workspace
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  - goos: windows
+    goarch: ppc64le
+  env:
+  - CGO_ENABLED=0
+
 archives:
 - id: kcp
   builds:
@@ -102,6 +124,10 @@ archives:
   builds:
   - kubectl-ws
   name_template: "kubectl-ws-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: kubectl-create-workspace-plugin-krew
+  builds:
+  - kubectl-create-workspace
+  name_template: "kubectl-create-workspace-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 release:
   draft: true
@@ -143,4 +169,16 @@ krews:
   description: |
     KCP workspace cli plugin for kubectl. Enables you to manage your KCP workspaces.
   short_description: "KCP workspace cli plugin for kubectl."
+  skip_upload: auto
+- name: create-workspace
+  ids:
+  - kubectl-create-workspace-plugin-krew
+  repository:
+    owner: kcp-dev
+    name: krew-index
+    token: "{{ .Env.KREW_GITHUB_TOKEN }}"
+  homepage: "https://kcp.io/"
+  description: |
+    KCP create workspace cli plugin for kubectl. Enables you to create KCP workspaces.
+  short_description: "KCP create workspace cli plugin for kubectl."
   skip_upload: auto
