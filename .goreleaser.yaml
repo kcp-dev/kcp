@@ -42,30 +42,8 @@ builds:
   env:
   - CGO_ENABLED=0
 
-- id: "kubectl-workspaces"
-  main: ./cmd/kubectl-workspace
-  dir: cli
-  binary: bin/kubectl-workspaces
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  goos:
-  - linux
-  - darwin
-  - windows
-  goarch:
-  - amd64
-  - arm64
-  - ppc64le
-  ignore:
-  - goos: darwin
-    goarch: ppc64le
-  - goos: windows
-    goarch: ppc64le
-  env:
-  - CGO_ENABLED=0
-
 - id: "kubectl-ws"
-  main: ./cmd/kubectl-workspace
+  main: ./cmd/kubectl-ws
   dir: cli
   binary: bin/kubectl-ws
   ldflags:
@@ -116,10 +94,6 @@ archives:
   builds:
   - kubectl-kcp
   name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-- id: kubectl-workspace-plugin
-  builds:
-  - kubectl-workspace
-  name_template: "kubectl-workspace-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-ws-plugin
   builds:
   - kubectl-ws
@@ -145,18 +119,6 @@ krews:
   description: |
     KCP cli plugin for kubectl. Enables you to work with KCP.
   short_description: "KCP cli plugin for kubectl."
-  skip_upload: auto
-- name: workspace
-  ids:
-  - kubectl-workspace-plugin
-  repository:
-    owner: kcp-dev
-    name: krew-index
-    token: "{{ .Env.KREW_GITHUB_TOKEN }}"
-  homepage: "https://kcp.io/"
-  description: |
-    KCP workspace cli plugin for kubectl. Enables you to manage your KCP workspaces.
-  short_description: "KCP workspace cli plugin for kubectl."
   skip_upload: auto
 - name: ws
   ids:

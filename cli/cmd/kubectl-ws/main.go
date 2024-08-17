@@ -30,7 +30,7 @@ import (
 )
 
 func main() {
-	flags := pflag.NewFlagSet("kubectl-workspace", pflag.ExitOnError)
+	flags := pflag.NewFlagSet("kubectl-ws", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
 	workspaceCmd, err := cmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
