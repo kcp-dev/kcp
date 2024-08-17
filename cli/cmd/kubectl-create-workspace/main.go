@@ -33,7 +33,7 @@ func main() {
 	flags := pflag.NewFlagSet("kubectl-create-workspace", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	createWorkspaceCmd, err := cmd.NewCreate("kubectl create workspace", genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	createWorkspaceCmd, err := cmd.NewCreate("kubectl create workspace", "", genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

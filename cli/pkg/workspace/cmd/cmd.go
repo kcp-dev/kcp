@@ -150,7 +150,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	}
 	currentWorkspaceOpts.BindFlags(currentCmd)
 
-	createCmd, err := NewCreate(cliName+" workspace create", streams)
+	createCmd, err := NewCreate(cliName+" workspace create", "install the 'kubectl create workspace' plugin instead, compare https://docs.kcp.io/kcp/latest/setup/kubectl-plugin/.", streams)
 	if err != nil {
 		return nil, err
 	}
@@ -206,12 +206,13 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 }
 
 // NewCreate returns a cobra.Command for workspace create action.
-func NewCreate(prefix string, streams genericclioptions.IOStreams) (*cobra.Command, error) {
+func NewCreate(prefix string, deprecation string, streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	createWorkspaceOpts := plugin.NewCreateWorkspaceOptions(streams)
 	cmd := &cobra.Command{
 		Use:          "create",
 		Short:        "Creates a new workspace",
 		Example:      prefix + " <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
+		Deprecated:   deprecation,
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
