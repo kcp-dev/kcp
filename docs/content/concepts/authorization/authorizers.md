@@ -276,5 +276,57 @@ The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (co
 }
 ```
 
-!!! note
+
     The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
+
+### Scopes
+
+Scopes are a way to limit the access of a user to a specific logical cluster. 
+Scopes are (optionally) attached to the user identity by setting the 
+`authentication.kcp.io/scopes: cluster:<logical-cluster>,...` extra field. The
+scope is then checked by the authorizers. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1
+```
+This user will only be allowed to access resources in `logical-cluster-1`, 
+falling back to be considered as user `system:anonymous` with group 
+`system:authenticated` in all other logical clusters.
+
+Each extra field can contain multiple scopes, separated by a comma:
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1,cluster:logical-cluster-2
+```
+This user is allowed to operate in both `logical-cluster-1` and 
+`logical-cluster-2`, falling back to be considered as user `system:anonymous` 
+with group `system:authenticated` in all other logical clusters.
+
+If multiple `authentication.kcp.io/scopes` values are set, the intersection is 
+taken:
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1,cluster:logical-cluster-2
+  - cluster:logical-cluster-2,cluster:logical-cluster-3
+```
+This user is only allowed to operate in `logical-cluster-2`, falling back to be
+considered as user `system:anonymous` with group `system:authenticated` in all 
+other logical clusters.
+
+The intersection can be empty, in which case it falls back in every logical 
+cluster.
+
+When impersonating a user in a logical cluster, the resulting user identity is 
+scoped to the logical cluster the impersonation is happening in.
+
+A scope mismatch does not invalidate the warrants (see next section) of a user. 

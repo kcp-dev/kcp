@@ -17,6 +17,7 @@ limitations under the License.
 package filters
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -24,6 +25,8 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
@@ -34,6 +37,7 @@ type privilege int
 
 const (
 	unprivileged privilege = iota
+	authenticated
 	priviledged
 	superPrivileged
 )
@@ -44,7 +48,16 @@ var (
 	specialGroups = map[string]privilege{
 		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
 		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
+		user.AllAuthenticated:                      authenticated,
 	}
+)
+
+// impersonationContextType is a context key for impersonation marker. It's true
+// if the request is impersonated.
+type impersonationContextType int
+
+const (
+	impersonationContextKey impersonationContextType = iota
 )
 
 // WithImpersonationGatekeeper checks the request for impersonations and validates them,
@@ -66,20 +79,31 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 				}
 			}
 		}
-		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 { // No user and group to impersonate - just pass the request.
+
+		// If no impersonation is requested, just pass the request.
+		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 {
+			// in withScoping, we will check that this value is set. If not, the is some programming error.
+			ctx := req.Context()
+			ctx = context.WithValue(ctx, impersonationContextKey, false)
+			req = req.WithContext(ctx)
+
 			handler.ServeHTTP(w, req)
 			return
 		}
 
-		requester, exists := request.UserFrom(req.Context())
+		// remember that we impersonated for withScoping
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, impersonationContextKey, true)
+		req = req.WithContext(ctx)
+
+		requester, exists := request.UserFrom(ctx)
 		if !exists {
 			responsewriters.ErrorNegotiated(
 				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is invalid for the requestor")),
 				errorCodecs, schema.GroupVersion{}, w, req)
 			return
 		}
-		// TODO: Add scopes and warrants to the impersonation check.
-		if validImpersonation(requester.GetGroups(), impersonationGroups) {
+		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
 			handler.ServeHTTP(w, req)
 			return
 		}
@@ -87,6 +111,54 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is not allowed for the requestor")),
 			errorCodecs, schema.GroupVersion{}, w, req)
+	})
+}
+
+// WithImpersonationScoping scopes the request to the cluster it is intended for.
+func WithImpersonationScoping(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if impersonated, ok := req.Context().Value(impersonationContextKey).(bool); !ok {
+			responsewriters.InternalError(w, req, fmt.Errorf("impersonation context not set"))
+			return
+		} else if !impersonated {
+			// no impersonation, no scoping.
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		// get user from context. Should always be there.
+		u, exists := request.UserFrom(req.Context())
+		if !exists {
+			responsewriters.InternalError(w, req, fmt.Errorf("no user in context"))
+			return
+		}
+
+		// system:masters can impersonate any group, without a scope
+		if sets.New(u.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		// scope to cluster because impersonation happened.
+		cluster := request.ClusterFrom(req.Context())
+		if cluster == nil {
+			responsewriters.InternalError(w, req, fmt.Errorf("no cluster in context"))
+			return
+		}
+
+		extra := u.GetExtra()
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		userScoped := &user.DefaultInfo{
+			Name:   u.GetName(),
+			UID:    u.GetUID(),
+			Groups: u.GetGroups(),
+			Extra:  extra,
+		}
+
+		extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster.Name))
+		handler.ServeHTTP(w, req.WithContext(request.WithUser(req.Context(), userScoped)))
 	})
 }
 
@@ -105,10 +177,18 @@ func maxUserPrivilege(userGroups []string) privilege {
 func validImpersonation(userGroups, requestedGroups []string) bool {
 	userMax := maxUserPrivilege(userGroups)
 
+	// Case 1: User is requesting to impersonate a group with higher privilege.
 	for _, g := range requestedGroups {
 		if userMax < specialGroups[g] {
 			return false
 		}
 	}
+	// Case 2: User is requesting to impersonate a `system:authenticated` group without having the group itself and not being privileged.
+	// This is very much academic, as all users reaching this point will have the `system:authenticated` group or be privileged.
+	if sets.New(requestedGroups...).Has(user.AllAuthenticated) &&
+		!(sets.New(userGroups...).HasAny(user.AllAuthenticated, authorizationbootstrap.SystemMastersGroup, authorizationbootstrap.SystemKcpAdminGroup)) {
+		return false
+	}
+
 	return true
 }

@@ -25,9 +25,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -73,25 +73,16 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
-	subjectClusters := map[logicalcluster.Path]bool{}
-	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
-		subjectClusters[logicalcluster.NewPath(sc)] = true
-	}
-
-	isUser := len(subjectClusters) == 0
-	isServiceAccount := len(subjectClusters) > 0
-
-	// always let logical-cluster-admins through
-	if isUser && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	if sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
 	switch {
-	case isServiceAccount:
+	case validation.IsServiceAccount(attr.GetUser()):
 		// service accounts are always allowed
 		return DelegateAuthorization("service account access to logical cluster", a.delegate).Authorize(ctx, attr)
 
-	case isUser:
+	default:
 		// get logical cluster with required group annotation
 		logicalCluster, err := a.getLogicalCluster(cluster.Name)
 		if err != nil {
@@ -121,6 +112,4 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 
 		return authorizer.DecisionDeny, fmt.Sprintf("user is not a member of required groups: %s", logicalCluster.Annotations[RequiredGroupsAnnotationKey]), nil
 	}
-
-	return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 }
