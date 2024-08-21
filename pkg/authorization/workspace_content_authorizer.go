@@ -27,11 +27,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+	"k8s.io/kubernetes/pkg/registry/rbac/validation"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -87,19 +87,15 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
 	}
 
-	subjectClusters := map[logicalcluster.Name]bool{}
-	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
-		subjectClusters[logicalcluster.Name(sc)] = true
-	}
-
+	isServiceAccount := validation.IsServiceAccount(attr.GetUser())
 	isAuthenticated := sets.New[string](attr.GetUser().GetGroups()...).Has("system:authenticated")
-	isUser := len(subjectClusters) == 0
-	isServiceAccountFromCluster := subjectClusters[cluster.Name]
+	isForeign := validation.IsForeign(attr.GetUser(), cluster.Name)
+	isInScope := validation.IsInScope(attr.GetUser(), cluster.Name)
 
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		attr := deepCopyAttributes(attr)
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		if isAuthenticated && !isUser && !isServiceAccountFromCluster {
+		if isAuthenticated && isServiceAccount && !isForeign {
 			// service accounts from other workspaces might conflict with local service accounts by name.
 			// This could lead to unwanted side effects of unwanted applied permissions.
 			// Hence, these requests have to be anonymized.
@@ -112,7 +108,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// always let logical-cluster-admins through
-	if isUser && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	if !isServiceAccount && isInScope && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
@@ -130,15 +126,20 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	switch {
-	case !isUser && !isServiceAccountFromCluster:
-		// service accounts from other workspaces cannot access
+	case isServiceAccount && isForeign:
+		// Service accounts from other workspaces might conflict with local service accounts by name.
+		// Use another reason string to make this very common case clearer.
 		return authorizer.DecisionDeny, "foreign service account", nil
 
-	case isServiceAccountFromCluster:
+	case !isInScope:
+		// No opinion, but there could be a warrant giving access.
+		return authorizer.DecisionNoOpinion, "out of scope", nil
+
+	case isServiceAccount:
 		// A service account declared in the requested workspace is authorized inside that workspace.
 		return DelegateAuthorization("local service account access", a.delegate).Authorize(ctx, attr)
 
-	case isUser:
+	default:
 		authz := rbac.New(
 			&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister()},
 			&rbac.RoleBindingLister{Lister: rbacwrapper.NewMergedRoleBindingLister()},
@@ -170,6 +171,4 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		}
 		return DelegateAuthorization("user logical cluster access", a.delegate).Authorize(ctx, attr)
 	}
-
-	return authorizer.DecisionNoOpinion, "unknown user type", nil
 }

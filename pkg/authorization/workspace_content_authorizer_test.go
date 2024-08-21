@@ -47,13 +47,21 @@ func newUser(name string, groups ...string) *user.DefaultInfo {
 	}
 }
 
+func newUserWithExtra(name string, extra map[string][]string, groups ...string) *user.DefaultInfo {
+	return &user.DefaultInfo{
+		Name:   name,
+		Groups: groups,
+		Extra:  extra,
+	}
+}
+
 func newServiceAccountWithCluster(name string, cluster string, groups ...string) *user.DefaultInfo {
 	extra := make(map[string][]string)
 	if len(cluster) > 0 {
 		extra[authserviceaccount.ClusterNameKey] = []string{cluster}
 	}
 	return &user.DefaultInfo{
-		Name:   name,
+		Name:   "system:serviceaccount:" + name,
 		Extra:  extra,
 		Groups: groups,
 	}
@@ -118,8 +126,28 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
-			wantDecision:       authorizer.DecisionDeny,
+			wantDecision:       authorizer.DecisionDeny, // this must be a deny because otherwise naming conflicts could lead to unwanted permissions
 			wantReason:         "foreign service account",
+		},
+		{
+			testName: "user with scope to this cluster is allowed",
+
+			requestedWorkspace: "root:ready",
+			requestingUser: newUserWithExtra("user-access", map[string][]string{
+				"authentication.kcp.io/scopes": {"cluster:root:ready"},
+			}),
+			wantDecision: authorizer.DecisionAllow,
+			wantReason:   "delegating due to user logical cluster access",
+		},
+		{
+			testName: "user with scope to another cluster is denied",
+
+			requestedWorkspace: "root:ready",
+			requestingUser: newUserWithExtra("user-access", map[string][]string{
+				"authentication.kcp.io/scopes": {"cluster:anotherws"},
+			}),
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   "out of scope",
 		},
 		{
 			testName: "service account from same cluster is granted access",
@@ -176,6 +204,16 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to logical cluster admin access",
+		},
+		{
+			testName: "system:kcp:logical-cluster-admin can always pass with exeception if scoped",
+
+			requestedWorkspace: "root:non-existent",
+			requestingUser: newUserWithExtra("lcluster-admin", map[string][]string{
+				"authentication.kcp.io/scopes": {"cluster:other"},
+			}, "system:kcp:logical-cluster-admin"),
+			wantDecision: authorizer.DecisionDeny,
+			wantReason:   "LogicalCluster not found",
 		},
 		{
 			testName: "permitted user is granted access to initializing workspace",
