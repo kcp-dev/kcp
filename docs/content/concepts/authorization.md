@@ -208,6 +208,24 @@ and work just like in a regular Kubernetes cluster.
 
 It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy `RoleBinding` or `ClusterRoleBinding`.
 
+### Scopes
+
+Scopes are a way to limit the access of a user to a specific logical cluster. Scopes are attached to the user identity
+by adding `cluster:<logical-cluster>` to the `authentication.kcp.io/scopes` extra field. The scope is then checked by
+the authorizers. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1
+```
+
+This user will only be allowed to access resources in `logical-cluster-1`.
+
+A scope mismatch does not invalidate the warrants (see next section) of a user. 
+
 ### Service Accounts
 
 Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.
