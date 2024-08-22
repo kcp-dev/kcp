@@ -44,7 +44,10 @@ const (
 
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
-func NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewMaximalPermissionPolicyAuthorizer(
+	kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory,
+) func(delegate authorizer.Authorizer) authorizer.Authorizer {
 	// Make sure informer knows what to watch
 	kubeInformers.Rbac().V1().Roles().Lister()
 	kubeInformers.Rbac().V1().RoleBindings().Lister()
@@ -64,37 +67,39 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers kcp
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	return &MaximalPermissionPolicyAuthorizer{
-		getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
-		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
-		},
-		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
-			return rbac.New(
-				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
-					kubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
-					globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
-				)},
-				&rbac.RoleBindingLister{Lister: rbacwrapper.NewMergedRoleBindingLister(
-					kubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName),
-					globalKubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName),
-				)},
-				&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
-					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
-					globalKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
-				)},
-				&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
-					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
-					globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
-					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
-				)},
-			)
-		},
-		delegate: delegate,
+	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
+		return &MaximalPermissionPolicyAuthorizer{
+			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+			},
+			getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
+			},
+			newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
+				return rbac.New(
+					&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
+						kubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
+						globalKubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
+						kubeInformers.Rbac().V1().Roles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
+					)},
+					&rbac.RoleBindingLister{Lister: rbacwrapper.NewMergedRoleBindingLister(
+						kubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName),
+						globalKubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName),
+					)},
+					&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
+						kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
+						globalKubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
+						kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
+					)},
+					&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
+						kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
+						globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
+						kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(controlplaneapiserver.LocalAdminCluster),
+					)},
+				)
+			},
+			delegate: delegate,
+		}
 	}
 }
 
