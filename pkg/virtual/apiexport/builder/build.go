@@ -18,6 +18,7 @@ package builder
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -109,28 +111,42 @@ func BuildVirtualWorkspace(
 					return nil, fmt.Errorf("error getting valid cluster from context: %w", err)
 				}
 
+				user, found := genericapirequest.UserFrom(ctx)
+				if !found {
+					return nil, fmt.Errorf("error getting user from context")
+				}
+
 				// Wildcard requests cannot be impersonated against a concrete cluster.
 				if cluster.Wildcard {
 					return dynamicClient, nil
 				}
 
-				impersonationConfig := rest.CopyConfig(cfg)
-				impersonationConfig.Impersonate = rest.ImpersonationConfig{
-					UserName: "system:serviceaccount:default:rest",
-					Groups:   []string{bootstrap.SystemKcpAdminGroup},
+				// Add a warrant of a fake local service account giving full access
+				warrant := validation.Warrant{
+					User:   "system:serviceaccount:default:rest",
+					Groups: []string{bootstrap.SystemKcpAdminGroup},
 					Extra: map[string][]string{
 						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
 					},
 				}
 
-				if user, ok := genericapirequest.UserFrom(ctx); ok {
-					// We pass the original user and groups as extra fields to
-					// the impersonation config so that the receiver can make
-					// decisions based on the original user/groups.
-					impersonationConfig.Impersonate.Extra[OriginalUserAnnotationKey] = []string{user.GetName()}
-					impersonationConfig.Impersonate.Extra[OriginalGroupsAnnotationKey] = user.GetGroups()
+				bs, err := json.Marshal(warrant)
+				if err != nil {
+					return nil, fmt.Errorf("error marshaling warrant: %w", err)
 				}
 
+				// Impersonate the request user and add the warrant as an extra
+				impersonationConfig := rest.CopyConfig(cfg)
+				impersonationConfig.Impersonate = rest.ImpersonationConfig{
+					UserName: user.GetName(),
+					Groups:   user.GetGroups(),
+					UID:      user.GetUID(),
+					Extra:    user.GetExtra(),
+				}
+				if impersonationConfig.Impersonate.Extra == nil {
+					impersonationConfig.Impersonate.Extra = map[string][]string{}
+				}
+				impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey], string(bs))
 				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
 				if err != nil {
 					return nil, fmt.Errorf("error generating dynamic client: %w", err)
