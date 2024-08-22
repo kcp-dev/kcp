@@ -253,7 +253,7 @@ func TestServiceAccounts(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create role")
 
-				t.Log("Verifying if service account is allowed to escalate")
+				t.Log("Verifying if service account is allowed to delegate")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{

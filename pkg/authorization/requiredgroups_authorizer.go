@@ -42,18 +42,20 @@ const (
 
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored
 // on the LogicalCluster object. Service account by-pass this.
-func NewRequiredGroupsAuthorizer(local, global corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
-	return &requiredGroupsAuthorizer{
-		getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-			obj, err := local.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, err
-			} else if errors.IsNotFound(err) {
-				return global.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-			}
-			return obj, nil
-		},
-		delegate: delegate,
+func NewRequiredGroupsAuthorizer(local, global corev1alpha1listers.LogicalClusterClusterLister) func(delegate authorizer.Authorizer) authorizer.Authorizer {
+	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
+		return &requiredGroupsAuthorizer{
+			getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+				obj, err := local.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, err
+				} else if errors.IsNotFound(err) {
+					return global.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+				}
+				return obj, nil
+			},
+			delegate: delegate,
+		}
 	}
 }
 
