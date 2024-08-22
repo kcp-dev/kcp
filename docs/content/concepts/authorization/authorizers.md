@@ -214,6 +214,24 @@ Kubernetes service accounts are granted access to the workspaces they are define
 E.g. a service account "default" in `root:org:ws:ws` is granted access to `root:org:ws:ws`, and through the
 workspace content authorizer it gains the `system:kcp:clusterworkspace:access` group membership.
 
+Service accounts from foreign workspaces are authenticated as user `system:kcp:serviceaccount:<logicalcluster>:<ns>:<serviceaccount>` 
+and under that name can be granted access to workspaces and other permissions. The original service account name is 
+appended as a warrant (see next section) in order to match the same (cluster) role bindings:
+
+```yaml
+user: system:kcp:serviceaccount:logical-cluster-1:default:sa
+groups: ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"]
+extra:
+  authorization.kcp.io/warrants: |
+    {
+      "user": "system:serviceaccount:default:sa",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"],
+      "extra": {
+        "authentication.kubernetes.io/cluster-name": "cluster:logical-cluster-1"
+      }
+    }
+```
+
 ### Warrants
 
 Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
@@ -244,3 +262,21 @@ but not to act as the warrant user itself. E.g. in auditing or admission control
 the primary user is still the one that is acting.
 
 Warrants can be nested, i.e. a warrant can contain another warrant.
+
+A denied user invalidates all its warrants.
+
+Service account warrants must be qualified to their logical cluster through the `authentication.kubernetes.io/cluster-name` 
+extra value. For example:
+
+```yaml
+user: user1
+extra:
+    authorization.kcp.io/warrants: |
+      {
+        "user": "system:kcp:serviceaccount:logical-cluster-1:default:sa",
+        "groups": ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"],
+        "extra": {
+          "authentication.kubernetes.io/cluster-name": "cluster:logical-cluster-1"
+        }
+      }
+```
