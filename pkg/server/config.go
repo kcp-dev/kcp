@@ -448,6 +448,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// 3. Scoping handlers to ensure that the request is scoped to the user's clusters before authz is done.
 		// 4. Rest of the handlers.
 		apiHandler = kcpfilters.WithImpersonationScoping(apiHandler)
+		apiHandler = kcpfilters.WithGlobalServiceAccountRewrite(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)

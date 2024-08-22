@@ -17,11 +17,17 @@ limitations under the License.
 package filters
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
 
 	"gopkg.in/square/go-jose.v2/jwt"
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -80,5 +86,64 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handle
 		req.RequestURI = path.Join("/clusters", clusterName, req.RequestURI)
 
 		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithGlobalServiceAccountRewrite replaces the user info of the context for service
+// accounts by representing them as globally valid kcp service account representation
+// with a warrant in the old format (to match kube-like (cluster) role bindings).
+func WithGlobalServiceAccountRewrite(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		info, exists := request.UserFrom(ctx)
+		if !exists {
+			responsewriters.InternalError(w, req, errors.New("no user found for request"))
+			return
+		}
+
+		clusters := info.GetExtra()[serviceaccount.ClusterNameKey]
+		if !strings.HasPrefix(info.GetName(), "system:serviceaccount:") || len(clusters) != 1 {
+			// multiple clusters are handled by authorization, but they cannot be used
+			// cross-cluster ¯\_(ツ)_/¯
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		// move traditional kube service account into a warrant
+		war := validation.Warrant{
+			User:   info.GetName(),
+			Groups: info.GetGroups(),
+			UID:    info.GetUID(),
+			Extra:  info.GetExtra(),
+		}
+		bs, err := json.Marshal(war)
+		if err != nil {
+			responsewriters.InternalError(w, req, fmt.Errorf("failed to marshal warrant: %v", err))
+			return
+		}
+
+		// wrap with globally valid kcp service account
+		comps := strings.SplitN(info.GetName(), ":", 4)
+		if len(comps) != 4 {
+			responsewriters.InternalError(w, req, errors.New("invalid service account name"))
+			return
+		}
+		ns, user := comps[2], comps[3]
+		rewritten := authnuser.DefaultInfo{
+			Name:   fmt.Sprintf("system:kcp:serviceaccount:%s:%s:%s", clusters[0], ns, user),
+			Groups: []string{authnuser.AllAuthenticated},
+			Extra:  map[string][]string{validation.WarrantExtraKey: {string(bs)}},
+		}
+		for k, v := range info.GetExtra() {
+			switch k {
+			case validation.ScopeExtraKey:
+				rewritten.Extra[k] = v
+			default:
+			}
+		}
+
+		// call rest of the chain
+		ctx = request.WithUser(ctx, &rewritten)
+		handler.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
