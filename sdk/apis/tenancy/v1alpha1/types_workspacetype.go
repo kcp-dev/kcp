@@ -64,7 +64,7 @@ type WorkspaceTypeSpec struct {
 	// for this initializer will be a colon-delimited string using the workspace in which
 	// the WorkspaceType is defined, and the type's name. For example, if a
 	// WorkspaceType `example` is created in the `root:org` workspace, the implicit
-	// initializer name is `root:org:Example`.
+	// initializer name is `root:org:example`.
 	//
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
