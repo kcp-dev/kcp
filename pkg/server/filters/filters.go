@@ -18,6 +18,7 @@ package filters
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,7 +29,6 @@ import (
 	"github.com/munnerz/goautoneg"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -114,12 +114,12 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient inf
 			if err == nil {
 				if ann, ok := logicalCluster.ObjectMeta.Annotations[inactiveAnnotation]; ok && ann == "true" {
 					responsewriters.ErrorNegotiated(
-						apierrors.NewBadRequest("logical cluster is marked inactive"),
+						apierrors.NewForbidden(corev1alpha1.Resource("logicalclusters"), cluster.Name.String(), errors.New("logical cluster is marked inactive")),
 						errorCodecs, schema.GroupVersion{}, w, req,
 					)
 					return
 				}
-			} else if !kerrors.IsNotFound(err) {
+			} else if !apierrors.IsNotFound(err) {
 				responsewriters.InternalError(w, req, err)
 				return
 			}
