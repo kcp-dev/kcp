@@ -369,7 +369,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			globalLogicalClusters := corev1alpha1listers.NewLogicalClusterClusterLister(globalIndexer)
 
 			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow, reason: "allowed"}
-			w := NewWorkspaceContentAuthorizer(local, global, localLogicalClusters, globalLogicalClusters, recordingAuthorizer)
+			w := NewWorkspaceContentAuthorizer(local, global, localLogicalClusters, globalLogicalClusters)(recordingAuthorizer)
 
 			requestedCluster := request.Cluster{
 				Name: logicalcluster.Name(tt.requestedWorkspace),
