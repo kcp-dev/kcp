@@ -24,6 +24,7 @@ import (
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	kaudit "k8s.io/apiserver/pkg/audit"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -65,12 +66,12 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		dec, reason, err := target.Authorize(ctx, attr)
 
-		auditReasonMsg := reason
-		if err != nil {
-			auditReasonMsg = fmt.Sprintf("reason: %v, error: %v", reason, err)
-		}
-
 		if domain := ctx.Value(auditDomainKey); domain != nil && domain != "" {
+			auditReasonMsg := reason
+			if err != nil {
+				auditReasonMsg = fmt.Sprintf("reason: %v, error: %v", reason, err)
+			}
+
 			kaudit.AddAuditAnnotations(
 				ctx,
 				fmt.Sprintf("%s/%s-%s", domain, d.key, auditDecision), decisionString(dec),
@@ -82,12 +83,38 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 			// Note: this deviates from upstream which doesn't log audit reasons.
 			// We should rethink if this should stay.
 			logger := klog.FromContext(ctx)
-			logger.V(4).Info(auditReasonMsg)
+			logger.V(4).Info("authorization step",
+				"reason", reason,
+				"error", err,
+				"key", d.key,
+				"decision", decisionString(dec),
+				"user", derefUser(attr.GetUser()).GetName(),
+				"groups", derefUser(attr.GetUser()).GetGroups(),
+				"extra", derefUser(attr.GetUser()).GetExtra(),
+				"resource", attr.GetResource(),
+				"subresource", attr.GetSubresource(),
+				"namespace", attr.GetNamespace(),
+				"name", attr.GetName(),
+				"verb", attr.GetVerb(),
+				"path", attr.GetPath(),
+			)
 		}
 
 		return dec, reason, err
 	})
 	return d
+}
+
+func derefUser(u user.Info) user.Info {
+	if u == nil {
+		return &user.DefaultInfo{}
+	}
+	return &user.DefaultInfo{
+		Name:   u.GetName(),
+		UID:    u.GetUID(),
+		Groups: u.GetGroups(),
+		Extra:  u.GetExtra(),
+	}
 }
 
 // AddAnonymization anonymizes authorization decisions,
