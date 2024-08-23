@@ -333,3 +333,88 @@ func TestServiceAccounts(t *testing.T) {
 		})
 	}
 }
+
+func TestCrossWorkspaceServiceAccounts(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	server := framework.SharedKcpServer(t)
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	ws1Path, ws1 := framework.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+
+	cfg := server.BaseConfig(t)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	t.Log("Waiting for service account to be created")
+	require.Eventually(t, func() bool {
+		_, err := kubeClusterClient.Cluster(ws1Path).CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		} else if err != nil {
+			t.Fatalf("unexpected error retrieving service account: %v", err)
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "\"default/default\" service account not created")
+
+	t.Log("Creating the service account secret manually")
+	_, err = kubeClusterClient.Cluster(ws1Path).CoreV1().Secrets("default").Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-token",
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: "default",
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create service account secret")
+
+	t.Log("Waiting for service account secret to be filled")
+	var tokenSecret corev1.Secret
+	require.Eventually(t, func() bool {
+		s, err := kubeClusterClient.Cluster(ws1Path).CoreV1().Secrets("default").Get(ctx, "default-token", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false
+		} else if err != nil {
+			t.Fatalf("unexpected error retrieving service account secret: %v", err)
+		}
+		tokenSecret = *s
+		return len(s.Data) > 0
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "\"default-token\" secret not filled")
+
+	t.Log("Creating a client for the service account")
+	saRestConfig := framework.ConfigWithToken(string(tokenSecret.Data["token"]), server.BaseConfig(t))
+	saKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(saRestConfig)
+	require.NoError(t, err)
+
+	t.Log("ws1 service account cannot access other workspaces")
+	_, err = saKubeClusterClient.Cluster(ws2Path).Discovery().ServerGroups()
+	require.Error(t, err, "expected error accessing workspace ws2 with the ws1 service account")
+
+	t.Log("Giving the service account default/default cluster/admin in ws2")
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, ws1Path, []string{"system:serviceaccount:default:default"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, ws2Path, []string{"system:serviceaccount:default:default"}, nil, true)
+
+	t.Log("ws1 service account is admin in ws1")
+	require.Eventually(t, func() bool {
+		_, err := saKubeClusterClient.Cluster(ws1Path).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "service account not admin in ws1")
+
+	t.Log("ws1 service account can still not access ws2")
+	_, err = saKubeClusterClient.Cluster(ws2Path).Discovery().ServerGroups()
+	require.Error(t, err, "expected error accessing workspace ws2 with the ws1 service account")
+
+	t.Log("Giving the ws1 service account global service account identity admin in ws2")
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, ws2Path, []string{fmt.Sprintf("system:kcp:serviceaccount:%s:default:default", ws1.Spec.Cluster)}, nil, true)
+
+	t.Log("ws1 service account can now access ws2 as admin now")
+	require.Eventually(t, func() bool {
+		_, err := saKubeClusterClient.Cluster(ws1Path).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "service account not admin in ws2")
+}
