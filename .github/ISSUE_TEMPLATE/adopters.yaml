@@ -1,0 +1,53 @@
+name: Register as adopter
+description: If your organization is using kcp, we would be delighted to add you to our list of adopters. Please report how you use kcp and we will take care of adding it to the ADOPTERS.md file in the repository.
+title: "adopter: COMPANY_NAME"
+labels:
+  - kind/documentation
+body:
+  - type: input
+    id: contact
+    attributes:
+      label: Contact Details
+      description: How can we get in touch with you if we need more info?
+      placeholder: eg. email@example.com
+    validations:
+      required: false
+
+  - type: input
+    id: org
+    attributes:
+      label: Organization
+      description: Your organization's name.
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What are you using kcp for at your organization? Are you using it for a specific product or project?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: maturity
+    attributes:
+      labels: Maturity Stage
+      description: What stage are you at in your adoption of kcp?
+      multiple: false
+      options:
+        - Production
+        - Pre-production
+        - Development
+        - Conceptual
+        - I don't know
+    validations:
+      required: false
+
+  - type: input
+    id: url
+    attributes:
+      label: Info Link
+      description: If you have public documentation for the product or project, feel free to share it here.
+    validations:
+      required: false
