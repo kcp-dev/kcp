@@ -19,6 +19,7 @@ package options
 import (
 	cryptorand "crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,9 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 
 func (c *Controllers) Complete(rootDir string) error {
 	if c.SAController.ServiceAccountKeyFile == "" {
+		if rootDir == "" {
+			return errors.New("no serviceaccount key file loaded and no root directory set")
+		}
 		// use sa.key and auto-generate if not existing
 		c.SAController.ServiceAccountKeyFile = filepath.Join(rootDir, "sa.key")
 		if _, err := os.Stat(c.SAController.ServiceAccountKeyFile); os.IsNotExist(err) {

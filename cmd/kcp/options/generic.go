@@ -17,7 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,21 +37,23 @@ func NewGeneric(rootDir string) *GenericOptions {
 
 func (o *GenericOptions) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs := fss.FlagSet("KCP")
-	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
+	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory. Set to \"\" to disable file (e.g. certificates) generation in a root directory.")
 }
 
 func (o *GenericOptions) Complete() (*GenericOptions, error) {
-	if !filepath.IsAbs(o.RootDirectory) {
-		pwd, err := os.Getwd()
-		if err != nil {
+	if o.RootDirectory != "" {
+		if !filepath.IsAbs(o.RootDirectory) {
+			pwd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			o.RootDirectory = filepath.Join(pwd, o.RootDirectory)
+		}
+
+		// Create the configuration root correctly before other components get a chance.
+		if err := mkdirRoot(o.RootDirectory); err != nil {
 			return nil, err
 		}
-		o.RootDirectory = filepath.Join(pwd, o.RootDirectory)
-	}
-
-	// Create the configuration root correctly before other components get a chance.
-	if err := mkdirRoot(o.RootDirectory); err != nil {
-		return nil, err
 	}
 
 	return o, nil
@@ -67,9 +68,6 @@ func (o *GenericOptions) Validate() []error {
 // components to ensure that we set the initial permissions correctly,
 // since otherwise components will create it as a side-effect.
 func mkdirRoot(dir string) error {
-	if dir == "" {
-		return errors.New("missing root directory configuration")
-	}
 	logger := klog.Background().WithValues("dir", dir)
 
 	fi, err := os.Stat(dir)
