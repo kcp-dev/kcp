@@ -21,7 +21,12 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"net/http"
+
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/klog/v2"
 )
 
 type DialContext func(ctx context.Context, network, address string) (net.Conn, error)
@@ -29,4 +34,30 @@ type DialContext func(ctx context.Context, network, address string) (net.Conn, e
 // DefaultDialContext returns a DialContext function from a network dialer with default options sets.
 func DefaultDialContext() DialContext {
 	return dialerWithDefaultOptions()
+}
+
+// DefaultTransportWrapper wraps the provided roundtripper with default settings.
+func DefaultTransportWrapper(rt http.RoundTripper) http.RoundTripper {
+	tr, err := transportFor(rt)
+	if err != nil {
+		klog.FromContext(context.Background()).Error(err, "Cannot set timeout settings on roundtripper")
+		return rt
+	}
+	tr.DialContext = DefaultDialContext()
+	return rt
+}
+
+func transportFor(rt http.RoundTripper) (*http.Transport, error) {
+	if rt == nil {
+		return nil, nil
+	}
+
+	switch transport := rt.(type) {
+	case *http.Transport:
+		return transport, nil
+	case utilnet.RoundTripperWrapper:
+		return transportFor(transport.WrappedRoundTripper())
+	default:
+		return nil, fmt.Errorf("unknown transport type, expected *http.Transport, got: %T", rt)
+	}
 }

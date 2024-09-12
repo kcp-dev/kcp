@@ -26,7 +26,6 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
-	"time"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
@@ -207,13 +206,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	// break connections on the tcp layer. Setting the client timeout would
 	// also apply to watches, which we don't want.
-	c.GenericConfig.LoopbackClientConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		transport, ok := rt.(*http.Transport)
-		if !ok {
-			return rt
-		}
-		transport.DialContext = network.DefaultDialContext()
-	})
+	c.GenericConfig.LoopbackClientConfig.Wrap(network.DefaultTransportWrapper)
 
 	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
