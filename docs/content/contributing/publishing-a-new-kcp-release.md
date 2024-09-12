@@ -3,21 +3,21 @@ description: >
   Information on the kcp release process.
 ---
 
-# Publishing a new kcp release
+# Publishing a New kcp Release
 
 !!! note
     You currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these
     tasks.
 
-## Create git tags
+## Create git Tags
 
-### Prerequisite - make sure you have a GPG signing key
+### Prerequisite - Make Sure You Have a GPG Signing Key
 
 1. <https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key>
 2. <https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account>
 3. <https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key>
 
-### Create the tags
+### Create the Tags
 
 kcp has 2 go modules, and a unique tag is needed for each module every time we create a new release.
 
@@ -49,7 +49,7 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
     git tag --sign --message "cli/$TAG" "cli/$TAG" "$REF"
     ```
 
-### Push the tags
+### Push the Tags
 
 ```shell
 REMOTE=upstream
@@ -57,14 +57,14 @@ TAG=v1.2.3
 git push "$REMOTE" "$TAG" "sdk/$TAG" "cli/$TAG"
 ```
 
-## If it's a new minor version
+## If it's a New Minor Version
 
 If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
 0.8.x version), follow the following steps.
 
 Otherwise, you can skip to [Generate release notes](#generate-release-notes)
 
-### Create a release branch
+### Create a Release Branch
 
 Set `REMOTE`, `REF`, and `VERSION` as appropriate.
 
@@ -76,7 +76,7 @@ git checkout -b "release-$VERSION" "$REF"
 git push "$REMOTE" "release-$VERSION"
 ```
 
-## Generate release notes
+## Generate Release Notes
 
 To generate release notes from the information in PR descriptions you should use Kubernetes' [release-notes](https://github.com/kubernetes/release/tree/master/cmd/release-notes) tool.
 This tool will use the `release-notes` blocks in PR descriptions and the `kind/` labels on those PRs to find user-facing changes and categorize them.
@@ -105,7 +105,7 @@ release-notes \
 
 Don't commit the `CHANGELOG.md` to the repository, just keep it around to update the release on GitHub (next step).
 
-## Review/edit/publish the release in GitHub
+## Review/Edit/Publish the Release in GitHub
 
 The [goreleaser](https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml) workflow automatically creates a draft GitHub release for each tag.
 
@@ -114,7 +114,7 @@ The [goreleaser](https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml
 3. Copy release notes from the `CHANGELOG.md` file you generated in the previous step.
 4. Publish the release.
 
-## Trigger documentation deployment
+## Trigger Documentation Deployment
 
 Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.
 

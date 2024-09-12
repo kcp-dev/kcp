@@ -1,8 +1,9 @@
 nav:
     - index.md
     - terminology.md
-    - authorization.md
-    - workspaces.md
+    - quickstart-tenancy-and-apis.md
+    - Workspaces: workspaces
     - APIs: apis
-    - Components: components
+    - Authorization: authorization
+    - Sharding: sharding
     - ...

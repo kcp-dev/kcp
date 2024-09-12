@@ -31,5 +31,5 @@ A list of all values is [available in the git repository](https://github.com/kcp
 
 ## Multi-Shard Charts
 
-We are also working on a collection of charts that allow for a multi-[shard](../concepts/components/sharding.md) deployment.
+We are also working on a collection of charts that allow for a multi-[shard](../concepts/sharding/index.md) deployment.
 Those are currently WIP and considered highly experimental, but instructions are also [available on GitHub](https://github.com/kcp-dev/helm-charts/tree/main/examples/sharded).

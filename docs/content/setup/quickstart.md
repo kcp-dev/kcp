@@ -50,7 +50,7 @@ If you're interested in learning more about all the features kcp has to offer, p
 documentation:
 
 - [Concepts](../concepts/index.md) - a high level overview of kcp concepts
-- [Workspaces](../concepts/workspaces.md) - a more thorough introduction on kcp's workspaces
+- [Workspaces](../concepts/workspaces/index.md) - a more thorough introduction on kcp's workspaces
 - [kubectl plugin](./kubectl-plugin.md)
-- [Authorization](../concepts/authorization.md) - how kcp manages access control to workspaces and content
-- [Virtual workspaces](../concepts/virtual-workspaces.md) - details on kcp's mechanism for virtual views of workspace content
+- [Authorization](../concepts/authorization/index.md) - how kcp manages access control to workspaces and content
+- [Virtual workspaces](../concepts/workspaces/virtual-workspaces.md) - details on kcp's mechanism for virtual views of workspace content

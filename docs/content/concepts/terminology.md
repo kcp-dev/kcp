@@ -7,7 +7,7 @@ description: >
 
 # Terminology
 
-## Logical cluster
+## Logical Cluster
 
 A logical cluster is a way to subdivide a single kube-apiserver + etcd storage into multiple clusters (different APIs,
 separate semantics for access, policy, and control) without requiring multiple instances.  A logical cluster is a
@@ -18,12 +18,6 @@ zero or near-zero memory and storage so that we can create tens of millions of e
 A logical cluster is a storage level concept that adds an additional attribute to an object’s identifier on a
 kube-apiserver.  Regular servers identify objects by (group, version, resource, optional namespace, name).  A logical
 cluster enriches an identifier: (group, version, resource, **logical cluster name**, optional namespace, name).
-
-## Workload Cluster
-
-A physical cluster is a “real Kubernetes cluster”, i.e. one that can run Kubernetes workloads and accepts standard
-Kubernetes API objects.  For the near term, it is assumed that a physical cluster is a distribution of Kubernetes and
-passes the conformance tests and exposes the behavior a regular Kubernetes admin or user expects.
 
 ## Workspace
 
@@ -49,7 +43,7 @@ name, a workspace subdivides the universe into chunks of meaningful work.
 
 Workspaces are the containers for all API objects, so users orient by viewing lists of workspaces from APIs.
 
-## Workspace type
+## Workspace Type
 
 Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed.  For instance, a
 workspace intended for use deploying Kube applications might expose the same API objects a user would encounter on a

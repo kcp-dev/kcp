@@ -3,9 +3,9 @@ description: >
     Inspecting Prometheus metrics of e2e runs.
 ---
 
-# Inspecting Prometheus metrics for e2e runs
+# Inspecting Prometheus Metrics for e2e Runs
 
-## Metrics gathering during e2e runs
+## Metrics Gathering During e2e Runs
 
 kcp internally exposes the same metrics as kube api-server.
 These are being gathered during e2e runs if the `PROMETHEUS_URL` variable is set.
@@ -18,7 +18,7 @@ For e2e tests, the above environment variable is respected by the following test
 - `cmd/sharded-test-server`
 - `cmd/test-server/kcp`
 
-## Inspecting metrics of e2e runs
+## Inspecting Metrics of e2e Runs
 
 ### GitHub
 
@@ -46,7 +46,7 @@ Once the Prometheus pod is ready, the provisioned link can be called to inspect 
 Alternatively, download the prometheus tarball from the gcsweb frontend locally
 and start a Prometheus instance as described above.
 
-## Collecting metrics locally
+## Collecting Metrics Locally
 
 To collect metrics locally, a convenience script is available to download and execute a Prometheus instance.
 Calling `... ./hack/run-in-prometheus make ...` will download, start, collect metrics, and stop Prometheus during the test run.

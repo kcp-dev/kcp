@@ -3,7 +3,7 @@ description: >
   How to install and use the kubectl kcp plugin.
 ---
 
-# kubectl plugins
+# kubectl Plugins
 
 kcp provides kubectl plugins that simplify the operations with the kcp server.
 

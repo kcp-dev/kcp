@@ -28,3 +28,7 @@ CRDs are a fantastic way to add new APIs to a workspace, but if you want to shar
 to install it in each workspace separately. You also need a controller that can reconcile CRs in all the workspaces
 where your CRD is installed, which typically means 1 distinct controller per workspace. CRDs are not "cheap" in the API
 server (each one consumes memory), and kcp offers an improved workflow that significantly reduces overhead.
+
+## Pages
+
+{% include "partials/section-overview.html" %}

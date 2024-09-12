@@ -5,9 +5,9 @@ description: >
   How to write a kcp-aware controller.
 ---
 
-# Writing kcp-aware controllers
+# Writing kcp-aware Controllers
 
-## Keys for objects in listers/indexers
+## Keys for Objects in Listers/Indexers
 
 When you need to get an object from a kcp-aware lister or an indexer, you can't just pass the object's name to the
 `Get()` function, like you do with a typical controller targeting Kubernetes. Projects using kcp's copy of client-go
@@ -24,6 +24,6 @@ Here are what keys look like for an object `foo` for both cluster-scoped and nam
 |my-org|my-workspace|my-org:my-workspace|-|my-org:my-workspace|foo|
 |my-org|my-workspace|my-org:my-workspace|default|default/my-org:my-workspace|foo|
 
-## Encoding/decoding keys
+## Encoding/Decoding Keys
 
 Use the `github.com/kcp-dev/apimachinery/pkg/cache` package to encode and decode keys.

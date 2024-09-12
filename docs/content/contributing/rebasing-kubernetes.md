@@ -105,7 +105,7 @@ Commits merged into `kcp-dev/kubernetes` follow this commit message format:
   - In general, these commits are used to maintain the codebase in ways that are
     branch-specific, like the update of generated files or dependencies.
 
-## Spreadsheet of carry commits from previous release
+## Spreadsheet of Carry Commits from Previous Release
 
 If the old branch (generally also the default branch) is `upstream/kcp-feature-logical-cluster-1.24-v3`
 and the old version is `v1.24.3`, then a tsv file containing the set of carry commits that need to be
@@ -123,7 +123,7 @@ The tsv file can be imported into a google sheets spreadsheet to track the progr
 to the new rebase branch. The spreadsheet can also be a way of communicating with rebase reviewers.
 For an example, please see the [spreadsheet used for the v1.27.3 rebase](https://docs.google.com/spreadsheets/d/15k9sih-xBKICuLUHj4HMrqYf60mliaslImqqv6fGSJI/edit?usp=sharing).
 
-## Rebase process
+## Rebase Process
 
 1. First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!
 2. Remember, if you mess up, `git rebase --abort` and `git reflog` are your very good friends!
@@ -276,7 +276,7 @@ For an example, please see the [spreadsheet used for the v1.27.3 rebase](https:/
    pointing to your fork of Kubernetes. This is expected, so don't worry. Your job at this point is to get all the 
    other CI jobs to pass.
 
-# 7. Get it merged!
+# 7. Get it Merged!
 
 1. Once CI is passing (except for the `deps` job, as expected), we're ready to merge!
 2. Coordinate with another project member - show them the test results, then get them to approve your rebase PR in 
@@ -292,6 +292,6 @@ For an example, please see the [spreadsheet used for the v1.27.3 rebase](https:/
    any more), or drop the `UNDO` commit and replace it with this one.
 6. Check on CI. Hopefully everything is green. If not, keep iterating on it.
 
-# 7. Update the default branch in kcp-dev/kubernetes
+# 7. Update the Default Branch in kcp-dev/kubernetes
 
 1. Change it to your new rebase branch, e.g. `kcp-1.26`
