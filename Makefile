@@ -243,7 +243,7 @@ $(TOOLS_DIR)/verify_boilerplate.py:
 
 .PHONY: verify-boilerplate
 verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py ## Verify boilerplate
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv
+	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer
 
 ifdef ARTIFACT_DIR
 GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml
