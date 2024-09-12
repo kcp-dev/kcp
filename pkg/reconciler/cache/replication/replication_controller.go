@@ -60,10 +60,6 @@ const (
 func NewController(
 	shardName string,
 	dynamicCacheClient kcpdynamic.ClusterInterface,
-	localKcpInformers kcpinformers.SharedInformerFactory,
-	globalKcpInformers kcpinformers.SharedInformerFactory,
-	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
-	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	gvrs map[schema.GroupVersionResource]ReplicatedGVR,
 ) (*controller, error) {
 	c := &controller{

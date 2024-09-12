@@ -554,8 +554,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	controllerConfig := rest.CopyConfig(s.IdentityConfig)
-	controllerConfig.Timeout = time.Second * 30
+	controllerConfig := s.IdentityConfig
 
 	gvrs := s.addIndexersToInformers(ctx)
 	if err := s.installControllers(ctx, controllerConfig, gvrs); err != nil {

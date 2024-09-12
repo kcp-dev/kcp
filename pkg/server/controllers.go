@@ -1448,7 +1448,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	// TODO(sttts): set user agent
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory, s.KubeSharedInformerFactory, s.CacheKubeSharedInformerFactory, gvrs)
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, gvrs)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,6 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
-	"time"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
@@ -61,6 +60,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
@@ -204,8 +204,9 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	// Setting the default restConfig timeout to 30 seconds to avoid any client is waiting infinitely
-	c.GenericConfig.LoopbackClientConfig.Timeout = time.Second * 30
+	// break connections on the tcp layer. Setting the client timeout would
+	// also apply to watches, which we don't want.
+	c.GenericConfig.LoopbackClientConfig.Wrap(network.DefaultTransportWrapper)
 
 	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
