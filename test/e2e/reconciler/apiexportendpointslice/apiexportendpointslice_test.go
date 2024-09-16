@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -123,8 +124,13 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid APIExport")
 
 	t.Logf("Adding a Partition to the APIExportEndpointSlice")
-	slice.Spec.Partition = partition.Name
-	_, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Update(ctx, slice, metav1.UpdateOptions{})
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
+		require.NoError(t, err)
+		slice.Spec.Partition = partition.Name
+		_, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Update(ctx, slice, metav1.UpdateOptions{})
+		return err
+	})
 	require.NoError(t, err, "error updating APIExportEndpointSlice")
 
 	framework.Eventually(t, func() (bool, string) {
