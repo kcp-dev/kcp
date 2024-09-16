@@ -46,7 +46,7 @@ func (d *Options) defaults() {
 		d.AllowCacheTTL = 5 * time.Minute
 	}
 	if d.DenyCacheTTL == 0 {
-		d.AllowCacheTTL = 30 * time.Second
+		d.DenyCacheTTL = 30 * time.Second
 	}
 }
 
