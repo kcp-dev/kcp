@@ -69,8 +69,8 @@ func TestAuditLogs(t *testing.T) {
 	require.NoError(t, err, "Error parsing JSON data")
 
 	workspaceNameSent := ws.Spec.Cluster
-	require.Equal(t, workspaceNameSent, requestAuditEvent.Annotations["tenancy.kcp.io/workspace"])
-	require.Equal(t, workspaceNameSent, responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
+	require.Equal(t, workspaceNameSent.String(), requestAuditEvent.Annotations["tenancy.kcp.io/workspace"])
+	require.Equal(t, workspaceNameSent.String(), responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
 
 	for _, annotation := range []string{
 		"request.auth.kcp.io/01-requiredgroups",

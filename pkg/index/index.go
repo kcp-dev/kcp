@@ -92,14 +92,14 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	// 1. cluster name is different
 	// 2. mount object string is different (updated, added, or removed)
 	// When we promote this to workspace structure, we should make this check smarter and better tested.
-	if (cluster.String() == ws.Spec.Cluster) && (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
+	if (cluster == ws.Spec.Cluster) && (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster.String() != ws.Spec.Cluster {
+	if cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster != ws.Spec.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
 			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
 			c.shardWorkspaceName[shard] = map[logicalcluster.Name]string{}
@@ -108,9 +108,9 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		if c.shardWorkspaceNameCluster[shard][clusterName] == nil {
 			c.shardWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
 		}
-		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Spec.Cluster)
-		c.shardWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
-		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
+		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = ws.Spec.Cluster
+		c.shardWorkspaceName[shard][ws.Spec.Cluster] = ws.Name
+		c.shardClusterParentCluster[shard][ws.Spec.Cluster] = clusterName
 	}
 
 	if mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
@@ -145,12 +145,12 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 			delete(c.shardWorkspaceNameCluster, shard)
 		}
 
-		delete(c.shardWorkspaceName[shard], logicalcluster.Name(ws.Spec.Cluster))
+		delete(c.shardWorkspaceName[shard], ws.Spec.Cluster)
 		if len(c.shardWorkspaceName[shard]) == 0 {
 			delete(c.shardWorkspaceName, shard)
 		}
 
-		delete(c.shardClusterParentCluster[shard], logicalcluster.Name(ws.Spec.Cluster))
+		delete(c.shardClusterParentCluster[shard], ws.Spec.Cluster)
 		if len(c.shardClusterParentCluster[shard]) == 0 {
 			delete(c.shardClusterParentCluster, shard)
 		}

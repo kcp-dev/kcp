@@ -179,7 +179,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
 		u.Path = path.Join(u.Path, canonicalPath.RequestPath())
-		workspace.Spec.Cluster = clusterName.String()
+		workspace.Spec.Cluster = clusterName
 		workspace.Spec.URL = u.String()
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
 		return reconcileStatusStopAndRequeue, nil

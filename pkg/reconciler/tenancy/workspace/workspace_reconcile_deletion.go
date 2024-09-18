@@ -49,7 +49,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 
 	// If the logical cluster hasn't been created yet, we have to look at the annotation to
 	// get the cluster name, instead of looking at status.
-	clusterName := logicalcluster.Name(workspace.Spec.Cluster)
+	clusterName := workspace.Spec.Cluster
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		a, ok := workspace.Annotations[workspaceClusterAnnotationKey]
 		if !ok {

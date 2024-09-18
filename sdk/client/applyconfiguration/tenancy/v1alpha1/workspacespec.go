@@ -18,12 +18,16 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	v3 "github.com/kcp-dev/logicalcluster/v3"
+)
+
 // WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
 	Type     *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
 	Location *WorkspaceLocationApplyConfiguration      `json:"location,omitempty"`
-	Cluster  *string                                   `json:"cluster,omitempty"`
+	Cluster  *v3.Name                                  `json:"cluster,omitempty"`
 	URL      *string                                   `json:"URL,omitempty"`
 }
 
@@ -52,7 +56,7 @@ func (b *WorkspaceSpecApplyConfiguration) WithLocation(value *WorkspaceLocationA
 // WithCluster sets the Cluster field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Cluster field is set to the value of the last call.
-func (b *WorkspaceSpecApplyConfiguration) WithCluster(value string) *WorkspaceSpecApplyConfiguration {
+func (b *WorkspaceSpecApplyConfiguration) WithCluster(value v3.Name) *WorkspaceSpecApplyConfiguration {
 	b.Cluster = &value
 	return b
 }

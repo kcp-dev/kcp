@@ -148,13 +148,13 @@ func TestAPIBinding(t *testing.T) {
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 	provider1Path, provider1 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-1"))
-	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
+	provider1ClusterName := provider1.Spec.Cluster
 	provider2Path, provider2 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-2"))
-	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
+	provider2ClusterName := provider2.Spec.Cluster
 	consumer1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-1-bound-against-1"))
 	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-2-bound-against-1"))
 	consumer3Path, consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-3-bound-against-2"))
-	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
+	consumer3ClusterName := consumer3Workspace.Spec.Cluster
 
 	cfg := server.BaseConfig(t)
 

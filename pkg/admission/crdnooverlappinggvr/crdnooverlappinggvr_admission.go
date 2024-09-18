@@ -82,7 +82,7 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
-	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Name
+	clusterName := cluster
 	// ignore CRDs targeting system and non-root workspaces
 	if clusterName == apibinding.SystemBoundCRDsClusterName || clusterName == apiserver.LocalAdminCluster {
 		return nil
