@@ -82,22 +82,7 @@ func NewController(
 		kcpClusterClient: kcpClusterClient,
 
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			list, err := apiBindingInformer.Lister().List(labels.Everything())
-			if err != nil {
-				return nil, err
-			}
-
-			var ret []*apisv1alpha1.APIBinding
-
-			for i := range list {
-				if logicalcluster.From(list[i]) != clusterName {
-					continue
-				}
-
-				ret = append(ret, list[i])
-			}
-
-			return ret, nil
+			return apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		listAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 			// binding keys by full path
