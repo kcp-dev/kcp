@@ -45,9 +45,9 @@ func (l mergedClusterRoleBindingLister) List(selector labels.Selector) (ret []*r
 		}
 
 		for i := range list {
-			entry := list[i].DeepCopy()
-			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
-			result = append(result, entry)
+			cpy := *list[i]
+			cpy.Name = logicalcluster.From(&cpy).String() + ":" + cpy.Name
+			result = append(result, &cpy)
 		}
 	}
 	return result, nil
@@ -194,9 +194,9 @@ func (l *mergedRoleBindingLister) List(selector labels.Selector) (ret []*rbacv1.
 		}
 
 		for i := range list {
-			entry := list[i].DeepCopy()
-			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
-			result = append(result, entry)
+			cpy := *list[i]
+			cpy.Name = logicalcluster.From(&cpy).String() + ":" + cpy.Name
+			result = append(result, &cpy)
 		}
 	}
 	return result, nil
@@ -229,9 +229,9 @@ func (l mergedRoleBindingNamespaceLister) List(selector labels.Selector) (ret []
 		}
 
 		for i := range list {
-			entry := list[i].DeepCopy()
-			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
-			result = append(result, entry)
+			cpy := *list[i]
+			cpy.Name = logicalcluster.From(&cpy).String() + ":" + cpy.Name
+			result = append(result, &cpy)
 		}
 	}
 	return result, nil
