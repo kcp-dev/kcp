@@ -22,14 +22,14 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-// AcceptablePermissionClaimApplyConfiguration represents an declarative configuration of the AcceptablePermissionClaim type for use
+// AcceptablePermissionClaimApplyConfiguration represents a declarative configuration of the AcceptablePermissionClaim type for use
 // with apply.
 type AcceptablePermissionClaimApplyConfiguration struct {
 	PermissionClaimApplyConfiguration `json:",inline"`
 	State                             *apisv1alpha1.AcceptablePermissionClaimState `json:"state,omitempty"`
 }
 
-// AcceptablePermissionClaimApplyConfiguration constructs an declarative configuration of the AcceptablePermissionClaim type for use with
+// AcceptablePermissionClaimApplyConfiguration constructs a declarative configuration of the AcceptablePermissionClaim type for use with
 // apply.
 func AcceptablePermissionClaim() *AcceptablePermissionClaimApplyConfiguration {
 	return &AcceptablePermissionClaimApplyConfiguration{}

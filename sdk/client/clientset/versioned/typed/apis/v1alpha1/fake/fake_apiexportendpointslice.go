@@ -44,20 +44,22 @@ var apiexportendpointslicesKind = v1alpha1.SchemeGroupVersion.WithKind("APIExpor
 
 // Get takes name of the aPIExportEndpointSlice, and returns the corresponding aPIExportEndpointSlice object, and an error if there is any.
 func (c *FakeAPIExportEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(apiexportendpointslicesResource, name), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootGetActionWithOptions(apiexportendpointslicesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
 
 // List takes label and field selectors, and returns the list of APIExportEndpointSlices that match those selectors.
 func (c *FakeAPIExportEndpointSlices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIExportEndpointSliceList, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSliceList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(apiexportendpointslicesResource, apiexportendpointslicesKind, opts), &v1alpha1.APIExportEndpointSliceList{})
+		Invokes(testing.NewRootListActionWithOptions(apiexportendpointslicesResource, apiexportendpointslicesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeAPIExportEndpointSlices) List(ctx context.Context, opts v1.ListOpti
 // Watch returns a watch.Interface that watches the requested aPIExportEndpointSlices.
 func (c *FakeAPIExportEndpointSlices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(apiexportendpointslicesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(apiexportendpointslicesResource, opts))
 }
 
 // Create takes the representation of a aPIExportEndpointSlice and creates it.  Returns the server's representation of the aPIExportEndpointSlice, and an error, if there is any.
 func (c *FakeAPIExportEndpointSlices) Create(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.CreateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(apiexportendpointslicesResource, aPIExportEndpointSlice), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootCreateActionWithOptions(apiexportendpointslicesResource, aPIExportEndpointSlice, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
 
 // Update takes the representation of a aPIExportEndpointSlice and updates it. Returns the server's representation of the aPIExportEndpointSlice, and an error, if there is any.
 func (c *FakeAPIExportEndpointSlices) Update(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(apiexportendpointslicesResource, aPIExportEndpointSlice), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootUpdateActionWithOptions(apiexportendpointslicesResource, aPIExportEndpointSlice, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeAPIExportEndpointSlices) UpdateStatus(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (*v1alpha1.APIExportEndpointSlice, error) {
+func (c *FakeAPIExportEndpointSlices) UpdateStatus(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(apiexportendpointslicesResource, "status", aPIExportEndpointSlice), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(apiexportendpointslicesResource, "status", aPIExportEndpointSlice, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
@@ -119,7 +124,7 @@ func (c *FakeAPIExportEndpointSlices) Delete(ctx context.Context, name string, o
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeAPIExportEndpointSlices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(apiexportendpointslicesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(apiexportendpointslicesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.APIExportEndpointSliceList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeAPIExportEndpointSlices) DeleteCollection(ctx context.Context, opts
 
 // Patch applies the patch and returns the patched aPIExportEndpointSlice.
 func (c *FakeAPIExportEndpointSlices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExportEndpointSlice, err error) {
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, name, pt, data, subresources...), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
@@ -148,10 +154,11 @@ func (c *FakeAPIExportEndpointSlices) Apply(ctx context.Context, aPIExportEndpoi
 	if name == nil {
 		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, *name, types.ApplyPatchType, data), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }
@@ -170,10 +177,11 @@ func (c *FakeAPIExportEndpointSlices) ApplyStatus(ctx context.Context, aPIExport
 	if name == nil {
 		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIExportEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIExportEndpointSlice{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }

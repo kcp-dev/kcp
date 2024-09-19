@@ -63,8 +63,13 @@ func NewController(
 	gvrs map[schema.GroupVersionResource]ReplicatedGVR,
 ) (*controller, error) {
 	c := &controller{
-		shardName:          shardName,
-		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		shardName: shardName,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		dynamicCacheClient: dynamicCacheClient,
 		Gvrs:               gvrs,
 	}
@@ -142,9 +147,9 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	defer c.queue.Done(grKey)
 
-	logger := logging.WithQueueKey(klog.FromContext(ctx), grKey.(string))
+	logger := logging.WithQueueKey(klog.FromContext(ctx), grKey)
 	ctx = klog.NewContext(ctx, logger)
-	err := c.reconcile(ctx, grKey.(string))
+	err := c.reconcile(ctx, grKey)
 	if err == nil {
 		c.queue.Forget(grKey)
 		return true
@@ -176,7 +181,7 @@ func IsNoSystemClusterName(obj interface{}) bool {
 
 type controller struct {
 	shardName string
-	queue     workqueue.RateLimitingInterface
+	queue     workqueue.TypedRateLimitingInterface[string]
 
 	dynamicCacheClient kcpdynamic.ClusterInterface
 

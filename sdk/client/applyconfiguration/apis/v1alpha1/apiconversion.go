@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// APIConversionApplyConfiguration represents an declarative configuration of the APIConversion type for use
+// APIConversionApplyConfiguration represents a declarative configuration of the APIConversion type for use
 // with apply.
 type APIConversionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -33,7 +33,7 @@ type APIConversionApplyConfiguration struct {
 	Spec                             *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// APIConversion constructs an declarative configuration of the APIConversion type for use with
+// APIConversion constructs a declarative configuration of the APIConversion type for use with
 // apply.
 func APIConversion(name string) *APIConversionApplyConfiguration {
 	b := &APIConversionApplyConfiguration{}
@@ -207,4 +207,10 @@ func (b *APIConversionApplyConfiguration) ensureObjectMetaApplyConfigurationExis
 func (b *APIConversionApplyConfiguration) WithSpec(value *APIConversionSpecApplyConfiguration) *APIConversionApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *APIConversionApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

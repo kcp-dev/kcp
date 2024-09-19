@@ -23,7 +23,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+// WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
 // with apply.
 type WorkspaceStatusApplyConfiguration struct {
 	Phase        *v1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
@@ -31,7 +31,7 @@ type WorkspaceStatusApplyConfiguration struct {
 	Initializers []v1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
-// WorkspaceStatusApplyConfiguration constructs an declarative configuration of the WorkspaceStatus type for use with
+// WorkspaceStatusApplyConfiguration constructs a declarative configuration of the WorkspaceStatus type for use with
 // apply.
 func WorkspaceStatus() *WorkspaceStatusApplyConfiguration {
 	return &WorkspaceStatusApplyConfiguration{}

@@ -22,14 +22,14 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
-// WorkspaceTypeReferenceApplyConfiguration represents an declarative configuration of the WorkspaceTypeReference type for use
+// WorkspaceTypeReferenceApplyConfiguration represents a declarative configuration of the WorkspaceTypeReference type for use
 // with apply.
 type WorkspaceTypeReferenceApplyConfiguration struct {
 	Name *v1alpha1.WorkspaceTypeName `json:"name,omitempty"`
 	Path *string                     `json:"path,omitempty"`
 }
 
-// WorkspaceTypeReferenceApplyConfiguration constructs an declarative configuration of the WorkspaceTypeReference type for use with
+// WorkspaceTypeReferenceApplyConfiguration constructs a declarative configuration of the WorkspaceTypeReference type for use with
 // apply.
 func WorkspaceTypeReference() *WorkspaceTypeReferenceApplyConfiguration {
 	return &WorkspaceTypeReferenceApplyConfiguration{}

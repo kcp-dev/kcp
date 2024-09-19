@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// ShardSpecApplyConfiguration represents an declarative configuration of the ShardSpec type for use
+// ShardSpecApplyConfiguration represents a declarative configuration of the ShardSpec type for use
 // with apply.
 type ShardSpecApplyConfiguration struct {
 	BaseURL             *string `json:"baseURL,omitempty"`
@@ -26,7 +26,7 @@ type ShardSpecApplyConfiguration struct {
 	VirtualWorkspaceURL *string `json:"virtualWorkspaceURL,omitempty"`
 }
 
-// ShardSpecApplyConfiguration constructs an declarative configuration of the ShardSpec type for use with
+// ShardSpecApplyConfiguration constructs a declarative configuration of the ShardSpec type for use with
 // apply.
 func ShardSpec() *ShardSpecApplyConfiguration {
 	return &ShardSpecApplyConfiguration{}

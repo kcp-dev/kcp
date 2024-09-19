@@ -49,7 +49,7 @@ const (
 
 // Controller manages per-workspace garbage collector controllers.
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	kubeClusterClient                     kcpkubernetesclient.ClusterInterface
@@ -76,7 +76,12 @@ func NewController(
 	informersStarted <-chan struct{},
 ) (*Controller, error) {
 	c := &Controller{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		kubeClusterClient:                     kubeClusterClient,
@@ -160,7 +165,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := raw.(string)
+	key := raw
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
@@ -262,7 +267,12 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 
 	garbageCollectorController := garbageCollectorController{
 		clusterName: clusterName,
-		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: "quota-" + clusterName.String(),
+			},
+		),
 		work: func(ctx context.Context) {
 			//nolint:errcheck
 			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
@@ -298,7 +308,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 
 type garbageCollectorController struct {
 	clusterName    logicalcluster.Name
-	queue          workqueue.RateLimitingInterface
+	queue          workqueue.TypedRateLimitingInterface[string]
 	work           func(context.Context)
 	previousCancel func()
 }

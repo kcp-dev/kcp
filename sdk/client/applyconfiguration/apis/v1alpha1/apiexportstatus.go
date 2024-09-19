@@ -22,7 +22,7 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// APIExportStatusApplyConfiguration represents an declarative configuration of the APIExportStatus type for use
+// APIExportStatusApplyConfiguration represents a declarative configuration of the APIExportStatus type for use
 // with apply.
 type APIExportStatusApplyConfiguration struct {
 	IdentityHash      *string                              `json:"identityHash,omitempty"`
@@ -30,7 +30,7 @@ type APIExportStatusApplyConfiguration struct {
 	VirtualWorkspaces []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
 }
 
-// APIExportStatusApplyConfiguration constructs an declarative configuration of the APIExportStatus type for use with
+// APIExportStatusApplyConfiguration constructs a declarative configuration of the APIExportStatus type for use with
 // apply.
 func APIExportStatus() *APIExportStatusApplyConfiguration {
 	return &APIExportStatusApplyConfiguration{}

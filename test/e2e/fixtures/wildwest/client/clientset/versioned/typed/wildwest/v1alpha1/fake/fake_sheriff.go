@@ -44,20 +44,22 @@ var sherifvesKind = v1alpha1.SchemeGroupVersion.WithKind("Sheriff")
 
 // Get takes name of the sheriff, and returns the corresponding sheriff object, and an error if there is any.
 func (c *FakeSherifves) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Sheriff, err error) {
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(sherifvesResource, name), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootGetActionWithOptions(sherifvesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
 
 // List takes label and field selectors, and returns the list of Sherifves that match those selectors.
 func (c *FakeSherifves) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.SheriffList, err error) {
+	emptyResult := &v1alpha1.SheriffList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(sherifvesResource, sherifvesKind, opts), &v1alpha1.SheriffList{})
+		Invokes(testing.NewRootListActionWithOptions(sherifvesResource, sherifvesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeSherifves) List(ctx context.Context, opts v1.ListOptions) (result *
 // Watch returns a watch.Interface that watches the requested sherifves.
 func (c *FakeSherifves) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(sherifvesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(sherifvesResource, opts))
 }
 
 // Create takes the representation of a sheriff and creates it.  Returns the server's representation of the sheriff, and an error, if there is any.
 func (c *FakeSherifves) Create(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.CreateOptions) (result *v1alpha1.Sheriff, err error) {
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(sherifvesResource, sheriff), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootCreateActionWithOptions(sherifvesResource, sheriff, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
 
 // Update takes the representation of a sheriff and updates it. Returns the server's representation of the sheriff, and an error, if there is any.
 func (c *FakeSherifves) Update(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(sherifvesResource, sheriff), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootUpdateActionWithOptions(sherifvesResource, sheriff, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeSherifves) UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (*v1alpha1.Sheriff, error) {
+func (c *FakeSherifves) UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(sherifvesResource, "status", sheriff), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(sherifvesResource, "status", sheriff, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
@@ -119,7 +124,7 @@ func (c *FakeSherifves) Delete(ctx context.Context, name string, opts v1.DeleteO
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeSherifves) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(sherifvesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(sherifvesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.SheriffList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeSherifves) DeleteCollection(ctx context.Context, opts v1.DeleteOpti
 
 // Patch applies the patch and returns the patched sheriff.
 func (c *FakeSherifves) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Sheriff, err error) {
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(sherifvesResource, name, pt, data, subresources...), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
@@ -148,10 +154,11 @@ func (c *FakeSherifves) Apply(ctx context.Context, sheriff *wildwestv1alpha1.She
 	if name == nil {
 		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(sherifvesResource, *name, types.ApplyPatchType, data), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }
@@ -170,10 +177,11 @@ func (c *FakeSherifves) ApplyStatus(ctx context.Context, sheriff *wildwestv1alph
 	if name == nil {
 		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.Sheriff{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(sherifvesResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.Sheriff{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Sheriff), err
 }

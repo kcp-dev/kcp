@@ -36,7 +36,7 @@ import (
 // LogicalClusterDeletionMonitor monitors LogicalClusters and invokes stopFunc for each deleted LogicalCluster.
 type LogicalClusterDeletionMonitor struct {
 	name     string
-	queue    workqueue.RateLimitingInterface
+	queue    workqueue.TypedRateLimitingInterface[string]
 	stopFunc func(name logicalcluster.Name)
 }
 
@@ -46,8 +46,13 @@ func NewLogicalClusterDeletionMonitor(
 	stopFunc func(logicalcluster.Name),
 ) *LogicalClusterDeletionMonitor {
 	m := &LogicalClusterDeletionMonitor{
-		name:     name,
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		name: name,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: name,
+			},
+		),
 		stopFunc: stopFunc,
 	}
 
@@ -94,7 +99,7 @@ func (m *LogicalClusterDeletionMonitor) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

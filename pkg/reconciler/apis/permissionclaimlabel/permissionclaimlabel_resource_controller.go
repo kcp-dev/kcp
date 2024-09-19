@@ -54,7 +54,12 @@ func NewResourceController(
 	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*resourceController, error) {
 	c := &resourceController{
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ResourceControllerName),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ResourceControllerName,
+			},
+		),
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
@@ -74,7 +79,7 @@ func NewResourceController(
 // resourceController reconciles resources from the ddsif, and will determine if it needs
 // its permission claim labels updated.
 type resourceController struct {
-	queue                  workqueue.RateLimitingInterface
+	queue                  workqueue.TypedRateLimitingInterface[string]
 	kcpClusterClient       kcpclientset.ClusterInterface
 	dynamicClusterClient   kcpdynamic.ClusterInterface
 	ddsif                  *informer.DiscoveringDynamicSharedInformerFactory
@@ -124,7 +129,7 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

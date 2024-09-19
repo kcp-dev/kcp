@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 )
 
-// SheriffApplyConfiguration represents an declarative configuration of the Sheriff type for use
+// SheriffApplyConfiguration represents a declarative configuration of the Sheriff type for use
 // with apply.
 type SheriffApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type SheriffApplyConfiguration struct {
 	Status                           *SheriffStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Sheriff constructs an declarative configuration of the Sheriff type for use with
+// Sheriff constructs a declarative configuration of the Sheriff type for use with
 // apply.
 func Sheriff(name string) *SheriffApplyConfiguration {
 	b := &SheriffApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *SheriffApplyConfiguration) WithSpec(value *SheriffSpecApplyConfiguratio
 func (b *SheriffApplyConfiguration) WithStatus(value *SheriffStatusApplyConfiguration) *SheriffApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *SheriffApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

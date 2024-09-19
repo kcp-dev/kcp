@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// APIExportEndpointSliceApplyConfiguration represents an declarative configuration of the APIExportEndpointSlice type for use
+// APIExportEndpointSliceApplyConfiguration represents a declarative configuration of the APIExportEndpointSlice type for use
 // with apply.
 type APIExportEndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type APIExportEndpointSliceApplyConfiguration struct {
 	Status                           *APIExportEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// APIExportEndpointSlice constructs an declarative configuration of the APIExportEndpointSlice type for use with
+// APIExportEndpointSlice constructs a declarative configuration of the APIExportEndpointSlice type for use with
 // apply.
 func APIExportEndpointSlice(name string) *APIExportEndpointSliceApplyConfiguration {
 	b := &APIExportEndpointSliceApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *APIExportEndpointSliceApplyConfiguration) WithSpec(value *APIExportEndp
 func (b *APIExportEndpointSliceApplyConfiguration) WithStatus(value *APIExportEndpointSliceStatusApplyConfiguration) *APIExportEndpointSliceApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *APIExportEndpointSliceApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

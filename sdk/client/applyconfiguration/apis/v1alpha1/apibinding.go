@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// APIBindingApplyConfiguration represents an declarative configuration of the APIBinding type for use
+// APIBindingApplyConfiguration represents a declarative configuration of the APIBinding type for use
 // with apply.
 type APIBindingApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type APIBindingApplyConfiguration struct {
 	Status                           *APIBindingStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// APIBinding constructs an declarative configuration of the APIBinding type for use with
+// APIBinding constructs a declarative configuration of the APIBinding type for use with
 // apply.
 func APIBinding(name string) *APIBindingApplyConfiguration {
 	b := &APIBindingApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *APIBindingApplyConfiguration) WithSpec(value *APIBindingSpecApplyConfig
 func (b *APIBindingApplyConfiguration) WithStatus(value *APIBindingStatusApplyConfiguration) *APIBindingApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *APIBindingApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

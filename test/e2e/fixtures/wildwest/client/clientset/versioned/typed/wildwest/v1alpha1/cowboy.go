@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
@@ -44,6 +41,7 @@ type CowboysGetter interface {
 type CowboyInterface interface {
 	Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.CreateOptions) (*v1alpha1.Cowboy, error)
 	Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (*v1alpha1.Cowboy, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (*v1alpha1.Cowboy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,206 +50,25 @@ type CowboyInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error)
 	Apply(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error)
 	CowboyExpansion
 }
 
 // cowboys implements CowboyInterface
 type cowboys struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration]
 }
 
 // newCowboys returns a Cowboys
 func newCowboys(c *WildwestV1alpha1Client, namespace string) *cowboys {
 	return &cowboys{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration](
+			"cowboys",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1alpha1.Cowboy { return &v1alpha1.Cowboy{} },
+			func() *v1alpha1.CowboyList { return &v1alpha1.CowboyList{} }),
 	}
-}
-
-// Get takes name of the cowboy, and returns the corresponding cowboy object, and an error if there is any.
-func (c *cowboys) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Cowboy, err error) {
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Cowboys that match those selectors.
-func (c *cowboys) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CowboyList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.CowboyList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("cowboys").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested cowboys.
-func (c *cowboys) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("cowboys").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a cowboy and creates it.  Returns the server's representation of the cowboy, and an error, if there is any.
-func (c *cowboys) Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.CreateOptions) (result *v1alpha1.Cowboy, err error) {
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("cowboys").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(cowboy).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a cowboy and updates it. Returns the server's representation of the cowboy, and an error, if there is any.
-func (c *cowboys) Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(cowboy.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(cowboy).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *cowboys) UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(cowboy.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(cowboy).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the cowboy and deletes it. Returns an error if one occurs.
-func (c *cowboys) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *cowboys) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("cowboys").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched cowboy.
-func (c *cowboys) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error) {
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied cowboy.
-func (c *cowboys) Apply(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
-	if cowboy == nil {
-		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(cowboy)
-	if err != nil {
-		return nil, err
-	}
-	name := cowboy.Name
-	if name == nil {
-		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
-	}
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *cowboys) ApplyStatus(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
-	if cowboy == nil {
-		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(cowboy)
-	if err != nil {
-		return nil, err
-	}
-
-	name := cowboy.Name
-	if name == nil {
-		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.Cowboy{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Namespace(c.ns).
-		Resource("cowboys").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

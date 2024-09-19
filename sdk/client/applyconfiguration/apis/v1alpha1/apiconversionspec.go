@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// APIConversionSpecApplyConfiguration represents an declarative configuration of the APIConversionSpec type for use
+// APIConversionSpecApplyConfiguration represents a declarative configuration of the APIConversionSpec type for use
 // with apply.
 type APIConversionSpecApplyConfiguration struct {
 	Conversions []APIVersionConversionApplyConfiguration `json:"conversions,omitempty"`
 }
 
-// APIConversionSpecApplyConfiguration constructs an declarative configuration of the APIConversionSpec type for use with
+// APIConversionSpecApplyConfiguration constructs a declarative configuration of the APIConversionSpec type for use with
 // apply.
 func APIConversionSpec() *APIConversionSpecApplyConfiguration {
 	return &APIConversionSpecApplyConfiguration{}

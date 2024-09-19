@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
@@ -44,6 +41,7 @@ type SherifvesGetter interface {
 type SheriffInterface interface {
 	Create(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.CreateOptions) (*v1alpha1.Sheriff, error)
 	Update(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (*v1alpha1.Sheriff, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (*v1alpha1.Sheriff, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,193 +50,25 @@ type SheriffInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Sheriff, err error)
 	Apply(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error)
 	SheriffExpansion
 }
 
 // sherifves implements SheriffInterface
 type sherifves struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration]
 }
 
 // newSherifves returns a Sherifves
 func newSherifves(c *WildwestV1alpha1Client) *sherifves {
 	return &sherifves{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration](
+			"sherifves",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.Sheriff { return &v1alpha1.Sheriff{} },
+			func() *v1alpha1.SheriffList { return &v1alpha1.SheriffList{} }),
 	}
-}
-
-// Get takes name of the sheriff, and returns the corresponding sheriff object, and an error if there is any.
-func (c *sherifves) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Sheriff, err error) {
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Get().
-		Resource("sherifves").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Sherifves that match those selectors.
-func (c *sherifves) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.SheriffList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.SheriffList{}
-	err = c.client.Get().
-		Resource("sherifves").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested sherifves.
-func (c *sherifves) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("sherifves").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a sheriff and creates it.  Returns the server's representation of the sheriff, and an error, if there is any.
-func (c *sherifves) Create(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.CreateOptions) (result *v1alpha1.Sheriff, err error) {
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Post().
-		Resource("sherifves").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(sheriff).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a sheriff and updates it. Returns the server's representation of the sheriff, and an error, if there is any.
-func (c *sherifves) Update(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Put().
-		Resource("sherifves").
-		Name(sheriff.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(sheriff).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *sherifves) UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Put().
-		Resource("sherifves").
-		Name(sheriff.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(sheriff).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the sheriff and deletes it. Returns an error if one occurs.
-func (c *sherifves) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("sherifves").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *sherifves) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("sherifves").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched sheriff.
-func (c *sherifves) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Sheriff, err error) {
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Patch(pt).
-		Resource("sherifves").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied sheriff.
-func (c *sherifves) Apply(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error) {
-	if sheriff == nil {
-		return nil, fmt.Errorf("sheriff provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(sheriff)
-	if err != nil {
-		return nil, err
-	}
-	name := sheriff.Name
-	if name == nil {
-		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
-	}
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("sherifves").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *sherifves) ApplyStatus(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error) {
-	if sheriff == nil {
-		return nil, fmt.Errorf("sheriff provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(sheriff)
-	if err != nil {
-		return nil, err
-	}
-
-	name := sheriff.Name
-	if name == nil {
-		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.Sheriff{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("sherifves").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

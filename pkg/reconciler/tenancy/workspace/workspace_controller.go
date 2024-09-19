@@ -60,10 +60,13 @@ func NewController(
 	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &Controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		shardName:                         shardName,
 		logicalClusterAdminConfig:         logicalClusterAdminConfig,
@@ -106,7 +109,7 @@ type workspaceResource = committer.Resource[*tenancyv1alpha1.WorkspaceSpec, *ten
 // Controller watches Workspaces and WorkspaceShards in order to make sure every Workspace
 // is scheduled to a valid Shard.
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	shardName                         string
 	logicalClusterAdminConfig         *rest.Config // for direct shard connections used during scheduling
@@ -211,7 +214,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

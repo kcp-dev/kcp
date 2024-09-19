@@ -59,8 +59,6 @@ func NewAPIReconciler(
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
 
@@ -73,7 +71,12 @@ func NewAPIReconciler(
 			return apiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		createAPIDefinition:           createAPIDefinition,
 		createAPIBindingAPIDefinition: createAPIBindingAPIDefinition,
@@ -127,7 +130,7 @@ type APIReconciler struct {
 	apiExportIndexer cache.Indexer
 	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	createAPIDefinition           CreateAPIDefinitionFunc
 	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
@@ -236,7 +239,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

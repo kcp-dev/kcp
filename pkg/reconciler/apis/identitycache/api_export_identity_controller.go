@@ -61,10 +61,13 @@ func NewApiExportIdentityProviderController(
 	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	configMapInformer kcpcorev1informers.ConfigMapClusterInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		createConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		},
@@ -172,7 +175,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 type controller struct {
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[string]
 	createConfigMap      func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	getConfigMap         func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
 	updateConfigMap      func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)

@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
@@ -44,7 +44,6 @@ spec:
           Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
           discovery APIs, OpenAPI and resource API endpoints.
 
-
           A workspace can be backed by different concrete types of workspace implementation,
           depending on access pattern. All workspace implementations share the characteristic
           that the URL that serves a given workspace can be used with standard Kubernetes
@@ -83,13 +82,11 @@ spec:
                   can be found. This URL can be used to access the workspace with standard Kubernetes
                   client libraries and command line tools.
 
-
                   Set by the system.
                 type: string
               cluster:
                 description: |-
                   cluster is the name of the logical cluster this workspace is stored under.
-
 
                   Set by the system.
                 type: string
@@ -99,7 +96,6 @@ spec:
               location:
                 description: |-
                   location constraints where this workspace can be scheduled to.
-
 
                   If the no location is specified, an arbitrary location is chosen.
                 properties:
@@ -157,7 +153,6 @@ spec:
                   resources and initially installed APIs) and during runtime (e.g. permissions).
                   If no type is provided, the default type for the workspace in which this workspace
                   is nesting will be used.
-
 
                   The type is a reference to a WorkspaceType in the listed workspace, but
                   lower-cased. The WorkspaceType existence is validated at admission during

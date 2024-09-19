@@ -20,10 +20,13 @@ package applyconfiguration
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+	testing "k8s.io/client-go/testing"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	internal "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/internal"
 	applyconfigurationmetav1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 )
@@ -66,4 +69,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 
 	}
 	return nil
+}
+
+func NewTypeConverter(scheme *runtime.Scheme) *testing.TypeConverter {
+	return &testing.TypeConverter{Scheme: scheme, TypeResolver: internal.Parser()}
 }

@@ -22,7 +22,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 )
 
-// LogicalClusterOwnerApplyConfiguration represents an declarative configuration of the LogicalClusterOwner type for use
+// LogicalClusterOwnerApplyConfiguration represents a declarative configuration of the LogicalClusterOwner type for use
 // with apply.
 type LogicalClusterOwnerApplyConfiguration struct {
 	APIVersion *string    `json:"apiVersion,omitempty"`
@@ -33,7 +33,7 @@ type LogicalClusterOwnerApplyConfiguration struct {
 	UID        *types.UID `json:"uid,omitempty"`
 }
 
-// LogicalClusterOwnerApplyConfiguration constructs an declarative configuration of the LogicalClusterOwner type for use with
+// LogicalClusterOwnerApplyConfiguration constructs a declarative configuration of the LogicalClusterOwner type for use with
 // apply.
 func LogicalClusterOwner() *LogicalClusterOwnerApplyConfiguration {
 	return &LogicalClusterOwnerApplyConfiguration{}

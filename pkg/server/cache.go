@@ -54,7 +54,7 @@ func (s *Server) installCacheServer(ctx context.Context) error {
 	}
 
 	if err := s.AddPostStartHook("kcp-start-cache-server", func(ctx genericapiserver.PostStartHookContext) error {
-		preparedCacheServer.RunPostStartHooks(ctx.StopCh)
+		preparedCacheServer.RunPostStartHooks(ctx)
 		return nil
 	}); err != nil {
 		return err

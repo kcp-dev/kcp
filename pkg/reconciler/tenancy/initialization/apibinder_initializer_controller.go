@@ -63,7 +63,12 @@ func NewAPIBinder(
 	apiExportsInformer, globalAPIExportsInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*APIBinder, error) {
 	c := &APIBinder{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
@@ -140,7 +145,7 @@ type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpe
 // APIBinder is a controller which instantiates APIBindings and waits for them to be fully bound
 // in new Workspaces.
 type APIBinder struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	getLogicalCluster   func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	getWorkspaceType    func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
@@ -253,7 +258,7 @@ func (b *APIBinder) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

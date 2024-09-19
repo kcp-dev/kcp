@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// APIBindingSpecApplyConfiguration represents an declarative configuration of the APIBindingSpec type for use
+// APIBindingSpecApplyConfiguration represents a declarative configuration of the APIBindingSpec type for use
 // with apply.
 type APIBindingSpecApplyConfiguration struct {
 	Reference        *BindingReferenceApplyConfiguration           `json:"reference,omitempty"`
 	PermissionClaims []AcceptablePermissionClaimApplyConfiguration `json:"permissionClaims,omitempty"`
 }
 
-// APIBindingSpecApplyConfiguration constructs an declarative configuration of the APIBindingSpec type for use with
+// APIBindingSpecApplyConfiguration constructs a declarative configuration of the APIBindingSpec type for use with
 // apply.
 func APIBindingSpec() *APIBindingSpecApplyConfiguration {
 	return &APIBindingSpecApplyConfiguration{}

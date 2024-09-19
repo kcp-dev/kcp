@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// WorkspaceTypeExtensionApplyConfiguration represents an declarative configuration of the WorkspaceTypeExtension type for use
+// WorkspaceTypeExtensionApplyConfiguration represents a declarative configuration of the WorkspaceTypeExtension type for use
 // with apply.
 type WorkspaceTypeExtensionApplyConfiguration struct {
 	With []WorkspaceTypeReferenceApplyConfiguration `json:"with,omitempty"`
 }
 
-// WorkspaceTypeExtensionApplyConfiguration constructs an declarative configuration of the WorkspaceTypeExtension type for use with
+// WorkspaceTypeExtensionApplyConfiguration constructs a declarative configuration of the WorkspaceTypeExtension type for use with
 // apply.
 func WorkspaceTypeExtension() *WorkspaceTypeExtensionApplyConfiguration {
 	return &WorkspaceTypeExtensionApplyConfiguration{}

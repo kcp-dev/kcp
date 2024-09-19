@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 )
 
-// CowboyApplyConfiguration represents an declarative configuration of the Cowboy type for use
+// CowboyApplyConfiguration represents a declarative configuration of the Cowboy type for use
 // with apply.
 type CowboyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type CowboyApplyConfiguration struct {
 	Status                           *CowboyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Cowboy constructs an declarative configuration of the Cowboy type for use with
+// Cowboy constructs a declarative configuration of the Cowboy type for use with
 // apply.
 func Cowboy(name, namespace string) *CowboyApplyConfiguration {
 	b := &CowboyApplyConfiguration{}
@@ -217,4 +217,10 @@ func (b *CowboyApplyConfiguration) WithSpec(value *CowboySpecApplyConfiguration)
 func (b *CowboyApplyConfiguration) WithStatus(value *CowboyStatusApplyConfiguration) *CowboyApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *CowboyApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

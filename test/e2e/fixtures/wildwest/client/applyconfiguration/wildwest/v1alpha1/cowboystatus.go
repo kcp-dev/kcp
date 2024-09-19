@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// CowboyStatusApplyConfiguration represents an declarative configuration of the CowboyStatus type for use
+// CowboyStatusApplyConfiguration represents a declarative configuration of the CowboyStatus type for use
 // with apply.
 type CowboyStatusApplyConfiguration struct {
 	Result *string `json:"result,omitempty"`
 }
 
-// CowboyStatusApplyConfiguration constructs an declarative configuration of the CowboyStatus type for use with
+// CowboyStatusApplyConfiguration constructs a declarative configuration of the CowboyStatus type for use with
 // apply.
 func CowboyStatus() *CowboyStatusApplyConfiguration {
 	return &CowboyStatusApplyConfiguration{}

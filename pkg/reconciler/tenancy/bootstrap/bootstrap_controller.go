@@ -59,11 +59,14 @@ func NewController(
 	batteriesIncluded sets.Set[string],
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", ControllerNameBase, workspaceType)
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
-
 	c := &controller{
-		controllerName:       controllerName,
-		queue:                queue,
+		controllerName: controllerName,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: controllerName,
+			},
+		),
 		dynamicClusterClient: dynamicClusterClient,
 		kcpClusterClient:     kcpClusterClient,
 		logicalClusterLister: logicalClusterInformer.Lister(),
@@ -93,7 +96,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 // state and bootstrap resources from the configs/<lower-case-type> package.
 type controller struct {
 	controllerName string
-	queue          workqueue.RateLimitingInterface
+	queue          workqueue.TypedRateLimitingInterface[string]
 
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	kcpClusterClient     kcpclientset.ClusterInterface
@@ -146,7 +149,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

@@ -108,7 +108,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 
 	// TODO(sttts): that discovery client is used for CEL admission. It looks up
 	//              resources to admit I believe. So that probably must be scoped.
-	allStorageProviders, err := c.Apis.DefaultStorageProviders(s.KcpClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).Discovery())
+	allStorageProviders, err := c.Apis.GenericStorageProviders(s.KcpClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).Discovery())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage providers: %w", err)
 	}
@@ -171,7 +171,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 			return nil, err
 		}
 		if err := s.AddPostStartHook("kcp-start-virtual-workspaces", func(ctx genericapiserver.PostStartHookContext) error {
-			s.virtual.GenericAPIServer.RunPostStartHooks(ctx.StopCh)
+			s.virtual.GenericAPIServer.RunPostStartHooks(ctx)
 			return nil
 		}); err != nil {
 			return nil, err
@@ -353,7 +353,7 @@ func (s *Server) Run(ctx context.Context) error {
 	hookName := "kcp-start-informers"
 	if err := s.AddPostStartHook(hookName, func(hookContext genericapiserver.PostStartHookContext) error {
 		logger = logger.WithValues("postStartHook", hookName)
-		hookCtx := klog.NewContext(goContext(hookContext), logger)
+		hookCtx := klog.NewContext(hookContext, logger)
 
 		logger.Info("starting kube informers")
 		s.KubeSharedInformerFactory.Start(hookCtx.Done())
@@ -407,9 +407,9 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("finished bootstrapping the shard workspace")
 
-		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-		go s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.StopCh)
+		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
@@ -453,7 +453,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("finished getting kcp APIExport identities")
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
 			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollUntilContextCancel(goContext(hookContext), time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
+			if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
 					return false, nil
@@ -581,7 +581,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
-		controllerCtx := klog.NewContext(goContext(hookContext), logger)
+		controllerCtx := klog.NewContext(hookContext, logger)
 
 		if s.Options.Controllers.EnableLeaderElection {
 			hostname, err := os.Hostname()
@@ -610,7 +610,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// add post start hook that starts the OpenAPIv3 controller.
 	if err := s.AddPostStartHook("kcp-start-openapiv3-controller", func(srvcontext genericapiserver.PostStartHookContext) error {
-		if err := wait.PollUntilContextCancel(goContext(srvcontext), time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextCancel(srvcontext, time.Second, true, func(ctx context.Context) (bool, error) {
 			return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
 		}); err != nil {
 			return err
@@ -621,7 +621,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	return s.MiniAggregator.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return s.MiniAggregator.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
 
 type handlerChainMuxes []*http.ServeMux
@@ -630,18 +630,6 @@ func (mxs *handlerChainMuxes) Handle(pattern string, handler http.Handler) {
 	for _, mx := range *mxs {
 		mx.Handle(pattern, handler)
 	}
-}
-
-// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
-// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
-// were part of the Go stdlib.
-func goContext(parent genericapiserver.PostStartHookContext) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func(done <-chan struct{}) {
-		<-done
-		cancel()
-	}(parent.StopCh)
-	return ctx
 }
 
 func (s *Server) WaitForPhase1Finished() {

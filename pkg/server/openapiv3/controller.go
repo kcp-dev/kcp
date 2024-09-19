@@ -46,6 +46,7 @@ import (
 )
 
 const ControllerName = "kcp-openapiv3"
+const CrdControllerName = "crd_openapi_v3_controller"
 
 type CRDSpecGetter interface {
 	GetCRDSpecs(clusterName logicalcluster.Name, name string) (specs map[string]cached.Value[*spec3.OpenAPI], err error)
@@ -56,7 +57,7 @@ type Controller struct {
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 	crdsSynced cache.InformerSynced
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	// specs per version, logical cluster and per CRD name
 	lock                 sync.Mutex
@@ -66,9 +67,14 @@ type Controller struct {
 // NewController creates a new Controller with input CustomResourceDefinition informer.
 func NewController(crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer) *Controller {
 	c := &Controller{
-		crdLister:            crdInformer.Lister(),
-		crdsSynced:           crdInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "crd_openapi_v3_controller"),
+		crdLister:  crdInformer.Lister(),
+		crdsSynced: crdInformer.Informer().HasSynced,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: CrdControllerName,
+			},
+		),
 		byClusterNameVersion: map[logicalcluster.Name]map[string]map[string]cached.Value[*spec3.OpenAPI]{},
 	}
 
@@ -120,7 +126,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	log := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, log)

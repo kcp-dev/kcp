@@ -22,13 +22,13 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-// MaximalPermissionPolicyApplyConfiguration represents an declarative configuration of the MaximalPermissionPolicy type for use
+// MaximalPermissionPolicyApplyConfiguration represents a declarative configuration of the MaximalPermissionPolicy type for use
 // with apply.
 type MaximalPermissionPolicyApplyConfiguration struct {
 	Local *v1alpha1.LocalAPIExportPolicy `json:"local,omitempty"`
 }
 
-// MaximalPermissionPolicyApplyConfiguration constructs an declarative configuration of the MaximalPermissionPolicy type for use with
+// MaximalPermissionPolicyApplyConfiguration constructs a declarative configuration of the MaximalPermissionPolicy type for use with
 // apply.
 func MaximalPermissionPolicy() *MaximalPermissionPolicyApplyConfiguration {
 	return &MaximalPermissionPolicyApplyConfiguration{}

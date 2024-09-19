@@ -48,10 +48,13 @@ func NewController(
 	rootKcpClient kcpclientset.ClusterInterface,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &Controller{
-		queue:     queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kcpClient: rootKcpClient,
 		commit:    committer.NewCommitter[*Shard, Patcher, *ShardSpec, *ShardStatus](rootKcpClient.CoreV1alpha1().Shards()),
 		getShard: func(clusterName logicalcluster.Name, name string) (*corev1alpha1.Shard, error) {
@@ -70,7 +73,7 @@ func NewController(
 // Controller watches WorkspaceShards and Secrets in order to make sure every Shard
 // has its URL exposed when a valid kubeconfig is connected to it.
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClient kcpclientset.ClusterInterface
 
@@ -123,7 +126,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

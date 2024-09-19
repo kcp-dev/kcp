@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// VirtualWorkspaceApplyConfiguration represents an declarative configuration of the VirtualWorkspace type for use
+// VirtualWorkspaceApplyConfiguration represents a declarative configuration of the VirtualWorkspace type for use
 // with apply.
 type VirtualWorkspaceApplyConfiguration struct {
 	URL *string `json:"url,omitempty"`
 }
 
-// VirtualWorkspaceApplyConfiguration constructs an declarative configuration of the VirtualWorkspace type for use with
+// VirtualWorkspaceApplyConfiguration constructs a declarative configuration of the VirtualWorkspace type for use with
 // apply.
 func VirtualWorkspace() *VirtualWorkspaceApplyConfiguration {
 	return &VirtualWorkspaceApplyConfiguration{}

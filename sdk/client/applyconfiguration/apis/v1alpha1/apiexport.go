@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// APIExportApplyConfiguration represents an declarative configuration of the APIExport type for use
+// APIExportApplyConfiguration represents a declarative configuration of the APIExport type for use
 // with apply.
 type APIExportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type APIExportApplyConfiguration struct {
 	Status                           *APIExportStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// APIExport constructs an declarative configuration of the APIExport type for use with
+// APIExport constructs a declarative configuration of the APIExport type for use with
 // apply.
 func APIExport(name string) *APIExportApplyConfiguration {
 	b := &APIExportApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *APIExportApplyConfiguration) WithSpec(value *APIExportSpecApplyConfigur
 func (b *APIExportApplyConfiguration) WithStatus(value *APIExportStatusApplyConfiguration) *APIExportApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *APIExportApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

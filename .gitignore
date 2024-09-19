@@ -28,8 +28,7 @@ tmp
 .prometheus-pid
 
 go.work
-go.work.*
-go.work.sum
+go.work*
 
 docs/generators/cli-doc/cli-doc
 

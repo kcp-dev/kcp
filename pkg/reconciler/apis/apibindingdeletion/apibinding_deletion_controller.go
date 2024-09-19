@@ -73,10 +73,13 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &Controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 		},
@@ -117,7 +120,7 @@ type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	listResources   func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error)
 	deleteResources func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error
@@ -164,7 +167,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

@@ -74,10 +74,13 @@ func NewController(
 	globalAPIConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue:            queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		crdClusterClient: crdClusterClient,
 		kcpClusterClient: kcpClusterClient,
 
@@ -262,7 +265,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 // referenced from APIBindings. It also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever
 // objects related to an APIBinding are updated, the APIBinding is reconciled.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient kcpclientset.ClusterInterface
@@ -393,7 +396,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

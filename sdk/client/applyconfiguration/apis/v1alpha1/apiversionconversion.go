@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// APIVersionConversionApplyConfiguration represents an declarative configuration of the APIVersionConversion type for use
+// APIVersionConversionApplyConfiguration represents a declarative configuration of the APIVersionConversion type for use
 // with apply.
 type APIVersionConversionApplyConfiguration struct {
 	From     *string                               `json:"from,omitempty"`
@@ -27,7 +27,7 @@ type APIVersionConversionApplyConfiguration struct {
 	Preserve []string                              `json:"preserve,omitempty"`
 }
 
-// APIVersionConversionApplyConfiguration constructs an declarative configuration of the APIVersionConversion type for use with
+// APIVersionConversionApplyConfiguration constructs a declarative configuration of the APIVersionConversion type for use with
 // apply.
 func APIVersionConversion() *APIVersionConversionApplyConfiguration {
 	return &APIVersionConversionApplyConfiguration{}

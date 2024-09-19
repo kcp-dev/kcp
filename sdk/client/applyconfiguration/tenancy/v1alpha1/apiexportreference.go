@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// APIExportReferenceApplyConfiguration represents an declarative configuration of the APIExportReference type for use
+// APIExportReferenceApplyConfiguration represents a declarative configuration of the APIExportReference type for use
 // with apply.
 type APIExportReferenceApplyConfiguration struct {
 	Path   *string `json:"path,omitempty"`
 	Export *string `json:"export,omitempty"`
 }
 
-// APIExportReferenceApplyConfiguration constructs an declarative configuration of the APIExportReference type for use with
+// APIExportReferenceApplyConfiguration constructs a declarative configuration of the APIExportReference type for use with
 // apply.
 func APIExportReference() *APIExportReferenceApplyConfiguration {
 	return &APIExportReferenceApplyConfiguration{}

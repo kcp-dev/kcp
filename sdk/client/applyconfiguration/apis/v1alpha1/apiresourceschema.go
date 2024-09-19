@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// APIResourceSchemaApplyConfiguration represents an declarative configuration of the APIResourceSchema type for use
+// APIResourceSchemaApplyConfiguration represents a declarative configuration of the APIResourceSchema type for use
 // with apply.
 type APIResourceSchemaApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -33,7 +33,7 @@ type APIResourceSchemaApplyConfiguration struct {
 	Spec                             *APIResourceSchemaSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// APIResourceSchema constructs an declarative configuration of the APIResourceSchema type for use with
+// APIResourceSchema constructs a declarative configuration of the APIResourceSchema type for use with
 // apply.
 func APIResourceSchema(name string) *APIResourceSchemaApplyConfiguration {
 	b := &APIResourceSchemaApplyConfiguration{}
@@ -207,4 +207,10 @@ func (b *APIResourceSchemaApplyConfiguration) ensureObjectMetaApplyConfiguration
 func (b *APIResourceSchemaApplyConfiguration) WithSpec(value *APIResourceSchemaSpecApplyConfiguration) *APIResourceSchemaApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *APIResourceSchemaApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

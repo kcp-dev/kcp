@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-// APIResourceSchemaSpecApplyConfiguration represents an declarative configuration of the APIResourceSchemaSpec type for use
+// APIResourceSchemaSpecApplyConfiguration represents a declarative configuration of the APIResourceSchemaSpec type for use
 // with apply.
 type APIResourceSchemaSpecApplyConfiguration struct {
 	Group          *string                                     `json:"group,omitempty"`
@@ -33,7 +33,7 @@ type APIResourceSchemaSpecApplyConfiguration struct {
 	Conversion     *CustomResourceConversionApplyConfiguration `json:"conversion,omitempty"`
 }
 
-// APIResourceSchemaSpecApplyConfiguration constructs an declarative configuration of the APIResourceSchemaSpec type for use with
+// APIResourceSchemaSpecApplyConfiguration constructs a declarative configuration of the APIResourceSchemaSpec type for use with
 // apply.
 func APIResourceSchemaSpec() *APIResourceSchemaSpecApplyConfiguration {
 	return &APIResourceSchemaSpecApplyConfiguration{}

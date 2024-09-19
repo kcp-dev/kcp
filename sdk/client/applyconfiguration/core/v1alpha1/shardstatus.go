@@ -24,14 +24,14 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// ShardStatusApplyConfiguration represents an declarative configuration of the ShardStatus type for use
+// ShardStatusApplyConfiguration represents a declarative configuration of the ShardStatus type for use
 // with apply.
 type ShardStatusApplyConfiguration struct {
 	Capacity   *v1.ResourceList     `json:"capacity,omitempty"`
 	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
-// ShardStatusApplyConfiguration constructs an declarative configuration of the ShardStatus type for use with
+// ShardStatusApplyConfiguration constructs a declarative configuration of the ShardStatus type for use with
 // apply.
 func ShardStatus() *ShardStatusApplyConfiguration {
 	return &ShardStatusApplyConfiguration{}

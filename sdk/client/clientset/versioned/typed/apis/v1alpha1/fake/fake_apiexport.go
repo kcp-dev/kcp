@@ -44,20 +44,22 @@ var apiexportsKind = v1alpha1.SchemeGroupVersion.WithKind("APIExport")
 
 // Get takes name of the aPIExport, and returns the corresponding aPIExport object, and an error if there is any.
 func (c *FakeAPIExports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExport, err error) {
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(apiexportsResource, name), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootGetActionWithOptions(apiexportsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
 
 // List takes label and field selectors, and returns the list of APIExports that match those selectors.
 func (c *FakeAPIExports) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIExportList, err error) {
+	emptyResult := &v1alpha1.APIExportList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(apiexportsResource, apiexportsKind, opts), &v1alpha1.APIExportList{})
+		Invokes(testing.NewRootListActionWithOptions(apiexportsResource, apiexportsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeAPIExports) List(ctx context.Context, opts v1.ListOptions) (result 
 // Watch returns a watch.Interface that watches the requested aPIExports.
 func (c *FakeAPIExports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(apiexportsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(apiexportsResource, opts))
 }
 
 // Create takes the representation of a aPIExport and creates it.  Returns the server's representation of the aPIExport, and an error, if there is any.
 func (c *FakeAPIExports) Create(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.CreateOptions) (result *v1alpha1.APIExport, err error) {
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(apiexportsResource, aPIExport), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootCreateActionWithOptions(apiexportsResource, aPIExport, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
 
 // Update takes the representation of a aPIExport and updates it. Returns the server's representation of the aPIExport, and an error, if there is any.
 func (c *FakeAPIExports) Update(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (result *v1alpha1.APIExport, err error) {
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(apiexportsResource, aPIExport), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootUpdateActionWithOptions(apiexportsResource, aPIExport, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeAPIExports) UpdateStatus(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (*v1alpha1.APIExport, error) {
+func (c *FakeAPIExports) UpdateStatus(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (result *v1alpha1.APIExport, err error) {
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(apiexportsResource, "status", aPIExport), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(apiexportsResource, "status", aPIExport, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
@@ -119,7 +124,7 @@ func (c *FakeAPIExports) Delete(ctx context.Context, name string, opts v1.Delete
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeAPIExports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(apiexportsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(apiexportsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.APIExportList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeAPIExports) DeleteCollection(ctx context.Context, opts v1.DeleteOpt
 
 // Patch applies the patch and returns the patched aPIExport.
 func (c *FakeAPIExports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExport, err error) {
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, name, pt, data, subresources...), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
@@ -148,10 +154,11 @@ func (c *FakeAPIExports) Apply(ctx context.Context, aPIExport *apisv1alpha1.APIE
 	if name == nil {
 		return nil, fmt.Errorf("aPIExport.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }
@@ -170,10 +177,11 @@ func (c *FakeAPIExports) ApplyStatus(ctx context.Context, aPIExport *apisv1alpha
 	if name == nil {
 		return nil, fmt.Errorf("aPIExport.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIExport{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiexportsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIExport{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIExport), err
 }

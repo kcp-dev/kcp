@@ -201,7 +201,7 @@ func BuildVirtualWorkspace(
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"logicalclusters": wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
 				} {
-					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
+					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
 						klog.Background().Error(nil, "informer not synced")
 						return nil
 					}

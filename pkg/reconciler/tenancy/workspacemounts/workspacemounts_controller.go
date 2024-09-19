@@ -60,10 +60,13 @@ func NewController(
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	discoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &Controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		dynamicClusterClient:                    dynamicClusterClient,
 		discoveringDynamicSharedInformerFactory: discoveringDynamicSharedInformerFactory,
@@ -94,7 +97,7 @@ type workspaceResource = committer.Resource[*tenancyv1alpha1.WorkspaceSpec, *ten
 // workspace has right annotations.
 type Controller struct {
 	// queue is the work-queue used by the controller
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	dynamicClusterClient                    kcpdynamic.ClusterInterface
 	discoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
@@ -145,7 +148,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

@@ -44,6 +44,7 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	utilversion "k8s.io/apiserver/pkg/util/version"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -207,6 +208,8 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	// break connections on the tcp layer. Setting the client timeout would
 	// also apply to watches, which we don't want.
 	c.GenericConfig.LoopbackClientConfig.Wrap(network.DefaultTransportWrapper)
+	// Set effective version to the default kube version of the vendored libs.
+	c.GenericConfig.EffectiveVersion = utilversion.DefaultKubeEffectiveVersion()
 
 	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {

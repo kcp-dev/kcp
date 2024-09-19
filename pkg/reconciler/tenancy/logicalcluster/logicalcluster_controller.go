@@ -58,10 +58,13 @@ func NewController(
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &Controller{
-		queue:                    queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kubeClusterClient:        kubeClusterClient,
 		logicalClusterLister:     logicalClusterInformer.Lister(),
 		clusterRoleBindingLister: clusterRoleBindingInformer.Lister(),
@@ -93,7 +96,7 @@ func NewController(
 
 // Controller creates a ClusterRoleBinding workspace-admin for the owner of the LogicalCluster.
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -151,7 +154,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

@@ -170,13 +170,13 @@ func BuildVirtualWorkspace(
 					"apiresourceschemas": cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 					"apiexports":         cachedKcpInformers.Apis().V1alpha1().APIExports().Informer(),
 				} {
-					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
+					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
 						klog.Background().Error(nil, "informer not synced")
 						return nil
 					}
 				}
 
-				go apiReconciler.Start(goContext(hookContext))
+				go apiReconciler.Start(hookContext)
 				return nil
 			}); err != nil {
 				return nil, err
@@ -276,13 +276,4 @@ type apiDefinitionWithCancel struct {
 func (d *apiDefinitionWithCancel) TearDown() {
 	d.cancelFn()
 	d.APIDefinition.TearDown()
-}
-
-func goContext(parent genericapiserver.PostStartHookContext) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func(done <-chan struct{}) {
-		<-done
-		cancel()
-	}(parent.StopCh)
-	return ctx
 }

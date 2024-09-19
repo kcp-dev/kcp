@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
@@ -33,7 +33,6 @@ spec:
         description: |-
           LogicalCluster describes the current logical cluster. It is used to authorize
           requests to the logical cluster and to track state.
-
 
           A LogicalCluster is always named "cluster".
         properties:
@@ -86,7 +85,6 @@ spec:
                   owner is a reference to a resource controlling the life-cycle of this logical cluster.
                   On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is
                   removed from the owner.
-
 
                   When this object is deleted, but the owner is not deleted, the owner is deleted
                   too.

@@ -31,6 +31,7 @@ func TestValidationOptionDrift(t *testing.T) {
 	expectedFalse := map[string]bool{
 		"RequireImmutableNames":     true,
 		"SuppressPerExpressionCost": true,
+		"AllowInvalidCABundle":      true,
 	}
 
 	v := reflect.ValueOf(defaultValidationOpts)

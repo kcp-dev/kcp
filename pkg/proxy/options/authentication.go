@@ -31,8 +31,10 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/keyutil"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
@@ -119,6 +121,23 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 			versionedInformers.Core().V1().ServiceAccounts().Lister(),
 		)
 		authenticatorConfig.SecretsWriter = tokenGetterClient.CoreV1().Secrets()
+
+		if len(c.BuiltInOptions.ServiceAccounts.KeyFiles) > 0 {
+			// Load and set the public keys.
+			var pubKeys []interface{}
+			for _, f := range c.BuiltInOptions.ServiceAccounts.KeyFiles {
+				keys, err := keyutil.PublicKeysFromFile(f)
+				if err != nil {
+					return fmt.Errorf("failed to parse key file %q: %w", f, err)
+				}
+				pubKeys = append(pubKeys, keys...)
+			}
+			keysGetter, err := serviceaccount.StaticPublicKeysGetter(pubKeys)
+			if err != nil {
+				return fmt.Errorf("failed to set up public service account keys: %w", err)
+			}
+			authenticatorConfig.ServiceAccountPublicKeysGetter = keysGetter
+		}
 	}
 
 	// Sets up a union Authenticator for all enabled auth methods

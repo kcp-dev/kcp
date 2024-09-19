@@ -44,20 +44,22 @@ var shardsKind = v1alpha1.SchemeGroupVersion.WithKind("Shard")
 
 // Get takes name of the shard, and returns the corresponding shard object, and an error if there is any.
 func (c *FakeShards) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Shard, err error) {
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(shardsResource, name), &v1alpha1.Shard{})
+		Invokes(testing.NewRootGetActionWithOptions(shardsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
 
 // List takes label and field selectors, and returns the list of Shards that match those selectors.
 func (c *FakeShards) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ShardList, err error) {
+	emptyResult := &v1alpha1.ShardList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(shardsResource, shardsKind, opts), &v1alpha1.ShardList{})
+		Invokes(testing.NewRootListActionWithOptions(shardsResource, shardsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeShards) List(ctx context.Context, opts v1.ListOptions) (result *v1a
 // Watch returns a watch.Interface that watches the requested shards.
 func (c *FakeShards) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(shardsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(shardsResource, opts))
 }
 
 // Create takes the representation of a shard and creates it.  Returns the server's representation of the shard, and an error, if there is any.
 func (c *FakeShards) Create(ctx context.Context, shard *v1alpha1.Shard, opts v1.CreateOptions) (result *v1alpha1.Shard, err error) {
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(shardsResource, shard), &v1alpha1.Shard{})
+		Invokes(testing.NewRootCreateActionWithOptions(shardsResource, shard, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
 
 // Update takes the representation of a shard and updates it. Returns the server's representation of the shard, and an error, if there is any.
 func (c *FakeShards) Update(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (result *v1alpha1.Shard, err error) {
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(shardsResource, shard), &v1alpha1.Shard{})
+		Invokes(testing.NewRootUpdateActionWithOptions(shardsResource, shard, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeShards) UpdateStatus(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (*v1alpha1.Shard, error) {
+func (c *FakeShards) UpdateStatus(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (result *v1alpha1.Shard, err error) {
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(shardsResource, "status", shard), &v1alpha1.Shard{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(shardsResource, "status", shard, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
@@ -119,7 +124,7 @@ func (c *FakeShards) Delete(ctx context.Context, name string, opts v1.DeleteOpti
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeShards) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(shardsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(shardsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ShardList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeShards) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 
 // Patch applies the patch and returns the patched shard.
 func (c *FakeShards) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error) {
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, name, pt, data, subresources...), &v1alpha1.Shard{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(shardsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
@@ -148,10 +154,11 @@ func (c *FakeShards) Apply(ctx context.Context, shard *corev1alpha1.ShardApplyCo
 	if name == nil {
 		return nil, fmt.Errorf("shard.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, *name, types.ApplyPatchType, data), &v1alpha1.Shard{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(shardsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }
@@ -170,10 +177,11 @@ func (c *FakeShards) ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardA
 	if name == nil {
 		return nil, fmt.Errorf("shard.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.Shard{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(shardsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.Shard{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(shardsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Shard), err
 }

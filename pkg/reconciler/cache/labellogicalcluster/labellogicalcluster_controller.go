@@ -62,15 +62,18 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
-
 	c := &controller{
 		controllerName: controllerName,
 		groupName:      groupName,
 
 		isRelevantLogicalCluster: isRelevantLogicalCluster,
 
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: controllerName,
+			},
+		),
 
 		kcpClusterClient: kcpClusterClient,
 
@@ -105,7 +108,7 @@ type controller struct {
 
 	isRelevantLogicalCluster func(cluster *corev1alpha1.LogicalCluster) bool
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -161,7 +164,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

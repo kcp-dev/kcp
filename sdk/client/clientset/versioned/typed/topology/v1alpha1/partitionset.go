@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
@@ -44,6 +41,7 @@ type PartitionSetsGetter interface {
 type PartitionSetInterface interface {
 	Create(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.CreateOptions) (*v1alpha1.PartitionSet, error)
 	Update(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.UpdateOptions) (*v1alpha1.PartitionSet, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.UpdateOptions) (*v1alpha1.PartitionSet, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,193 +50,25 @@ type PartitionSetInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PartitionSet, err error)
 	Apply(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error)
 	PartitionSetExpansion
 }
 
 // partitionSets implements PartitionSetInterface
 type partitionSets struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.PartitionSet, *v1alpha1.PartitionSetList, *topologyv1alpha1.PartitionSetApplyConfiguration]
 }
 
 // newPartitionSets returns a PartitionSets
 func newPartitionSets(c *TopologyV1alpha1Client) *partitionSets {
 	return &partitionSets{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.PartitionSet, *v1alpha1.PartitionSetList, *topologyv1alpha1.PartitionSetApplyConfiguration](
+			"partitionsets",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.PartitionSet { return &v1alpha1.PartitionSet{} },
+			func() *v1alpha1.PartitionSetList { return &v1alpha1.PartitionSetList{} }),
 	}
-}
-
-// Get takes name of the partitionSet, and returns the corresponding partitionSet object, and an error if there is any.
-func (c *partitionSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PartitionSet, err error) {
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Get().
-		Resource("partitionsets").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of PartitionSets that match those selectors.
-func (c *partitionSets) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PartitionSetList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.PartitionSetList{}
-	err = c.client.Get().
-		Resource("partitionsets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested partitionSets.
-func (c *partitionSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("partitionsets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a partitionSet and creates it.  Returns the server's representation of the partitionSet, and an error, if there is any.
-func (c *partitionSets) Create(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.CreateOptions) (result *v1alpha1.PartitionSet, err error) {
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Post().
-		Resource("partitionsets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(partitionSet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a partitionSet and updates it. Returns the server's representation of the partitionSet, and an error, if there is any.
-func (c *partitionSets) Update(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.UpdateOptions) (result *v1alpha1.PartitionSet, err error) {
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Put().
-		Resource("partitionsets").
-		Name(partitionSet.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(partitionSet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *partitionSets) UpdateStatus(ctx context.Context, partitionSet *v1alpha1.PartitionSet, opts v1.UpdateOptions) (result *v1alpha1.PartitionSet, err error) {
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Put().
-		Resource("partitionsets").
-		Name(partitionSet.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(partitionSet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the partitionSet and deletes it. Returns an error if one occurs.
-func (c *partitionSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("partitionsets").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *partitionSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("partitionsets").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched partitionSet.
-func (c *partitionSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PartitionSet, err error) {
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Patch(pt).
-		Resource("partitionsets").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied partitionSet.
-func (c *partitionSets) Apply(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error) {
-	if partitionSet == nil {
-		return nil, fmt.Errorf("partitionSet provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(partitionSet)
-	if err != nil {
-		return nil, err
-	}
-	name := partitionSet.Name
-	if name == nil {
-		return nil, fmt.Errorf("partitionSet.Name must be provided to Apply")
-	}
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("partitionsets").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *partitionSets) ApplyStatus(ctx context.Context, partitionSet *topologyv1alpha1.PartitionSetApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.PartitionSet, err error) {
-	if partitionSet == nil {
-		return nil, fmt.Errorf("partitionSet provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(partitionSet)
-	if err != nil {
-		return nil, err
-	}
-
-	name := partitionSet.Name
-	if name == nil {
-		return nil, fmt.Errorf("partitionSet.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.PartitionSet{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("partitionsets").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

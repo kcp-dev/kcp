@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240715-7835dfb5a.workspacetypes.tenancy.kcp.io
+  name: v240903-d6797056a.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -105,10 +105,8 @@ spec:
                 another WorkspaceType, this WorkspaceType will be considered as that
                 other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
 
-
                 A dependency cycle stop this WorkspaceType from being admitted as the type
                 of a Workspace.
-
 
                 A non-existing dependency stop this WorkspaceType from being admitted as the type
                 of a Workspace.
@@ -143,7 +141,6 @@ spec:
                 all controllers must finish their work before the Workspace becomes ready
                 for use.
 
-
                 One initializing controller is supported per WorkspaceType; the identifier
                 for this initializer will be a colon-delimited string using the workspace in which
                 the WorkspaceType is defined, and the type's name. For example, if a
@@ -168,7 +165,6 @@ spec:
                     types is a list of WorkspaceTypes that match. A workspace type extending
                     another workspace type automatically is considered as that extended type as well
                     (even transitively).
-
 
                     An empty list matches all types.
                   items:
@@ -209,7 +205,6 @@ spec:
                     types is a list of WorkspaceTypes that match. A workspace type extending
                     another workspace type automatically is considered as that extended type as well
                     (even transitively).
-
 
                     An empty list matches all types.
                   items:

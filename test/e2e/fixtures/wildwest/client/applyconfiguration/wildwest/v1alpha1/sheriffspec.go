@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// SheriffSpecApplyConfiguration represents an declarative configuration of the SheriffSpec type for use
+// SheriffSpecApplyConfiguration represents a declarative configuration of the SheriffSpec type for use
 // with apply.
 type SheriffSpecApplyConfiguration struct {
 	Intent *string `json:"intent,omitempty"`
 }
 
-// SheriffSpecApplyConfiguration constructs an declarative configuration of the SheriffSpec type for use with
+// SheriffSpecApplyConfiguration constructs a declarative configuration of the SheriffSpec type for use with
 // apply.
 func SheriffSpec() *SheriffSpecApplyConfiguration {
 	return &SheriffSpecApplyConfiguration{}

@@ -56,10 +56,13 @@ func NewController(
 	apiExportInformer apisinformers.APIExportClusterInformer,
 	apiBindingInformer apisinformers.APIBindingClusterInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		kcpClusterClient: kcpClusterClient,
 
@@ -124,7 +127,7 @@ func NewController(
 // the existence of the annotation on all related APIBindings. If the annotation is removed from the APIExport, the
 // controller ensures the annotation is removed from all related APIBindings.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -197,7 +200,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

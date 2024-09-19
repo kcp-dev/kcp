@@ -22,13 +22,13 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// WorkspaceLocationApplyConfiguration represents an declarative configuration of the WorkspaceLocation type for use
+// WorkspaceLocationApplyConfiguration represents a declarative configuration of the WorkspaceLocation type for use
 // with apply.
 type WorkspaceLocationApplyConfiguration struct {
 	Selector *v1.LabelSelectorApplyConfiguration `json:"selector,omitempty"`
 }
 
-// WorkspaceLocationApplyConfiguration constructs an declarative configuration of the WorkspaceLocation type for use with
+// WorkspaceLocationApplyConfiguration constructs a declarative configuration of the WorkspaceLocation type for use with
 // apply.
 func WorkspaceLocation() *WorkspaceLocationApplyConfiguration {
 	return &WorkspaceLocationApplyConfiguration{}

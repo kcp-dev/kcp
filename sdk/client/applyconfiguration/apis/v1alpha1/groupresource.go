@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// GroupResourceApplyConfiguration represents an declarative configuration of the GroupResource type for use
+// GroupResourceApplyConfiguration represents a declarative configuration of the GroupResource type for use
 // with apply.
 type GroupResourceApplyConfiguration struct {
 	Group    *string `json:"group,omitempty"`
 	Resource *string `json:"resource,omitempty"`
 }
 
-// GroupResourceApplyConfiguration constructs an declarative configuration of the GroupResource type for use with
+// GroupResourceApplyConfiguration constructs a declarative configuration of the GroupResource type for use with
 // apply.
 func GroupResource() *GroupResourceApplyConfiguration {
 	return &GroupResourceApplyConfiguration{}

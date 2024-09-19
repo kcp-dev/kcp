@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// CowboySpecApplyConfiguration represents an declarative configuration of the CowboySpec type for use
+// CowboySpecApplyConfiguration represents a declarative configuration of the CowboySpec type for use
 // with apply.
 type CowboySpecApplyConfiguration struct {
 	Intent *string `json:"intent,omitempty"`
 }
 
-// CowboySpecApplyConfiguration constructs an declarative configuration of the CowboySpec type for use with
+// CowboySpecApplyConfiguration constructs a declarative configuration of the CowboySpec type for use with
 // apply.
 func CowboySpec() *CowboySpecApplyConfiguration {
 	return &CowboySpecApplyConfiguration{}

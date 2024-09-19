@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
@@ -56,143 +53,18 @@ type APIConversionInterface interface {
 
 // aPIConversions implements APIConversionInterface
 type aPIConversions struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.APIConversion, *v1alpha1.APIConversionList, *apisv1alpha1.APIConversionApplyConfiguration]
 }
 
 // newAPIConversions returns a APIConversions
 func newAPIConversions(c *ApisV1alpha1Client) *aPIConversions {
 	return &aPIConversions{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.APIConversion, *v1alpha1.APIConversionList, *apisv1alpha1.APIConversionApplyConfiguration](
+			"apiconversions",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.APIConversion { return &v1alpha1.APIConversion{} },
+			func() *v1alpha1.APIConversionList { return &v1alpha1.APIConversionList{} }),
 	}
-}
-
-// Get takes name of the aPIConversion, and returns the corresponding aPIConversion object, and an error if there is any.
-func (c *aPIConversions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIConversion, err error) {
-	result = &v1alpha1.APIConversion{}
-	err = c.client.Get().
-		Resource("apiconversions").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of APIConversions that match those selectors.
-func (c *aPIConversions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIConversionList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.APIConversionList{}
-	err = c.client.Get().
-		Resource("apiconversions").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested aPIConversions.
-func (c *aPIConversions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("apiconversions").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a aPIConversion and creates it.  Returns the server's representation of the aPIConversion, and an error, if there is any.
-func (c *aPIConversions) Create(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.CreateOptions) (result *v1alpha1.APIConversion, err error) {
-	result = &v1alpha1.APIConversion{}
-	err = c.client.Post().
-		Resource("apiconversions").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIConversion).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a aPIConversion and updates it. Returns the server's representation of the aPIConversion, and an error, if there is any.
-func (c *aPIConversions) Update(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.UpdateOptions) (result *v1alpha1.APIConversion, err error) {
-	result = &v1alpha1.APIConversion{}
-	err = c.client.Put().
-		Resource("apiconversions").
-		Name(aPIConversion.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIConversion).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the aPIConversion and deletes it. Returns an error if one occurs.
-func (c *aPIConversions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("apiconversions").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *aPIConversions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("apiconversions").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched aPIConversion.
-func (c *aPIConversions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIConversion, err error) {
-	result = &v1alpha1.APIConversion{}
-	err = c.client.Patch(pt).
-		Resource("apiconversions").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied aPIConversion.
-func (c *aPIConversions) Apply(ctx context.Context, aPIConversion *apisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIConversion, err error) {
-	if aPIConversion == nil {
-		return nil, fmt.Errorf("aPIConversion provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(aPIConversion)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIConversion.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIConversion.Name must be provided to Apply")
-	}
-	result = &v1alpha1.APIConversion{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("apiconversions").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }
