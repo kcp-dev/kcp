@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
@@ -73,7 +74,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
-	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crb, ok := obj.(*rbacv1.ClusterRoleBinding)
 			if !ok {
@@ -86,7 +87,7 @@ func NewController(
 			UpdateFunc: func(obj, _ interface{}) { c.enqueueCRB(obj) },
 			DeleteFunc: func(obj interface{}) { c.enqueueCRB(obj) },
 		},
-	})
+	}))
 
 	return c
 }

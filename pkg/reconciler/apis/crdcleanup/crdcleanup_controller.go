@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 )
@@ -89,16 +90,14 @@ func NewController(
 		},
 	})
 
-	_, _ = apiBindingInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha1.APIBinding))
-			},
+	_, _ = apiBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))
 		},
-	)
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha1.APIBinding))
+		},
+	}))
 
 	return c, nil
 }

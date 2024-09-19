@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	tenancy "github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -79,11 +80,11 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj) },
 	})
 
-	c.discoveringDynamicSharedInformerFactory.AddEventHandler(informer.GVREventHandlerFuncs{
+	c.discoveringDynamicSharedInformerFactory.AddEventHandler(events.WithoutGVRSyncs(informer.GVREventHandlerFuncs{
 		AddFunc:    func(_ schema.GroupVersionResource, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
 		UpdateFunc: func(_ schema.GroupVersionResource, _, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
 		DeleteFunc: nil, // Nothing to do.
-	})
+	}))
 
 	return c, nil
 }

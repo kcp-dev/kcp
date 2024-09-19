@@ -45,7 +45,7 @@ const (
 	ResourceControllerName = "kcp-resource-permissionclaimlabel"
 )
 
-// NewController returns a new controller for labeling resources for accepted permission claims.
+// NewResourceController returns a new controller for labeling resources for accepted permission claims.
 func NewResourceController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,

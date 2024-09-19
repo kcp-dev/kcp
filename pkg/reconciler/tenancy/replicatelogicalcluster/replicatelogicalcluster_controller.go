@@ -28,6 +28,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labellogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -89,7 +90,7 @@ func NewController(
 		c.EnqueueLogicalCluster(cluster, "reason", "WorkspaceType changed", "workspacetype", workspaceType.Name)
 	}
 
-	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = workspaceTypeInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -99,7 +100,7 @@ func NewController(
 				enqueueWorkspaceType(obj)
 			},
 		},
-	})
+	}))
 
 	return c
 }

@@ -43,6 +43,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
 
 type Controller interface {
@@ -98,7 +99,7 @@ func NewController(
 		},
 	})
 
-	_, _ = clusterRoleInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -111,7 +112,7 @@ func NewController(
 				c.enqueueClusterRole(obj)
 			},
 		},
-	})
+	}))
 
 	return c
 }

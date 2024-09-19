@@ -38,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -105,23 +106,6 @@ func NewController(
 		commit: committer.NewCommitter[*PartitionSet, Patcher, *PartitionSetSpec, *PartitionSetStatus](kcpClusterClient.TopologyV1alpha1().PartitionSets()),
 	}
 
-	_, _ = globalShardClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueueAllPartitionSets(obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				// limit reconciliation of all PartitionSets (costly) to shard changes impacting partitioning
-				if filterShardEvent(oldObj, newObj) {
-					c.enqueueAllPartitionSets(newObj)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueueAllPartitionSets(obj)
-			},
-		},
-	)
-
 	_, _ = partitionSetClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -136,19 +120,32 @@ func NewController(
 		},
 	)
 
-	_, _ = partitionClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueuePartition(obj)
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueuePartition(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueuePartition(obj)
-			},
+	_, _ = globalShardClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAllPartitionSets(obj)
 		},
-	)
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			// limit reconciliation of all PartitionSets (costly) to shard changes impacting partitioning
+			if filterShardEvent(oldObj, newObj) {
+				c.enqueueAllPartitionSets(newObj)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAllPartitionSets(obj)
+		},
+	}))
+
+	_, _ = partitionClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueuePartition(obj)
+		},
+		UpdateFunc: func(_, newObj interface{}) {
+			c.enqueuePartition(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueuePartition(obj)
+		},
+	}))
 
 	return c, nil
 }

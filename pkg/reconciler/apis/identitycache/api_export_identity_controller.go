@@ -37,6 +37,7 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
@@ -79,7 +80,7 @@ func NewApiExportIdentityProviderController(
 		},
 	}
 
-	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
@@ -99,7 +100,7 @@ func NewApiExportIdentityProviderController(
 			UpdateFunc: func(old, new interface{}) { c.queue.Add(workKey) },
 			DeleteFunc: func(obj interface{}) { c.queue.Add(workKey) },
 		},
-	})
+	}))
 
 	_, _ = configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
