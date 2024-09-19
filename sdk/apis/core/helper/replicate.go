@@ -53,15 +53,11 @@ func DontReplicateForValue(replicateValue, controller string) (result string, ch
 // ReplicateFor ensures the controller string is part of the separated list of controller names
 // in the internal.kcp.io/replicate label. This function changes the annotations in-place.
 func ReplicateFor(annotations map[string]string, controller string) (result map[string]string, changed bool) {
-	for k, v := range annotations {
-		if k != core.ReplicateAnnotationKey {
-			continue
-		}
-
+	if v := annotations[core.ReplicateAnnotationKey]; v != "" {
 		existing := sets.New[string](strings.Split(v, ",")...)
 		if !existing.Has(controller) {
 			existing.Insert(controller)
-			annotations[k] = strings.Join(sets.List[string](existing), ",")
+			annotations[core.ReplicateAnnotationKey] = strings.Join(sets.List[string](existing), ",")
 			return annotations, true
 		}
 		return annotations, false
@@ -77,19 +73,15 @@ func ReplicateFor(annotations map[string]string, controller string) (result map[
 // DontReplicateFor ensures the controller string is not part of the separated list of controller names
 // in the internal.kcp.io/replicate label. This function changes the annotations in-place.
 func DontReplicateFor(annotations map[string]string, controller string) (result map[string]string, changed bool) {
-	for k, v := range annotations {
-		if k != core.ReplicateAnnotationKey {
-			continue
-		}
-
+	if v := annotations[core.ReplicateAnnotationKey]; v != "" {
 		if v == controller {
-			delete(annotations, k)
+			delete(annotations, core.ReplicateAnnotationKey)
 			return annotations, true
 		}
 		existing := sets.New[string](strings.Split(v, ",")...)
 		if existing.Has(controller) {
 			existing.Delete(controller)
-			annotations[k] = strings.Join(sets.List[string](existing), ",")
+			annotations[core.ReplicateAnnotationKey] = strings.Join(sets.List[string](existing), ",")
 			return annotations, true
 		}
 		return annotations, false
