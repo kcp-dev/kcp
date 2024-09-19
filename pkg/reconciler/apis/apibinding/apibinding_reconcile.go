@@ -159,7 +159,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiBinding).Path()
 	}
-	apiExport, err := r.controller.getAPIExport(apiExportPath, workspaceRef.Name)
+	apiExport, err := r.controller.getAPIExportByPath(apiExportPath, workspaceRef.Name)
 	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,
@@ -207,10 +207,14 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 	// Record the APIExport's host cluster name for lookup in webhooks.
 	// The full path is unreliable for this purpose.
-	clusterName := logicalcluster.From(apiExport)
-	apiBinding.Status.APIExportClusterName = clusterName.String()
+	apiBinding.Status.APIExportClusterName = logicalcluster.From(apiExport).String()
 
 	var needToWaitForRequeueWhenEstablished []string
+
+	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIExportByPath, r.getAPIResourceSchema, r.getCRD, r.listCRDs)
+	if err != nil {
+		return reconcileStatusContinue, err
+	}
 
 	// Process all APIResourceSchemas
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
@@ -235,19 +239,9 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, err
 		}
-
 		logger := logging.WithObject(logger, schema)
 
-		// Check for conflicts
-		checker := &conflictChecker{
-			listAPIBindings:      r.listAPIBindings,
-			getAPIExport:         r.getAPIExport,
-			getAPIResourceSchema: r.getAPIResourceSchema,
-			getCRD:               r.getCRD,
-			listCRDs:             r.listCRDs,
-		}
-
-		if err := checker.checkForConflicts(schema, apiBinding); err != nil {
+		if err := checker.Check(apiBinding, schema); err != nil {
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.BindingUpToDate,
