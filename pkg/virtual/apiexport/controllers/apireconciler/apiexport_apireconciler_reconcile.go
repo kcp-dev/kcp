@@ -242,6 +242,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 	}
 
+	// always serve apibindings, either through a claim, or with this fallback
 	if !claimsAPIBindings {
 		d, err := c.createAPIBindingAPIDefinition(ctx, clusterName, apiExport.Name)
 		if err != nil {
@@ -254,6 +255,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			APIDefinition: d,
 		}
 		newGVRs = append(newGVRs, gvrString(gvr))
+		if _, ok := oldSet[gvr]; ok {
+			preservedGVR = append(preservedGVR, gvrString(gvr))
+		}
 	}
 
 	// cleanup old definitions
