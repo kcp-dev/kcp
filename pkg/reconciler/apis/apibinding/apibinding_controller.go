@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -162,7 +163,7 @@ func NewController(
 	})
 
 	// CRD handlers
-	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = crdInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == SystemBoundCRDsClusterName
@@ -185,22 +186,22 @@ func NewController(
 				c.enqueueCRD(crd, logger)
 			},
 		},
-	})
+	}))
 
 	// APIExport handlers
-	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-	})
-	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	}))
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-	})
+	}))
 
 	// APIResourceSchema handlers
-	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
@@ -210,8 +211,8 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
-	})
-	_, _ = globalAPIResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	}))
+	_, _ = globalAPIResourceSchemaInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
@@ -221,10 +222,10 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
-	})
+	}))
 
 	// APIConversion handlers
-	_, _ = apiConversionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiConversionInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
 		},
@@ -234,7 +235,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
 		},
-	})
+	}))
 
 	return c, nil
 }

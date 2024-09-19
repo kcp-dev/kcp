@@ -42,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
 
 type Controller interface {
@@ -100,7 +101,7 @@ func NewController(
 		},
 	})
 
-	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -113,7 +114,7 @@ func NewController(
 				c.enqueueClusterRoleBinding(obj)
 			},
 		},
-	})
+	}))
 
 	return c
 }

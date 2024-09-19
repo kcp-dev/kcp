@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -136,7 +137,7 @@ func NewController(
 		},
 	})
 
-	_, _ = secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = secretInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueSecret(obj.(*corev1.Secret))
 		},
@@ -146,21 +147,20 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueSecret(obj.(*corev1.Secret))
 		},
-	})
+	}))
 
-	_, _ = globalShardInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueAllAPIExports(newObj.(*corev1alpha1.Shard))
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
-			},
+	_, _ = globalShardInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
 		},
-	)
+		UpdateFunc: func(_, newObj interface{}) {
+			c.enqueueAllAPIExports(newObj.(*corev1alpha1.Shard))
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
+		},
+	},
+	))
 
 	return c, nil
 }

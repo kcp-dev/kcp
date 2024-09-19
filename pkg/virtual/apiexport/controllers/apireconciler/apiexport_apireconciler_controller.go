@@ -36,6 +36,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -106,14 +107,14 @@ func NewAPIReconciler(
 		},
 	})
 
-	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},
-	})
+	}))
 
 	return c, nil
 }

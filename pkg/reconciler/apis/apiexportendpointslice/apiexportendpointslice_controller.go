@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -115,16 +116,16 @@ func NewController(
 		},
 	})
 
-	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIExportEndpointSlicesForAPIExport(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAPIExportEndpointSlicesForAPIExport(obj)
 		},
-	})
+	}))
 
-	_, _ = globalShardClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalShardClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAllAPIExportEndpointSlices(obj)
 		},
@@ -136,22 +137,19 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			c.enqueueAllAPIExportEndpointSlices(obj)
 		},
-	},
-	)
+	}))
 
-	_, _ = partitionClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueuePartition(obj)
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueuePartition(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueuePartition(obj)
-			},
+	_, _ = partitionClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueuePartition(obj)
 		},
-	)
+		UpdateFunc: func(_, newObj interface{}) {
+			c.enqueuePartition(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueuePartition(obj)
+		},
+	}))
 
 	return c, nil
 }

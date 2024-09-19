@@ -36,6 +36,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -95,11 +96,11 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	_, _ = globalShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalShardInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
-	})
+	}))
 
 	return c, nil
 }

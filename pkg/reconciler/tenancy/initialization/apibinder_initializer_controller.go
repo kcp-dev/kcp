@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -110,32 +111,32 @@ func NewAPIBinder(
 		},
 	})
 
-	_, _ = apiBindingsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingsInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIBinding(obj, logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIBinding(obj, logger)
 		},
-	})
+	}))
 
-	_, _ = workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = workspaceTypeInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
-	})
+	}))
 
-	_, _ = globalWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalWorkspaceTypeInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueWorkspaceTypes(obj, logger)
 		},
-	})
+	}))
 
 	return c, nil
 }
