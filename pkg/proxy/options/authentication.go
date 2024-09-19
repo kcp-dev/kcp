@@ -38,6 +38,8 @@ import (
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
+const resyncPeriod = 10 * time.Hour
+
 // Authentication wraps BuiltInAuthenticationOptions so we can minimize the
 // dependencies on apiserver auth machinery, specifically by overriding the
 // ApplyTo so we can remove those config dependencies not relevant to the
@@ -111,7 +113,7 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 			return fmt.Errorf("failed to create client for ServiceAccountTokenGetter: %w", err)
 		}
 
-		versionedInformers := kcpkubernetesinformers.NewSharedInformerFactory(tokenGetterClient, 10*time.Minute)
+		versionedInformers := kcpkubernetesinformers.NewSharedInformerFactory(tokenGetterClient, resyncPeriod)
 
 		authenticatorConfig.ServiceAccountTokenGetter = serviceaccountcontroller.NewClusterGetterFromClient(
 			tokenGetterClient,
