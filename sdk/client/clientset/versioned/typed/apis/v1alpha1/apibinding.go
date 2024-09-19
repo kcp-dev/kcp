@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
@@ -44,6 +41,7 @@ type APIBindingsGetter interface {
 type APIBindingInterface interface {
 	Create(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.CreateOptions) (*v1alpha1.APIBinding, error)
 	Update(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (*v1alpha1.APIBinding, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (*v1alpha1.APIBinding, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,193 +50,25 @@ type APIBindingInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error)
 	Apply(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error)
 	APIBindingExpansion
 }
 
 // aPIBindings implements APIBindingInterface
 type aPIBindings struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.APIBinding, *v1alpha1.APIBindingList, *apisv1alpha1.APIBindingApplyConfiguration]
 }
 
 // newAPIBindings returns a APIBindings
 func newAPIBindings(c *ApisV1alpha1Client) *aPIBindings {
 	return &aPIBindings{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.APIBinding, *v1alpha1.APIBindingList, *apisv1alpha1.APIBindingApplyConfiguration](
+			"apibindings",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.APIBinding { return &v1alpha1.APIBinding{} },
+			func() *v1alpha1.APIBindingList { return &v1alpha1.APIBindingList{} }),
 	}
-}
-
-// Get takes name of the aPIBinding, and returns the corresponding aPIBinding object, and an error if there is any.
-func (c *aPIBindings) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIBinding, err error) {
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Get().
-		Resource("apibindings").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of APIBindings that match those selectors.
-func (c *aPIBindings) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIBindingList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.APIBindingList{}
-	err = c.client.Get().
-		Resource("apibindings").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested aPIBindings.
-func (c *aPIBindings) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("apibindings").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a aPIBinding and creates it.  Returns the server's representation of the aPIBinding, and an error, if there is any.
-func (c *aPIBindings) Create(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.CreateOptions) (result *v1alpha1.APIBinding, err error) {
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Post().
-		Resource("apibindings").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIBinding).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a aPIBinding and updates it. Returns the server's representation of the aPIBinding, and an error, if there is any.
-func (c *aPIBindings) Update(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Put().
-		Resource("apibindings").
-		Name(aPIBinding.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIBinding).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *aPIBindings) UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Put().
-		Resource("apibindings").
-		Name(aPIBinding.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIBinding).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the aPIBinding and deletes it. Returns an error if one occurs.
-func (c *aPIBindings) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("apibindings").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *aPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("apibindings").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched aPIBinding.
-func (c *aPIBindings) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error) {
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Patch(pt).
-		Resource("apibindings").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied aPIBinding.
-func (c *aPIBindings) Apply(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error) {
-	if aPIBinding == nil {
-		return nil, fmt.Errorf("aPIBinding provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(aPIBinding)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIBinding.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
-	}
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("apibindings").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *aPIBindings) ApplyStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error) {
-	if aPIBinding == nil {
-		return nil, fmt.Errorf("aPIBinding provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(aPIBinding)
-	if err != nil {
-		return nil, err
-	}
-
-	name := aPIBinding.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.APIBinding{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("apibindings").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

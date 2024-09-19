@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// LogicalClusterApplyConfiguration represents an declarative configuration of the LogicalCluster type for use
+// LogicalClusterApplyConfiguration represents a declarative configuration of the LogicalCluster type for use
 // with apply.
 type LogicalClusterApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type LogicalClusterApplyConfiguration struct {
 	Status                           *LogicalClusterStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// LogicalCluster constructs an declarative configuration of the LogicalCluster type for use with
+// LogicalCluster constructs a declarative configuration of the LogicalCluster type for use with
 // apply.
 func LogicalCluster(name string) *LogicalClusterApplyConfiguration {
 	b := &LogicalClusterApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *LogicalClusterApplyConfiguration) WithSpec(value *LogicalClusterSpecApp
 func (b *LogicalClusterApplyConfiguration) WithStatus(value *LogicalClusterStatusApplyConfiguration) *LogicalClusterApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *LogicalClusterApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// SheriffStatusApplyConfiguration represents an declarative configuration of the SheriffStatus type for use
+// SheriffStatusApplyConfiguration represents a declarative configuration of the SheriffStatus type for use
 // with apply.
 type SheriffStatusApplyConfiguration struct {
 	Result *string `json:"result,omitempty"`
 }
 
-// SheriffStatusApplyConfiguration constructs an declarative configuration of the SheriffStatus type for use with
+// SheriffStatusApplyConfiguration constructs a declarative configuration of the SheriffStatus type for use with
 // apply.
 func SheriffStatus() *SheriffStatusApplyConfiguration {
 	return &SheriffStatusApplyConfiguration{}

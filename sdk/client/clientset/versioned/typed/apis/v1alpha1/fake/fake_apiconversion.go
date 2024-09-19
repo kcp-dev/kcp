@@ -44,20 +44,22 @@ var apiconversionsKind = v1alpha1.SchemeGroupVersion.WithKind("APIConversion")
 
 // Get takes name of the aPIConversion, and returns the corresponding aPIConversion object, and an error if there is any.
 func (c *FakeAPIConversions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIConversion, err error) {
+	emptyResult := &v1alpha1.APIConversion{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(apiconversionsResource, name), &v1alpha1.APIConversion{})
+		Invokes(testing.NewRootGetActionWithOptions(apiconversionsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIConversion), err
 }
 
 // List takes label and field selectors, and returns the list of APIConversions that match those selectors.
 func (c *FakeAPIConversions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIConversionList, err error) {
+	emptyResult := &v1alpha1.APIConversionList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(apiconversionsResource, apiconversionsKind, opts), &v1alpha1.APIConversionList{})
+		Invokes(testing.NewRootListActionWithOptions(apiconversionsResource, apiconversionsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,25 +78,27 @@ func (c *FakeAPIConversions) List(ctx context.Context, opts v1.ListOptions) (res
 // Watch returns a watch.Interface that watches the requested aPIConversions.
 func (c *FakeAPIConversions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(apiconversionsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(apiconversionsResource, opts))
 }
 
 // Create takes the representation of a aPIConversion and creates it.  Returns the server's representation of the aPIConversion, and an error, if there is any.
 func (c *FakeAPIConversions) Create(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.CreateOptions) (result *v1alpha1.APIConversion, err error) {
+	emptyResult := &v1alpha1.APIConversion{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(apiconversionsResource, aPIConversion), &v1alpha1.APIConversion{})
+		Invokes(testing.NewRootCreateActionWithOptions(apiconversionsResource, aPIConversion, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIConversion), err
 }
 
 // Update takes the representation of a aPIConversion and updates it. Returns the server's representation of the aPIConversion, and an error, if there is any.
 func (c *FakeAPIConversions) Update(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.UpdateOptions) (result *v1alpha1.APIConversion, err error) {
+	emptyResult := &v1alpha1.APIConversion{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(apiconversionsResource, aPIConversion), &v1alpha1.APIConversion{})
+		Invokes(testing.NewRootUpdateActionWithOptions(apiconversionsResource, aPIConversion, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIConversion), err
 }
@@ -108,7 +112,7 @@ func (c *FakeAPIConversions) Delete(ctx context.Context, name string, opts v1.De
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeAPIConversions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(apiconversionsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(apiconversionsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.APIConversionList{})
 	return err
@@ -116,10 +120,11 @@ func (c *FakeAPIConversions) DeleteCollection(ctx context.Context, opts v1.Delet
 
 // Patch applies the patch and returns the patched aPIConversion.
 func (c *FakeAPIConversions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIConversion, err error) {
+	emptyResult := &v1alpha1.APIConversion{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiconversionsResource, name, pt, data, subresources...), &v1alpha1.APIConversion{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiconversionsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIConversion), err
 }
@@ -137,10 +142,11 @@ func (c *FakeAPIConversions) Apply(ctx context.Context, aPIConversion *apisv1alp
 	if name == nil {
 		return nil, fmt.Errorf("aPIConversion.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIConversion{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apiconversionsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIConversion{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiconversionsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIConversion), err
 }

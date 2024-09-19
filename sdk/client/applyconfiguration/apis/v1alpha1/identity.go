@@ -22,13 +22,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// IdentityApplyConfiguration represents an declarative configuration of the Identity type for use
+// IdentityApplyConfiguration represents a declarative configuration of the Identity type for use
 // with apply.
 type IdentityApplyConfiguration struct {
 	SecretRef *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
-// IdentityApplyConfiguration constructs an declarative configuration of the Identity type for use with
+// IdentityApplyConfiguration constructs a declarative configuration of the Identity type for use with
 // apply.
 func Identity() *IdentityApplyConfiguration {
 	return &IdentityApplyConfiguration{}

@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// ShardApplyConfiguration represents an declarative configuration of the Shard type for use
+// ShardApplyConfiguration represents a declarative configuration of the Shard type for use
 // with apply.
 type ShardApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type ShardApplyConfiguration struct {
 	Status                           *ShardStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Shard constructs an declarative configuration of the Shard type for use with
+// Shard constructs a declarative configuration of the Shard type for use with
 // apply.
 func Shard(name string) *ShardApplyConfiguration {
 	b := &ShardApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *ShardApplyConfiguration) WithSpec(value *ShardSpecApplyConfiguration) *
 func (b *ShardApplyConfiguration) WithStatus(value *ShardStatusApplyConfiguration) *ShardApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *ShardApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

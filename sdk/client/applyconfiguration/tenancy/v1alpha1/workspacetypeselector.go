@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// WorkspaceTypeSelectorApplyConfiguration represents an declarative configuration of the WorkspaceTypeSelector type for use
+// WorkspaceTypeSelectorApplyConfiguration represents a declarative configuration of the WorkspaceTypeSelector type for use
 // with apply.
 type WorkspaceTypeSelectorApplyConfiguration struct {
 	None  *bool                                      `json:"none,omitempty"`
 	Types []WorkspaceTypeReferenceApplyConfiguration `json:"types,omitempty"`
 }
 
-// WorkspaceTypeSelectorApplyConfiguration constructs an declarative configuration of the WorkspaceTypeSelector type for use with
+// WorkspaceTypeSelectorApplyConfiguration constructs a declarative configuration of the WorkspaceTypeSelector type for use with
 // apply.
 func WorkspaceTypeSelector() *WorkspaceTypeSelectorApplyConfiguration {
 	return &WorkspaceTypeSelectorApplyConfiguration{}

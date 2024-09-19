@@ -23,7 +23,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// APIBindingStatusApplyConfiguration represents an declarative configuration of the APIBindingStatus type for use
+// APIBindingStatusApplyConfiguration represents a declarative configuration of the APIBindingStatus type for use
 // with apply.
 type APIBindingStatusApplyConfiguration struct {
 	APIExportClusterName    *string                              `json:"apiExportClusterName,omitempty"`
@@ -34,7 +34,7 @@ type APIBindingStatusApplyConfiguration struct {
 	ExportPermissionClaims  []PermissionClaimApplyConfiguration  `json:"exportPermissionClaims,omitempty"`
 }
 
-// APIBindingStatusApplyConfiguration constructs an declarative configuration of the APIBindingStatus type for use with
+// APIBindingStatusApplyConfiguration constructs a declarative configuration of the APIBindingStatus type for use with
 // apply.
 func APIBindingStatus() *APIBindingStatusApplyConfiguration {
 	return &APIBindingStatusApplyConfiguration{}

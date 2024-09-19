@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// ExportBindingReferenceApplyConfiguration represents an declarative configuration of the ExportBindingReference type for use
+// ExportBindingReferenceApplyConfiguration represents a declarative configuration of the ExportBindingReference type for use
 // with apply.
 type ExportBindingReferenceApplyConfiguration struct {
 	Path *string `json:"path,omitempty"`
 	Name *string `json:"name,omitempty"`
 }
 
-// ExportBindingReferenceApplyConfiguration constructs an declarative configuration of the ExportBindingReference type for use with
+// ExportBindingReferenceApplyConfiguration constructs a declarative configuration of the ExportBindingReference type for use with
 // apply.
 func ExportBindingReference() *ExportBindingReferenceApplyConfiguration {
 	return &ExportBindingReferenceApplyConfiguration{}

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240715-7835dfb5a.logicalclusters.core.kcp.io
+  name: v240903-d6797056a.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -31,7 +31,6 @@ spec:
       description: |-
         LogicalCluster describes the current logical cluster. It is used to authorize
         requests to the logical cluster and to track state.
-
 
         A LogicalCluster is always named "cluster".
       properties:
@@ -84,7 +83,6 @@ spec:
                 owner is a reference to a resource controlling the life-cycle of this logical cluster.
                 On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is
                 removed from the owner.
-
 
                 When this object is deleted, but the owner is not deleted, the owner is deleted
                 too.

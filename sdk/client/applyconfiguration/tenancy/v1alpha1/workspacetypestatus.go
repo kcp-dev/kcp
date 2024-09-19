@@ -22,14 +22,14 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// WorkspaceTypeStatusApplyConfiguration represents an declarative configuration of the WorkspaceTypeStatus type for use
+// WorkspaceTypeStatusApplyConfiguration represents a declarative configuration of the WorkspaceTypeStatus type for use
 // with apply.
 type WorkspaceTypeStatusApplyConfiguration struct {
 	Conditions        *v1alpha1.Conditions                 `json:"conditions,omitempty"`
 	VirtualWorkspaces []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
 }
 
-// WorkspaceTypeStatusApplyConfiguration constructs an declarative configuration of the WorkspaceTypeStatus type for use with
+// WorkspaceTypeStatusApplyConfiguration constructs a declarative configuration of the WorkspaceTypeStatus type for use with
 // apply.
 func WorkspaceTypeStatus() *WorkspaceTypeStatusApplyConfiguration {
 	return &WorkspaceTypeStatusApplyConfiguration{}

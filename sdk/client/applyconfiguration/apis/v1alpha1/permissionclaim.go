@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// PermissionClaimApplyConfiguration represents an declarative configuration of the PermissionClaim type for use
+// PermissionClaimApplyConfiguration represents a declarative configuration of the PermissionClaim type for use
 // with apply.
 type PermissionClaimApplyConfiguration struct {
 	GroupResourceApplyConfiguration `json:",inline"`
@@ -27,7 +27,7 @@ type PermissionClaimApplyConfiguration struct {
 	IdentityHash                    *string                              `json:"identityHash,omitempty"`
 }
 
-// PermissionClaimApplyConfiguration constructs an declarative configuration of the PermissionClaim type for use with
+// PermissionClaimApplyConfiguration constructs a declarative configuration of the PermissionClaim type for use with
 // apply.
 func PermissionClaim() *PermissionClaimApplyConfiguration {
 	return &PermissionClaimApplyConfiguration{}

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240731-370e3c746.partitionsets.topology.kcp.io
+  name: v240903-d6797056a.partitionsets.topology.kcp.io
 spec:
   group: topology.kcp.io
   names:
@@ -189,6 +189,8 @@ spec:
               description: count is the total number of partitions.
               type: integer
           type: object
+      required:
+      - spec
       type: object
     served: true
     storage: true

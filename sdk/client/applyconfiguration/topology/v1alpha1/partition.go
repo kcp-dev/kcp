@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// PartitionApplyConfiguration represents an declarative configuration of the Partition type for use
+// PartitionApplyConfiguration represents a declarative configuration of the Partition type for use
 // with apply.
 type PartitionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -33,7 +33,7 @@ type PartitionApplyConfiguration struct {
 	Spec                             *PartitionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// Partition constructs an declarative configuration of the Partition type for use with
+// Partition constructs a declarative configuration of the Partition type for use with
 // apply.
 func Partition(name string) *PartitionApplyConfiguration {
 	b := &PartitionApplyConfiguration{}
@@ -207,4 +207,10 @@ func (b *PartitionApplyConfiguration) ensureObjectMetaApplyConfigurationExists()
 func (b *PartitionApplyConfiguration) WithSpec(value *PartitionSpecApplyConfiguration) *PartitionApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PartitionApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

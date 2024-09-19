@@ -23,7 +23,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// APIResourceVersionApplyConfiguration represents an declarative configuration of the APIResourceVersion type for use
+// APIResourceVersionApplyConfiguration represents a declarative configuration of the APIResourceVersion type for use
 // with apply.
 type APIResourceVersionApplyConfiguration struct {
 	Name                     *string                             `json:"name,omitempty"`
@@ -36,7 +36,7 @@ type APIResourceVersionApplyConfiguration struct {
 	AdditionalPrinterColumns []v1.CustomResourceColumnDefinition `json:"additionalPrinterColumns,omitempty"`
 }
 
-// APIResourceVersionApplyConfiguration constructs an declarative configuration of the APIResourceVersion type for use with
+// APIResourceVersionApplyConfiguration constructs a declarative configuration of the APIResourceVersion type for use with
 // apply.
 func APIResourceVersion() *APIResourceVersionApplyConfiguration {
 	return &APIResourceVersionApplyConfiguration{}

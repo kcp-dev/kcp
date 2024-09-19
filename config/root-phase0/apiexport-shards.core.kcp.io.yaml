@@ -5,5 +5,5 @@ metadata:
   name: shards.core.kcp.io
 spec:
   latestResourceSchemas:
-  - v240715-7835dfb5a.shards.core.kcp.io
+  - v240903-d6797056a.shards.core.kcp.io
 status: {}

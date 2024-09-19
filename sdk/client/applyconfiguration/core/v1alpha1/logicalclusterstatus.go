@@ -23,7 +23,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// LogicalClusterStatusApplyConfiguration represents an declarative configuration of the LogicalClusterStatus type for use
+// LogicalClusterStatusApplyConfiguration represents a declarative configuration of the LogicalClusterStatus type for use
 // with apply.
 type LogicalClusterStatusApplyConfiguration struct {
 	URL          *string                              `json:"URL,omitempty"`
@@ -32,7 +32,7 @@ type LogicalClusterStatusApplyConfiguration struct {
 	Initializers []v1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
-// LogicalClusterStatusApplyConfiguration constructs an declarative configuration of the LogicalClusterStatus type for use with
+// LogicalClusterStatusApplyConfiguration constructs a declarative configuration of the LogicalClusterStatus type for use with
 // apply.
 func LogicalClusterStatus() *LogicalClusterStatusApplyConfiguration {
 	return &LogicalClusterStatusApplyConfiguration{}

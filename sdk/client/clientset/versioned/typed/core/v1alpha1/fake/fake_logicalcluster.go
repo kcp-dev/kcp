@@ -44,20 +44,22 @@ var logicalclustersKind = v1alpha1.SchemeGroupVersion.WithKind("LogicalCluster")
 
 // Get takes name of the logicalCluster, and returns the corresponding logicalCluster object, and an error if there is any.
 func (c *FakeLogicalClusters) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LogicalCluster, err error) {
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(logicalclustersResource, name), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootGetActionWithOptions(logicalclustersResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
 
 // List takes label and field selectors, and returns the list of LogicalClusters that match those selectors.
 func (c *FakeLogicalClusters) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LogicalClusterList, err error) {
+	emptyResult := &v1alpha1.LogicalClusterList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(logicalclustersResource, logicalclustersKind, opts), &v1alpha1.LogicalClusterList{})
+		Invokes(testing.NewRootListActionWithOptions(logicalclustersResource, logicalclustersKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeLogicalClusters) List(ctx context.Context, opts v1.ListOptions) (re
 // Watch returns a watch.Interface that watches the requested logicalClusters.
 func (c *FakeLogicalClusters) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(logicalclustersResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(logicalclustersResource, opts))
 }
 
 // Create takes the representation of a logicalCluster and creates it.  Returns the server's representation of the logicalCluster, and an error, if there is any.
 func (c *FakeLogicalClusters) Create(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.CreateOptions) (result *v1alpha1.LogicalCluster, err error) {
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(logicalclustersResource, logicalCluster), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootCreateActionWithOptions(logicalclustersResource, logicalCluster, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
 
 // Update takes the representation of a logicalCluster and updates it. Returns the server's representation of the logicalCluster, and an error, if there is any.
 func (c *FakeLogicalClusters) Update(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.UpdateOptions) (result *v1alpha1.LogicalCluster, err error) {
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(logicalclustersResource, logicalCluster), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootUpdateActionWithOptions(logicalclustersResource, logicalCluster, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeLogicalClusters) UpdateStatus(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.UpdateOptions) (*v1alpha1.LogicalCluster, error) {
+func (c *FakeLogicalClusters) UpdateStatus(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.UpdateOptions) (result *v1alpha1.LogicalCluster, err error) {
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(logicalclustersResource, "status", logicalCluster), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(logicalclustersResource, "status", logicalCluster, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
@@ -119,7 +124,7 @@ func (c *FakeLogicalClusters) Delete(ctx context.Context, name string, opts v1.D
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeLogicalClusters) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(logicalclustersResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(logicalclustersResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.LogicalClusterList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeLogicalClusters) DeleteCollection(ctx context.Context, opts v1.Dele
 
 // Patch applies the patch and returns the patched logicalCluster.
 func (c *FakeLogicalClusters) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LogicalCluster, err error) {
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, name, pt, data, subresources...), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(logicalclustersResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
@@ -148,10 +154,11 @@ func (c *FakeLogicalClusters) Apply(ctx context.Context, logicalCluster *corev1a
 	if name == nil {
 		return nil, fmt.Errorf("logicalCluster.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, *name, types.ApplyPatchType, data), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(logicalclustersResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }
@@ -170,10 +177,11 @@ func (c *FakeLogicalClusters) ApplyStatus(ctx context.Context, logicalCluster *c
 	if name == nil {
 		return nil, fmt.Errorf("logicalCluster.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.LogicalCluster{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(logicalclustersResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.LogicalCluster{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(logicalclustersResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.LogicalCluster), err
 }

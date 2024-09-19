@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// BoundAPIResourceApplyConfiguration represents an declarative configuration of the BoundAPIResource type for use
+// BoundAPIResourceApplyConfiguration represents a declarative configuration of the BoundAPIResource type for use
 // with apply.
 type BoundAPIResourceApplyConfiguration struct {
 	Group           *string                                   `json:"group,omitempty"`
@@ -27,7 +27,7 @@ type BoundAPIResourceApplyConfiguration struct {
 	StorageVersions []string                                  `json:"storageVersions,omitempty"`
 }
 
-// BoundAPIResourceApplyConfiguration constructs an declarative configuration of the BoundAPIResource type for use with
+// BoundAPIResourceApplyConfiguration constructs a declarative configuration of the BoundAPIResource type for use with
 // apply.
 func BoundAPIResource() *BoundAPIResourceApplyConfiguration {
 	return &BoundAPIResourceApplyConfiguration{}

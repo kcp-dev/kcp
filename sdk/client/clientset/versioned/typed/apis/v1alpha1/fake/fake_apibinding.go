@@ -44,20 +44,22 @@ var apibindingsKind = v1alpha1.SchemeGroupVersion.WithKind("APIBinding")
 
 // Get takes name of the aPIBinding, and returns the corresponding aPIBinding object, and an error if there is any.
 func (c *FakeAPIBindings) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIBinding, err error) {
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(apibindingsResource, name), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootGetActionWithOptions(apibindingsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
 
 // List takes label and field selectors, and returns the list of APIBindings that match those selectors.
 func (c *FakeAPIBindings) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIBindingList, err error) {
+	emptyResult := &v1alpha1.APIBindingList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(apibindingsResource, apibindingsKind, opts), &v1alpha1.APIBindingList{})
+		Invokes(testing.NewRootListActionWithOptions(apibindingsResource, apibindingsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeAPIBindings) List(ctx context.Context, opts v1.ListOptions) (result
 // Watch returns a watch.Interface that watches the requested aPIBindings.
 func (c *FakeAPIBindings) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(apibindingsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(apibindingsResource, opts))
 }
 
 // Create takes the representation of a aPIBinding and creates it.  Returns the server's representation of the aPIBinding, and an error, if there is any.
 func (c *FakeAPIBindings) Create(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.CreateOptions) (result *v1alpha1.APIBinding, err error) {
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(apibindingsResource, aPIBinding), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootCreateActionWithOptions(apibindingsResource, aPIBinding, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
 
 // Update takes the representation of a aPIBinding and updates it. Returns the server's representation of the aPIBinding, and an error, if there is any.
 func (c *FakeAPIBindings) Update(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(apibindingsResource, aPIBinding), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootUpdateActionWithOptions(apibindingsResource, aPIBinding, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeAPIBindings) UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (*v1alpha1.APIBinding, error) {
+func (c *FakeAPIBindings) UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(apibindingsResource, "status", aPIBinding), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(apibindingsResource, "status", aPIBinding, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
@@ -119,7 +124,7 @@ func (c *FakeAPIBindings) Delete(ctx context.Context, name string, opts v1.Delet
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeAPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(apibindingsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(apibindingsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.APIBindingList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeAPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 
 // Patch applies the patch and returns the patched aPIBinding.
 func (c *FakeAPIBindings) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error) {
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, name, pt, data, subresources...), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apibindingsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
@@ -148,10 +154,11 @@ func (c *FakeAPIBindings) Apply(ctx context.Context, aPIBinding *apisv1alpha1.AP
 	if name == nil {
 		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, *name, types.ApplyPatchType, data), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apibindingsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }
@@ -170,10 +177,11 @@ func (c *FakeAPIBindings) ApplyStatus(ctx context.Context, aPIBinding *apisv1alp
 	if name == nil {
 		return nil, fmt.Errorf("aPIBinding.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.APIBinding{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(apibindingsResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.APIBinding{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apibindingsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.APIBinding), err
 }

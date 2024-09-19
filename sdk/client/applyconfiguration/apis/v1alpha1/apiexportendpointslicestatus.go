@@ -22,14 +22,14 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// APIExportEndpointSliceStatusApplyConfiguration represents an declarative configuration of the APIExportEndpointSliceStatus type for use
+// APIExportEndpointSliceStatusApplyConfiguration represents a declarative configuration of the APIExportEndpointSliceStatus type for use
 // with apply.
 type APIExportEndpointSliceStatusApplyConfiguration struct {
 	Conditions         *v1alpha1.Conditions                  `json:"conditions,omitempty"`
 	APIExportEndpoints []APIExportEndpointApplyConfiguration `json:"endpoints,omitempty"`
 }
 
-// APIExportEndpointSliceStatusApplyConfiguration constructs an declarative configuration of the APIExportEndpointSliceStatus type for use with
+// APIExportEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the APIExportEndpointSliceStatus type for use with
 // apply.
 func APIExportEndpointSliceStatus() *APIExportEndpointSliceStatusApplyConfiguration {
 	return &APIExportEndpointSliceStatusApplyConfiguration{}

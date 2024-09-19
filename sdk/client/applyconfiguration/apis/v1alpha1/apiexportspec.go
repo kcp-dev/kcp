@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// APIExportSpecApplyConfiguration represents an declarative configuration of the APIExportSpec type for use
+// APIExportSpecApplyConfiguration represents a declarative configuration of the APIExportSpec type for use
 // with apply.
 type APIExportSpecApplyConfiguration struct {
 	LatestResourceSchemas   []string                                   `json:"latestResourceSchemas,omitempty"`
@@ -27,7 +27,7 @@ type APIExportSpecApplyConfiguration struct {
 	PermissionClaims        []PermissionClaimApplyConfiguration        `json:"permissionClaims,omitempty"`
 }
 
-// APIExportSpecApplyConfiguration constructs an declarative configuration of the APIExportSpec type for use with
+// APIExportSpecApplyConfiguration constructs a declarative configuration of the APIExportSpec type for use with
 // apply.
 func APIExportSpec() *APIExportSpecApplyConfiguration {
 	return &APIExportSpecApplyConfiguration{}

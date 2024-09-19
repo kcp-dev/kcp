@@ -25,7 +25,7 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
+// ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
 // with apply.
 type ConditionApplyConfiguration struct {
 	Type               *v1alpha1.ConditionType     `json:"type,omitempty"`
@@ -36,7 +36,7 @@ type ConditionApplyConfiguration struct {
 	Message            *string                     `json:"message,omitempty"`
 }
 
-// ConditionApplyConfiguration constructs an declarative configuration of the Condition type for use with
+// ConditionApplyConfiguration constructs a declarative configuration of the Condition type for use with
 // apply.
 func Condition() *ConditionApplyConfiguration {
 	return &ConditionApplyConfiguration{}

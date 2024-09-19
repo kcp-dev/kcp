@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// BoundAPIResourceSchemaApplyConfiguration represents an declarative configuration of the BoundAPIResourceSchema type for use
+// BoundAPIResourceSchemaApplyConfiguration represents a declarative configuration of the BoundAPIResourceSchema type for use
 // with apply.
 type BoundAPIResourceSchemaApplyConfiguration struct {
 	Name         *string `json:"name,omitempty"`
@@ -26,7 +26,7 @@ type BoundAPIResourceSchemaApplyConfiguration struct {
 	IdentityHash *string `json:"identityHash,omitempty"`
 }
 
-// BoundAPIResourceSchemaApplyConfiguration constructs an declarative configuration of the BoundAPIResourceSchema type for use with
+// BoundAPIResourceSchemaApplyConfiguration constructs a declarative configuration of the BoundAPIResourceSchema type for use with
 // apply.
 func BoundAPIResourceSchema() *BoundAPIResourceSchemaApplyConfiguration {
 	return &BoundAPIResourceSchemaApplyConfiguration{}

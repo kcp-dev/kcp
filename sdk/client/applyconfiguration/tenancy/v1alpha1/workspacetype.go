@@ -25,7 +25,7 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// WorkspaceTypeApplyConfiguration represents an declarative configuration of the WorkspaceType type for use
+// WorkspaceTypeApplyConfiguration represents a declarative configuration of the WorkspaceType type for use
 // with apply.
 type WorkspaceTypeApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,7 +34,7 @@ type WorkspaceTypeApplyConfiguration struct {
 	Status                           *WorkspaceTypeStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// WorkspaceType constructs an declarative configuration of the WorkspaceType type for use with
+// WorkspaceType constructs a declarative configuration of the WorkspaceType type for use with
 // apply.
 func WorkspaceType(name string) *WorkspaceTypeApplyConfiguration {
 	b := &WorkspaceTypeApplyConfiguration{}
@@ -216,4 +216,10 @@ func (b *WorkspaceTypeApplyConfiguration) WithSpec(value *WorkspaceTypeSpecApply
 func (b *WorkspaceTypeApplyConfiguration) WithStatus(value *WorkspaceTypeStatusApplyConfiguration) *WorkspaceTypeApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *WorkspaceTypeApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

@@ -22,14 +22,14 @@ import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// PartitionSetStatusApplyConfiguration represents an declarative configuration of the PartitionSetStatus type for use
+// PartitionSetStatusApplyConfiguration represents a declarative configuration of the PartitionSetStatus type for use
 // with apply.
 type PartitionSetStatusApplyConfiguration struct {
 	Count      *uint16              `json:"count,omitempty"`
 	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
-// PartitionSetStatusApplyConfiguration constructs an declarative configuration of the PartitionSetStatus type for use with
+// PartitionSetStatusApplyConfiguration constructs a declarative configuration of the PartitionSetStatus type for use with
 // apply.
 func PartitionSetStatus() *PartitionSetStatusApplyConfiguration {
 	return &PartitionSetStatusApplyConfiguration{}

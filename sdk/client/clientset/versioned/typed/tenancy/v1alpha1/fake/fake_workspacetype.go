@@ -44,20 +44,22 @@ var workspacetypesKind = v1alpha1.SchemeGroupVersion.WithKind("WorkspaceType")
 
 // Get takes name of the workspaceType, and returns the corresponding workspaceType object, and an error if there is any.
 func (c *FakeWorkspaceTypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.WorkspaceType, err error) {
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(workspacetypesResource, name), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootGetActionWithOptions(workspacetypesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
 
 // List takes label and field selectors, and returns the list of WorkspaceTypes that match those selectors.
 func (c *FakeWorkspaceTypes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.WorkspaceTypeList, err error) {
+	emptyResult := &v1alpha1.WorkspaceTypeList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(workspacetypesResource, workspacetypesKind, opts), &v1alpha1.WorkspaceTypeList{})
+		Invokes(testing.NewRootListActionWithOptions(workspacetypesResource, workspacetypesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,36 +78,39 @@ func (c *FakeWorkspaceTypes) List(ctx context.Context, opts v1.ListOptions) (res
 // Watch returns a watch.Interface that watches the requested workspaceTypes.
 func (c *FakeWorkspaceTypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(workspacetypesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(workspacetypesResource, opts))
 }
 
 // Create takes the representation of a workspaceType and creates it.  Returns the server's representation of the workspaceType, and an error, if there is any.
 func (c *FakeWorkspaceTypes) Create(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.CreateOptions) (result *v1alpha1.WorkspaceType, err error) {
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(workspacetypesResource, workspaceType), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootCreateActionWithOptions(workspacetypesResource, workspaceType, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
 
 // Update takes the representation of a workspaceType and updates it. Returns the server's representation of the workspaceType, and an error, if there is any.
 func (c *FakeWorkspaceTypes) Update(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceType, err error) {
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(workspacetypesResource, workspaceType), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootUpdateActionWithOptions(workspacetypesResource, workspaceType, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeWorkspaceTypes) UpdateStatus(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (*v1alpha1.WorkspaceType, error) {
+func (c *FakeWorkspaceTypes) UpdateStatus(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceType, err error) {
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(workspacetypesResource, "status", workspaceType), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(workspacetypesResource, "status", workspaceType, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
@@ -119,7 +124,7 @@ func (c *FakeWorkspaceTypes) Delete(ctx context.Context, name string, opts v1.De
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeWorkspaceTypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(workspacetypesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(workspacetypesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.WorkspaceTypeList{})
 	return err
@@ -127,10 +132,11 @@ func (c *FakeWorkspaceTypes) DeleteCollection(ctx context.Context, opts v1.Delet
 
 // Patch applies the patch and returns the patched workspaceType.
 func (c *FakeWorkspaceTypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.WorkspaceType, err error) {
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(workspacetypesResource, name, pt, data, subresources...), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
@@ -148,10 +154,11 @@ func (c *FakeWorkspaceTypes) Apply(ctx context.Context, workspaceType *tenancyv1
 	if name == nil {
 		return nil, fmt.Errorf("workspaceType.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(workspacetypesResource, *name, types.ApplyPatchType, data), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }
@@ -170,10 +177,11 @@ func (c *FakeWorkspaceTypes) ApplyStatus(ctx context.Context, workspaceType *ten
 	if name == nil {
 		return nil, fmt.Errorf("workspaceType.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.WorkspaceType{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(workspacetypesResource, *name, types.ApplyPatchType, data, "status"), &v1alpha1.WorkspaceType{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.WorkspaceType), err
 }

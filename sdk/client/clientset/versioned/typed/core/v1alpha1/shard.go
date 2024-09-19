@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
@@ -44,6 +41,7 @@ type ShardsGetter interface {
 type ShardInterface interface {
 	Create(ctx context.Context, shard *v1alpha1.Shard, opts v1.CreateOptions) (*v1alpha1.Shard, error)
 	Update(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (*v1alpha1.Shard, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (*v1alpha1.Shard, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,193 +50,25 @@ type ShardInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error)
 	Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
 	ShardExpansion
 }
 
 // shards implements ShardInterface
 type shards struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.Shard, *v1alpha1.ShardList, *corev1alpha1.ShardApplyConfiguration]
 }
 
 // newShards returns a Shards
 func newShards(c *CoreV1alpha1Client) *shards {
 	return &shards{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.Shard, *v1alpha1.ShardList, *corev1alpha1.ShardApplyConfiguration](
+			"shards",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.Shard { return &v1alpha1.Shard{} },
+			func() *v1alpha1.ShardList { return &v1alpha1.ShardList{} }),
 	}
-}
-
-// Get takes name of the shard, and returns the corresponding shard object, and an error if there is any.
-func (c *shards) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Shard, err error) {
-	result = &v1alpha1.Shard{}
-	err = c.client.Get().
-		Resource("shards").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Shards that match those selectors.
-func (c *shards) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ShardList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.ShardList{}
-	err = c.client.Get().
-		Resource("shards").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested shards.
-func (c *shards) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("shards").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a shard and creates it.  Returns the server's representation of the shard, and an error, if there is any.
-func (c *shards) Create(ctx context.Context, shard *v1alpha1.Shard, opts v1.CreateOptions) (result *v1alpha1.Shard, err error) {
-	result = &v1alpha1.Shard{}
-	err = c.client.Post().
-		Resource("shards").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(shard).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a shard and updates it. Returns the server's representation of the shard, and an error, if there is any.
-func (c *shards) Update(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (result *v1alpha1.Shard, err error) {
-	result = &v1alpha1.Shard{}
-	err = c.client.Put().
-		Resource("shards").
-		Name(shard.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(shard).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *shards) UpdateStatus(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (result *v1alpha1.Shard, err error) {
-	result = &v1alpha1.Shard{}
-	err = c.client.Put().
-		Resource("shards").
-		Name(shard.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(shard).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the shard and deletes it. Returns an error if one occurs.
-func (c *shards) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("shards").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *shards) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("shards").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched shard.
-func (c *shards) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error) {
-	result = &v1alpha1.Shard{}
-	err = c.client.Patch(pt).
-		Resource("shards").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied shard.
-func (c *shards) Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
-	if shard == nil {
-		return nil, fmt.Errorf("shard provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(shard)
-	if err != nil {
-		return nil, err
-	}
-	name := shard.Name
-	if name == nil {
-		return nil, fmt.Errorf("shard.Name must be provided to Apply")
-	}
-	result = &v1alpha1.Shard{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("shards").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *shards) ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error) {
-	if shard == nil {
-		return nil, fmt.Errorf("shard provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(shard)
-	if err != nil {
-		return nil, err
-	}
-
-	name := shard.Name
-	if name == nil {
-		return nil, fmt.Errorf("shard.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.Shard{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("shards").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

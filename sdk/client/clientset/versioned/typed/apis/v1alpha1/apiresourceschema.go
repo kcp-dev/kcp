@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
@@ -56,143 +53,18 @@ type APIResourceSchemaInterface interface {
 
 // aPIResourceSchemas implements APIResourceSchemaInterface
 type aPIResourceSchemas struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration]
 }
 
 // newAPIResourceSchemas returns a APIResourceSchemas
 func newAPIResourceSchemas(c *ApisV1alpha1Client) *aPIResourceSchemas {
 	return &aPIResourceSchemas{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration](
+			"apiresourceschemas",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.APIResourceSchema { return &v1alpha1.APIResourceSchema{} },
+			func() *v1alpha1.APIResourceSchemaList { return &v1alpha1.APIResourceSchemaList{} }),
 	}
-}
-
-// Get takes name of the aPIResourceSchema, and returns the corresponding aPIResourceSchema object, and an error if there is any.
-func (c *aPIResourceSchemas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	result = &v1alpha1.APIResourceSchema{}
-	err = c.client.Get().
-		Resource("apiresourceschemas").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of APIResourceSchemas that match those selectors.
-func (c *aPIResourceSchemas) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIResourceSchemaList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.APIResourceSchemaList{}
-	err = c.client.Get().
-		Resource("apiresourceschemas").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested aPIResourceSchemas.
-func (c *aPIResourceSchemas) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("apiresourceschemas").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a aPIResourceSchema and creates it.  Returns the server's representation of the aPIResourceSchema, and an error, if there is any.
-func (c *aPIResourceSchemas) Create(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.CreateOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	result = &v1alpha1.APIResourceSchema{}
-	err = c.client.Post().
-		Resource("apiresourceschemas").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIResourceSchema).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a aPIResourceSchema and updates it. Returns the server's representation of the aPIResourceSchema, and an error, if there is any.
-func (c *aPIResourceSchemas) Update(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.UpdateOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	result = &v1alpha1.APIResourceSchema{}
-	err = c.client.Put().
-		Resource("apiresourceschemas").
-		Name(aPIResourceSchema.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(aPIResourceSchema).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the aPIResourceSchema and deletes it. Returns an error if one occurs.
-func (c *aPIResourceSchemas) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("apiresourceschemas").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *aPIResourceSchemas) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("apiresourceschemas").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched aPIResourceSchema.
-func (c *aPIResourceSchemas) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceSchema, err error) {
-	result = &v1alpha1.APIResourceSchema{}
-	err = c.client.Patch(pt).
-		Resource("apiresourceschemas").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied aPIResourceSchema.
-func (c *aPIResourceSchemas) Apply(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	if aPIResourceSchema == nil {
-		return nil, fmt.Errorf("aPIResourceSchema provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(aPIResourceSchema)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIResourceSchema.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIResourceSchema.Name must be provided to Apply")
-	}
-	result = &v1alpha1.APIResourceSchema{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("apiresourceschemas").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

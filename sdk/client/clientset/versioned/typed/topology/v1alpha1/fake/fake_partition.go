@@ -44,20 +44,22 @@ var partitionsKind = v1alpha1.SchemeGroupVersion.WithKind("Partition")
 
 // Get takes name of the partition, and returns the corresponding partition object, and an error if there is any.
 func (c *FakePartitions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Partition, err error) {
+	emptyResult := &v1alpha1.Partition{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(partitionsResource, name), &v1alpha1.Partition{})
+		Invokes(testing.NewRootGetActionWithOptions(partitionsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Partition), err
 }
 
 // List takes label and field selectors, and returns the list of Partitions that match those selectors.
 func (c *FakePartitions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PartitionList, err error) {
+	emptyResult := &v1alpha1.PartitionList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(partitionsResource, partitionsKind, opts), &v1alpha1.PartitionList{})
+		Invokes(testing.NewRootListActionWithOptions(partitionsResource, partitionsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -76,25 +78,27 @@ func (c *FakePartitions) List(ctx context.Context, opts v1.ListOptions) (result 
 // Watch returns a watch.Interface that watches the requested partitions.
 func (c *FakePartitions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(partitionsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(partitionsResource, opts))
 }
 
 // Create takes the representation of a partition and creates it.  Returns the server's representation of the partition, and an error, if there is any.
 func (c *FakePartitions) Create(ctx context.Context, partition *v1alpha1.Partition, opts v1.CreateOptions) (result *v1alpha1.Partition, err error) {
+	emptyResult := &v1alpha1.Partition{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(partitionsResource, partition), &v1alpha1.Partition{})
+		Invokes(testing.NewRootCreateActionWithOptions(partitionsResource, partition, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Partition), err
 }
 
 // Update takes the representation of a partition and updates it. Returns the server's representation of the partition, and an error, if there is any.
 func (c *FakePartitions) Update(ctx context.Context, partition *v1alpha1.Partition, opts v1.UpdateOptions) (result *v1alpha1.Partition, err error) {
+	emptyResult := &v1alpha1.Partition{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(partitionsResource, partition), &v1alpha1.Partition{})
+		Invokes(testing.NewRootUpdateActionWithOptions(partitionsResource, partition, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Partition), err
 }
@@ -108,7 +112,7 @@ func (c *FakePartitions) Delete(ctx context.Context, name string, opts v1.Delete
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakePartitions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(partitionsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(partitionsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.PartitionList{})
 	return err
@@ -116,10 +120,11 @@ func (c *FakePartitions) DeleteCollection(ctx context.Context, opts v1.DeleteOpt
 
 // Patch applies the patch and returns the patched partition.
 func (c *FakePartitions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Partition, err error) {
+	emptyResult := &v1alpha1.Partition{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(partitionsResource, name, pt, data, subresources...), &v1alpha1.Partition{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(partitionsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Partition), err
 }
@@ -137,10 +142,11 @@ func (c *FakePartitions) Apply(ctx context.Context, partition *topologyv1alpha1.
 	if name == nil {
 		return nil, fmt.Errorf("partition.Name must be provided to Apply")
 	}
+	emptyResult := &v1alpha1.Partition{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(partitionsResource, *name, types.ApplyPatchType, data), &v1alpha1.Partition{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(partitionsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Partition), err
 }

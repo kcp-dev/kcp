@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// APIExportEndpointApplyConfiguration represents an declarative configuration of the APIExportEndpoint type for use
+// APIExportEndpointApplyConfiguration represents a declarative configuration of the APIExportEndpoint type for use
 // with apply.
 type APIExportEndpointApplyConfiguration struct {
 	URL *string `json:"url,omitempty"`
 }
 
-// APIExportEndpointApplyConfiguration constructs an declarative configuration of the APIExportEndpoint type for use with
+// APIExportEndpointApplyConfiguration constructs a declarative configuration of the APIExportEndpoint type for use with
 // apply.
 func APIExportEndpoint() *APIExportEndpointApplyConfiguration {
 	return &APIExportEndpointApplyConfiguration{}

@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// APIConversionRuleApplyConfiguration represents an declarative configuration of the APIConversionRule type for use
+// APIConversionRuleApplyConfiguration represents a declarative configuration of the APIConversionRule type for use
 // with apply.
 type APIConversionRuleApplyConfiguration struct {
 	Field          *string `json:"field,omitempty"`
@@ -26,7 +26,7 @@ type APIConversionRuleApplyConfiguration struct {
 	Transformation *string `json:"transformation,omitempty"`
 }
 
-// APIConversionRuleApplyConfiguration constructs an declarative configuration of the APIConversionRule type for use with
+// APIConversionRuleApplyConfiguration constructs a declarative configuration of the APIConversionRule type for use with
 // apply.
 func APIConversionRule() *APIConversionRuleApplyConfiguration {
 	return &APIConversionRuleApplyConfiguration{}

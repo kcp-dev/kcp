@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: apiresourceschemas.apis.kcp.io
 spec:
   group: apis.kcp.io
@@ -25,7 +25,6 @@ spec:
       openAPIV3Schema:
         description: |-
           APIResourceSchema describes a resource, identified by (group, version, resource, schema).
-
 
           An APIResourceSchema is immutable and cannot be deleted if they are referenced by
           an APIExport in the same workspace.
@@ -83,26 +82,21 @@ spec:
                               url gives the location of the webhook, in standard URL form
                               (`scheme://host:port/path`).
 
-
                               Please note that using `localhost` or `127.0.0.1` as a `host` is
                               risky unless you take great care to run this webhook on all hosts
                               which run an apiserver which might need to make calls to this
                               webhook. Such installs are likely to be non-portable, i.e., not easy
                               to turn up in a new cluster.
 
-
                               The scheme must be "https"; the URL must begin with "https://".
-
 
                               A path is optional, and if present may be any string permissible in
                               a URL. You may use the path to pass an arbitrary string to the
                               webhook, for example, a cluster identifier.
 
-
                               Attempting to use a user or basic auth e.g. "user:password@" is not
                               allowed. Fragments ("#...") and query parameters ("?...") are not
                               allowed, either.
-
 
                               Note: kcp does not support provided service names like Kubernetes does.
                             format: uri
@@ -145,7 +139,6 @@ spec:
                     Regex used is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
                   - PathSegmentName: validates the name can be safely encoded as a path segment.
                     The name may not be '.' or '..' and the name may not contain '/' or '%'.
-
 
                   Defaults to `DNS1123Subdomain`, matching the behaviour of CRDs.
                 enum:
@@ -209,7 +202,6 @@ spec:
               versions:
                 description: |-
                   versions is the API version of the defined custom resource.
-
 
                   Note: the OpenAPI v3 schemas must be equal for all versions until CEL
                         version migration is supported.

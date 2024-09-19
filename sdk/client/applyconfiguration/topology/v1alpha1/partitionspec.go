@@ -22,13 +22,13 @@ import (
 	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
-// PartitionSpecApplyConfiguration represents an declarative configuration of the PartitionSpec type for use
+// PartitionSpecApplyConfiguration represents a declarative configuration of the PartitionSpec type for use
 // with apply.
 type PartitionSpecApplyConfiguration struct {
 	Selector *v1.LabelSelectorApplyConfiguration `json:"selector,omitempty"`
 }
 
-// PartitionSpecApplyConfiguration constructs an declarative configuration of the PartitionSpec type for use with
+// PartitionSpecApplyConfiguration constructs a declarative configuration of the PartitionSpec type for use with
 // apply.
 func PartitionSpec() *PartitionSpecApplyConfiguration {
 	return &PartitionSpecApplyConfiguration{}

@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+// WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
 	Type     *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
@@ -27,7 +27,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	URL      *string                                   `json:"URL,omitempty"`
 }
 
-// WorkspaceSpecApplyConfiguration constructs an declarative configuration of the WorkspaceSpec type for use with
+// WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with
 // apply.
 func WorkspaceSpec() *WorkspaceSpecApplyConfiguration {
 	return &WorkspaceSpecApplyConfiguration{}

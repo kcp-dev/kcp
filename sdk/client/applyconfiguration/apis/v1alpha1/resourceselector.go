@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// ResourceSelectorApplyConfiguration represents an declarative configuration of the ResourceSelector type for use
+// ResourceSelectorApplyConfiguration represents a declarative configuration of the ResourceSelector type for use
 // with apply.
 type ResourceSelectorApplyConfiguration struct {
 	Name      *string `json:"name,omitempty"`
 	Namespace *string `json:"namespace,omitempty"`
 }
 
-// ResourceSelectorApplyConfiguration constructs an declarative configuration of the ResourceSelector type for use with
+// ResourceSelectorApplyConfiguration constructs a declarative configuration of the ResourceSelector type for use with
 // apply.
 func ResourceSelector() *ResourceSelectorApplyConfiguration {
 	return &ResourceSelectorApplyConfiguration{}

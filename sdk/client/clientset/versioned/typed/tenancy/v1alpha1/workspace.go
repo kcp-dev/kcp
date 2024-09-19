@@ -20,14 +20,11 @@ package v1alpha1
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
@@ -44,6 +41,7 @@ type WorkspacesGetter interface {
 type WorkspaceInterface interface {
 	Create(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.CreateOptions) (*v1alpha1.Workspace, error)
 	Update(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (*v1alpha1.Workspace, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (*v1alpha1.Workspace, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,193 +50,25 @@ type WorkspaceInterface interface {
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Workspace, err error)
 	Apply(ctx context.Context, workspace *tenancyv1alpha1.WorkspaceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Workspace, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
 	ApplyStatus(ctx context.Context, workspace *tenancyv1alpha1.WorkspaceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Workspace, err error)
 	WorkspaceExpansion
 }
 
 // workspaces implements WorkspaceInterface
 type workspaces struct {
-	client rest.Interface
+	*gentype.ClientWithListAndApply[*v1alpha1.Workspace, *v1alpha1.WorkspaceList, *tenancyv1alpha1.WorkspaceApplyConfiguration]
 }
 
 // newWorkspaces returns a Workspaces
 func newWorkspaces(c *TenancyV1alpha1Client) *workspaces {
 	return &workspaces{
-		client: c.RESTClient(),
+		gentype.NewClientWithListAndApply[*v1alpha1.Workspace, *v1alpha1.WorkspaceList, *tenancyv1alpha1.WorkspaceApplyConfiguration](
+			"workspaces",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *v1alpha1.Workspace { return &v1alpha1.Workspace{} },
+			func() *v1alpha1.WorkspaceList { return &v1alpha1.WorkspaceList{} }),
 	}
-}
-
-// Get takes name of the workspace, and returns the corresponding workspace object, and an error if there is any.
-func (c *workspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
-	err = c.client.Get().
-		Resource("workspaces").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Workspaces that match those selectors.
-func (c *workspaces) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.WorkspaceList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.WorkspaceList{}
-	err = c.client.Get().
-		Resource("workspaces").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested workspaces.
-func (c *workspaces) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("workspaces").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a workspace and creates it.  Returns the server's representation of the workspace, and an error, if there is any.
-func (c *workspaces) Create(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.CreateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
-	err = c.client.Post().
-		Resource("workspaces").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(workspace).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a workspace and updates it. Returns the server's representation of the workspace, and an error, if there is any.
-func (c *workspaces) Update(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
-	err = c.client.Put().
-		Resource("workspaces").
-		Name(workspace.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(workspace).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *workspaces) UpdateStatus(ctx context.Context, workspace *v1alpha1.Workspace, opts v1.UpdateOptions) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
-	err = c.client.Put().
-		Resource("workspaces").
-		Name(workspace.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(workspace).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the workspace and deletes it. Returns an error if one occurs.
-func (c *workspaces) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("workspaces").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *workspaces) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("workspaces").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched workspace.
-func (c *workspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Workspace, err error) {
-	result = &v1alpha1.Workspace{}
-	err = c.client.Patch(pt).
-		Resource("workspaces").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied workspace.
-func (c *workspaces) Apply(ctx context.Context, workspace *tenancyv1alpha1.WorkspaceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Workspace, err error) {
-	if workspace == nil {
-		return nil, fmt.Errorf("workspace provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(workspace)
-	if err != nil {
-		return nil, err
-	}
-	name := workspace.Name
-	if name == nil {
-		return nil, fmt.Errorf("workspace.Name must be provided to Apply")
-	}
-	result = &v1alpha1.Workspace{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("workspaces").
-		Name(*name).
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *workspaces) ApplyStatus(ctx context.Context, workspace *tenancyv1alpha1.WorkspaceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Workspace, err error) {
-	if workspace == nil {
-		return nil, fmt.Errorf("workspace provided to Apply must not be nil")
-	}
-	patchOpts := opts.ToPatchOptions()
-	data, err := json.Marshal(workspace)
-	if err != nil {
-		return nil, err
-	}
-
-	name := workspace.Name
-	if name == nil {
-		return nil, fmt.Errorf("workspace.Name must be provided to Apply")
-	}
-
-	result = &v1alpha1.Workspace{}
-	err = c.client.Patch(types.ApplyPatchType).
-		Resource("workspaces").
-		Name(*name).
-		SubResource("status").
-		VersionedParams(&patchOpts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

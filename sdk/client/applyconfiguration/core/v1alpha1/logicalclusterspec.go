@@ -22,7 +22,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
-// LogicalClusterSpecApplyConfiguration represents an declarative configuration of the LogicalClusterSpec type for use
+// LogicalClusterSpecApplyConfiguration represents a declarative configuration of the LogicalClusterSpec type for use
 // with apply.
 type LogicalClusterSpecApplyConfiguration struct {
 	DirectlyDeletable *bool                                    `json:"directlyDeletable,omitempty"`
@@ -30,7 +30,7 @@ type LogicalClusterSpecApplyConfiguration struct {
 	Initializers      []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
-// LogicalClusterSpecApplyConfiguration constructs an declarative configuration of the LogicalClusterSpec type for use with
+// LogicalClusterSpecApplyConfiguration constructs a declarative configuration of the LogicalClusterSpec type for use with
 // apply.
 func LogicalClusterSpec() *LogicalClusterSpecApplyConfiguration {
 	return &LogicalClusterSpecApplyConfiguration{}

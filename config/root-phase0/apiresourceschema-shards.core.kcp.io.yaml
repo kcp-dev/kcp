@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240715-7835dfb5a.shards.core.kcp.io
+  name: v240903-d6797056a.shards.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -69,15 +69,12 @@ spec:
                 kubeconfigs of clients will be invalid. Hence, when changing this value, the old
                 URL used by clients must keep working.
 
-
                 The external address will not be unique if a front-proxy does a fan-out to
                 shards, but all logical cluster clients will talk to the front-proxy. In that case,
                 put the address of the front-proxy here.
 
-
                 Note that movement of shards is only possible (in the future) between shards
                 that share a common external URL.
-
 
                 This will be defaulted to the value of the baseURL.
               format: uri
@@ -88,7 +85,6 @@ spec:
                 virtualWorkspaceURL is the address of the virtual workspace apiserver associated with this shard.
                 It can be a direct address, an address of a front-proxy or even an address of an LB.
                 As of today this address is assigned to APIExports.
-
 
                 This will be defaulted to the value of the baseURL.
               format: uri

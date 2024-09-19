@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// BindingReferenceApplyConfiguration represents an declarative configuration of the BindingReference type for use
+// BindingReferenceApplyConfiguration represents a declarative configuration of the BindingReference type for use
 // with apply.
 type BindingReferenceApplyConfiguration struct {
 	Export *ExportBindingReferenceApplyConfiguration `json:"export,omitempty"`
 }
 
-// BindingReferenceApplyConfiguration constructs an declarative configuration of the BindingReference type for use with
+// BindingReferenceApplyConfiguration constructs a declarative configuration of the BindingReference type for use with
 // apply.
 func BindingReference() *BindingReferenceApplyConfiguration {
 	return &BindingReferenceApplyConfiguration{}
