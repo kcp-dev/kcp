@@ -55,7 +55,7 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	logger := klog.FromContext(ctx).WithValues("component", "cache-server")
 	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", "bootstrap-cache-server")
-		if err := bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
+		if err := bootstrap.Bootstrap(klog.NewContext(hookContext, logger), s.ApiExtensionsClusterClient); err != nil {
 			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -66,10 +66,10 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 
 	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", "cache-server-start-informers")
-		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
+		s.ApiExtensionsSharedInformerFactory.Start(hookContext.Done())
 
 		select {
-		case <-hookContext.StopCh:
+		case <-hookContext.Done():
 			return nil // context closed, avoid reporting success below
 		default:
 		}
@@ -83,21 +83,9 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 }
 
 func (s preparedServer) Run(ctx context.Context) error {
-	return s.apiextensions.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return s.apiextensions.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
 
-func (s preparedServer) RunPostStartHooks(stopCh <-chan struct{}) {
-	s.apiextensions.GenericAPIServer.RunPostStartHooks(stopCh)
-}
-
-// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
-// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
-// were part of the Go stdlib.
-func goContext(parent genericapiserver.PostStartHookContext) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func(done <-chan struct{}) {
-		<-done
-		cancel()
-	}(parent.StopCh)
-	return ctx
+func (s preparedServer) RunPostStartHooks(ctx context.Context) {
+	s.apiextensions.GenericAPIServer.RunPostStartHooks(ctx)
 }

@@ -206,7 +206,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	cacheKcpInformers.WaitForCacheSync(ctx.Done())
 
 	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.Generic.ExternalAddress, "version", version.Get().String())
-	return preparedRootAPIServer.Run(ctx.Done())
+	return preparedRootAPIServer.RunWithContext(ctx)
 }
 
 func readKubeConfig(kubeConfigFile, context string) (clientcmd.ClientConfig, error) {

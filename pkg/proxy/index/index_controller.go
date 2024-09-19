@@ -59,7 +59,12 @@ func NewController(
 	shardInformer corev1alpha1informers.ShardInformer,
 	clientGetter ClusterClientGetter,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{
+			Name: "controllerName",
+		},
+	)
 
 	c := &Controller{
 		queue: queue,
@@ -110,7 +115,7 @@ func NewController(
 // for every Shard, watching the Workspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	clientGetter ClusterClientGetter
 
@@ -172,7 +177,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

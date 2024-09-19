@@ -48,9 +48,6 @@ var DefaultFeatureGate = utilfeature.DefaultFeatureGate
 
 func init() {
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Add(defaultGenericControlPlaneFeatureGates))
-
-	// here we differ from upstream:
-	runtime.Must(utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=true", genericfeatures.CustomResourceValidationExpressions)))
 }
 
 func KnownFeatures() []string {

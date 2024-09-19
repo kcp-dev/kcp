@@ -60,10 +60,13 @@ func NewController(
 ) (*controller, error) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue:                queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kcpClusterClient:     kcpClusterClient,
 		dynamicClusterClient: dynamicClusterClient,
 		ddsif:                dynamicDiscoverySharedInformerFactory,
@@ -100,7 +103,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 // owner. It labels resources in the intersection of `APIBinding.status.permissionClaims` and
 // `APIBinding.spec.acceptedPermissionClaims`.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient     kcpclientset.ClusterInterface
 	apiBindingsIndexer   cache.Indexer
@@ -153,7 +156,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

@@ -61,13 +61,16 @@ func NewController(
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 ) Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
-
 	c := &controller{
 		controllerName: controllerName,
 		groupName:      groupName,
 
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: controllerName,
+			},
+		),
 
 		isRelevantClusterRole:        isRelevantClusterRole,
 		isRelevantClusterRoleBinding: isRelevantClusterRoleBinding,
@@ -123,7 +126,7 @@ type controller struct {
 	controllerName string
 	groupName      string
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
 	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
@@ -217,7 +220,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

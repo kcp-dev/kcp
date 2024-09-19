@@ -54,12 +54,15 @@ func NewController(
 	workspaceTypeInformer tenancyinformers.WorkspaceTypeClusterInformer,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	shardLister := shardInformer.Lister()
 	workspacetypeLister := workspaceTypeInformer.Lister()
 	c := &controller{
-		queue:               queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kcpClusterClient:    kcpClusterClient,
 		workspacetypeLister: workspacetypeLister,
 		listShards: func() ([]*corev1alpha1.Shard, error) {
@@ -116,7 +119,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller reconciles WorkspaceTypes. It ensures a WorkspaceType has assigned a virtual workspace URL address.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient      kcpclientset.ClusterInterface
 	workspacetypeLister   tenancyv1alpha1listers.WorkspaceTypeClusterLister
@@ -187,7 +190,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

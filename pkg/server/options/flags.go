@@ -102,6 +102,7 @@ var (
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.
 		"cert-dir",                         // The directory where the TLS certs are located. If --tls-cert-file and --tls-private-key-file are provided, this flag will be ignored.
 		"http2-max-streams-per-connection", // The limit that the server gives to clients for the maximum number of streams in an HTTP/2 connection. Zero means to use golang's default.
+		"disable-http2-serving",            // If true, disable HTTP/2 serving, and always use HTTP/1.
 		"permit-address-sharing",           // If true, SO_REUSEADDR will be used when binding the port. This allows binding to wildcard IPs like 0.0.0.0 and specific IPs in parallel, and it avoids waiting for the kernel to release sockets in TIME_WAIT state. [default=false]
 		"permit-port-sharing",              // If true, SO_REUSEPORT will be used when binding the port, which allows more than one instance to bind on the same address and port. [default=false]
 		"secure-port",                      // The port on which to serve HTTPS with authentication and authorization. It cannot be switched off with 0.
@@ -120,6 +121,8 @@ var (
 		"strict-transport-security-directives",    // List of directives for HSTS, comma separated. If this list is empty, then HSTS directives will not be added. Example: 'max-age=31536000,includeSubDomains,preload'
 		"external-hostname",                       // The hostname to use when generating externalized URLs for this master (e.g. Swagger API Docs or OpenID Discovery).
 		"shutdown-watch-termination-grace-period", // his option, if set, represents the maximum amount of grace period the apiserver will wait for active watch request(s) to drain during the graceful server shutdown window.
+		"emulated-version",                        // The versions different components emulate their capabilities (APIs, features, ...) of.
+		"storage-initialization-timeout",          // Maximum amount of time to wait for storage initialization before declaring apiserver ready. Defaults to 1m.
 
 		// etcd flags
 		"encryption-provider-config-automatic-reload", // Determines if the file set by --encryption-provider-config should be automatically reloaded if the disk contents change. Setting this to true disables the ability to uniquely identify distinct KMS plugins via the API server healthz endpoints.

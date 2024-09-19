@@ -32,7 +32,12 @@ import (
 
 func TestEnqueueAPIResourceSchema(t *testing.T) {
 	c := &APIReconciler{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
 			return []*apisv1alpha1.APIExport{
 				{
@@ -66,9 +71,9 @@ func TestEnqueueAPIResourceSchema(t *testing.T) {
 	// get the queue keys
 	actual := sets.New[string]()
 	item, _ := c.queue.Get()
-	actual.Insert(item.(string))
+	actual.Insert(item)
 	item, _ = c.queue.Get()
-	actual.Insert(item.(string))
+	actual.Insert(item)
 
 	expected := sets.New[string]("export1", "export2")
 	require.True(t, expected.Equal(actual))

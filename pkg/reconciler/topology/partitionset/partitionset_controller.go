@@ -57,10 +57,13 @@ func NewController(
 	globalShardClusterInformer coreinformers.ShardClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue:            queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kcpClusterClient: kcpClusterClient,
 		listShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
 			return globalShardClusterInformer.Lister().List(selector)
@@ -163,7 +166,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 // controller reconciles PartitionSets. It ensures that Partitions are aligned
 // with the PartitionSets specifications and theShards.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -276,7 +279,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

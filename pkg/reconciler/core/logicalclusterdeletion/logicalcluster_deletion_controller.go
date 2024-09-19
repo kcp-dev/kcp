@@ -72,8 +72,6 @@ func NewController(
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	isBoundResource := func(clusterName logicalcluster.Name, group, resource string) (bool, error) {
 		apiBindings, err := apiBindingInformer.Cluster(clusterName).Lister().List(labels.Everything())
 		if err != nil {
@@ -90,7 +88,12 @@ func NewController(
 	}
 
 	c := &Controller{
-		queue:                             queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		kubeClusterClient:                 kubeClusterClient,
 		kcpClusterClient:                  kcpClusterClient,
 		logicalClusterAdminConfig:         logicalClusterAdminConfig,
@@ -127,7 +130,7 @@ type Resource = committer.Resource[*LogicalClusterSpec, *LogicalClusterStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 type Controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	kcpClusterClient  kcpclientset.ClusterInterface
@@ -193,7 +196,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

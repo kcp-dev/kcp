@@ -63,10 +63,13 @@ func NewController(
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
@@ -171,7 +174,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
@@ -273,7 +276,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

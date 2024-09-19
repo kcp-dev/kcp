@@ -60,8 +60,6 @@ func NewController(
 	clusterRoleInformer kcprbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
 ) Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
-
 	c := &controller{
 		controllerName: controllerName,
 		groupName:      groupName,
@@ -69,7 +67,12 @@ func NewController(
 		isRelevantClusterRole:        isRelevantClusterRole,
 		isRelevantClusterRoleBinding: isRelevantClusterRoleBinding,
 
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: controllerName,
+			},
+		),
 
 		kubeClusterClient: kubeClusterClient,
 
@@ -124,7 +127,7 @@ type controller struct {
 	isRelevantClusterRole        func(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool
 	isRelevantClusterRoleBinding func(clusterName logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) bool
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -217,7 +220,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)

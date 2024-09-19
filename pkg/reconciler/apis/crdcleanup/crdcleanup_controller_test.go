@@ -106,7 +106,12 @@ func TestBoundCRDDeletion(t *testing.T) {
 			crd.SetName(schemaUID)
 
 			q := testRateLimitingQueue{
-				workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+				workqueue.NewTypedRateLimitingQueueWithConfig(
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+					workqueue.TypedRateLimitingQueueConfig[string]{
+						Name: ControllerName,
+					},
+				),
 				false,
 			}
 
@@ -160,10 +165,10 @@ func TestBoundCRDDeletion(t *testing.T) {
 }
 
 type testRateLimitingQueue struct {
-	workqueue.RateLimitingInterface
+	workqueue.TypedRateLimitingInterface[string]
 	requeueHappened bool
 }
 
-func (q *testRateLimitingQueue) AddAfter(item interface{}, duration time.Duration) {
+func (q *testRateLimitingQueue) AddAfter(item string, duration time.Duration) {
 	q.requeueHappened = true
 }

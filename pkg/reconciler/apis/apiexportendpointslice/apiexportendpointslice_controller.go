@@ -62,10 +62,13 @@ func NewController(
 	partitionClusterInformer topologyinformers.PartitionClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-
 	c := &controller{
-		queue: queue,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName,
+			},
+		),
 		listAPIExportEndpointSlices: func() ([]*apisv1alpha1.APIExportEndpointSlice, error) {
 			return apiExportEndpointSliceClusterInformer.Lister().List(labels.Everything())
 		},
@@ -163,7 +166,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 // controller reconciles APIExportEndpointSlices. It ensures that the shard endpoints are populated
 // in the status of every APIExportEndpointSlices.
 type controller struct {
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	listShards                            func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 	listAPIExportEndpointSlices           func() ([]*apisv1alpha1.APIExportEndpointSlice, error)
@@ -302,7 +305,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	if quit {
 		return false
 	}
-	key := k.(string)
+	key := k
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
