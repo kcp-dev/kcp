@@ -37,53 +37,66 @@ func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport         func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
-	boundCRDs    []*apiextensionsv1.CustomResourceDefinition
+	clusterName  logicalcluster.Name
+	crds         []*apiextensionsv1.CustomResourceDefinition
 	crdToBinding map[string]*apisv1alpha1.APIBinding
 }
 
-func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBinding) error {
-	clusterName := logicalcluster.From(apiBindingToExclude)
-
-	apiBindings, err := ncc.listAPIBindings(clusterName)
-	if err != nil {
-		return err
+// newConflictChecker creates a CRD conflict checker for the given cluster.
+func newConflictChecker(clusterName logicalcluster.Name,
+	listAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error),
+	getAPIExportByPath func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error),
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error),
+	getCRD func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error),
+	listCRDs func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error),
+) (*conflictChecker, error) {
+	ncc := &conflictChecker{
+		listAPIBindings:      listAPIBindings,
+		getAPIExportByPath:   getAPIExportByPath,
+		getAPIResourceSchema: getAPIResourceSchema,
+		getCRD:               getCRD,
+		listCRDs:             listCRDs,
+		clusterName:          clusterName,
+		crdToBinding:         map[string]*apisv1alpha1.APIBinding{},
 	}
 
-	ncc.crdToBinding = make(map[string]*apisv1alpha1.APIBinding)
-
-	for _, apiBinding := range apiBindings {
-		if apiBinding.Name == apiBindingToExclude.Name {
+	// get bound CRDs
+	bindings, err := ncc.listAPIBindings(ncc.clusterName)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range bindings {
+		if b.Spec.Reference.Export == nil {
 			continue
 		}
 
-		if apiBinding.Spec.Reference.Export == nil {
+		if b.Spec.Reference.Export == nil {
 			// this should not happen because of OpenAPI
-			return fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(apiBinding), apiBinding.Name)
+			return nil, fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(b), b.Name)
 		}
-		path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+		path := logicalcluster.NewPath(b.Spec.Reference.Export.Path)
 		if path.Empty() {
-			path = logicalcluster.From(apiBinding).Path()
+			path = logicalcluster.From(b).Path()
 		}
-
-		apiExport, err := ncc.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
+		apiExport, err := ncc.getAPIExportByPath(path, b.Spec.Reference.Export.Name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		boundSchemaUIDs := sets.New[string]()
-		for _, boundResource := range apiBinding.Status.BoundResources {
+		for _, boundResource := range b.Status.BoundResources {
 			boundSchemaUIDs.Insert(boundResource.Schema.UID)
 		}
 
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 			schema, err := ncc.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if !boundSchemaUIDs.Has(string(schema.UID)) {
@@ -92,52 +105,53 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 
 			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, string(schema.UID))
 			if err != nil {
-				return err
+				return nil, err
 			}
 
-			ncc.boundCRDs = append(ncc.boundCRDs, crd)
-			ncc.crdToBinding[crd.Name] = apiBinding
+			ncc.crds = append(ncc.crds, crd)
+			ncc.crdToBinding[crd.Name] = b
 		}
 	}
 
-	sort.Sort(byUID(ncc.boundCRDs))
-	return nil
+	// get normal CRDs
+	crds, err := ncc.listCRDs(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	ncc.crds = append(ncc.crds, crds...)
+
+	sort.Sort(byUID(ncc.crds))
+
+	return ncc, nil
 }
 
-func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
-	if err := ncc.getBoundCRDs(apiBinding); err != nil {
-		return fmt.Errorf("error checking for naming conflicts for APIBinding %s|%s: error getting CRDs: %w", logicalcluster.From(apiBinding), apiBinding.Name, err)
-	}
+func (ncc *conflictChecker) Check(binding *apisv1alpha1.APIBinding, s *apisv1alpha1.APIResourceSchema) error {
+	for _, crd := range ncc.crds {
+		if other, found := ncc.crdToBinding[crd.Name]; found && other.Name == binding.Name {
+			// don't check binding against itself
+			continue
+		}
 
-	for _, boundCRD := range ncc.boundCRDs {
-		if foundConflict, details := namesConflict(boundCRD, schema); foundConflict {
-			conflict := ncc.crdToBinding[boundCRD.Name]
-			path := logicalcluster.NewPath(conflict.Spec.Reference.Export.Path)
+		found, details := namesConflict(crd, s)
+		if !found {
+			// no conflict
+			continue
+		}
+
+		if otherBinding, found := ncc.crdToBinding[crd.Name]; found {
+			path := logicalcluster.NewPath(otherBinding.Spec.Reference.Export.Path)
 			var boundTo string
 			if path.Empty() {
-				boundTo = fmt.Sprintf("local APIExport %q", conflict.Spec.Reference.Export.Name)
+				boundTo = fmt.Sprintf("local APIExport %q", otherBinding.Spec.Reference.Export.Name)
 			} else {
-				boundTo = fmt.Sprintf("APIExport %s", path.Join(conflict.Spec.Reference.Export.Name))
+				boundTo = fmt.Sprintf("APIExport %s", path.Join(otherBinding.Spec.Reference.Export.Name))
 			}
-			return fmt.Errorf("naming conflict with APIBinding %q bound to %s, %s", conflict.Name, boundTo, details)
+			return fmt.Errorf("naming conflict with APIBinding %q bound to %s: %s", otherBinding.Name, boundTo, details)
+		} else {
+			return fmt.Errorf("naming conflict with CustomResourceDefinition %q: %s", crd.Name, details)
 		}
 	}
 
-	return ncc.gvrConflict(schema, apiBinding)
-}
-
-func (ncc *conflictChecker) gvrConflict(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
-	bindingClusterName := logicalcluster.From(apiBinding)
-	bindingClusterCRDs, err := ncc.listCRDs(bindingClusterName)
-	if err != nil {
-		return err
-	}
-	for _, bindingClusterCRD := range bindingClusterCRDs {
-		if bindingClusterCRD.Spec.Group == schema.Spec.Group && bindingClusterCRD.Spec.Names.Plural == schema.Spec.Names.Plural {
-			return fmt.Errorf("cannot create CustomResourceDefinition with %q group and %q resource because it overlaps with %q CustomResourceDefinition in %q logical cluster",
-				schema.Spec.Group, schema.Spec.Names.Plural, bindingClusterCRD.Name, bindingClusterName)
-		}
-	}
 	return nil
 }
 

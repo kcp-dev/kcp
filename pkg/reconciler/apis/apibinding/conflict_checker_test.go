@@ -88,36 +88,38 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 		"export2-schema3": {ObjectMeta: metav1.ObjectMeta{UID: "e2-s3"}},
 	}
 
-	ncc := &conflictChecker{
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+	ncc, err := newConflictChecker("root:org:ws",
+		func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return []*apisv1alpha1.APIBinding{
 				newAPIBinding,
 				existingBinding1,
 				existingBinding2,
 			}, nil
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+		func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExports[name], nil
 		},
-		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+		func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return apiResourceSchemas[name], nil
 		},
-		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+		func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
 		},
-	}
-
-	err := ncc.getBoundCRDs(newAPIBinding)
+		func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, nil
+		},
+	)
 	require.NoError(t, err)
 
-	expectedCRDs := sets.New[string]("e1-s1", "e1-s2", "e2-s1", "e2-s2")
+	expectedCRDs := sets.New[string]("e0-s1", "e1-s1", "e1-s2", "e2-s1", "e2-s2")
 	actualCRDs := sets.New[string]()
-	for _, crd := range ncc.boundCRDs {
+	for _, crd := range ncc.crds {
 		actualCRDs.Insert(crd.Name)
 	}
 	require.True(t, expectedCRDs.Equal(actualCRDs), "bound CRDs mismatch: %s", cmp.Diff(expectedCRDs, actualCRDs))
 
 	expectedMapping := map[string]*apisv1alpha1.APIBinding{
+		"e0-s1": newAPIBinding,
 		"e1-s1": existingBinding1,
 		"e1-s2": existingBinding1,
 		"e2-s1": existingBinding2,
@@ -237,7 +239,7 @@ func TestNamesConflict(t *testing.T) {
 	}
 }
 
-func TestGVRConflict(t *testing.T) {
+func TestCRDs(t *testing.T) {
 	scenarios := []struct {
 		name        string
 		initialCRDs []*apiextensionsv1.CustomResourceDefinition
@@ -270,16 +272,30 @@ func TestGVRConflict(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			c := &conflictChecker{listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-				var crds []*apiextensionsv1.CustomResourceDefinition
-				for _, crd := range scenario.initialCRDs {
-					if logicalcluster.From(crd) == clusterName {
-						crds = append(crds, crd)
+			c, err := newConflictChecker(logicalcluster.From(scenario.binding),
+				func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+					return nil, nil
+				},
+				func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) { return nil, nil },
+				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					return nil, nil
+				},
+				func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+					return nil, nil
+				},
+				func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+					var crds []*apiextensionsv1.CustomResourceDefinition
+					for _, crd := range scenario.initialCRDs {
+						if logicalcluster.From(crd) == clusterName {
+							crds = append(crds, crd)
+						}
 					}
-				}
-				return crds, nil
-			}}
-			if err := c.gvrConflict(scenario.schema, scenario.binding); err != nil != scenario.wantErr {
+					return crds, nil
+				},
+			)
+			require.NoError(t, err, "failed to create conflict checker")
+
+			if err := c.Check(scenario.binding, scenario.schema); (err != nil) != scenario.wantErr {
 				t.Fatalf("error = %v, wantErr %v", err, scenario.wantErr)
 			}
 		})

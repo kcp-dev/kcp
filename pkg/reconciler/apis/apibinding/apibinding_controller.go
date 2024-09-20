@@ -122,8 +122,7 @@ func NewController(
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
-
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 		getAPIExportsBySchema: func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
@@ -275,7 +274,7 @@ type controller struct {
 	listAPIBindingsByAPIExport func(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 
-	getAPIExport          func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExportByPath    func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error)
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)

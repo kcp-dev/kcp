@@ -448,7 +448,7 @@ func TestReconcileBinding(t *testing.T) {
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", path.String())
 					return apiExports[name], tc.getAPIExportError
 				},
@@ -606,7 +606,7 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.NamingConflictsReason,
-					Message:  "naming conflict with APIBinding \"conflicting\" bound to APIExport org:some-workspace:conflict, spec.names.plural=widgets is forbidden",
+					Message:  "naming conflict with APIBinding \"conflicting\" bound to APIExport org:some-workspace:conflict: spec.names.plural=widgets is forbidden",
 				})
 			}
 
