@@ -57,23 +57,6 @@ type testScenario struct {
 	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface)
 }
 
-// scenarios all test scenarios that will be run against an environment provided by the test binary.
-var scenarios = []testScenario{
-	{"TestReplicateAPIExport", replicateAPIExportScenario},
-	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
-	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
-	{"TestReplicateAPIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
-	{"TestReplicateWorkspaceType", replicateWorkspaceTypeScenario},
-	{"TestReplicateWorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
-}
-
-// disruptiveScenarios contains a list of scenarios that will be run in a private environment
-// so that they don't disrupt other tests.
-var disruptiveScenarios = []testScenario{
-	{"TestReplicateShard", replicateShardScenario},
-	{"TestReplicateShardNegative", replicateShardNegativeScenario},
-}
-
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIResourceSchema object.
 func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
@@ -436,6 +419,14 @@ func TestReplication(t *testing.T) {
 	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
+	scenarios := []testScenario{
+		{"APIExport", replicateAPIExportScenario},
+		{"APIExportNegative", replicateAPIExportNegativeScenario},
+		{"APIResourceSchema", replicateAPIResourceSchemaScenario},
+		{"APIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
+		{"WorkspaceType", replicateWorkspaceTypeScenario},
+		{"WorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
+	}
 	for _, scenario := range scenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
@@ -450,6 +441,10 @@ func TestReplicationDisruptive(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
+	disruptiveScenarios := []testScenario{
+		{"Shard", replicateShardScenario},
+		{"ShardNegative", replicateShardNegativeScenario},
+	}
 	for _, scenario := range disruptiveScenarios {
 		scenario := scenario
 
