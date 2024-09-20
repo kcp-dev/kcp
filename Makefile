@@ -131,8 +131,9 @@ build-all:
 install: WHAT ?= ./cmd/... ./cli/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
 	set -x; for W in $(WHAT); do \
-  		W=$$(echo "$${W}" | sed 's,^\./,github.com/kcp-dev/kcp/,') && \
-  		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" $${W}; \
+		pushd . && cd $${W%..}; \
+  		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" ./...; \
+		popd; \
   	done
 .PHONY: install
 
