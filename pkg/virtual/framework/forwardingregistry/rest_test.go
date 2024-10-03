@@ -160,7 +160,7 @@ func TestGet(t *testing.T) {
 
 	result, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.NoError(t, err)
-	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%V\nactual:\n%V", resource, result)
+	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%v\nactual:\n%v", resource, result)
 }
 
 func TestList(t *testing.T) {
@@ -178,7 +178,7 @@ func TestList(t *testing.T) {
 	require.Len(t, resultResources, len(resources))
 	for i, resource := range resources {
 		resource := *resource.(*unstructured.Unstructured)
-		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
+		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%v\nactual:\n%v", resource, resultResources[0])
 	}
 	require.Len(t, fakeClient.Actions(), 1)
 	require.Equal(t, "noxus", fakeClient.Actions()[0].GetResource().Resource)
@@ -209,7 +209,7 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 	require.Len(t, resultResources, len(resources))
 	for i, resource := range resources {
 		resource := *resource.(*unstructured.Unstructured)
-		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%V\nactual:\n%V", resource, resultResources[0])
+		require.Truef(t, apiequality.Semantic.DeepEqual(resource, resultResources[i]), "expected:\n%v\nactual:\n%v", resource, resultResources[0])
 	}
 	require.Len(t, fakeClient.Actions(), 1)
 	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)

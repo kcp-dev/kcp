@@ -19,6 +19,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,7 +60,7 @@ func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string
 
 	go func() {
 		err := serv.ListenAndServeTLS(certFile, keyFile)
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			t.Logf("unable to shutdown server gracefully err: %v", err)
 		}
 	}()
