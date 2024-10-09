@@ -27,7 +27,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
-	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 )
 
 type Config struct {

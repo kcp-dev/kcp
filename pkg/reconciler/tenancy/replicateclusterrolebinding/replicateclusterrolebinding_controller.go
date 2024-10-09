@@ -24,7 +24,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
-	replicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrole"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrole"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 )
 
