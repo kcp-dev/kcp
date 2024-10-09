@@ -23,7 +23,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
-	dynamic "k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
