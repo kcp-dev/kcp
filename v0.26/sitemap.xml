@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/GOALS/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/GOALS/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/quickstart-tenancy-and-apis/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/quickstart-tenancy-and-apis/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/terminology/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/terminology/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/apis/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/apis/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/apis/built-in/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/apis/built-in/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/apis/exporting-apis/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/apis/exporting-apis/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/apis/rest-access-patterns/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/apis/rest-access-patterns/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/authorization/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/authorization/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/authorization/authorizers/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/authorization/authorizers/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/miscellaneous/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/miscellaneous/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/miscellaneous/braindump/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/miscellaneous/braindump/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/sharding/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/sharding/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/sharding/cache-server/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/sharding/cache-server/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/sharding/partitions/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/sharding/partitions/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/sharding/shards/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/sharding/shards/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/workspaces/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/workspaces/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/workspaces/virtual-workspaces/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/workspaces/virtual-workspaces/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/concepts/workspaces/workspace-types/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/concepts/workspaces/workspace-types/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/contributing/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/contributing/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/contributing/inspecting-e2e-metrics/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/contributing/inspecting-e2e-metrics/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/contributing/publishing-a-new-kcp-release/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/contributing/publishing-a-new-kcp-release/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/contributing/rebasing-kubernetes/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/contributing/rebasing-kubernetes/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/contributing/replicate-new-resource/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/contributing/replicate-new-resource/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/controllers/writing-kcp-aware-controllers/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/controllers/writing-kcp-aware-controllers/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/internals/etcd-structure/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/internals/etcd-structure/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/internals/using-kcp-as-a-library/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/internals/using-kcp-as-a-library/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/investigations/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/investigations/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/investigations/logical-clusters/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/investigations/logical-clusters/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/investigations/minimal-api-server/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/investigations/minimal-api-server/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/investigations/self-service-policy/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/investigations/self-service-policy/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/developers/investigations/transparent-multi-cluster/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/developers/investigations/transparent-multi-cluster/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_bind/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_bind/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_bind_apiexport/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_bind_apiexport/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims_get/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims_get/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims_get_apibinding/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_claims_get_apibinding/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_crd/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_crd/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_crd_snapshot/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_crd_snapshot/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_create-context/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_create-context/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_current/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_current/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_tree/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_tree/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_use/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/cli/kcp_workspace_use/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apibindings/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apibindings/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiconversions/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiconversions/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiexportendpointslices/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiexportendpointslices/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiexports/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiexports/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiresourceschemas/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/apis.kcp.io/apiresourceschemas/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/core.kcp.io/logicalclusters/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/core.kcp.io/logicalclusters/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/core.kcp.io/shards/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/core.kcp.io/shards/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/tenancy.kcp.io/workspaces/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/tenancy.kcp.io/workspaces/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/tenancy.kcp.io/workspacetypes/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/tenancy.kcp.io/workspacetypes/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/topology.kcp.io/partitions/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/topology.kcp.io/partitions/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/reference/crd/topology.kcp.io/partitionsets/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/reference/crd/topology.kcp.io/partitionsets/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/setup/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/setup/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/setup/helm/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/setup/helm/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/setup/kubectl-plugin/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/setup/kubectl-plugin/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/v0.26/setup/quickstart/</loc>
+        <lastmod>2024-10-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/v0.26/setup/quickstart/"/>
+    </url>
+</urlset>
