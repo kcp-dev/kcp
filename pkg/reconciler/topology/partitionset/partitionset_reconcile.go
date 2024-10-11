@@ -97,7 +97,8 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 	} else {
 		matchLabelsMap = partition(shards, dimensions, nil)
 	}
-	partitionSet.Status.Count = uint16(len(matchLabelsMap))
+
+	partitionSet.Status.Count = uint(len(matchLabelsMap))
 	existingMatches := map[string]struct{}{}
 	newMatchExpressions := []metav1.LabelSelectorRequirement{}
 	if partitionSet.Spec.ShardSelector != nil {
