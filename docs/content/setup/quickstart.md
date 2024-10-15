@@ -36,10 +36,9 @@ version to confirm it's working:
 ```shell
 $ export KUBECONFIG=.kcp/admin.kubeconfig
 $ kubectl version
-WARNING: This version information is deprecated and will be replaced with the output from kubectl version --short.  Use --output=yaml|json to get the full version.
-Client Version: version.Info{Major:"1", Minor:"24", GitVersion:"v1.24.4", GitCommit:"95ee5ab382d64cfe6c28967f36b53970b8374491", GitTreeState:"clean", BuildDate:"2022-08-17T18:46:11Z", GoVersion:"go1.19", Compiler:"gc", Platform:"darwin/amd64"}
-Kustomize Version: v4.5.4
-Server Version: version.Info{Major:"1", Minor:"24", GitVersion:"v1.24.3+kcp-v0.8.0", GitCommit:"41863897", GitTreeState:"clean", BuildDate:"2022-09-02T18:10:37Z", GoVersion:"go1.18.5", Compiler:"gc", Platform:"darwin/amd64"}
+Client Version: v1.31.1
+Kustomize Version: v5.4.2
+Server Version: v1.31.0+kcp-v0.26.0
 ```
 
 ## Next steps
