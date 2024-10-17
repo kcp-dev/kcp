@@ -251,6 +251,7 @@ spec:
                 - Scheduling
                 - Initializing
                 - Ready
+                - NotReady
                 type: string
             type: object
         required:
