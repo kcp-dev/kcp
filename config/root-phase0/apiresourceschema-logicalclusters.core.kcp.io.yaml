@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v240903-d6797056a.logicalclusters.core.kcp.io
+  name: v241020-fce06d31d.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -193,6 +193,7 @@ spec:
               - Scheduling
               - Initializing
               - Ready
+              - Unavailable
               type: string
           type: object
       type: object

@@ -81,6 +81,12 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		return
 	}
+	// If the workspace is unavailable, we should delete it from the index,
+	// as it is not usable.
+	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable {
+		c.DeleteWorkspace(shard, ws)
+		return
+	}
 	clusterName := logicalcluster.From(ws)
 
 	c.lock.RLock()

@@ -251,6 +251,7 @@ spec:
                 - Scheduling
                 - Initializing
                 - Ready
+                - Unavailable
                 type: string
             type: object
         required:

@@ -41,6 +41,14 @@ const (
 	MountPhaseUnknown MountPhaseType = "Unknown"
 )
 
+const (
+	// MountConditionReady is the condition type for MountReady.
+	MountConditionReady conditionsv1alpha1.ConditionType = "WorkspaceMountReady"
+
+	// MountNotReady is reason when the mount is not ready.
+	MountReasonNotReady = "WorkspaceMountNotReady"
+)
+
 // Mount is a workspace mount that can be used to mount a workspace into another workspace or resource.
 // Mounting itself is done at front proxy level.
 type Mount struct {

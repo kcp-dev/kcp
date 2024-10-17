@@ -5,8 +5,8 @@ metadata:
   name: tenancy.kcp.io
 spec:
   latestResourceSchemas:
-  - v240903-d6797056a.workspaces.tenancy.kcp.io
   - v240903-d6797056a.workspacetypes.tenancy.kcp.io
+  - v241020-fce06d31d.workspaces.tenancy.kcp.io
   maximalPermissionPolicy:
     local: {}
 status: {}
