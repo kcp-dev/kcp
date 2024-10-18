@@ -115,7 +115,7 @@ func TestPartitionSet(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
-		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint16(1) {
+		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
@@ -155,7 +155,7 @@ func TestPartitionSet(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
-		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint16(2) {
+		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(2) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("expected 2 partitions, but got %d", partitionSet.Status.Count)
@@ -182,7 +182,7 @@ func TestPartitionSet(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
-		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint16(1) {
+		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
@@ -220,7 +220,7 @@ func TestPartitionSet(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
-		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint16(2) {
+		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(2) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("expected 2 partitions, but got %d", partitionSet.Status.Count)
@@ -244,7 +244,7 @@ func TestPartitionSet(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
-		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint16(1) {
+		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
 			return true, ""
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
