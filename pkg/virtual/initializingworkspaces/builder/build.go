@@ -322,12 +322,12 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	// Where the withoutRootPathPrefix starts here: ┘
 	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
 	if len(parts) < 2 {
-		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false
+		return genericapirequest.Cluster{}, "", "", false
 	}
 
 	initializerName := parts[0]
 	if initializerName == "" {
-		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false
+		return genericapirequest.Cluster{}, "", "", false
 	}
 
 	realPath := "/" + parts[1]
@@ -337,7 +337,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	// We are now here: ┘
 	// Now, we parse out the logical cluster.
 	if !strings.HasPrefix(realPath, "/clusters/") {
-		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false // don't accept
+		return genericapirequest.Cluster{}, "", "", false // don't accept
 	}
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")

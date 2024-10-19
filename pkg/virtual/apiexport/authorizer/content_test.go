@@ -61,7 +61,7 @@ func TestContentAuthorizer(t *testing.T) {
 				}),
 			}
 
-			ctx := dynamiccontext.WithAPIDomainKey(context.Background(), dynamiccontext.APIDomainKey("foo/bar"))
+			ctx := dynamiccontext.WithAPIDomainKey(context.Background(), "foo/bar")
 			dec, _, err := auth.Authorize(ctx, &authorizer.AttributesRecord{
 				User: &user.DefaultInfo{},
 			})

@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
@@ -106,7 +105,7 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 	if c.serviceAccountAuthEnabled() {
 		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences
 		if len(c.BuiltInOptions.ServiceAccounts.Issuers) != 0 && len(c.BuiltInOptions.APIAudiences) == 0 {
-			authenticationInfo.APIAudiences = authenticator.Audiences(c.BuiltInOptions.ServiceAccounts.Issuers)
+			authenticationInfo.APIAudiences = c.BuiltInOptions.ServiceAccounts.Issuers
 		}
 
 		config := rest.CopyConfig(rootShardConfig)
