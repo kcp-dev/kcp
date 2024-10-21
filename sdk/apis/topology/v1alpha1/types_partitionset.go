@@ -67,7 +67,7 @@ type PartitionSetSpec struct {
 // PartitionSetStatus records the status of the PartitionSet.
 type PartitionSetStatus struct {
 	// count is the total number of partitions.
-	Count uint16 `json:"count,omitempty"`
+	Count uint `json:"count,omitempty"`
 
 	// +optional
 

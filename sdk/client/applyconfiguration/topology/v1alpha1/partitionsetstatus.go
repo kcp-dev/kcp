@@ -25,7 +25,7 @@ import (
 // PartitionSetStatusApplyConfiguration represents a declarative configuration of the PartitionSetStatus type for use
 // with apply.
 type PartitionSetStatusApplyConfiguration struct {
-	Count      *uint16              `json:"count,omitempty"`
+	Count      *uint                `json:"count,omitempty"`
 	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
@@ -38,7 +38,7 @@ func PartitionSetStatus() *PartitionSetStatusApplyConfiguration {
 // WithCount sets the Count field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Count field is set to the value of the last call.
-func (b *PartitionSetStatusApplyConfiguration) WithCount(value uint16) *PartitionSetStatusApplyConfiguration {
+func (b *PartitionSetStatusApplyConfiguration) WithCount(value uint) *PartitionSetStatusApplyConfiguration {
 	b.Count = &value
 	return b
 }
