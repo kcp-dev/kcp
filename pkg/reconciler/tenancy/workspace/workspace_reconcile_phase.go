@@ -77,7 +77,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
 	case corev1alpha1.LogicalClusterPhaseUnavailable:
-		if checkConditionAndSetPhase(workspace) {
+		if updateTerminalConditionsAndPhase(workspace) {
 			return reconcileStatusStopAndRequeue, nil
 		}
 		return reconcileStatusContinue, nil
@@ -116,9 +116,10 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			logger.Info("workspace content is deleted")
 			return reconcileStatusContinue, nil
 		}
-		logger.Info("workspace is ready, checking conditions", "conditions", workspace.Status.Conditions)
+
 		// if workspace is ready, we check if it suppose to be ready by checking conditions.
-		if checkConditionAndSetPhase(workspace) {
+		if updateTerminalConditionsAndPhase(workspace) {
+			logger.Info("workspace phase changed", "status", workspace.Status)
 			return reconcileStatusStopAndRequeue, nil
 		}
 	}
@@ -126,9 +127,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 	return reconcileStatusContinue, nil
 }
 
-// checkConditionAndSetPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
+// updateTerminalConditionsAndPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
 // It returns true if the phase was changed, false otherwise.
-func checkConditionAndSetPhase(workspace *tenancyv1alpha1.Workspace) bool {
+func updateTerminalConditionsAndPhase(workspace *tenancyv1alpha1.Workspace) bool {
 	var notReady bool
 	for _, c := range workspace.Status.Conditions {
 		if c.Status == v1.ConditionFalse && strings.HasPrefix(string(c.Type), "Workspace") {
@@ -140,7 +141,7 @@ func checkConditionAndSetPhase(workspace *tenancyv1alpha1.Workspace) bool {
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseUnavailable
 		return true
 	}
-	if !notReady && workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
+	if !notReady && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable {
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		return true
 	}

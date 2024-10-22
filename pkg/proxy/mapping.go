@@ -78,7 +78,12 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Mappings are done from most specific to least specific:
 	// Example: /clusters/cluster1/ will be matched before /clusters/
 	for _, m := range h.mapping {
-		if strings.HasPrefix(h.resolveURL(r), m.path) {
+		url, errorCode := h.resolveURL(r)
+		if errorCode != 0 {
+			http.Error(w, http.StatusText(errorCode), errorCode)
+			return
+		}
+		if strings.HasPrefix(url, m.path) {
 			m.handler.ServeHTTP(w, r)
 			return
 		}
@@ -87,28 +92,32 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.defaultHandler.ServeHTTP(w, r)
 }
 
-func (h *HttpHandler) resolveURL(r *http.Request) string {
+func (h *HttpHandler) resolveURL(r *http.Request) (string, int) {
 	// if we don't match any of the paths, use the default behavior - request
 	var cs = strings.SplitN(strings.TrimLeft(r.URL.Path, "/"), "/", 3)
 	if len(cs) < 2 || cs[0] != "clusters" {
-		return r.URL.Path
-	}
-	clusterPath := logicalcluster.NewPath(cs[1])
-	if !clusterPath.IsValid() {
-		return r.URL.Path
+		return r.URL.Path, 0
 	}
 
-	u, found := h.index.LookupURL(clusterPath)
+	clusterPath := logicalcluster.NewPath(cs[1])
+	if !clusterPath.IsValid() {
+		return r.URL.Path, 0
+	}
+
+	u, found, errCode := h.index.LookupURL(clusterPath)
+	if errCode != 0 {
+		return "", errCode
+	}
 	if found {
 		u, err := url.Parse(u)
 		if err == nil && u != nil {
 			u.Path = strings.TrimSuffix(u.Path, "/")
 			r.URL.Path = path.Join(u.Path, strings.Join(cs[2:], "/")) // override request prefix and keep kube api contextual suffix
-			return u.Path
+			return u.Path, 0
 		}
 	}
 
-	return r.URL.Path
+	return r.URL.Path, 0
 }
 
 func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
