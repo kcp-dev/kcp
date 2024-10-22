@@ -76,14 +76,14 @@ func init() {
 // WithAuditEventClusterAnnotation adds the cluster name into the annotation of an audit
 // event. Needs initialized annotations.
 func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())
 		if cluster != nil {
 			kaudit.AddAuditAnnotation(req.Context(), workspaceAnnotation, cluster.Name.String())
 		}
 
 		handler.ServeHTTP(w, req)
-	})
+	}
 }
 
 // WithBlockInactiveLogicalClusters ensures that any requests to logical
@@ -94,7 +94,7 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient inf
 		"/apis/core.kcp.io/v1alpha1/logicalclusters",
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
 		_, newURL, _, err := ClusterPathFromAndStrip(req)
 		if err != nil {
 			responsewriters.InternalError(w, req, err)
@@ -126,7 +126,7 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient inf
 		}
 
 		handler.ServeHTTP(w, req)
-	})
+	}
 }
 
 // WithClusterScope reads a cluster name from the URL path and puts it into the context.
