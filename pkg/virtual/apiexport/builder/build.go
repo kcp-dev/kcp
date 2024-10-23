@@ -52,7 +52,16 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
-const VirtualWorkspaceName string = "apiexport"
+const (
+	// VirtualWorkspaceName is the name of the virtual workspace.
+	VirtualWorkspaceName string = "apiexport"
+	// OriginalUserAnnotationKey is the key used in a user's "extra" to
+	// specify the original user of the authenticating request.
+	OriginalUserAnnotationKey = "experimental.authorization.kcp.io/original-username"
+	// OriginalGroupsAnnotationKey is the key used in a user's "extra" to
+	// specify the original groups of the authenticating request.
+	OriginalGroupsAnnotationKey = "experimental.authorization.kcp.io/original-groups"
+)
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
@@ -113,6 +122,15 @@ func BuildVirtualWorkspace(
 						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
 					},
 				}
+
+				if user, ok := genericapirequest.UserFrom(ctx); ok {
+					// We pass the original user and groups as extra fields to
+					// the impersonation config so that the receiver can make
+					// decisions based on the original user/groups.
+					impersonationConfig.Impersonate.Extra[OriginalUserAnnotationKey] = []string{user.GetName()}
+					impersonationConfig.Impersonate.Extra[OriginalGroupsAnnotationKey] = user.GetGroups()
+				}
+
 				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
 				if err != nil {
 					return nil, fmt.Errorf("error generating dynamic client: %w", err)
