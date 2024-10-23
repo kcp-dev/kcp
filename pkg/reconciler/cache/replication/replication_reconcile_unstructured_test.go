@@ -119,10 +119,34 @@ func TestEnsureUnstructuredSpec(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "generation on local different than cache",
+			cacheObject: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec":     map[string]interface{}{"fieldA": "a"},
+				"metadata": map[string]interface{}{"generation": int64(1)},
+			}},
+			localObject: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec":     map[string]interface{}{"fieldA": "a"},
+				"metadata": map[string]interface{}{"generation": int64(2)},
+			}},
+			expectSpecChanged: false,
+		},
+		{
+			name: "managedFields on local different than cache",
+			cacheObject: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec":     map[string]interface{}{"fieldA": "a"},
+				"metadata": map[string]interface{}{"managedFields": []interface{}{"a"}},
+			}},
+			localObject: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec":     map[string]interface{}{"fieldA": "a"},
+				"metadata": map[string]interface{}{"managedFields": []interface{}{"a", "b"}},
+			}},
+			expectSpecChanged: false,
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			specChanged, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
+			specChanged, _, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
 			if specChanged != scenario.expectSpecChanged {
 				tt.Fatalf("spec changed = %v, expected spec to be changed = %v", specChanged, scenario.expectSpecChanged)
 			}
@@ -232,7 +256,7 @@ func TestEnsureUnstructuredStatus(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			statusChanged, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
+			statusChanged, _, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
 			if statusChanged != scenario.expectStatusChanged {
 				tt.Fatalf("status changed = %v, expected spec to be changed = %v", statusChanged, scenario.expectStatusChanged)
 			}
@@ -392,7 +416,7 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 			if err != nil {
 				tt.Fatal(err)
 			}
-			metaChanged, err := ensureMeta(unstructuredCacheApiExport, unstructuredLocalApiExport)
+			metaChanged, _, err := ensureMeta(unstructuredCacheApiExport, unstructuredLocalApiExport)
 			if err != nil {
 				tt.Fatal(err)
 			}
