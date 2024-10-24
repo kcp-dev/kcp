@@ -137,6 +137,12 @@ func WithLocalProxy(
 
 		// lookup in our local, potentially partial index
 		r, found := indexState.Lookup(path)
+		if found && r.ErrorCode != 0 {
+			// return code if set.
+			// TODO(mjudeikis): Would be nice to have a way to return a custom error message.
+			http.Error(w, "Not available.", r.ErrorCode)
+			return
+		}
 		if found && r.Shard != shardName && r.URL == "" {
 			logger.WithValues("cluster", cluster.Name, "requestedShard", r.Shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
 

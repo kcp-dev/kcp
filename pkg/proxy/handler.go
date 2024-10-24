@@ -56,7 +56,11 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		shardURLString, found := index.LookupURL(clusterPath)
+		shardURLString, found, errCode := index.LookupURL(clusterPath)
+		if errCode != 0 {
+			http.Error(w, "Not available.", errCode)
+			return
+		}
 		if !found {
 			logger.WithValues("clusterPath", clusterPath).V(4).Info("Unknown cluster path")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)

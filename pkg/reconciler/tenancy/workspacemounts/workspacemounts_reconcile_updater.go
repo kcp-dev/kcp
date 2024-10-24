@@ -18,6 +18,7 @@ package workspacemounts
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -25,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 // workspaceStatusUpdater updates the status of the workspace based on the mount status.
@@ -44,6 +47,11 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 			if err != nil {
 				return reconcileStatusStopAndRequeue, err
 			}
+		} else {
+			// no mount annotation, might be nothing or mount was soft "deleted" by removing the annotation
+			// Delete the condition
+			conditions.Delete(workspace, tenancyv1alpha1.MountConditionReady)
+			return reconcileStatusContinue, nil
 		}
 	}
 
@@ -77,10 +85,35 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 		if !ok {
 			statusURL = ""
 		}
-		mount.MountStatus.Phase = tenancyv1alpha1.MountPhaseType(statusPhase)
-		mount.MountStatus.URL = statusURL
 
-		workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = mount.String()
+		// Only Spec or Status can be updated, not both.
+		if mount.MountStatus.Phase != tenancyv1alpha1.MountPhaseType(statusPhase) || mount.MountStatus.URL != statusURL {
+			mount.MountStatus.Phase = tenancyv1alpha1.MountPhaseType(statusPhase)
+			mount.MountStatus.URL = statusURL
+
+			workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = mount.String()
+
+			return reconcileStatusStopAndRequeue, nil
+		}
+
+		current := conditions.Get(workspace, tenancyv1alpha1.MountConditionReady)
+		// Inject condition into the workspace
+		// This is a loose coupling, we are not interested in the rest of the status.
+		switch mount.MountStatus.Phase {
+		case tenancyv1alpha1.MountPhaseReady:
+			if current == nil {
+				conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
+				return reconcileStatusContinue, nil
+			}
+			if current.Status == v1.ConditionTrue {
+				return reconcileStatusContinue, nil
+			}
+			conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
+			return reconcileStatusContinue, nil
+		default:
+			msg := fmt.Sprintf("Mount is not reporting ready. See %s %s status for more details", obj.GroupVersionKind().Kind, obj.GetName())
+			conditions.MarkFalse(workspace, tenancyv1alpha1.MountConditionReady, tenancyv1alpha1.MountReasonNotReady, conditionsv1alpha1.ConditionSeverityError, msg)
+		}
 	}
 
 	return reconcileStatusContinue, nil
