@@ -61,8 +61,8 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 
 		if initializers := workspace.Status.Initializers; len(initializers) > 0 {
 			after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
-			if max := time.Minute * 10; after > max {
-				after = max
+			if maxDuration := time.Minute * 10; after > maxDuration {
+				after = maxDuration
 			}
 			logger.V(3).Info("LogicalCluster still has initializers, requeueing", "initializers", initializers, "after", after)
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
