@@ -96,10 +96,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fs := pflag.NewFlagSet(name, pflag.ContinueOnError)
-	opts := bindOptions(fs)
+	flgs := pflag.NewFlagSet(name, pflag.ContinueOnError)
+	opts := bindOptions(flgs)
 
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := flgs.Parse(os.Args[1:]); err != nil {
 		logger.Error(err, "Could not parse options.")
 		os.Exit(1)
 	}

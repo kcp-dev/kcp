@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
-	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
+	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -221,7 +221,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// start shards
-	var shards []*shard.Shard
+	var shards []*testshard.Shard
 	for i := 0; i < numberOfShards; i++ {
 		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
 		if err != nil {
@@ -259,7 +259,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if err != nil {
 			return err
 		}
-		err = shard.ScrapeMetrics(ctx, s, workDirPath)
+		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
 		if err != nil {
 			return err
 		}

@@ -313,18 +313,18 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 
 	klog.Background().V(2).WithValues("gvr", gvr).Info("adding dynamic informer for gvr")
 
-	indexers := cache.Indexers{}
+	cacheIndexers := cache.Indexers{}
 	for k, v := range d.indexers {
 		if k == cache.NamespaceIndex {
 			// Don't allow overriding NamespaceIndex
 			continue
 		}
 
-		indexers[k] = v
+		cacheIndexers[k] = v
 	}
 
 	// Definitely need to create it
-	inf = d.newInformer(gvr, resyncPeriod, indexers)
+	inf = d.newInformer(gvr, resyncPeriod, cacheIndexers)
 
 	_, _ = inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,

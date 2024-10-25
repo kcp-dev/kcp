@@ -51,8 +51,8 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 				StorageBuilders: make(map[string]func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (restStorage.Storage, error)),
 			},
 		}
-		for resourceName, builder := range restStorageBuilders {
-			cfg.ExtraConfig.StorageBuilders[resourceName] = builder
+		for resourceName, restStorageBuilder := range restStorageBuilders {
+			cfg.ExtraConfig.StorageBuilders[resourceName] = restStorageBuilder
 		}
 
 		scheme := runtime.NewScheme()
@@ -87,12 +87,12 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 		}
 
 		if groupVersionAPISet.OpenAPIDefinitions != nil {
-			spec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(server.GenericAPIServer.Handler.GoRestfulContainer.RegisteredWebServices()), config.GenericConfig.OpenAPIConfig)
+			openAPISpec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(server.GenericAPIServer.Handler.GoRestfulContainer.RegisteredWebServices()), config.GenericConfig.OpenAPIConfig)
 			if err != nil {
 				return nil, err
 			}
-			spec.Definitions = handler.PruneDefaults(spec.Definitions)
-			openAPISpecs = append(openAPISpecs, spec)
+			openAPISpec.Definitions = handler.PruneDefaults(openAPISpec.Definitions)
+			openAPISpecs = append(openAPISpecs, openAPISpec)
 		}
 
 		if vwGroupManager == nil && server.GenericAPIServer.DiscoveryGroupManager != nil {

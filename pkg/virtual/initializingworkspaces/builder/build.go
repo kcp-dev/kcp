@@ -342,18 +342,18 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	path := logicalcluster.NewPath(parts[0])
+	logicalclusterPath := logicalcluster.NewPath(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]
 	}
 
 	cluster = genericapirequest.Cluster{}
-	if path == logicalcluster.Wildcard {
+	if logicalclusterPath == logicalcluster.Wildcard {
 		cluster.Wildcard = true
 	} else {
 		var ok bool
-		cluster.Name, ok = path.Name()
+		cluster.Name, ok = logicalclusterPath.Name()
 		if !ok {
 			return genericapirequest.Cluster{}, "", "", false
 		}

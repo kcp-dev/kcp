@@ -723,10 +723,10 @@ func GetServerCert(certFile, keyFile string, hostnames sets.Set[string]) (*TLSCe
 		return nil, err
 	}
 
-	cert := server.Certs[0]
+	certificate := server.Certs[0]
 	ips, dns := IPAddressesDNSNames(sets.List[string](hostnames))
-	missingIps := ipsNotInSlice(ips, cert.IPAddresses)
-	missingDns := stringsNotInSlice(dns, cert.DNSNames)
+	missingIps := ipsNotInSlice(ips, certificate.IPAddresses)
+	missingDns := stringsNotInSlice(dns, certificate.DNSNames)
 	if len(missingIps) == 0 && len(missingDns) == 0 {
 		klog.Background().V(4).WithValues("certFile", certFile).Info("found existing server certificate")
 		return server, nil
@@ -1034,12 +1034,12 @@ func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 			continue
 		}
 
-		cert, err := x509.ParseCertificate(block.Bytes)
+		certiicate, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return certs, err
 		}
 
-		certs = append(certs, cert)
+		certs = append(certs, certiicate)
 		ok = true
 	}
 
@@ -1105,8 +1105,8 @@ func signCertificate(template *x509.Certificate, requestKey crypto.PublicKey, is
 
 func EncodeCertificates(certs ...*x509.Certificate) ([]byte, error) {
 	b := bytes.Buffer{}
-	for _, cert := range certs {
-		if err := pem.Encode(&b, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+	for _, certificate := range certs {
+		if err := pem.Encode(&b, &pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw}); err != nil {
 			return []byte{}, err
 		}
 	}
@@ -1135,22 +1135,22 @@ func encodeKey(key crypto.PrivateKey) ([]byte, error) {
 }
 
 func writeCertificates(f io.Writer, certs ...*x509.Certificate) error {
-	bytes, err := EncodeCertificates(certs...)
+	encoded, err := EncodeCertificates(certs...)
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(bytes); err != nil {
+	if _, err := f.Write(encoded); err != nil {
 		return err
 	}
 
 	return nil
 }
 func writeKeyFile(f io.Writer, key crypto.PrivateKey) error {
-	bytes, err := encodeKey(key)
+	b, err := encodeKey(key)
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(bytes); err != nil {
+	if _, err := f.Write(b); err != nil {
 		return err
 	}
 

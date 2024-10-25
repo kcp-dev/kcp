@@ -223,12 +223,12 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 				}
 				swaggerSpecDefinitionName := protoSchema.GetPath().String()
 
-				var errors []error
+				var errs []error
 				converter := &SchemaConverter{
 					schemaProps: &schemaProps,
 					schemaName:  swaggerSpecDefinitionName,
 					visited:     sets.New[string](),
-					errors:      &errors,
+					errors:      &errs,
 				}
 				protoSchema.Accept(converter)
 				if len(*converter.errors) > 0 {
@@ -334,12 +334,12 @@ type SchemaConverter struct {
 func Convert(protoSchema proto.Schema, schemaProps *apiextensionsv1.JSONSchemaProps) []error {
 	swaggerSpecDefinitionName := protoSchema.GetPath().String()
 
-	var errors []error
+	var errs []error
 	converter := &SchemaConverter{
 		schemaProps: schemaProps,
 		schemaName:  swaggerSpecDefinitionName,
 		visited:     sets.New[string](),
-		errors:      &errors,
+		errors:      &errs,
 	}
 	protoSchema.Accept(converter)
 	return *converter.errors
@@ -631,9 +631,9 @@ var knownSchemas map[string]apiextensionsv1.JSONSchemaProps
 func init() {
 	knownSchemas = map[string]apiextensionsv1.JSONSchemaProps{}
 	for pkgName, schemas := range knownPackages {
-		for typeName, schema := range schemas {
+		for typeName, s := range schemas {
 			schemaName := util.ToRESTFriendlyName(pkgName + "." + typeName)
-			knownSchemas[schemaName] = schema
+			knownSchemas[schemaName] = s
 		}
 	}
 }

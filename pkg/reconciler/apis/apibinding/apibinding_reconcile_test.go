@@ -459,12 +459,12 @@ func TestReconcileBinding(t *testing.T) {
 
 					require.Equal(t, "org-some-workspace", clusterName.String())
 
-					schema, ok := apiResourceSchemas[name]
+					s, ok := apiResourceSchemas[name]
 					if !ok {
 						return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiresourceschemas"), name)
 					}
 
-					return schema, nil
+					return s, nil
 				},
 				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					require.Equal(t, SystemBoundCRDsClusterName, clusterName)

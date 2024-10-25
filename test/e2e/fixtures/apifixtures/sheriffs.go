@@ -124,7 +124,7 @@ func CreateSheriffsSchemaAndExport(
 ) {
 	t.Helper()
 
-	schema := &apisv1alpha1.APIResourceSchema{
+	s := &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("today.sheriffs.%s", group),
 		},
@@ -155,16 +155,16 @@ func CreateSheriffsSchemaAndExport(
 		},
 	}
 
-	t.Logf("Creating APIResourceSchema %s|%s", path, schema.Name)
-	_, err := clusterClient.Cluster(path).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIResourceSchema %s|%s", path, schema.Name)
+	t.Logf("Creating APIResourceSchema %s|%s", path, s.Name)
+	_, err := clusterClient.Cluster(path).ApisV1alpha1().APIResourceSchemas().Create(ctx, s, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating APIResourceSchema %s|%s", path, s.Name)
 
 	export := &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: group,
 		},
 		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{schema.Name},
+			LatestResourceSchemas: []string{s.Name},
 		},
 	}
 
