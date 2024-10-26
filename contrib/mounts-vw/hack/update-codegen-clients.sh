@@ -36,6 +36,8 @@ go install "${CODEGEN_PKG}"/cmd/client-gen
 # TODO: This is hack to allow CI to pass
 chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
 
+source "${CODEGEN_PKG}/kube_codegen.sh"
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
   --output-pkg github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration \
@@ -55,12 +57,9 @@ chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
   --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
   --output-dir "${SCRIPT_ROOT}/client/clientset"
 
-bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
-  github.com/kcp-dev/kcp/contrib/mounts-vw/client github.com/kcp-dev/kcp/contrib/mounts-vw/apis \
-  "proxy:v1alpha1" \
-  --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp/contrib/mounts-vw
+kube::codegen::gen_helpers \
+  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  ./apis
 
 echo "$BOILERPLATE_HEADER"
 pushd ./apis

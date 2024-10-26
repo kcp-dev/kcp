@@ -8,14 +8,14 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 func (p *clusterProxy) authorizeCluster(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {

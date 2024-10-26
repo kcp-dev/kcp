@@ -17,14 +17,14 @@ limitations under the License.
 package options
 
 import (
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/options"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
 	proxyoptions "github.com/kcp-dev/kcp/contrib/mounts-vw/virtual/proxy/options"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"

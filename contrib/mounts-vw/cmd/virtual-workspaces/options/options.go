@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
+	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -31,8 +33,6 @@ import (
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
 	proxyvwoptions "github.com/kcp-dev/kcp/contrib/mounts-vw/virtual/options"
-	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
-	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The

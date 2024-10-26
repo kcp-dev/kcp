@@ -25,6 +25,10 @@ import (
 	"time"
 
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
+	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +47,6 @@ import (
 	proxyclientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/cmd/virtual-workspaces/options"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {

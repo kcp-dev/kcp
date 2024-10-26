@@ -21,9 +21,9 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 const (

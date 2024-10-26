@@ -19,13 +19,13 @@ package options
 import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/virtual/proxy/builder"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type Proxy struct{}

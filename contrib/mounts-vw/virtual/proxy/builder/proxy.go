@@ -27,6 +27,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/handler"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -36,8 +38,6 @@ import (
 
 	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/handler"
 )
 
 type clusterProxyProvider struct {
