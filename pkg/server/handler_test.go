@@ -113,13 +113,13 @@ func TestProcessResourceIdentity(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			url, err := url.Parse(test.path)
+			u, err := url.Parse(test.path)
 			require.NoError(t, err, "error parsing path %q to URL", test.path)
 
-			checkRawPath := url.RawPath != ""
+			checkRawPath := u.RawPath != ""
 
 			req := &http.Request{
-				URL:    url,
+				URL:    u,
 				Method: http.MethodGet,
 			}
 

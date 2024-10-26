@@ -146,14 +146,14 @@ func WithLocalProxy(
 		}
 
 		if r.URL != "" {
-			url, err := url.Parse(r.URL)
+			u, err := url.Parse(r.URL)
 			if err != nil {
 				logger.WithValues("cluster", cluster.Name, "url", r.URL).Error(err, "invalid url")
 				http.Error(w, "invalid url", http.StatusInternalServerError)
 				return
 			}
 			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
-			proxy := httputil.NewSingleHostReverseProxy(url)
+			proxy := httputil.NewSingleHostReverseProxy(u)
 			// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
 			proxy.Transport = &http.Transport{
 				TLSClientConfig: &tls.Config{

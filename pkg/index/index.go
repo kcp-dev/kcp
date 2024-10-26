@@ -251,11 +251,11 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		if foundMount {
 			mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(val)
 			if !(err != nil || mount == nil || mount.MountStatus.URL == "") {
-				url, err := url.Parse(mount.MountStatus.URL)
+				u, err := url.Parse(mount.MountStatus.URL)
 				if err != nil {
 					// default to workspace itself.
 				} else {
-					return Result{URL: url.String()}, true
+					return Result{URL: u.String()}, true
 				}
 			}
 		}

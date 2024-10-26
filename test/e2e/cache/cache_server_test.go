@@ -355,13 +355,13 @@ type status struct {
 }
 
 func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	unstructured := &unstructured.Unstructured{Object: map[string]interface{}{}}
+	u := &unstructured.Unstructured{Object: map[string]interface{}{}}
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
-	unstructured.Object = raw
-	return unstructured, nil
+	u.Object = raw
+	return u, nil
 }
 
 func TestCacheServerAllScenarios(t *testing.T) {

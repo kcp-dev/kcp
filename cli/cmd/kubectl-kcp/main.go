@@ -29,8 +29,8 @@ func main() {
 	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	cmd := cmd.KubectlKcpCommand()
-	if err := cmd.Execute(); err != nil {
+	command := cmd.KubectlKcpCommand()
+	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

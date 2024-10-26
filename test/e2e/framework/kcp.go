@@ -154,16 +154,16 @@ func SharedKcpServer(t *testing.T) RunningServer {
 		// Use a persistent server
 
 		t.Logf("shared kcp server will target configuration %q", kubeconfig)
-		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.ShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
+		testServer, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.ShardKubeconfig(), filepath.Join(RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		t.Cleanup(cancel)
-		err = WaitForReady(ctx, t, server.RootShardSystemMasterBaseConfig(t), true)
+		err = WaitForReady(ctx, t, testServer.RootShardSystemMasterBaseConfig(t), true)
 		require.NoError(t, err, "error waiting for readiness")
 
-		return server
+		return testServer
 	}
 
 	// Use a test-provisioned server
@@ -342,11 +342,11 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 		if len(cfg.DataDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing DataDir", cfg.Name))
 		}
-		server, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir, cfg.ClientCADir)
+		srv, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir, cfg.ClientCADir)
 		require.NoError(t, err)
 
-		servers = append(servers, server)
-		f.Servers[server.name] = server
+		servers = append(servers, srv)
+		f.Servers[srv.name] = srv
 	}
 
 	// Launch kcp servers and ensure they are ready before starting the test
@@ -378,8 +378,8 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 	}
 	wg.Wait()
 
-	for _, server := range servers {
-		ScrapeMetricsForServer(t, server)
+	for _, s := range servers {
+		ScrapeMetricsForServer(t, s)
 	}
 
 	if t.Failed() {
@@ -390,8 +390,8 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 		defer cancel()
 
-		for _, server := range servers {
-			GatherMetrics(ctx, t, server, server.artifactDir)
+		for _, s := range servers {
+			GatherMetrics(ctx, t, s, s.artifactDir)
 		}
 	})
 

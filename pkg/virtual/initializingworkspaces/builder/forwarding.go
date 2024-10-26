@@ -198,7 +198,7 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 	return registry.StorageWrapperFunc(func(resource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-			validation := rest.ValidateObjectUpdateFunc(func(ctx context.Context, obj, old runtime.Object) error {
+			validationFunc := rest.ValidateObjectUpdateFunc(func(ctx context.Context, obj, old runtime.Object) error {
 				logger := klog.FromContext(ctx)
 				previous, _, err := unstructured.NestedStringSlice(old.(*unstructured.Unstructured).UnstructuredContent(), "status", "initializers")
 				if err != nil {
@@ -228,7 +228,7 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 				}
 				return updateValidation(ctx, obj, old)
 			})
-			return delegateUpdater.Update(ctx, name, objInfo, createValidation, validation, forceAllowCreate, options)
+			return delegateUpdater.Update(ctx, name, objInfo, createValidation, validationFunc, forceAllowCreate, options)
 		}
 	})
 }

@@ -86,11 +86,11 @@ func TestImportInternalAPIs(t *testing.T) {
 		apisToImport...)
 	require.NoError(t, err)
 	require.Len(t, schemas, 3)
-	for _, schema := range schemas {
-		expectedContent, err := embeddedResources.ReadFile(path.Join("fixtures", schema.Spec.Names.Plural+".yaml"))
+	for _, s := range schemas {
+		expectedContent, err := embeddedResources.ReadFile(path.Join("fixtures", s.Spec.Names.Plural+".yaml"))
 		require.NoError(t, err)
-		actualContent, err := yaml.Marshal(schema)
+		actualContent, err := yaml.Marshal(s)
 		require.NoError(t, err)
-		require.Emptyf(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")), "%s was not identical to the expected content", schema.Name)
+		require.Emptyf(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")), "%s was not identical to the expected content", s.Name)
 	}
 }

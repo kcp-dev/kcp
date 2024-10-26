@@ -166,9 +166,9 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.V(7).Info("Creating new OpenAPI v3 service")
 
 		// create a new OpenAPI service
-		mux := mux.NewPathRecorderMux("cluster-aware-openapi-v3")
+		m := mux.NewPathRecorderMux("cluster-aware-openapi-v3")
 		service := handler3.NewOpenAPIService()
-		err := service.RegisterOpenAPIV3VersionedService("/openapi/v3", mux)
+		err := service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)
 		if err != nil {
 			responsewriters.InternalError(w, r, err)
 			return
@@ -181,8 +181,8 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// remember for next time
-		c.services.Add(key, mux)
-		entry = mux
+		c.services.Add(key, m)
+		entry = m
 	} else {
 		log.V(7).Info("Reusing OpenAPI v3 service from cache")
 	}

@@ -72,11 +72,11 @@ func IsBuiltInAPI(gr apisv1alpha1.GroupResource) bool {
 
 // GetBuiltInAPISchema retrieves the APIResourceSchema for a built-in API.
 func GetBuiltInAPISchema(gr apisv1alpha1.GroupResource) (*apisv1alpha1.APIResourceSchema, error) {
-	schema, exists := builtInAPIResourceSchemas[gr]
+	s, exists := builtInAPIResourceSchemas[gr]
 	if !exists {
 		return nil, fmt.Errorf("no schema found for built-in API %s.%s", gr.Resource, gr.Group)
 	}
-	return schema, nil
+	return s, nil
 }
 
 // builtInAPIResourceSchemas contains a list of APIResourceSchema for built-in
