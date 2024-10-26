@@ -1,0 +1,10 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: proxy.contrib.kcp.io
+spec:
+  latestResourceSchemas:
+  - v241026-20f0d7da9.kubeclusters.proxy.contrib.kcp.io
+  - v241026-20f0d7da9.targetkubeclusters.proxy.contrib.kcp.io
+status: {}

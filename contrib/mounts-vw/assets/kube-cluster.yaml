@@ -1,0 +1,12 @@
+apiVersion: contrib.kcp.io/v1alpha1
+kind: KubeCluster
+metadata:
+  annotations:
+    experimental.tenancy.kcp.io/is-mount: "true"
+  name: proxy-cluster
+status:
+  conditions:
+  - lastTransitionTime: "2024-10-22T14:32:50Z"
+    status: "False"
+    type: WorkspaceKubeClusterReady
+  phase: Connecting

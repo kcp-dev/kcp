@@ -1,0 +1,5 @@
+- path: /services/cluster-proxy
+  backend: https://localhost:6444
+  backend_server_ca: ../../.kcp/server.crt
+  proxy_client_cert: ../../.kcp/server.crt
+  proxy_client_key: ../../.kcp/server.key

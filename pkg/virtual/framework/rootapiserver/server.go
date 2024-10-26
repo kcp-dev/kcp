@@ -99,7 +99,6 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 				warning.AddWarning(requestContext, "",
 					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
 			}
-
 			for _, vw := range c.Extra.VirtualWorkspaces {
 				if accepted, prefixToStrip, completedContext := vw.ResolveRootPath(req.URL.Path, requestContext); accepted {
 					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
