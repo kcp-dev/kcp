@@ -31,10 +31,13 @@ import (
 
 	client "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned"
 	kcpclient "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
-	kcpproxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/proxy/v1alpha1"
-	fakeproxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/proxy/v1alpha1/fake"
+	kcpmountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/mounts/v1alpha1"
+	fakemountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/mounts/v1alpha1/fake"
+	kcptargetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/targets/v1alpha1"
+	faketargetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/targets/v1alpha1/fake"
 	clientscheme "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/scheme"
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/targets/v1alpha1"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -71,9 +74,14 @@ func (c *ClusterClientset) Tracker() kcptesting.ObjectTracker {
 	return c.tracker
 }
 
-// ProxyV1alpha1 retrieves the ProxyV1alpha1ClusterClient.
-func (c *ClusterClientset) ProxyV1alpha1() kcpproxyv1alpha1.ProxyV1alpha1ClusterInterface {
-	return &fakeproxyv1alpha1.ProxyV1alpha1ClusterClient{Fake: c.Fake}
+// MountsV1alpha1 retrieves the MountsV1alpha1ClusterClient.
+func (c *ClusterClientset) MountsV1alpha1() kcpmountsv1alpha1.MountsV1alpha1ClusterInterface {
+	return &fakemountsv1alpha1.MountsV1alpha1ClusterClient{Fake: c.Fake}
+}
+
+// TargetsV1alpha1 retrieves the TargetsV1alpha1ClusterClient.
+func (c *ClusterClientset) TargetsV1alpha1() kcptargetsv1alpha1.TargetsV1alpha1ClusterInterface {
+	return &faketargetsv1alpha1.TargetsV1alpha1ClusterClient{Fake: c.Fake}
 }
 
 // Cluster scopes this clientset to one cluster.
@@ -108,7 +116,12 @@ func (c *Clientset) Tracker() kcptesting.ScopedObjectTracker {
 	return c.tracker
 }
 
-// ProxyV1alpha1 retrieves the ProxyV1alpha1Client.
-func (c *Clientset) ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1Interface {
-	return &fakeproxyv1alpha1.ProxyV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+// MountsV1alpha1 retrieves the MountsV1alpha1Client.
+func (c *Clientset) MountsV1alpha1() mountsv1alpha1.MountsV1alpha1Interface {
+	return &fakemountsv1alpha1.MountsV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// TargetsV1alpha1 retrieves the TargetsV1alpha1Client.
+func (c *Clientset) TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1Interface {
+	return &faketargetsv1alpha1.TargetsV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }

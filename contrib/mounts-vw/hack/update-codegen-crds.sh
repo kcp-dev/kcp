@@ -46,5 +46,5 @@ for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do
 done
 
 (
-  ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/proxy/resources
+  ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/mounts/resources
 )

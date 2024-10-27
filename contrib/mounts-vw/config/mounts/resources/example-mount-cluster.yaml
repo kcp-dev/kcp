@@ -1,0 +1,9 @@
+---
+apiVersion: mounts.contrib.kcp.io/v1alpha1
+kind: KubeCluster
+metadata:
+  name: proxy-cluster
+  annotations:
+    experimental.tenancy.kcp.io/is-mount: "true"
+spec:
+  secretString: cFI-tl0Qvwqnln4N

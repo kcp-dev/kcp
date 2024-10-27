@@ -33,20 +33,23 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 
 	client "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned"
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster/typed/targets/v1alpha1"
 )
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
 	Discovery() discovery.DiscoveryInterface
-	ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1ClusterInterface
+	MountsV1alpha1() mountsv1alpha1.MountsV1alpha1ClusterInterface
+	TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1ClusterInterface
 }
 
 // ClusterClientset contains the clients for groups.
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
-	clientCache   kcpclient.Cache[*client.Clientset]
-	proxyV1alpha1 *proxyv1alpha1.ProxyV1alpha1ClusterClient
+	clientCache     kcpclient.Cache[*client.Clientset]
+	mountsV1alpha1  *mountsv1alpha1.MountsV1alpha1ClusterClient
+	targetsV1alpha1 *targetsv1alpha1.TargetsV1alpha1ClusterClient
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -57,9 +60,14 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 	return c.DiscoveryClient
 }
 
-// ProxyV1alpha1 retrieves the ProxyV1alpha1ClusterClient.
-func (c *ClusterClientset) ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1ClusterInterface {
-	return c.proxyV1alpha1
+// MountsV1alpha1 retrieves the MountsV1alpha1ClusterClient.
+func (c *ClusterClientset) MountsV1alpha1() mountsv1alpha1.MountsV1alpha1ClusterInterface {
+	return c.mountsV1alpha1
+}
+
+// TargetsV1alpha1 retrieves the TargetsV1alpha1ClusterClient.
+func (c *ClusterClientset) TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1ClusterInterface {
+	return c.targetsV1alpha1
 }
 
 // Cluster scopes this clientset to one cluster.
@@ -114,7 +122,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	var cs ClusterClientset
 	cs.clientCache = cache
 	var err error
-	cs.proxyV1alpha1, err = proxyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.mountsV1alpha1, err = mountsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.targetsV1alpha1, err = targetsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

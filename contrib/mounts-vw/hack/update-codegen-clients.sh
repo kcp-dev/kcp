@@ -42,14 +42,16 @@ source "${CODEGEN_PKG}/kube_codegen.sh"
   --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
   --output-pkg github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration \
   --output-dir "${SCRIPT_ROOT}/client/applyconfiguration" \
-  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1 \
+  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1 \
+  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
   k8s.io/apimachinery/pkg/apis/meta/v1 \
   k8s.io/apimachinery/pkg/runtime \
   k8s.io/apimachinery/pkg/version
 
 "$GOPATH"/bin/client-gen \
-  --input github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1 \
+  --input github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1 \
+ --input github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1 \
   --input-base="" \
   --apply-configuration-package=github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration \
   --clientset-name "versioned"  \
@@ -77,7 +79,8 @@ go install "${OPENAPI_PKG}"/cmd/openapi-gen
   --output-pkg github.com/kcp-dev/kcp/contrib/mounts-vw/openapi \
   --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
   --output-dir "${SCRIPT_ROOT}/openapi" \
-  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1 \
+  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1 \
+  github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
   k8s.io/apimachinery/pkg/apis/meta/v1 \
   k8s.io/apimachinery/pkg/runtime \

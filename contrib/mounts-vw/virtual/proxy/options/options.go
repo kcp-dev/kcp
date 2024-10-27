@@ -25,10 +25,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/virtual/proxy/builder"
 )
 
-type Proxy struct{}
+type Proxy struct {
+	VirtualWorkspaceHostname string
+}
 
 func New() *Proxy {
 	return &Proxy{}
@@ -38,6 +41,7 @@ func (o *Proxy) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
+	flags.StringVar(&o.VirtualWorkspaceHostname, prefix+"proxy-hostname", o.VirtualWorkspaceHostname, "The proxy virtual workspace hostname.")
 }
 
 func (o *Proxy) Validate(flagPrefix string) []error {
@@ -53,6 +57,7 @@ func (o *Proxy) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,
+	store state.ClientSetStoreInterface,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "proxy-virtual-workspace")
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
@@ -64,5 +69,5 @@ func (o *Proxy) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, cachedProxyInformers), nil
+	return builder.BuildVirtualWorkspace(rootPathPrefix, kubeClusterClient, dynamicClusterClient, cachedProxyInformers, store), nil
 }

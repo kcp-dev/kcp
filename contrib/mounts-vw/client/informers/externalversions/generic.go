@@ -30,7 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1"
 )
 
 type GenericClusterInformer interface {
@@ -86,11 +87,12 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericClusterInformer, error) {
 	switch resource {
-	// Group=proxy.contrib.kcp.io, Version=V1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Proxy().V1alpha1().KubeClusters().Informer()}, nil
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Proxy().V1alpha1().TargetKubeClusters().Informer()}, nil
+	// Group=mounts.contrib.kcp.io, Version=V1alpha1
+	case mountsv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Mounts().V1alpha1().KubeClusters().Informer()}, nil
+	// Group=targets.contrib.kcp.io, Version=V1alpha1
+	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Targets().V1alpha1().TargetKubeClusters().Informer()}, nil
 	}
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
@@ -100,12 +102,13 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 // TODO extend this to unknown resources with a client pool
 func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=proxy.contrib.kcp.io, Version=V1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
-		informer := f.Proxy().V1alpha1().KubeClusters().Informer()
+	// Group=mounts.contrib.kcp.io, Version=V1alpha1
+	case mountsv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
+		informer := f.Mounts().V1alpha1().KubeClusters().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case proxyv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
-		informer := f.Proxy().V1alpha1().TargetKubeClusters().Informer()
+	// Group=targets.contrib.kcp.io, Version=V1alpha1
+	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
+		informer := f.Targets().V1alpha1().TargetKubeClusters().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	}
 

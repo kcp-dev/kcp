@@ -1,9 +1,0 @@
-apiVersion: apis.kcp.io/v1alpha1
-kind: APIExport
-metadata:
-  creationTimestamp: null
-  name: proxy.faros.sh
-spec:
-  latestResourceSchemas:
-  - v241025-20f0d7da9.kubeclusters.proxy.faros.sh
-status: {}

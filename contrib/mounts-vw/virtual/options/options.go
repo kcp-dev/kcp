@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 	proxyoptions "github.com/kcp-dev/kcp/contrib/mounts-vw/virtual/proxy/options"
 )
 
@@ -48,14 +49,16 @@ func (o *Options) Validate() []error {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.Proxy.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,
+	store state.ClientSetStoreInterface,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	proxy, err := o.Proxy.NewVirtualWorkspaces(rootPathPrefix, config, cachedProxyInformers)
+	proxy, err := o.Proxy.NewVirtualWorkspaces(rootPathPrefix, config, cachedProxyInformers, store)
 	if err != nil {
 		return nil, err
 	}

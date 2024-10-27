@@ -55,9 +55,6 @@ $(KCP_APIGEN_GEN):
 $(OPENSHIFT_GOIMPORTS):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
 
-images:
-	KO_DOCKER_REPO=ghcr.io/faroshq/ ko build  ./cmd/proxy
-
 .PHONY: require-%
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi

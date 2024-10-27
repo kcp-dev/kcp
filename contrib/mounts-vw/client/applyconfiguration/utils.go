@@ -27,11 +27,13 @@ import (
 	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	testing "k8s.io/client-go/testing"
 
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/conditions/v1alpha1"
 	internal "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/internal"
 	applyconfigurationmetav1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/meta/v1"
-	applyconfigurationproxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/proxy/v1alpha1"
+	applyconfigurationmountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/mounts/v1alpha1"
+	applyconfigurationtargetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration/targets/v1alpha1"
 )
 
 // ForKind returns an apply configuration type for the given GroupVersionKind, or nil if no
@@ -60,19 +62,21 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	case v1.SchemeGroupVersion.WithKind("TypeMeta"):
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
-		// Group=proxy.contrib.kcp.io, Version=v1alpha1
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("KubeCluster"):
-		return &applyconfigurationproxyv1alpha1.KubeClusterApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("KubeClusterSpec"):
-		return &applyconfigurationproxyv1alpha1.KubeClusterSpecApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("KubeClusterStatus"):
-		return &applyconfigurationproxyv1alpha1.KubeClusterStatusApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("TargetKubeCluster"):
-		return &applyconfigurationproxyv1alpha1.TargetKubeClusterApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("TargetKubeClusterSpec"):
-		return &applyconfigurationproxyv1alpha1.TargetKubeClusterSpecApplyConfiguration{}
-	case proxyv1alpha1.SchemeGroupVersion.WithKind("TargetKubeClusterStatus"):
-		return &applyconfigurationproxyv1alpha1.TargetKubeClusterStatusApplyConfiguration{}
+		// Group=mounts.contrib.kcp.io, Version=v1alpha1
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("KubeCluster"):
+		return &applyconfigurationmountsv1alpha1.KubeClusterApplyConfiguration{}
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("KubeClusterSpec"):
+		return &applyconfigurationmountsv1alpha1.KubeClusterSpecApplyConfiguration{}
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("KubeClusterStatus"):
+		return &applyconfigurationmountsv1alpha1.KubeClusterStatusApplyConfiguration{}
+
+		// Group=targets.contrib.kcp.io, Version=v1alpha1
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetKubeCluster"):
+		return &applyconfigurationtargetsv1alpha1.TargetKubeClusterApplyConfiguration{}
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetKubeClusterSpec"):
+		return &applyconfigurationtargetsv1alpha1.TargetKubeClusterSpecApplyConfiguration{}
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetKubeClusterStatus"):
+		return &applyconfigurationtargetsv1alpha1.TargetKubeClusterStatusApplyConfiguration{}
 
 	}
 	return nil

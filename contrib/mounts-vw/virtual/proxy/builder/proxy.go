@@ -24,7 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -34,28 +33,31 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/klog/v2"
+	"k8s.io/client-go/rest"
 
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
-	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1"
+	mountsinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 )
 
 type clusterProxyProvider struct {
 	kubeClusterClient    kcpkubernetesclientset.ClusterInterface
 	dynamicClusterClient kcpdynamic.ClusterInterface
-	cachedProxyInformers proxyinformers.SharedInformerFactory
+	cachedProxyInformers mountsinformers.SharedInformerFactory
 	rootPathPrefix       string
+	state                state.ClientSetStoreInterface
 }
 
 type clusterParameters struct {
 	virtualWorkspaceName string
 }
 
-func (c *clusterProxyProvider) newTemplate(clusterParameters clusterParameters) *clusterProxy {
+func (c *clusterProxyProvider) newTemplate(clusterParameters clusterParameters, store state.ClientSetStoreInterface) *clusterProxy {
 	return &clusterProxy{
 		clusterProxyProvider: *c,
 		clusterParameters:    clusterParameters,
 		readyClusterCh:       make(chan struct{}),
+		store:                store,
 	}
 }
 
@@ -78,8 +80,8 @@ type clusterProxy struct {
 	readyClusterCh chan struct{}
 
 	// Proxy dialer pool
-	mu   sync.Mutex
-	pool map[key]*Dialer
+	mu    sync.Mutex
+	store state.ClientSetStoreInterface
 }
 
 func (p *clusterProxy) readyCluster() error {
@@ -101,8 +103,7 @@ func (p *clusterProxy) buildClusterProxyVirtualWorkspace() *handler.VirtualWorks
 			return http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
 					ctx := r.Context()
-					spew.Dump(r.RequestURI)
-					logger := klog.FromContext(ctx)
+					//	logger := klog.FromContext(ctx)
 
 					ri, exists := genericapirequest.RequestInfoFrom(ctx)
 					if !exists {
@@ -113,50 +114,44 @@ func (p *clusterProxy) buildClusterProxyVirtualWorkspace() *handler.VirtualWorks
 					if !ri.IsResourceRequest ||
 						ri.Resource != "kubeclusters" ||
 						ri.Subresource != "proxy" ||
-						ri.APIGroup != proxyv1alpha1.SchemeGroupVersion.Group ||
-						ri.APIVersion != proxyv1alpha1.SchemeGroupVersion.Version ||
+						ri.APIGroup != targetsv1alpha1.SchemeGroupVersion.Group ||
+						ri.APIVersion != targetsv1alpha1.SchemeGroupVersion.Version ||
 						ri.Name == "" {
 						http.Error(w, "could not determine resource", http.StatusInternalServerError)
 						return
 					}
 
-					cluster, err := genericapirequest.ValidClusterFrom(ctx)
-					if err != nil {
-						http.Error(w, "could not determine resource", http.StatusInternalServerError)
+					// Get secrets from url and strip it away:
+					// https://localhost:6444/services/cluster-proxy/1t1mlh6tgdzuelpg/apis/targets.contrib.kcp.io/v1alpha1/kubeclusters/proxy-cluster/proxy/secret/cFI-tl0Qvwqnln4N
+					//                  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+					// We are now here: ┘
+					parts := strings.SplitN(r.URL.Path, "/", 8)
+					secrets := strings.TrimPrefix(parts[7], "secret/")
+					parts = strings.SplitN(secrets, "/", 2)
+
+					value, found := p.store.Get(parts[0])
+					if !found {
+						http.Error(w, "Unauthorized", http.StatusInternalServerError)
 						return
 					}
 
-					clusterName := cluster.Name
-					proxyName := ri.Name
-
-					// TODO: verify proxy exists here
-
-					logger = logger.WithValues("cluster", clusterName, "proxyName", proxyName, "action", "proxy")
-					logger.V(5).Info("tunnel connection done", "remoteAddr", r.RemoteAddr)
-
-					// TODO: Get client from existing kubeconfig pool and use it to dial.
-
-					target, err := url.Parse("http://" + proxyName)
+					// Parse the API server URL from the config
+					apiServerURL, err := url.Parse(value.Config.Host)
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 
-					parts := strings.SplitN(r.URL.Path, "/", 8)
-
-					resourceURL := parts[7]
-
-					r.URL.Path = resourceURL
-
-					proxy := httputil.NewSingleHostReverseProxy(target)
-					proxy.Transport = &http.Transport{
-						Proxy: nil, // no proxies
-						//DialContext:        // dialer
-						ForceAttemptHTTP2:   false, // this is a tunneled connection
-						DisableKeepAlives:   true,  // one connection per reverse connection
-						MaxIdleConnsPerHost: -1,
+					// Create a reverse proxy that targets the Kubernetes API server
+					proxy := httputil.NewSingleHostReverseProxy(apiServerURL)
+					transport, err := rest.TransportFor(value.Config)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
 					}
+					proxy.Transport = transport
 
+					r.URL.Path = parts[1]
 					proxy.ServeHTTP(w, r)
 
 				}), nil

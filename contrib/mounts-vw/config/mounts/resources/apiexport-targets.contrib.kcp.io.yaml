@@ -1,0 +1,12 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: targets.contrib.kcp.io
+spec:
+  latestResourceSchemas:
+  - v241027-62b84afa0.targetkubeclusters.targets.contrib.kcp.io
+  permissionClaims:
+  - all: true
+    resource: secrets
+status: {}

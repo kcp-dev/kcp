@@ -1,0 +1,13 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  name: targets.contrib.kcp.io
+spec:
+  reference:
+    export:
+      name: targets.contrib.kcp.io
+      path: root:providers:mounts
+  permissionClaims:
+  - all: true
+    resource: secrets
+    state: Accepted

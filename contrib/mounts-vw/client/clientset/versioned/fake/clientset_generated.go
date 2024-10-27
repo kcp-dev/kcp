@@ -27,8 +27,10 @@ import (
 
 	applyconfiguration "github.com/kcp-dev/kcp/contrib/mounts-vw/client/applyconfiguration"
 	clientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned"
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/proxy/v1alpha1"
-	fakeproxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/proxy/v1alpha1/fake"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/mounts/v1alpha1"
+	fakemountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/mounts/v1alpha1/fake"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/targets/v1alpha1"
+	faketargetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/targets/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -117,7 +119,12 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// ProxyV1alpha1 retrieves the ProxyV1alpha1Client
-func (c *Clientset) ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1Interface {
-	return &fakeproxyv1alpha1.FakeProxyV1alpha1{Fake: &c.Fake}
+// MountsV1alpha1 retrieves the MountsV1alpha1Client
+func (c *Clientset) MountsV1alpha1() mountsv1alpha1.MountsV1alpha1Interface {
+	return &fakemountsv1alpha1.FakeMountsV1alpha1{Fake: &c.Fake}
+}
+
+// TargetsV1alpha1 retrieves the TargetsV1alpha1Client
+func (c *Clientset) TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1Interface {
+	return &faketargetsv1alpha1.FakeTargetsV1alpha1{Fake: &c.Fake}
 }

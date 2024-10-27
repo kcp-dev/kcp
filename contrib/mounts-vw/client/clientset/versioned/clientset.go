@@ -26,23 +26,31 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/targets/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1Interface
+	MountsV1alpha1() mountsv1alpha1.MountsV1alpha1Interface
+	TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	proxyV1alpha1 *proxyv1alpha1.ProxyV1alpha1Client
+	mountsV1alpha1  *mountsv1alpha1.MountsV1alpha1Client
+	targetsV1alpha1 *targetsv1alpha1.TargetsV1alpha1Client
 }
 
-// ProxyV1alpha1 retrieves the ProxyV1alpha1Client
-func (c *Clientset) ProxyV1alpha1() proxyv1alpha1.ProxyV1alpha1Interface {
-	return c.proxyV1alpha1
+// MountsV1alpha1 retrieves the MountsV1alpha1Client
+func (c *Clientset) MountsV1alpha1() mountsv1alpha1.MountsV1alpha1Interface {
+	return c.mountsV1alpha1
+}
+
+// TargetsV1alpha1 retrieves the TargetsV1alpha1Client
+func (c *Clientset) TargetsV1alpha1() targetsv1alpha1.TargetsV1alpha1Interface {
+	return c.targetsV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -89,7 +97,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.proxyV1alpha1, err = proxyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.mountsV1alpha1, err = mountsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.targetsV1alpha1, err = targetsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +126,8 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.proxyV1alpha1 = proxyv1alpha1.New(c)
+	cs.mountsV1alpha1 = mountsv1alpha1.New(c)
+	cs.targetsV1alpha1 = targetsv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

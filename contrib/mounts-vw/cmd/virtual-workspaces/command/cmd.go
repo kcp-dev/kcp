@@ -44,9 +44,11 @@ import (
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 
-	proxyclientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
-	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	mountsclientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
+	mountsinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/cmd/virtual-workspaces/options"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/reconciler"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 )
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
@@ -150,11 +152,11 @@ func Start(ctx context.Context, o *options.Options) error {
 	}
 	logger.Info("Resolving identities done")
 
-	cacheProxyClusterClient, err := proxyclientset.NewForConfig(cacheConfig)
+	cacheProxyClusterClient, err := mountsclientset.NewForConfig(cacheConfig)
 	if err != nil {
 		return err
 	}
-	cacheProxyInformers := proxyinformers.NewSharedInformerFactory(cacheProxyClusterClient, 10*time.Minute)
+	mountsInformers := mountsinformers.NewSharedInformerFactory(cacheProxyClusterClient, 10*time.Minute)
 
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck,gosec
@@ -196,8 +198,11 @@ func Start(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
+	// state store is used to share clients between controller and virtual workspace apiserver.
+	store := state.NewClientSetStore()
+
 	logger.Info("Configuring virtual workspace apiserver")
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, identityConfig, cacheProxyInformers)
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.ProxyVirtualWorkspaces.NewVirtualWorkspaces(o.RootPathPrefix, identityConfig, mountsInformers, store)
 	if err != nil {
 		return err
 	}
@@ -221,9 +226,19 @@ func Start(ctx context.Context, o *options.Options) error {
 	}
 
 	logger.Info("Starting informers")
-	cacheProxyInformers.Start(ctx.Done())
+	mountsInformers.Start(ctx.Done())
 
-	cacheProxyInformers.WaitForCacheSync(ctx.Done())
+	mountsInformers.WaitForCacheSync(ctx.Done())
+
+	// start controllers.
+	// TODO: Move to separate binary
+	manager, err := reconciler.NewManager(ctx, o.ProxyVirtualWorkspaces.Proxy.VirtualWorkspaceHostname, nonIdentityConfig, store)
+	if err != nil {
+		return err
+	}
+	if err := manager.Start(ctx); err != nil {
+		return err
+	}
 
 	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.Generic.ExternalAddress, "version", version.Get().String())
 	return preparedRootAPIServer.Run(ctx.Done())

@@ -24,6 +24,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 
 	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 )
 
 const (
@@ -44,6 +45,7 @@ func BuildVirtualWorkspace(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	cachedProxyInformers proxyinformers.SharedInformerFactory,
+	store state.ClientSetStoreInterface,
 ) []rootapiserver.NamedVirtualWorkspace {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -54,12 +56,13 @@ func BuildVirtualWorkspace(
 		dynamicClusterClient: dynamicClusterClient,
 		cachedProxyInformers: cachedProxyInformers,
 		rootPathPrefix:       rootPathPrefix,
+		state:                store,
 	}
 
 	builder := proxyProvider.newTemplate(
 		clusterParameters{
 			virtualWorkspaceName: ProxyVirtualWorkspaceName,
-		})
+		}, store)
 
 	return []rootapiserver.NamedVirtualWorkspace{
 		{

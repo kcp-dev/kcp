@@ -29,15 +29,14 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeCluster":                  schema_mounts_vw_apis_proxy_v1alpha1_KubeCluster(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterList":              schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterList(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterSpec":              schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterSpec(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterStatus":            schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterStatus(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeCluster":            schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeCluster(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterList":        schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterList(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterSpec":        schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterSpec(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterStatus":      schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterStatus(ref),
-		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TunnelWorkspace":              schema_mounts_vw_apis_proxy_v1alpha1_TunnelWorkspace(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeCluster":                 schema_mounts_vw_apis_mounts_v1alpha1_KubeCluster(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterList":             schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterList(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterSpec":             schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterSpec(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterStatus":           schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterStatus(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeCluster":          schema_mounts_vw_apis_targets_v1alpha1_TargetKubeCluster(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterList":      schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterList(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterSpec":      schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterSpec(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterStatus":    schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -95,7 +94,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_KubeCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_mounts_v1alpha1_KubeCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -125,24 +124,24 @@ func schema_mounts_vw_apis_proxy_v1alpha1_KubeCluster(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -176,7 +175,7 @@ func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeCluster"),
+										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeCluster"),
 									},
 								},
 							},
@@ -187,20 +186,20 @@ func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.KubeCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "KubeClusterSpec is the specification of the Kube cluster proxy resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"workspaceURL": {
+					"secretString": {
 						SchemaProps: spec.SchemaProps{
-							Description: "workspaceURL is the address under which the workspace can be found.",
+							Description: "SecretString is used to identify Target cluster in the backend for mount.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -211,7 +210,7 @@ func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterSpec(ref common.ReferenceCa
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -260,11 +259,11 @@ func schema_mounts_vw_apis_proxy_v1alpha1_KubeClusterStatus(ref common.Reference
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_targets_v1alpha1_TargetKubeCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TargetKubeCluster describes the current TargetKubeCluster target object.",
+				Description: "KubeCluster describes the current KubeCluster target object.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -290,24 +289,24 @@ func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeCluster(ref common.Reference
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -341,7 +340,7 @@ func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterList(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeCluster"),
+										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeCluster"),
 									},
 								},
 							},
@@ -352,40 +351,33 @@ func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterList(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1.TargetKubeCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "TargetKubeClusterSpec is the specification of the Target Kube cluster proxy resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"workspaceURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "workspaceURL is the address under which the workspace can be found.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"secretRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SecretRef is a reference to the secret containing the kubeconfig for the target cluster.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.LocalObjectReference"},
+			"k8s.io/api/core/v1.ObjectReference"},
 	}
 }
 
-func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -419,32 +411,25 @@ func schema_mounts_vw_apis_proxy_v1alpha1_TargetKubeClusterStatus(ref common.Ref
 							},
 						},
 					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
-func schema_mounts_vw_apis_proxy_v1alpha1_TunnelWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"url": {
+					"secretString": {
 						SchemaProps: spec.SchemaProps{
-							Description: "url is the URL the Proxy should use to connect to the Proxy tunnel for a given shard.",
-							Default:     "",
+							Description: "SecretString is mountpoint secret string for clients to mount.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"URL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the address under which mount should be using.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"url"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

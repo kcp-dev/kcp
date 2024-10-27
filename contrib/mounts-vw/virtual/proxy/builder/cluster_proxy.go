@@ -15,7 +15,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	proxyv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/proxy/v1alpha1"
+	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
 )
 
 func (p *clusterProxy) authorizeCluster(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -34,8 +34,8 @@ func (p *clusterProxy) authorizeCluster(ctx context.Context, a authorizer.Attrib
 		User:            a.GetUser(),
 		Verb:            "proxy",
 		Name:            proxyName,
-		APIGroup:        proxyv1alpha1.SchemeGroupVersion.Group,
-		APIVersion:      proxyv1alpha1.SchemeGroupVersion.Version,
+		APIGroup:        mountsv1alpha1.SchemeGroupVersion.Group,
+		APIVersion:      mountsv1alpha1.SchemeGroupVersion.Version,
 		Resource:        "clusters",
 		ResourceRequest: true,
 	}
@@ -61,7 +61,7 @@ func (p *clusterProxy) resolveClusterProxyRootPath(urlPath string, requestContex
 	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 	// Incoming requests to this virtual workspace will look like:
-	//  /services/cluster-proxy/root:org:ws/apis/proxy.faros.sh/v1alpha1/kubeclusters/<kube-cluster-name>/core/v1/namespaces/<namespace>/pods/<pod>/exec
+	//  /services/cluster-proxy/root:org:ws/apis/targets.contrib.kcp.io/v1alpha1/kubeclusters/<kube-cluster-name>/core/v1/namespaces/<namespace>/pods/<pod>/exec
 	//                                  └───────────┐
 	// Where the withoutRootPathPrefix starts here: ┘
 	parts := strings.SplitN(withoutRootPathPrefix, "/", 7)
@@ -77,10 +77,9 @@ func (p *clusterProxy) resolveClusterProxyRootPath(urlPath string, requestContex
 	}
 
 	// TODO: verify proxy exists here
-
 	apiDomainKey := dynamiccontext.APIDomainKey(kcpcache.ToClusterAwareKey(clusterName.String(), "", proxyName))
 
-	//  /services/cluster-proxy/<hash>/proxy.faros.sh/v1alpha1/kubeclusters/<kube-cluster-name>/core/v1/namespaces/<namespace>/pods/<pod>/exec
+	//  /services/cluster-proxy/<hash>/targets.contrib.kcp.io/v1alpha1/kubeclusters/<kube-cluster-name>/core/v1/namespaces/<namespace>/pods/<pod>/exec
 	//                  ┌──────────────────────────────────────────────────────────────────────────────────┘
 	// We are now here: ┘
 

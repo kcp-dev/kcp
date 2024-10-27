@@ -37,7 +37,8 @@ import (
 	scopedclientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/internalinterfaces"
-	proxyinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/proxy"
+	mountsinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/mounts"
+	targetsinformers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/targets"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -258,11 +259,16 @@ type SharedInformerFactory interface {
 	// InformerFor returns the SharedIndexInformer for obj.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) kcpcache.ScopeableSharedIndexInformer
 
-	Proxy() proxyinformers.ClusterInterface
+	Mounts() mountsinformers.ClusterInterface
+	Targets() targetsinformers.ClusterInterface
 }
 
-func (f *sharedInformerFactory) Proxy() proxyinformers.ClusterInterface {
-	return proxyinformers.New(f, f.tweakListOptions)
+func (f *sharedInformerFactory) Mounts() mountsinformers.ClusterInterface {
+	return mountsinformers.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Targets() targetsinformers.ClusterInterface {
+	return targetsinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Cluster(clusterName logicalcluster.Name) ScopedDynamicSharedInformerFactory {
@@ -407,9 +413,14 @@ type SharedScopedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Proxy() proxyinformers.Interface
+	Mounts() mountsinformers.Interface
+	Targets() targetsinformers.Interface
 }
 
-func (f *sharedScopedInformerFactory) Proxy() proxyinformers.Interface {
-	return proxyinformers.NewScoped(f, f.namespace, f.tweakListOptions)
+func (f *sharedScopedInformerFactory) Mounts() mountsinformers.Interface {
+	return mountsinformers.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Targets() targetsinformers.Interface {
+	return targetsinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
