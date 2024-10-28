@@ -6,4 +6,4 @@ Listed below are organizations that have adopted kcp in one way or another. We a
 | Organization  | Description | Maturity Level | Further Information |
 | ------------- | ------------- | --- | --- |
 | Kubermatic    | Kubermatic is building an internal developer platform (IdP) product that uses kcp as its global API control plane  | Development | - |
-
+| Faros.sh      | Faros is building a control-plane-as-a-service to access & manage multiple Kubernetes clusters across public and private deployments. | Development | - |
