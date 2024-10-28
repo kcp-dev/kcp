@@ -32,7 +32,7 @@ body:
   - type: dropdown
     id: maturity
     attributes:
-      labels: Maturity Stage
+      label: Maturity Stage
       description: What stage are you at in your adoption of kcp?
       multiple: false
       options:
