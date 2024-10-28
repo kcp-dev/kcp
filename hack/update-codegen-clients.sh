@@ -35,6 +35,8 @@ go install "${CODEGEN_PKG}"/cmd/client-gen
 # TODO: This is hack to allow CI to pass
 chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
 
+source "${CODEGEN_PKG}/kube_codegen.sh"
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
   --output-pkg github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
@@ -60,12 +62,9 @@ chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
   --apply-configuration-package=github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
   --clientset-name "versioned"
 
-bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
-  github.com/kcp-dev/kcp/sdk/client github.com/kcp-dev/kcp/sdk/apis \
-  "core:v1alpha1 tenancy:v1alpha1 apis:v1alpha1 topology:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+kube::codegen::gen_helpers \
+  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  ./sdk/apis
 
 pushd ./sdk/apis
 ${CODE_GENERATOR} \
@@ -92,19 +91,13 @@ popd
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
   --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/clientset"
 
-bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
-  github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
-  "conditions:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+kube::codegen::gen_helpers \
+  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  ./sdk/third_party/conditions/apis
 
-bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
-  github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis \
-  "wildwest:v1alpha1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/kcp-dev/kcp
+kube::codegen::gen_helpers \
+  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  ./test/e2e/fixtures/wildwest/apis
 
 pushd ./test/e2e/fixtures/wildwest/apis
 ${CODE_GENERATOR} \
