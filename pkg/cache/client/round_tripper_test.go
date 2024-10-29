@@ -69,10 +69,7 @@ func TestShardRoundTripper(t *testing.T) {
 	}
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
-			result, err := generatePath(tt.originalPath, shard.New("amber"))
-			if err != nil {
-				t.Error(err)
-			}
+			result := generatePath(tt.originalPath, shard.New("amber"))
 			if result != tt.desired {
 				t.Errorf("got %v, want %v", result, tt.desired)
 			}
