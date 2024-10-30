@@ -209,6 +209,14 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		return err
 	}
 
+	// logger := klog.FromContext(ctx)
+	// defer func() {
+	// 	err = logFile.Close()
+	// 	if err != nil {
+	// 		logger.Error(err, "failed to close the log file")
+	// 	}
+	// }()
+
 	v.writer = helpers.NewHeadWriter(logFile, out)
 	cmd.Stdout = v.writer
 	cmd.Stdin = os.Stdin
