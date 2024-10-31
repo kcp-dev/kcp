@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package targets
+package vcluster
 
 import (
 	"context"
@@ -32,6 +32,8 @@ import (
 
 	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/utils/clientgo"
+	"github.com/kcp-dev/kcp/contrib/mounts-vw/utils/secrets"
 )
 
 type targetSecretReconciler struct {
@@ -45,7 +47,7 @@ const (
 	proxyPrefix = "/services/cluster-proxy/"
 )
 
-func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv1alpha1.TargetKubeCluster) (reconcileStatus, error) {
+func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv1alpha1.TargetVCluster) (reconcileStatus, error) {
 	secretRef := target.Spec.SecretRef
 	cluster := logicalcluster.NewPath(logicalcluster.From(target).String())
 
@@ -53,7 +55,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 
 	// set secret first:
 	if target.Status.SecretString == "" {
-		secretString, err := generateSecret(16)
+		secretString, err := secrets.GenerateSecret(16)
 		if err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
@@ -63,7 +65,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 	secret, err := r.getSecret(ctx, cluster, secretRef.Namespace, secretRef.Name)
 	if err != nil {
 		conditions.Set(target, &conditionsapi.Condition{
-			Type:    targetsv1alpha1.TargetKubeClusterSecretReady,
+			Type:    targetsv1alpha1.ClusterReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to get secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
@@ -73,7 +75,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 
 	if secret.Data["kubeconfig"] == nil {
 		conditions.Set(target, &conditionsapi.Condition{
-			Type:    targetsv1alpha1.TargetKubeClusterSecretReady,
+			Type:    targetsv1alpha1.ClusterReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("secret %s/%s does not contain 'kubeconfig' key", secretRef.Namespace, secretRef.Name),
 		})
@@ -81,10 +83,10 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 		return reconcileStatusStopAndRequeue, nil
 	}
 
-	clientset, rest, err := getClientFromKubeConfig(secret.Data["kubeconfig"])
+	clientset, rest, err := clientgo.GetClientFromKubeConfig(secret.Data["kubeconfig"])
 	if err != nil {
 		conditions.Set(target, &conditionsapi.Condition{
-			Type:    targetsv1alpha1.TargetKubeClusterSecretReady,
+			Type:    targetsv1alpha1.ClusterReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to create client from kubeconfig in secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
@@ -95,16 +97,17 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 	_, err = clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		conditions.Set(target, &conditionsapi.Condition{
-			Type:    targetsv1alpha1.TargetKubeClusterSecretReady,
+			Type:    targetsv1alpha1.ClusterReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to access namespaces from kubeconfig in secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
 		r.deleteState(target.Status.SecretString)
+		target.Status.Phase = tenancyv1alpha1.MountReasonNotReady
 		return reconcileStatusStopAndRequeue, err
 	}
 
 	conditions.Set(target, &conditionsapi.Condition{
-		Type:    targetsv1alpha1.TargetKubeClusterSecretReady,
+		Type:    targetsv1alpha1.ClusterReady,
 		Status:  corev1.ConditionTrue,
 		Message: fmt.Sprintf("successfully accessed namespaces from kubeconfig in secret %s/%s", secretRef.Namespace, secretRef.Name),
 	})
@@ -116,7 +119,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 		logicalcluster.From(target).String(),
 		"apis",
 		targetsv1alpha1.SchemeGroupVersion.String(),
-		"kubeclusters",
+		"vclusters",
 		target.Name,
 		"proxy",
 	)

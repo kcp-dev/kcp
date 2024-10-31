@@ -19,4 +19,5 @@ package targets
 const (
 	GroupName             = "targets.contrib.kcp.io"
 	TargetKubeClusterKind = "TargetKubeCluster"
+	TargetVClusterKind    = "TargetVCluster"
 )

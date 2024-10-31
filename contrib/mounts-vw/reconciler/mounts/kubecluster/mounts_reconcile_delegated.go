@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mounts
+package kubecluster
 
 import (
 	"context"
@@ -31,12 +31,26 @@ import (
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 )
 
-type statusReconciler struct {
+// delegatedReconciler is a reconciler reconciles mounts, which are delegated and
+// has secrets string set.
+type delegatedReconciler struct {
 	getState func(key string) (state.Value, bool)
 }
 
-func (r *statusReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.KubeCluster) (reconcileStatus, error) {
-	v, found := r.getState(mount.Spec.SecretString)
+func (r *delegatedReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.KubeCluster) (reconcileStatus, error) {
+	if mount.Spec.Mode != mountsv1alpha1.KubeClusterModeDelegated {
+		return reconcileStatusContinue, nil
+	}
+
+	if mount.Spec.SecretString == nil || *mount.Spec.SecretString == "" {
+		conditions.Set(mount, &conditionsapi.Condition{
+			Type:    tenancyv1alpha1.MountConditionReady,
+			Status:  corev1.ConditionFalse,
+			Message: "SecretString is not set",
+		})
+	}
+
+	v, found := r.getState(*mount.Spec.SecretString)
 	if v.Client == nil || !found {
 		conditions.Set(mount, &conditionsapi.Condition{
 			Type:    tenancyv1alpha1.MountConditionReady,
@@ -64,7 +78,7 @@ func (r *statusReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 
 	// secrets string will be purged at VW side.
 	// TOOD: This is a temporary solution. We need to find a better way to handle this.
-	full, err := url.JoinPath(v.URL, "secret", mount.Spec.SecretString)
+	full, err := url.JoinPath(v.URL, "secret", *mount.Spec.SecretString)
 	if err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}

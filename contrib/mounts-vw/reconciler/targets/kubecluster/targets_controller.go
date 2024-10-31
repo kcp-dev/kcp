@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package targets
+package kubercluster
 
 import (
 	"context"
@@ -47,7 +47,7 @@ import (
 
 const (
 	// ControllerName is the name of this controller.
-	ControllerName = "kcp-mounts-targets"
+	ControllerName = "kcp-targets-kubeclusters"
 )
 
 // NewController creates a new controller for targets.

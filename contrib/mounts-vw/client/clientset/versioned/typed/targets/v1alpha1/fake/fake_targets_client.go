@@ -33,6 +33,10 @@ func (c *FakeTargetsV1alpha1) TargetKubeClusters() v1alpha1.TargetKubeClusterInt
 	return &FakeTargetKubeClusters{c}
 }
 
+func (c *FakeTargetsV1alpha1) TargetVClusters() v1alpha1.TargetVClusterInterface {
+	return &FakeTargetVClusters{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeTargetsV1alpha1) RESTClient() rest.Interface {

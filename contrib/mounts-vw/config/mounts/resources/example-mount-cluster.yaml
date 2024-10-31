@@ -6,4 +6,5 @@ metadata:
   annotations:
     experimental.tenancy.kcp.io/is-mount: "true"
 spec:
-  secretString: cFI-tl0Qvwqnln4N
+  mode: Delegated
+  secretString: xvy2lWIlPsL7xUII

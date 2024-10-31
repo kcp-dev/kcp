@@ -38,7 +38,7 @@ Step by step guide how to setup this example.
 1. Start kcp with mounts feature gate enabled:
 
 ```
-go run ./cmd/kcp start --mapping-file=./contrib/assets/mounts-vw/path-mapping.yaml --feature-gates=WorkspaceMounts=true
+go run ./cmd/kcp start --mapping-file=./contrib/mounts-vw/assets/path-mapping.yaml --feature-gates=WorkspaceMounts=true
 
 ```
 
@@ -58,6 +58,8 @@ kubectl ws create mounts --enter
 # create exports
 kubectl create -f config/mounts/resources/apiresourceschema-targetkubeclusters.targets.contrib.kcp.io.yaml
 kubectl create -f config/mounts/resources/apiresourceschema-kubeclusters.mounts.contrib.kcp.io.yaml
+kubectl create -f config/mounts/resources/apiresourceschema-targetvclusters.targets.contrib.kcp.io.yaml
+kubectl create -f config/mounts/resources/apiresourceschema-vclusters.mounts.contrib.kcp.io.yaml
 kubectl create -f config/mounts/resources/apiexport-mounts.contrib.kcp.io.yaml
 kubectl create -f config/mounts/resources/apiexport-targets.contrib.kcp.io.yaml
 
@@ -103,7 +105,7 @@ kubectl create -f config/mounts/resources/example-target-cluster.yaml
 
 # get secret string:
 kubectl get TargetKubeCluster proxy-cluster -o jsonpath='{.status.secretString}'
-cFI-tl0Qvwqnln4N
+xvy2lWIlPsL7xUII
 
 
 # Create a consumer workspace for mounts:
@@ -118,7 +120,6 @@ kubectl create -f config/mounts/resources/example-mount-cluster.yaml
 
 # annotate the workspace with mount,  putting the intent that this should be mounted:
  kubectl annotate workspace kind-cluster  experimental.tenancy.kcp.io/mount='{"spec":{"ref":{"kind":"KubeCluster","name":"proxy-cluster","apiVersion":"mounts.contrib.kcp.io/v1alpha1"}}}'
-
 ```
 
 5. Check the mounts reconciler logs:
@@ -140,6 +141,16 @@ kube-system          kube-scheduler-kind-control-plane            1/1     Runnin
 local-path-storage   local-path-provisioner-988d74bc-dqnd7        1/1     Running   0          22h
 ```
 
+# Vclusters example
+
+vCluster are backed by vCluster mounts. This is a way to create a virtual cluster that is backed by a real cluster.
+You can either provide a kubeconfig or a target cluster to back the vCluster or secretString for "target" in the system.
+
+kubectl ws create vcluster
+kubectl create -f config/mounts/resources/example-vcluster.yaml
+
+
+
 
 # Known issues
 
@@ -150,3 +161,4 @@ Challenge is that when these 2 objects are in separate bindings, its more machin
 own workspaces.
 
 3. KubeCluster changes not applied to Workspaces. This might be a bug in core. Need to validate.
+

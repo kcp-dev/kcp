@@ -129,7 +129,7 @@ func (p *clusterProxy) buildClusterProxyVirtualWorkspace() *handler.VirtualWorks
 					secrets := strings.TrimPrefix(parts[7], "secret/")
 					parts = strings.SplitN(secrets, "/", 2)
 
-					value, found := p.store.Get(parts[0])
+					value, found := p.store.Get(state.KindKubeClusters, parts[0])
 					if !found {
 						http.Error(w, "Unauthorized", http.StatusInternalServerError)
 						return

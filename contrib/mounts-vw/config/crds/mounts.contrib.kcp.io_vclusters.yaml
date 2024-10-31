@@ -4,18 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
-  name: kubeclusters.contrib.kcp.io
+  name: vclusters.mounts.contrib.kcp.io
 spec:
-  group: contrib.kcp.io
+  group: mounts.contrib.kcp.io
   names:
-    kind: KubeCluster
-    listKind: KubeClusterList
-    plural: kubeclusters
-    singular: kubecluster
+    categories:
+    - contrib
+    kind: VCluster
+    listKind: VClusterList
+    plural: vclusters
+    singular: vcluster
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="KubeClusterReady")].status
+    - jsonPath: .status.conditions[?(@.type=="ClusterReady")].status
       name: Ready
       type: string
     - jsonPath: .status.phase
@@ -24,7 +26,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: KubeCluster describes the current KubeCluster proxy object.
+        description: VCluster describes the current VCluster proxy object.
         properties:
           apiVersion:
             description: |-
@@ -44,17 +46,69 @@ spec:
           metadata:
             type: object
           spec:
-            description: KubeClusterSpec is the specification of the Kube cluster
+            description: VClusterSpec is the specification of the VCluster cluster
               proxy resource.
             properties:
-              workspaceURL:
-                description: workspaceURL is the address under which the workspace
-                  can be found.
+              mode:
+                default: Delegated
+                description: Mode is the mode of the KubeCluster proxy(Direct, Delegated).
+                enum:
+                - Delegated
+                type: string
+              secretRef:
+                description: |-
+                  SecretRef is a reference to the secret containing the kubeconfig for the target cluster.
+                  Used only in Direct mode.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  fieldPath:
+                    description: |-
+                      If referring to a piece of an object instead of an entire object, this string
+                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within a pod, this would take on a value like:
+                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]" (container with
+                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                      referencing a part of an object.
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the referent.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                    type: string
+                  resourceVersion:
+                    description: |-
+                      Specific resourceVersion to which this reference is made, if any.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                    type: string
+                  uid:
+                    description: |-
+                      UID of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              secretString:
+                description: |-
+                  SecretString is used to identify Target cluster in the backend for mount.
+                  Used only in Delegated mode.
                 type: string
             type: object
           status:
-            description: KubeClusterStatus communicates the observed state of the
-              Kube cluster proxy.
+            description: VClusterStatus communicates the observed state of the VCluster
+              cluster proxy.
             properties:
               URL:
                 description: |-
@@ -120,22 +174,11 @@ spec:
                 - Ready
                 - Unknown
                 type: string
-              tunnelWorkspaces:
+              secretString:
                 description: |-
-                  TunnelWorkspaces contains all URLs (one per shard) that is being used
-                  by the proxy to connect to the tunnel for a given shard.
-                items:
-                  properties:
-                    url:
-                      description: |-
-                        url is the URL the Proxy should use to connect
-                        to the Proxy tunnel for a given shard.
-                      minLength: 1
-                      type: string
-                  required:
-                  - url
-                  type: object
-                type: array
+                  SecretString is the secret string used to identify the target cluster in the backend for mount.
+                  Used in both codes, as it is used to identify the target cluster in vcluster cluster pool.
+                type: string
             type: object
         type: object
     served: true

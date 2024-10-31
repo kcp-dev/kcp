@@ -35,6 +35,7 @@ import (
 type TargetsV1alpha1ClusterInterface interface {
 	TargetsV1alpha1ClusterScoper
 	TargetKubeClustersClusterGetter
+	TargetVClustersClusterGetter
 }
 
 type TargetsV1alpha1ClusterScoper interface {
@@ -54,6 +55,10 @@ func (c *TargetsV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 
 func (c *TargetsV1alpha1ClusterClient) TargetKubeClusters() TargetKubeClusterClusterInterface {
 	return &targetKubeClustersClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *TargetsV1alpha1ClusterClient) TargetVClusters() TargetVClusterClusterInterface {
+	return &targetVClustersClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new TargetsV1alpha1ClusterClient for the given config.

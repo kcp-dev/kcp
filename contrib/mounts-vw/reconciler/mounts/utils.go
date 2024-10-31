@@ -1,4 +1,4 @@
-package targets
+package mounts
 
 import (
 	"crypto/rand"

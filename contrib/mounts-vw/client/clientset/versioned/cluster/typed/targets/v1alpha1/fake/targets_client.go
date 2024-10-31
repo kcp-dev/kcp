@@ -48,6 +48,10 @@ func (c *TargetsV1alpha1ClusterClient) TargetKubeClusters() kcptargetsv1alpha1.T
 	return &targetKubeClustersClusterClient{Fake: c.Fake}
 }
 
+func (c *TargetsV1alpha1ClusterClient) TargetVClusters() kcptargetsv1alpha1.TargetVClusterClusterInterface {
+	return &targetVClustersClusterClient{Fake: c.Fake}
+}
+
 var _ targetsv1alpha1.TargetsV1alpha1Interface = (*TargetsV1alpha1Client)(nil)
 
 type TargetsV1alpha1Client struct {
@@ -62,4 +66,8 @@ func (c *TargetsV1alpha1Client) RESTClient() rest.Interface {
 
 func (c *TargetsV1alpha1Client) TargetKubeClusters() targetsv1alpha1.TargetKubeClusterInterface {
 	return &targetKubeClustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+}
+
+func (c *TargetsV1alpha1Client) TargetVClusters() targetsv1alpha1.TargetVClusterInterface {
+	return &targetVClustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

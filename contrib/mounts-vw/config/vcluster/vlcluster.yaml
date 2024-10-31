@@ -1,0 +1,23 @@
+controlPlane:
+  backingStore: # This backing store option is a Pro feature and requires a license. Remove it if you don't have a license.
+    etcd:
+      embedded:
+        enabled: true
+  ingress:
+    enabled: true
+    host: vcluster-k8s-api.example.com
+sync:
+  toHost:
+    serviceAccounts:
+      enabled: true
+  fromHost:
+    nodes:
+      enabled: true
+      clearImageStatus: true
+exportKubeConfig:
+  context: my-vcluster-context
+  server: https://vcluster-k8s-api.example.com
+  secret:
+    name: my-vcluster-kubeconfig
+
+

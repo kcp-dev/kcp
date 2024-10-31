@@ -30,6 +30,7 @@ import (
 type MountsV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	KubeClustersGetter
+	VClustersGetter
 }
 
 // MountsV1alpha1Client is used to interact with features provided by the mounts.contrib.kcp.io group.
@@ -39,6 +40,10 @@ type MountsV1alpha1Client struct {
 
 func (c *MountsV1alpha1Client) KubeClusters() KubeClusterInterface {
 	return newKubeClusters(c)
+}
+
+func (c *MountsV1alpha1Client) VClusters() VClusterInterface {
+	return newVClusters(c)
 }
 
 // NewForConfig creates a new MountsV1alpha1Client for the given config.

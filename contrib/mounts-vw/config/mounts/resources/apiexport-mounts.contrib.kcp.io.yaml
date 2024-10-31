@@ -5,5 +5,6 @@ metadata:
   name: mounts.contrib.kcp.io
 spec:
   latestResourceSchemas:
-  - v241027-62b84afa0.kubeclusters.mounts.contrib.kcp.io
+  - v241031-8967b5418.kubeclusters.mounts.contrib.kcp.io
+  - v241031-8967b5418.vclusters.mounts.contrib.kcp.io
 status: {}

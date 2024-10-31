@@ -90,9 +90,13 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=mounts.contrib.kcp.io, Version=V1alpha1
 	case mountsv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Mounts().V1alpha1().KubeClusters().Informer()}, nil
+	case mountsv1alpha1.SchemeGroupVersion.WithResource("vclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Mounts().V1alpha1().VClusters().Informer()}, nil
 	// Group=targets.contrib.kcp.io, Version=V1alpha1
 	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Targets().V1alpha1().TargetKubeClusters().Informer()}, nil
+	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetvclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Targets().V1alpha1().TargetVClusters().Informer()}, nil
 	}
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
@@ -106,9 +110,15 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	case mountsv1alpha1.SchemeGroupVersion.WithResource("kubeclusters"):
 		informer := f.Mounts().V1alpha1().KubeClusters().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case mountsv1alpha1.SchemeGroupVersion.WithResource("vclusters"):
+		informer := f.Mounts().V1alpha1().VClusters().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=targets.contrib.kcp.io, Version=V1alpha1
 	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetkubeclusters"):
 		informer := f.Targets().V1alpha1().TargetKubeClusters().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case targetsv1alpha1.SchemeGroupVersion.WithResource("targetvclusters"):
+		informer := f.Targets().V1alpha1().TargetVClusters().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	}
 

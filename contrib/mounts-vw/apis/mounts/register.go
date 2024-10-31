@@ -19,4 +19,5 @@ package mounts
 const (
 	GroupName       = "mounts.contrib.kcp.io"
 	KubeClusterKind = "KubeCluster"
+	VClusterKind    = "VCluster"
 )

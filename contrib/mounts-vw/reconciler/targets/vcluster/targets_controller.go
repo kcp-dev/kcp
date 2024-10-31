@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mounts
+package vcluster
 
 import (
 	"context"
@@ -37,17 +37,17 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
+	targetsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1"
 	mountsclientset "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/cluster"
-	mountsv1alpha1client "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/mounts/v1alpha1"
-	mountsv1alpha1informers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/mounts/v1alpha1"
-	mountsv1alpha1listers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/listers/mounts/v1alpha1"
+	targetsv1alpha1client "github.com/kcp-dev/kcp/contrib/mounts-vw/client/clientset/versioned/typed/targets/v1alpha1"
+	targetsv1alpha1informers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/informers/externalversions/targets/v1alpha1"
+	targetsv1alpha1listers "github.com/kcp-dev/kcp/contrib/mounts-vw/client/listers/targets/v1alpha1"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 )
 
 const (
 	// ControllerName is the name of this controller.
-	ControllerName = "kcp-mounts-mounts"
+	ControllerName = "kcp-targets-vcluster"
 )
 
 // NewController creates a new controller for targets.
@@ -56,8 +56,9 @@ func NewController(
 	mountsClusterClient mountsclientset.ClusterInterface,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	mountsInformers mountsv1alpha1informers.KubeClusterClusterInformer,
+	targetsInformers targetsv1alpha1informers.TargetVClusterClusterInformer,
 	store state.ClientSetStoreInterface,
+	virtualWorkspaceURL string,
 ) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -66,19 +67,19 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-
-		store: store,
+		virtualWorkspaceURL: virtualWorkspaceURL,
+		store:               store,
 
 		dynamicClusterClient: dynamicClusterClient,
 		kubeClusterClient:    kubeClusterClient,
 
-		mountsIndexer: mountsInformers.Informer().GetIndexer(),
-		mountsLister:  mountsInformers.Lister(),
+		targetsIndexer: targetsInformers.Informer().GetIndexer(),
+		targetsLister:  targetsInformers.Lister(),
 
-		commit: committer.NewCommitter[*mountsv1alpha1.KubeCluster, mountsv1alpha1client.KubeClusterInterface, *mountsv1alpha1.KubeClusterSpec, *mountsv1alpha1.KubeClusterStatus](mountsClusterClient.MountsV1alpha1().KubeClusters()),
+		commit: committer.NewCommitter[*targetsv1alpha1.TargetVCluster, targetsv1alpha1client.TargetVClusterInterface, *targetsv1alpha1.TargetVClusterSpec, *targetsv1alpha1.TargetVClusterStatus](mountsClusterClient.TargetsV1alpha1().TargetVClusters()),
 	}
 
-	_, _ = mountsInformers.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = targetsInformers.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -86,25 +87,26 @@ func NewController(
 	return c, nil
 }
 
-type mountResources = committer.Resource[*mountsv1alpha1.KubeClusterSpec, *mountsv1alpha1.KubeClusterStatus]
+type targetResource = committer.Resource[*targetsv1alpha1.TargetVClusterSpec, *targetsv1alpha1.TargetVClusterStatus]
 
 // Controller watches Targets and dynamically discovered mount resources and reconciles them so
 // workspace has right annotations.
 type Controller struct {
 	// queue is the work-queue used by the controller
-	queue workqueue.TypedRateLimitingInterface[string]
-	store state.ClientSetStoreInterface
+	queue               workqueue.TypedRateLimitingInterface[string]
+	store               state.ClientSetStoreInterface
+	virtualWorkspaceURL string
 
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	kubeClusterClient    kcpkubernetesclientset.ClusterInterface
 
 	discoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 
-	mountsIndexer cache.Indexer
-	mountsLister  mountsv1alpha1listers.KubeClusterClusterLister
+	targetsIndexer cache.Indexer
+	targetsLister  targetsv1alpha1listers.TargetVClusterClusterLister
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *mountResources) error
+	commit func(ctx context.Context, new, old *targetResource) error
 }
 
 // enqueue adds the object to the work queue.
@@ -115,7 +117,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing Mount")
+	logger.V(4).Info("queueing Target")
 	c.queue.Add(key)
 }
 
@@ -175,7 +177,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	mount, err := c.mountsLister.Cluster(parent).Get(name)
+	target, err := c.targetsLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return false, nil // object deleted before we handled it
@@ -183,21 +185,21 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	old := mount
-	mount = mount.DeepCopy()
+	old := target
+	target = target.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), mount)
+	logger := logging.WithObject(klog.FromContext(ctx), target)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, mount)
+	requeue, err := c.reconcile(ctx, target)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	oldResource := &mountResources{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &mountResources{ObjectMeta: mount.ObjectMeta, Spec: &mount.Spec, Status: &mount.Status}
+	oldResource := &targetResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &targetResource{ObjectMeta: target.ObjectMeta, Spec: &target.Spec, Status: &target.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}

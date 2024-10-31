@@ -31,6 +31,7 @@ type KubeClusterStatusApplyConfiguration struct {
 	URL                    *string                        `json:"URL,omitempty"`
 	Phase                  *v1alpha1.MountPhaseType       `json:"phase,omitempty"`
 	LastProxyHeartbeatTime *v1.Time                       `json:"lastProxyHeartbeatTime,omitempty"`
+	SecretString           *string                        `json:"secretString,omitempty"`
 	Conditions             *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
@@ -61,6 +62,14 @@ func (b *KubeClusterStatusApplyConfiguration) WithPhase(value v1alpha1.MountPhas
 // If called multiple times, the LastProxyHeartbeatTime field is set to the value of the last call.
 func (b *KubeClusterStatusApplyConfiguration) WithLastProxyHeartbeatTime(value v1.Time) *KubeClusterStatusApplyConfiguration {
 	b.LastProxyHeartbeatTime = &value
+	return b
+}
+
+// WithSecretString sets the SecretString field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SecretString field is set to the value of the last call.
+func (b *KubeClusterStatusApplyConfiguration) WithSecretString(value string) *KubeClusterStatusApplyConfiguration {
+	b.SecretString = &value
 	return b
 }
 

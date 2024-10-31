@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -53,7 +52,7 @@ func (p *clusterProxy) resolveClusterProxyRootPath(urlPath string, requestContex
 	}
 
 	rootPathPrefix := p.rootPathPrefix + p.clusterParameters.virtualWorkspaceName + "/"
-	spew.Dump(rootPathPrefix)
+
 	completedContext = requestContext
 	if !strings.HasPrefix(urlPath, rootPathPrefix) {
 		return

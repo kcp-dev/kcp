@@ -20,6 +20,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,7 +32,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=contrib
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="KubeClusterReady")].status`
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="ClusterReady")].status`
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.phase`
 type KubeCluster struct {
 	v1.TypeMeta `json:",inline"`
@@ -45,9 +46,28 @@ type KubeCluster struct {
 
 // KubeClusterSpec is the specification of the Kube cluster proxy resource.
 type KubeClusterSpec struct {
+	// Mode is the mode of the KubeCluster proxy(Direct, Delegated).
+	// +kubebuilder:default=Direct
+	// +kubebuilder:validation:Enum=Direct;Delegated
+	Mode KubeClusterMode `json:"mode,omitempty"`
 	// SecretString is used to identify Target cluster in the backend for mount.
-	SecretString string `json:"secretString,omitempty"`
+	// Used only in Delegated mode.
+	// +optional
+	SecretString *string `json:"secretString,omitempty"`
+	// SecretRef is a reference to the secret containing the kubeconfig for the target cluster.
+	// Used only in Direct mode.
+	SecretRef *corev1.ObjectReference `json:"secretRef,omitempty"`
 }
+
+// KubeClusterMode is the mode of the KubeCluster proxy.
+type KubeClusterMode string
+
+const (
+	// KubeClusterModeDirect represents the direct mode of the KubeCluster proxy.
+	KubeClusterModeDirect KubeClusterMode = "Direct"
+	// KubeClusterModeDelegated represents the delegated mode of the KubeCluster proxy.
+	KubeClusterModeDelegated KubeClusterMode = "Delegated"
+)
 
 // KubeClusterStatus communicates the observed state of the Kube cluster proxy.
 type KubeClusterStatus struct {
@@ -67,17 +87,21 @@ type KubeClusterStatus struct {
 	// +optional
 	LastProxyHeartbeatTime *v1.Time `json:"lastProxyHeartbeatTime,omitempty"`
 
+	// SecretString is mountpoint secret string for clients to mount.
+	// +optional
+	SecretString string `json:"secretString,omitempty"`
+
 	// Current processing state of the Cluster proxy.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 const (
-	// KubeClusterReady represents readiness status of the KubeCluster proxy.
-	KubeClusterReady conditionsv1alpha1.ConditionType = "KubeClusterReady"
+	// ClusterReady represents readiness status of the KubeCluster proxy.
+	ClusterReady conditionsv1alpha1.ConditionType = "ClusterReady"
 
-	// KubeClusterAgentNotReadyReason is the reason for the KubeClusterReady condition
-	KubeClusterAgentNotReadyReason = "AgentNotReady"
+	// ClusterSecretReady represents readiness status of the TargetKubeCluster secret.
+	ClusterSecretReady conditionsv1alpha1.ConditionType = "ClusterSecretReady"
 )
 
 // KubeClusterList is a list of KubeCluster resources

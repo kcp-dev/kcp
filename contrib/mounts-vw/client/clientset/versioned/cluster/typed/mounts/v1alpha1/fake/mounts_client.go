@@ -48,6 +48,10 @@ func (c *MountsV1alpha1ClusterClient) KubeClusters() kcpmountsv1alpha1.KubeClust
 	return &kubeClustersClusterClient{Fake: c.Fake}
 }
 
+func (c *MountsV1alpha1ClusterClient) VClusters() kcpmountsv1alpha1.VClusterClusterInterface {
+	return &vClustersClusterClient{Fake: c.Fake}
+}
+
 var _ mountsv1alpha1.MountsV1alpha1Interface = (*MountsV1alpha1Client)(nil)
 
 type MountsV1alpha1Client struct {
@@ -62,4 +66,8 @@ func (c *MountsV1alpha1Client) RESTClient() rest.Interface {
 
 func (c *MountsV1alpha1Client) KubeClusters() mountsv1alpha1.KubeClusterInterface {
 	return &kubeClustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+}
+
+func (c *MountsV1alpha1Client) VClusters() mountsv1alpha1.VClusterInterface {
+	return &vClustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

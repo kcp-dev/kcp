@@ -158,6 +158,9 @@ func (m Manager) Start(ctx context.Context) error {
 			if err := ss.installTargetKubeClustersController(ctx); err != nil {
 				return err
 			}
+			if err := ss.installTargetVClustersController(ctx); err != nil {
+				return err
+			}
 			err := ss.start(ctx, "targets")
 			if err != nil {
 				return err
@@ -169,7 +172,10 @@ func (m Manager) Start(ctx context.Context) error {
 	for _, s := range m.mountsMountsExportShards {
 		ss := s
 		g.Go(func() error {
-			if err := ss.installMountsController(ctx); err != nil {
+			if err := ss.installKubeClusterMountsController(ctx); err != nil {
+				return err
+			}
+			if err := ss.installVClusterMountsController(ctx); err != nil {
 				return err
 			}
 			err := ss.start(ctx, "mounts")

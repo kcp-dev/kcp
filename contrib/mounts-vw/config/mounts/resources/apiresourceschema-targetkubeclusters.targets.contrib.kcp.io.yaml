@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241027-62b84afa0.targetkubeclusters.targets.contrib.kcp.io
+  name: v241029-8967b5418.targetkubeclusters.targets.contrib.kcp.io
 spec:
   group: targets.contrib.kcp.io
   names:
@@ -15,7 +15,7 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="TargetKubeClusterReady")].status
+    - jsonPath: .status.conditions[?(@.type=="ClusterReady")].status
       name: Ready
       type: string
     - jsonPath: .status.phase

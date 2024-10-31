@@ -28,6 +28,8 @@ import (
 type ClusterInterface interface {
 	// TargetKubeClusters returns a TargetKubeClusterClusterInformer
 	TargetKubeClusters() TargetKubeClusterClusterInformer
+	// TargetVClusters returns a TargetVClusterClusterInformer
+	TargetVClusters() TargetVClusterClusterInformer
 }
 
 type version struct {
@@ -45,9 +47,16 @@ func (v *version) TargetKubeClusters() TargetKubeClusterClusterInformer {
 	return &targetKubeClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// TargetVClusters returns a TargetVClusterClusterInformer
+func (v *version) TargetVClusters() TargetVClusterClusterInformer {
+	return &targetVClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// TargetKubeClusters returns a TargetKubeClusterInformer
 	TargetKubeClusters() TargetKubeClusterInformer
+	// TargetVClusters returns a TargetVClusterInformer
+	TargetVClusters() TargetVClusterInformer
 }
 
 type scopedVersion struct {
@@ -64,4 +73,9 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // TargetKubeClusters returns a TargetKubeClusterInformer
 func (v *scopedVersion) TargetKubeClusters() TargetKubeClusterInformer {
 	return &targetKubeClusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// TargetVClusters returns a TargetVClusterInformer
+func (v *scopedVersion) TargetVClusters() TargetVClusterInformer {
+	return &targetVClusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

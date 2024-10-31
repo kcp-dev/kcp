@@ -32,7 +32,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=contrib
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="TargetKubeClusterReady")].status`
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="ClusterReady")].status`
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.phase`
 type TargetKubeCluster struct {
 	v1.TypeMeta `json:",inline"`
@@ -74,11 +74,11 @@ type TargetKubeClusterStatus struct {
 }
 
 const (
-	// TargetKubeClusterReady represents readiness status of the TargetKubeCluster proxy.
-	TargetKubeClusterReady conditionsv1alpha1.ConditionType = "TargetKubeClusterReady"
+	// ClusterReady represents readiness status of the TargetKubeCluster proxy.
+	ClusterReady conditionsv1alpha1.ConditionType = "ClusterReady"
 
-	// TargetKubeClusterSecretReady represents readiness status of the TargetKubeCluster secret.
-	TargetKubeClusterSecretReady conditionsv1alpha1.ConditionType = "TargetKubeClusterSecretReady"
+	// ClusterSecretReady represents readiness status of the TargetKubeCluster secret.
+	ClusterSecretReady conditionsv1alpha1.ConditionType = "ClusterSecretReady"
 )
 
 // TargetKubeClusterList is a list of TargetKubeCluster resources

@@ -28,6 +28,8 @@ import (
 type ClusterInterface interface {
 	// KubeClusters returns a KubeClusterClusterInformer
 	KubeClusters() KubeClusterClusterInformer
+	// VClusters returns a VClusterClusterInformer
+	VClusters() VClusterClusterInformer
 }
 
 type version struct {
@@ -45,9 +47,16 @@ func (v *version) KubeClusters() KubeClusterClusterInformer {
 	return &kubeClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// VClusters returns a VClusterClusterInformer
+func (v *version) VClusters() VClusterClusterInformer {
+	return &vClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// KubeClusters returns a KubeClusterInformer
 	KubeClusters() KubeClusterInformer
+	// VClusters returns a VClusterInformer
+	VClusters() VClusterInformer
 }
 
 type scopedVersion struct {
@@ -64,4 +73,9 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // KubeClusters returns a KubeClusterInformer
 func (v *scopedVersion) KubeClusters() KubeClusterInformer {
 	return &kubeClusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// VClusters returns a VClusterInformer
+func (v *scopedVersion) VClusters() VClusterInformer {
+	return &vClusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

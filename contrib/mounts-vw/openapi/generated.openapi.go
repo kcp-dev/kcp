@@ -33,10 +33,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterList":             schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterList(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterSpec":             schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterSpec(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.KubeClusterStatus":           schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterStatus(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VCluster":                    schema_mounts_vw_apis_mounts_v1alpha1_VCluster(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterList":                schema_mounts_vw_apis_mounts_v1alpha1_VClusterList(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterSpec":                schema_mounts_vw_apis_mounts_v1alpha1_VClusterSpec(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterStatus":              schema_mounts_vw_apis_mounts_v1alpha1_VClusterStatus(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeCluster":          schema_mounts_vw_apis_targets_v1alpha1_TargetKubeCluster(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterList":      schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterList(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterSpec":      schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterSpec(ref),
 		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetKubeClusterStatus":    schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterStatus(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVCluster":             schema_mounts_vw_apis_targets_v1alpha1_TargetVCluster(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterList":         schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterList(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterSpec":         schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterSpec(ref),
+		"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterStatus":       schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                             schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                         schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -197,16 +205,31 @@ func schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterSpec(ref common.ReferenceC
 				Description: "KubeClusterSpec is the specification of the Kube cluster proxy resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"secretString": {
+					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SecretString is used to identify Target cluster in the backend for mount.",
+							Description: "Mode is the mode of the KubeCluster proxy(Direct, Delegated).",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"secretString": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretString is used to identify Target cluster in the backend for mount. Used only in Delegated mode.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef is a reference to the secret containing the kubeconfig for the target cluster. Used only in Direct mode.",
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
 	}
 }
 
@@ -220,6 +243,200 @@ func schema_mounts_vw_apis_mounts_v1alpha1_KubeClusterStatus(ref common.Referenc
 					"URL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "url is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the cluster with standard Kubernetes client libraries and command line tools via proxy.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the cluster proxy (Initializing, Ready).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastProxyHeartbeatTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A timestamp indicating when the proxy last reported status.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"secretString": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretString is mountpoint secret string for clients to mount.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the Cluster proxy.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_mounts_vw_apis_mounts_v1alpha1_VCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VCluster describes the current VCluster proxy object.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_mounts_vw_apis_mounts_v1alpha1_VClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VClusterList is a list of VCluster resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VCluster"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1.VCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_mounts_vw_apis_mounts_v1alpha1_VClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VClusterSpec is the specification of the VCluster cluster proxy resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode is the mode of the KubeCluster proxy(Direct, Delegated).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretString": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretString is used to identify Target cluster in the backend for mount. Used only in Delegated mode.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef is a reference to the secret containing the kubeconfig for the target cluster. Used only in Direct mode.",
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
+	}
+}
+
+func schema_mounts_vw_apis_mounts_v1alpha1_VClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VClusterStatus communicates the observed state of the VCluster cluster proxy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"URL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the cluster with standard Kubernetes client libraries and command line tools via proxy.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretString": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretString is the secret string used to identify the target cluster in the backend for mount. Used in both codes, as it is used to identify the target cluster in vcluster cluster pool.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -382,6 +599,180 @@ func schema_mounts_vw_apis_targets_v1alpha1_TargetKubeClusterStatus(ref common.R
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "TargetKubeClusterStatus communicates the observed state of the Kube cluster proxy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the cluster proxy (Initializing, Ready).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastProxyHeartbeatTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A timestamp indicating when the proxy last reported status.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the Cluster proxy.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"secretString": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretString is mountpoint secret string for clients to mount.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"URL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the address under which mount should be using.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_mounts_vw_apis_targets_v1alpha1_TargetVCluster(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TargetVCluster describes the current VCluster target object.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterSpec", "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVClusterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TargetVClusterList is a list of TargetVCluster resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVCluster"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/contrib/mounts-vw/apis/targets/v1alpha1.TargetVCluster", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TargetVClusterSpec is the specification of the Target Kube cluster proxy resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef is a reference to the secret containing the kubeconfig for the target cluster.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
+	}
+}
+
+func schema_mounts_vw_apis_targets_v1alpha1_TargetVClusterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TargetVClusterStatus communicates the observed state of the Kube cluster proxy.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"phase": {

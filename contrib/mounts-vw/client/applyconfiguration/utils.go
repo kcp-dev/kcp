@@ -69,6 +69,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmountsv1alpha1.KubeClusterSpecApplyConfiguration{}
 	case mountsv1alpha1.SchemeGroupVersion.WithKind("KubeClusterStatus"):
 		return &applyconfigurationmountsv1alpha1.KubeClusterStatusApplyConfiguration{}
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("VCluster"):
+		return &applyconfigurationmountsv1alpha1.VClusterApplyConfiguration{}
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("VClusterSpec"):
+		return &applyconfigurationmountsv1alpha1.VClusterSpecApplyConfiguration{}
+	case mountsv1alpha1.SchemeGroupVersion.WithKind("VClusterStatus"):
+		return &applyconfigurationmountsv1alpha1.VClusterStatusApplyConfiguration{}
 
 		// Group=targets.contrib.kcp.io, Version=v1alpha1
 	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetKubeCluster"):
@@ -77,6 +83,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationtargetsv1alpha1.TargetKubeClusterSpecApplyConfiguration{}
 	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetKubeClusterStatus"):
 		return &applyconfigurationtargetsv1alpha1.TargetKubeClusterStatusApplyConfiguration{}
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetVCluster"):
+		return &applyconfigurationtargetsv1alpha1.TargetVClusterApplyConfiguration{}
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetVClusterSpec"):
+		return &applyconfigurationtargetsv1alpha1.TargetVClusterSpecApplyConfiguration{}
+	case targetsv1alpha1.SchemeGroupVersion.WithKind("TargetVClusterStatus"):
+		return &applyconfigurationtargetsv1alpha1.TargetVClusterStatusApplyConfiguration{}
 
 	}
 	return nil

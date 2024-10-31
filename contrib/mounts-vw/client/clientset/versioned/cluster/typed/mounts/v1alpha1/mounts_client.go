@@ -35,6 +35,7 @@ import (
 type MountsV1alpha1ClusterInterface interface {
 	MountsV1alpha1ClusterScoper
 	KubeClustersClusterGetter
+	VClustersClusterGetter
 }
 
 type MountsV1alpha1ClusterScoper interface {
@@ -54,6 +55,10 @@ func (c *MountsV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) m
 
 func (c *MountsV1alpha1ClusterClient) KubeClusters() KubeClusterClusterInterface {
 	return &kubeClustersClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *MountsV1alpha1ClusterClient) VClusters() VClusterClusterInterface {
+	return &vClustersClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new MountsV1alpha1ClusterClient for the given config.

@@ -18,10 +18,18 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	v1 "k8s.io/api/core/v1"
+
+	v1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
+)
+
 // KubeClusterSpecApplyConfiguration represents a declarative configuration of the KubeClusterSpec type for use
 // with apply.
 type KubeClusterSpecApplyConfiguration struct {
-	SecretString *string `json:"secretString,omitempty"`
+	Mode         *v1alpha1.KubeClusterMode `json:"mode,omitempty"`
+	SecretString *string                   `json:"secretString,omitempty"`
+	SecretRef    *v1.ObjectReference       `json:"secretRef,omitempty"`
 }
 
 // KubeClusterSpecApplyConfiguration constructs a declarative configuration of the KubeClusterSpec type for use with
@@ -30,10 +38,26 @@ func KubeClusterSpec() *KubeClusterSpecApplyConfiguration {
 	return &KubeClusterSpecApplyConfiguration{}
 }
 
+// WithMode sets the Mode field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Mode field is set to the value of the last call.
+func (b *KubeClusterSpecApplyConfiguration) WithMode(value v1alpha1.KubeClusterMode) *KubeClusterSpecApplyConfiguration {
+	b.Mode = &value
+	return b
+}
+
 // WithSecretString sets the SecretString field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the SecretString field is set to the value of the last call.
 func (b *KubeClusterSpecApplyConfiguration) WithSecretString(value string) *KubeClusterSpecApplyConfiguration {
 	b.SecretString = &value
+	return b
+}
+
+// WithSecretRef sets the SecretRef field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SecretRef field is set to the value of the last call.
+func (b *KubeClusterSpecApplyConfiguration) WithSecretRef(value v1.ObjectReference) *KubeClusterSpecApplyConfiguration {
+	b.SecretRef = &value
 	return b
 }

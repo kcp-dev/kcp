@@ -30,6 +30,7 @@ import (
 type TargetsV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	TargetKubeClustersGetter
+	TargetVClustersGetter
 }
 
 // TargetsV1alpha1Client is used to interact with features provided by the targets.contrib.kcp.io group.
@@ -39,6 +40,10 @@ type TargetsV1alpha1Client struct {
 
 func (c *TargetsV1alpha1Client) TargetKubeClusters() TargetKubeClusterInterface {
 	return newTargetKubeClusters(c)
+}
+
+func (c *TargetsV1alpha1Client) TargetVClusters() TargetVClusterInterface {
+	return newTargetVClusters(c)
 }
 
 // NewForConfig creates a new TargetsV1alpha1Client for the given config.

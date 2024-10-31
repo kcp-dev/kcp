@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package targets
+package vcluster
 
 import (
 	"context"
@@ -38,13 +38,13 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, target *targetsv1alpha1.TargetKubeCluster) (reconcileStatus, error)
+	reconcile(ctx context.Context, target *targetsv1alpha1.TargetVCluster) (reconcileStatus, error)
 }
 
 // reconcile reconciles the workspace objects. It is intended to be single reconciler for all the
 // workspace replated operations. For now it has single reconciler that updates the status of the
 // workspace based on the mount status.
-func (c *Controller) reconcile(ctx context.Context, target *targetsv1alpha1.TargetKubeCluster) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, target *targetsv1alpha1.TargetVCluster) (bool, error) {
 
 	u, err := url.Parse(c.virtualWorkspaceURL)
 	if err != nil {
@@ -57,10 +57,10 @@ func (c *Controller) reconcile(ctx context.Context, target *targetsv1alpha1.Targ
 				return c.kubeClusterClient.CoreV1().Cluster(cluster).Secrets(namespaces).Get(ctx, name, metav1.GetOptions{})
 			},
 			setState: func(key string, value state.Value) {
-				c.store.Set(key, value)
+				c.store.Set(state.KindVClusters, key, value)
 			},
 			deleteState: func(key string) {
-				c.store.Delete(key)
+				c.store.Delete(state.KindVClusters, key)
 			},
 			getVirtualWorkspaceURL: func() *url.URL {
 				return u
