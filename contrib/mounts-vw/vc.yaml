@@ -1,10 +1,7 @@
----
 apiVersion: mounts.contrib.kcp.io/v1alpha1
 kind: VCluster
 metadata:
-  name: virtual-cluster
-  annotations:
-    experimental.tenancy.kcp.io/is-mount: "true"
+  name: virtual-cluster-3
 spec:
   mode: Delegated
   secretString: fsxB9wGTC_zXkmQ0

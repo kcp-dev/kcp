@@ -22,9 +22,11 @@ const (
 )
 
 type Value struct {
-	Client *kubernetes.Clientset
-	Config *rest.Config
-	URL    string
+	Client            *kubernetes.Clientset
+	Config            *rest.Config
+	VClusterConfig    *rest.Config
+	VClusterNamespace string
+	URL               string
 }
 
 // ClientSetStore provides a thread-safe in-memory store for Kubernetes clientsets

@@ -76,6 +76,14 @@ func (c *Controller) reconcile(ctx context.Context, mount *mountsv1alpha1.VClust
 				return u
 			},
 		},
+		&provisionerReconciler{
+			getState: func(key string) (state.Value, bool) {
+				return c.store.Get(state.KindVClusters, key)
+			},
+			setState: func(key string, value state.Value) {
+				c.store.Set(state.KindVClusters, key, value)
+			},
+		},
 	}
 
 	var errs []error

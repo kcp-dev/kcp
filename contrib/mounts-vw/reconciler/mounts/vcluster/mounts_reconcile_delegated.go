@@ -18,7 +18,6 @@ package vcluster
 
 import (
 	"context"
-	"net/url"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -75,15 +74,7 @@ func (r *delegatedReconciler) reconcile(ctx context.Context, mount *mountsv1alph
 		Type:   tenancyv1alpha1.MountConditionReady,
 		Status: corev1.ConditionTrue,
 	})
-	mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
-
-	// secrets string will be purged at VW side.
-	// TOOD: This is a temporary solution. We need to find a better way to handle this.
-	full, err := url.JoinPath(v.URL, "secret", *mount.Spec.SecretString)
-	if err != nil {
-		return reconcileStatusStopAndRequeue, err
-	}
-	mount.Status.URL = full
+	//mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
 
 	return reconcileStatusContinue, nil
 }
