@@ -32,6 +32,7 @@ import (
 
 // delegatedReconciler is a reconciler reconciles mounts, which are delegated and
 // has secrets string set.
+// It is responsible for reconciling mounts with ClusterSecretReady condition.
 type delegatedReconciler struct {
 	getState func(key string) (state.Value, bool)
 }
@@ -40,41 +41,40 @@ func (r *delegatedReconciler) reconcile(ctx context.Context, mount *mountsv1alph
 	if mount.Spec.Mode != mountsv1alpha1.KubeClusterModeDelegated {
 		return reconcileStatusContinue, nil
 	}
-	mount.Status.Phase = tenancyv1alpha1.MountPhaseInitializing
 
+	mount.Status.Phase = tenancyv1alpha1.MountPhaseInitializing
 	if mount.Spec.SecretString == nil || *mount.Spec.SecretString == "" {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    tenancyv1alpha1.MountConditionReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: "SecretString is not set",
 		})
+		return reconcileStatusStopAndRequeue, nil
 	}
 
 	v, found := r.getState(*mount.Spec.SecretString)
 	if v.Client == nil || !found {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    tenancyv1alpha1.MountConditionReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: "Failed to get client. Most likely the secret is wrong.",
 		})
-		return reconcileAfterRequeue, nil
+		return reconcileStatusStopAndRequeue, nil
 	}
 
 	_, err := v.Client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    tenancyv1alpha1.MountConditionReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: "Failed to health check",
 		})
-		return reconcileAfterRequeue, nil
+		return reconcileStatusStopAndRequeue, nil
 	}
 
 	conditions.Set(mount, &conditionsapi.Condition{
-		Type:   tenancyv1alpha1.MountConditionReady,
+		Type:   mountsv1alpha1.ClusterSecretReady,
 		Status: corev1.ConditionTrue,
 	})
-	//mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
-
 	return reconcileStatusContinue, nil
 }

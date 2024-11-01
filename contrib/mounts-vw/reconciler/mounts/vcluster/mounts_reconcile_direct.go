@@ -55,10 +55,12 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 		return reconcileStatusContinue, nil
 	}
 
+	mount.Status.Phase = tenancyv1alpha1.MountPhaseInitializing
+
 	secretRef := mount.Spec.SecretRef
 	if secretRef == nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    mountsv1alpha1.ClusterReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: "secretRef is not set",
 		})
@@ -66,8 +68,6 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 	}
 
 	cluster := logicalcluster.NewPath(logicalcluster.From(mount).String())
-
-	mount.Status.Phase = tenancyv1alpha1.MountPhaseConnecting
 
 	// set secret first:
 	if mount.Status.SecretString == "" {
@@ -81,7 +81,7 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 	secret, err := r.getSecret(ctx, cluster, secretRef.Namespace, secretRef.Name)
 	if err != nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    mountsv1alpha1.ClusterReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to get secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
@@ -91,7 +91,7 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 
 	if secret.Data["kubeconfig"] == nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    mountsv1alpha1.ClusterReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("secret %s/%s does not contain 'kubeconfig' key", secretRef.Namespace, secretRef.Name),
 		})
@@ -102,7 +102,7 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 	clientset, rest, err := clientgo.GetClientFromKubeConfig(secret.Data["kubeconfig"])
 	if err != nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    mountsv1alpha1.ClusterReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to create client from kubeconfig in secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
@@ -113,7 +113,7 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 	_, err = clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		conditions.Set(mount, &conditionsapi.Condition{
-			Type:    mountsv1alpha1.ClusterReady,
+			Type:    mountsv1alpha1.ClusterSecretReady,
 			Status:  corev1.ConditionFalse,
 			Message: fmt.Sprintf("failed to access namespaces from kubeconfig in secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
@@ -122,7 +122,7 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 	}
 
 	conditions.Set(mount, &conditionsapi.Condition{
-		Type:    mountsv1alpha1.ClusterReady,
+		Type:    mountsv1alpha1.ClusterSecretReady,
 		Status:  corev1.ConditionTrue,
 		Message: fmt.Sprintf("successfully accessed namespaces from kubeconfig in secret %s/%s", secretRef.Namespace, secretRef.Name),
 	})
@@ -145,7 +145,6 @@ func (r *directReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.
 		URL:    mount.Status.URL,
 		Config: rest,
 	})
-	mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
 
 	return reconcileStatusContinue, nil
 }

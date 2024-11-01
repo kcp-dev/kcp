@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"path"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -51,7 +50,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 	secretRef := target.Spec.SecretRef
 	cluster := logicalcluster.NewPath(logicalcluster.From(target).String())
 
-	target.Status.Phase = tenancyv1alpha1.MountPhaseConnecting
+	target.Status.Phase = targetsv1alpha1.PhaseInitializing
 
 	// set secret first:
 	if target.Status.SecretString == "" {
@@ -102,7 +101,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 			Message: fmt.Sprintf("failed to access namespaces from kubeconfig in secret %s/%s: %v", secretRef.Namespace, secretRef.Name, err),
 		})
 		r.deleteState(target.Status.SecretString)
-		target.Status.Phase = tenancyv1alpha1.MountReasonNotReady
+		target.Status.Phase = targetsv1alpha1.PhaseInitializing
 		return reconcileStatusStopAndRequeue, err
 	}
 
@@ -130,7 +129,7 @@ func (r *targetSecretReconciler) reconcile(ctx context.Context, target *targetsv
 		URL:    target.Status.URL,
 		Config: rest,
 	})
-	target.Status.Phase = tenancyv1alpha1.MountPhaseReady
+	target.Status.Phase = targetsv1alpha1.PhaseReady
 
 	return reconcileStatusContinue, nil
 }

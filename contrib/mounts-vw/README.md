@@ -103,6 +103,9 @@ kubectl create secret generic kind-kubeconfig --from-file=kubeconfig=kind.kubeco
 # create target cluster:
 kubectl create -f config/mounts/resources/example-target-cluster.yaml
 
+# create vcluster target:
+kubectl create -f config/mounts/resources/example-target-vcluster.yaml
+
 # get secret string:
 kubectl get TargetKubeCluster proxy-cluster -o jsonpath='{.status.secretString}'
 xvy2lWIlPsL7xUII
@@ -150,6 +153,10 @@ kubectl ws create vcluster
 kubectl create -f config/mounts/resources/example-vcluster.yaml
 
 
+# annotate the workspace with mount,  putting the intent that this should be mounted:
+ kubectl annotate workspace vcluster experimental.tenancy.kcp.io/mount='{"spec":{"ref":{"kind":"VCluster","name":"virtual-cluster","apiVersion":"mounts.contrib.kcp.io/v1alpha1"}}}'
+
+ kubectl annotate workspace vcluster-3 experimental.tenancy.kcp.io/mount='{"spec":{"ref":{"kind":"VCluster","name":"virtual-cluster-3","apiVersion":"mounts.contrib.kcp.io/v1alpha1"}}}'
 
 
 # Known issues

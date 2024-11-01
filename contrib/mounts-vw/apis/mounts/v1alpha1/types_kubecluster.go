@@ -102,6 +102,9 @@ const (
 
 	// ClusterSecretReady represents readiness status of the TargetKubeCluster secret.
 	ClusterSecretReady conditionsv1alpha1.ConditionType = "ClusterSecretReady"
+
+	// ClusterDeleted represents deletion status of the cleanup of the KubeCluster proxy.
+	ClusterDeleted conditionsv1alpha1.ConditionType = "ClusterDeleted"
 )
 
 // KubeClusterList is a list of KubeCluster resources

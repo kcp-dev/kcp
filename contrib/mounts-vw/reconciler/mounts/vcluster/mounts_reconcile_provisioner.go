@@ -18,20 +18,26 @@ package vcluster
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/logicalcluster/v3"
 	helmclient "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/repo"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 
 	mountsv1alpha1 "github.com/kcp-dev/kcp/contrib/mounts-vw/apis/mounts/v1alpha1"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/state"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/utils/clientgo"
 	"github.com/kcp-dev/kcp/contrib/mounts-vw/utils/secrets"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 const (
@@ -40,19 +46,21 @@ const (
 
 // provisionerReconciler is a reconciler reconciles mounts provisions vcluster
 // in the target cluster.
+// Responsible for mountsv1alpha1.ClusterReady
 type provisionerReconciler struct {
 	getState func(key string) (state.Value, bool)
 	setState func(key string, value state.Value)
 }
 
 func (r *provisionerReconciler) reconcile(ctx context.Context, mount *mountsv1alpha1.VCluster) (reconcileStatus, error) {
-	if mount.Spec.Mode != mountsv1alpha1.KubeClusterModeDelegated {
+	log := klog.FromContext(ctx)
+	if mount.DeletionTimestamp != nil || mount.Spec.Mode != mountsv1alpha1.KubeClusterModeDelegated { // deletion is handled by the deprovisioner.
 		return reconcileStatusContinue, nil
 	}
 
 	v, found := r.getState(*mount.Spec.SecretString)
 	if v.Client == nil || !found {
-		return reconcileAfterRequeue, nil
+		return reconcileStatusStopAndRequeue, nil
 	}
 
 	cluster := logicalcluster.NewPath(logicalcluster.From(mount).String())
@@ -65,17 +73,19 @@ func (r *provisionerReconciler) reconcile(ctx context.Context, mount *mountsv1al
 			RepositoryCache:  "/tmp/.helmcache",
 			RepositoryConfig: "/tmp/.helmrepo",
 			Debug:            true,
-			Linting:          true, // Change this to false if you don't want linting.
-			////DebugLog: func(format string, v ...interface{}) {
-			//	// Change this to your own logger. Default is 'log.Printf(format, v...)'.
-			//},
+			Linting:          true,
 		},
 		RestConfig: v.Config,
 	}
 
 	helmClient, err := helmclient.NewClientFromRestConf(opt)
 	if err != nil {
-		return reconcileAfterRequeue, err
+		conditions.Set(mount, &conditionsapi.Condition{
+			Type:    mountsv1alpha1.ClusterReady,
+			Status:  corev1.ConditionFalse,
+			Message: fmt.Errorf("failed to setup helm client: %v", err).Error(),
+		})
+		return reconcileStatusStopAndRequeue, err
 	}
 
 	// Add the repository where the chart is located
@@ -85,34 +95,61 @@ func (r *provisionerReconciler) reconcile(ctx context.Context, mount *mountsv1al
 	})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
-			return reconcileAfterRequeue, err
+			return reconcileStatusStopAndRequeue, err
 		}
 	}
 
-	// Define the chart specification
-	chartSpec := &helmclient.ChartSpec{
-		ReleaseName:     "vcluster",          // Name of the Helm release
-		ChartName:       "vcluster/vcluster", // Chart reference, e.g., "stable/my-chart"
-		Namespace:       name,                // Namespace where chart will be installed
-		CreateNamespace: true,                // Optional: Create the namespace if it doesn't exist
-		ValuesYaml:      "",                  // Optional: YAML configuration for chart values
+	releases, err := helmClient.ListDeployedReleases()
+	if err != nil {
+		return reconcileStatusStopAndRequeue, err
 	}
 
-	// Install the Helm chart
-	_, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
-	if err != nil {
-		return reconcileAfterRequeue, err
+	var foundHelm bool
+	for _, release := range releases {
+		if release.Name == "vcluster" && release.Namespace == name {
+			if release.Chart.AppVersion() == "0.20.2" {
+				log.V(2).Info("vcluster already installed desired version")
+				foundHelm = true
+			}
+		}
+	}
+
+	if !foundHelm {
+		log.V(2).Info("vcluster installing/upgrading")
+		// Define the chart specification
+		chartSpec := &helmclient.ChartSpec{
+			ReleaseName:     "vcluster",
+			ChartName:       "vcluster/vcluster",
+			Namespace:       name,
+			CreateNamespace: true,
+			ValuesYaml:      "",
+			Version:         mount.Spec.Version,
+		}
+
+		// Install the Helm chart
+		_, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
+		if err != nil {
+			conditions.Set(mount, &conditionsapi.Condition{
+				Type:    mountsv1alpha1.ClusterReady,
+				Status:  corev1.ConditionFalse,
+				Message: fmt.Errorf("failed to install vcluster: %v", err).Error(),
+			})
+			return reconcileStatusStopAndRequeue, err
+		}
 	}
 
 	// get configMap with kubeconfig
 	secret, err := v.Client.CoreV1().Secrets(name).Get(ctx, "vc-vcluster", metav1.GetOptions{})
 	if err != nil {
-		return reconcileAfterRequeue, err
+		if apierrors.IsNotFound(err) {
+			return reconcileStatusStopAndRequeue, nil
+		}
+		return reconcileStatusStopAndRequeue, err
 	}
 
 	_, rest, err := clientgo.GetClientFromKubeConfig(secret.Data["config"])
 	if err != nil {
-		return reconcileAfterRequeue, err
+		return reconcileStatusStopAndRequeue, err
 	}
 
 	v.VClusterConfig = rest
@@ -122,7 +159,7 @@ func (r *provisionerReconciler) reconcile(ctx context.Context, mount *mountsv1al
 	if mount.Status.SecretString == "" {
 		secretString, err = secrets.GenerateSecret(16)
 		if err != nil {
-			return reconcileAfterRequeue, err
+			return reconcileStatusStopAndRequeue, err
 		}
 		mount.Status.SecretString = secretString
 		r.setState(secretString, v)
@@ -139,7 +176,12 @@ func (r *provisionerReconciler) reconcile(ctx context.Context, mount *mountsv1al
 		return reconcileStatusStopAndRequeue, err
 	}
 	mount.Status.URL = full
+	mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
 
+	conditions.Set(mount, &conditionsapi.Condition{
+		Type:   mountsv1alpha1.ClusterReady,
+		Status: corev1.ConditionTrue,
+	})
 	mount.Status.Phase = tenancyv1alpha1.MountPhaseReady
 
 	return reconcileStatusContinue, nil

@@ -19,7 +19,6 @@ package vcluster
 import (
 	"context"
 	"net/url"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -38,7 +37,6 @@ type reconcileStatus int
 
 const (
 	reconcileStatusStopAndRequeue reconcileStatus = iota
-	reconcileAfterRequeue
 	reconcileStatusContinue
 )
 
@@ -55,6 +53,7 @@ func (c *Controller) reconcile(ctx context.Context, mount *mountsv1alpha1.VClust
 		return false, err
 	}
 	reconcilers := []reconciler{
+		&finalizerReconciler{},
 		&delegatedReconciler{
 			getState: func(key string) (state.Value, bool) {
 				return c.store.Get(state.KindVClusters, key)
@@ -84,6 +83,11 @@ func (c *Controller) reconcile(ctx context.Context, mount *mountsv1alpha1.VClust
 				c.store.Set(state.KindVClusters, key, value)
 			},
 		},
+		&deprovisionerReconciler{
+			getState: func(key string) (state.Value, bool) {
+				return c.store.Get(state.KindVClusters, key)
+			},
+		},
 	}
 
 	var errs []error
@@ -98,12 +102,6 @@ func (c *Controller) reconcile(ctx context.Context, mount *mountsv1alpha1.VClust
 		}
 		if status == reconcileStatusStopAndRequeue {
 			requeue = true
-			break
-		}
-		if status == reconcileAfterRequeue {
-			requeue = true
-			// HACK: should be done in the queue.
-			time.Sleep(5 * time.Second)
 			break
 		}
 	}

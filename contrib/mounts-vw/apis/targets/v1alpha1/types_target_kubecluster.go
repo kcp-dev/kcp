@@ -81,6 +81,11 @@ const (
 	ClusterSecretReady conditionsv1alpha1.ConditionType = "ClusterSecretReady"
 )
 
+const (
+	PhaseInitializing tenancyv1alpha1.MountPhaseType = "Initializing"
+	PhaseReady        tenancyv1alpha1.MountPhaseType = "Ready"
+)
+
 // TargetKubeClusterList is a list of TargetKubeCluster resources
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

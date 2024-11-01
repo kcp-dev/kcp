@@ -82,6 +82,7 @@ func NewController(
 	_, _ = mountsInformers.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
 	return c, nil

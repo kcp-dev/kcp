@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241031-8967b5418.vclusters.mounts.contrib.kcp.io
+  name: v241101-d11f156a5.vclusters.mounts.contrib.kcp.io
 spec:
   group: mounts.contrib.kcp.io
   names:
@@ -101,6 +101,10 @@ spec:
               description: |-
                 SecretString is used to identify Target cluster in the backend for mount.
                 Used only in Delegated mode.
+              type: string
+            version:
+              default: 0.20.2
+              description: Version is the version of the VCluster proxy.
               type: string
           type: object
         status:

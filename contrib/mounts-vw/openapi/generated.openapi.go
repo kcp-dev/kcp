@@ -392,6 +392,13 @@ func schema_mounts_vw_apis_mounts_v1alpha1_VClusterSpec(ref common.ReferenceCall
 				Description: "VClusterSpec is the specification of the VCluster cluster proxy resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the version of the VCluster proxy.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"mode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Mode is the mode of the KubeCluster proxy(Direct, Delegated).",

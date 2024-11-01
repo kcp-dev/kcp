@@ -46,6 +46,10 @@ type VCluster struct {
 
 // VClusterSpec is the specification of the VCluster cluster proxy resource.
 type VClusterSpec struct {
+	// Version is the version of the VCluster proxy.
+	// +optional
+	// +kubebuilder:default="0.20.2"
+	Version string `json:"version,omitempty"`
 	// Mode is the mode of the KubeCluster proxy(Direct, Delegated).
 	// +kubebuilder:default=Delegated
 	// +kubebuilder:validation:Enum=Delegated
@@ -76,7 +80,7 @@ type VClusterStatus struct {
 	// +optional
 	SecretString string `json:"secretString,omitempty"`
 
-	// Phase of the cluster proxy (Initializing, Ready).
+	// Phase of the cluster proxy (Initializing;Connecting;Ready;Unknown).
 	//
 	// +kubebuilder:default=Initializing
 	Phase tenancyv1alpha1.MountPhaseType `json:"phase,omitempty"`
