@@ -1,35 +1,8 @@
 # Remote mounts virtual workspace example
 
-To run kcp:
-
-```
-go run ./cmd/kcp start --mapping-file=./contrib/assets/mounts-vw/path-mapping.yaml --feature-gates=WorkspaceMounts=true
-```
-
-Run Virtual workspace:
-```
- go run ./cmd/virtual-workspaces/ start \
- --kubeconfig=../../.kcp/admin.kubeconfig  \
- --tls-cert-file=../../.kcp/apiserver.crt \
- --tls-private-key-file=../../.kcp/apiserver.key \
- --authentication-kubeconfig=../../.kcp/admin.kubeconfig \
- --virtual-workspaces-proxy-hostname=https://localhost:6444 \
- -v=8
-```
-
-Virtual workspace needs to get traffic from mounts acts from index to return url ant matches to mappings:
-
-```
-url, errorCode := h.resolveURL(r)
-		if errorCode != 0 {
-			http.Error(w, http.StatusText(errorCode), errorCode)
-			return
-		}
-		if strings.HasPrefix(url, m.Path) {
-			m.Handler.ServeHTTP(w, r)
-			return
-		}
-```
+This is an example of how to use the mounts feature in KCP to mount a target cluster into a workspace.
+Mount happens at front-proxy level via reverse proxy. You need to implement your own VirtualWorkspace to handle this.
+and this example shows how to do it.
 
 # Step by step guide
 
@@ -108,8 +81,9 @@ kubectl create -f config/mounts/resources/example-target-vcluster.yaml
 
 # get secret string:
 kubectl get TargetKubeCluster proxy-cluster -o jsonpath='{.status.secretString}'
-xvy2lWIlPsL7xUII
+HS7kd992rQNedzcY
 
+ cluster: YJfI5DIEoQ0ySamJ
 
 # Create a consumer workspace for mounts:
 kubectl ws use :root
@@ -150,8 +124,7 @@ vCluster are backed by vCluster mounts. This is a way to create a virtual cluste
 You can either provide a kubeconfig or a target cluster to back the vCluster or secretString for "target" in the system.
 
 kubectl ws create vcluster
-kubectl create -f config/mounts/resources/example-vcluster.yaml
-
+kubectl create -f config/mounts/resources/example-mount-vcluster.yaml
 
 # annotate the workspace with mount,  putting the intent that this should be mounted:
  kubectl annotate workspace vcluster experimental.tenancy.kcp.io/mount='{"spec":{"ref":{"kind":"VCluster","name":"virtual-cluster","apiVersion":"mounts.contrib.kcp.io/v1alpha1"}}}'
