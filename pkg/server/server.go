@@ -678,7 +678,7 @@ loop:
 						if len(s.controllers) == 0 {
 							if err = s.installControllers(ctx, controllerConfig, gvrs); err != nil {
 								logger.Error(err, "error in re-registering controllers")
-								return
+								klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 							}
 						}
 						s.startControllers(leaderElectionCtx)
