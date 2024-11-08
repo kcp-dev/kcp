@@ -72,17 +72,8 @@ func (c *ShardRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	shard := ShardFromContext(req.Context())
 	if !shard.Empty() {
 		req = req.Clone(req.Context())
-		path, err := generatePath(req.URL.Path, shard)
-		if err != nil {
-			return nil, err
-		}
-		req.URL.Path = path
-
-		rawPath, err := generatePath(req.URL.RawPath, shard)
-		if err != nil {
-			return nil, err
-		}
-		req.URL.RawPath = rawPath
+		req.URL.Path = generatePath(req.URL.Path, shard)
+		req.URL.RawPath = generatePath(req.URL.RawPath, shard)
 	}
 	return c.delegate.RoundTrip(req)
 }
@@ -92,24 +83,24 @@ func (c *ShardRoundTripper) WrappedRoundTripper() http.RoundTripper {
 }
 
 // generatePath formats the request path to target the specified shard.
-func generatePath(originalPath string, shard clientshard.Name) (string, error) {
+func generatePath(originalPath string, shard clientshard.Name) string {
 	// if the originalPath already has the shard then the path was already modified and no change needed
 	if strings.HasPrefix(originalPath, shard.Path()) {
-		return originalPath, nil
+		return originalPath
 	}
 	// if the originalPath already has a shard set just overwrite it to the given one
 	if strings.HasPrefix(originalPath, "/shards") {
 		matches := shardNameRegex.FindStringSubmatch(originalPath)
 		if len(matches) >= 2 {
 			// replace /shards/$oldName/reminder with  /shards/$newName/reminder
-			return strings.Replace(originalPath, clientshard.New(matches[1]).Path(), shard.Path(), 1), nil
+			return strings.Replace(originalPath, clientshard.New(matches[1]).Path(), shard.Path(), 1)
 		} else {
 			// the path is either /shards/name/ or /shards/name
 			path := shard.Path()
 			if originalPath[len(originalPath)-1] == '/' {
 				path += "/"
 			}
-			return path, nil
+			return path
 		}
 	}
 
@@ -121,7 +112,7 @@ func generatePath(originalPath string, shard clientshard.Name) (string, error) {
 	}
 	// finally append the original path
 	path += originalPath
-	return path, nil
+	return path
 }
 
 // WithDefaultShardRoundTripper wraps an existing config's with DefaultShardRoundTripper

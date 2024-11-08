@@ -175,10 +175,7 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// add static and dynamic APIs
-		if err := addSpecs(service, c.staticSpecs, orderedCRDs, specs, log); err != nil {
-			responsewriters.InternalError(w, r, err)
-			return
-		}
+		addSpecs(service, c.staticSpecs, orderedCRDs, specs, log)
 
 		// remember for next time
 		c.services.Add(key, m)
@@ -191,7 +188,7 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	service.ServeHTTP(w, r)
 }
 
-func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI], log logr.Logger) error {
+func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI], log logr.Logger) {
 	// start with static specs
 	byGroupVersionSpecs := make(map[string][]cached.Value[*spec3.OpenAPI])
 	for gvPath, spec := range static {
@@ -238,8 +235,6 @@ func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*
 			specs)
 		service.UpdateGroupVersionLazy(gvPath, gvSpec)
 	}
-
-	return nil
 }
 
 func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI]) (string, error) {
