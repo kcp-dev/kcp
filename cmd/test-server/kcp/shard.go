@@ -117,12 +117,12 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 		return err
 	}
 
-	// defer func() {
-	// 	err = logFile.Close()
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to close the log file")
-	// 	}
-	// }()
+	defer func() {
+		err = logFile.Close()
+		if err != nil {
+			logger.Error(err, "failed to close the log file")
+		}
+	}()
 
 	s.writer = helpers.NewHeadWriter(logFile, out)
 	cmd.Stdout = s.writer
