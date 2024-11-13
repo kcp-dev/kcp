@@ -67,6 +67,11 @@ type ExtraOptions struct {
 	ExternalLogicalClusterAdminKubeconfig string
 	ConversionCELTransformationTimeout    time.Duration
 	BatteriesIncluded                     []string
+	// DEVELOPMENT ONLY. AdditionalMappingsFile is the path to a file that contains additional mappings
+	// for the mini-front-proxy to use. The file should be in the format of the
+	// --mapping-file flag of the front-proxy. Do NOT expose this flag to users via main server options.
+	// It is overridden by the kcp start command.
+	AdditionalMappingsFile string
 }
 
 type completedOptions struct {

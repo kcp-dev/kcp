@@ -49,7 +49,7 @@ const (
 )
 
 type Index interface {
-	LookupURL(path logicalcluster.Path) (url string, found bool)
+	LookupURL(path logicalcluster.Path) (index.Result, bool)
 }
 
 type ClusterClientGetter func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
@@ -291,7 +291,16 @@ func (c *Controller) stopShard(shardName string) {
 	delete(c.shardLogicalClusterInformers, shardName)
 }
 
-func (c *Controller) LookupURL(path logicalcluster.Path) (url string, found bool) {
+func (c *Controller) LookupURL(path logicalcluster.Path) (index.Result, bool) {
 	r, found := c.state.LookupURL(path)
-	return r.URL, found
+	if found && r.ErrorCode != 0 {
+		return index.Result{
+			URL:       r.URL,
+			ErrorCode: r.ErrorCode,
+		}, found
+	}
+	return index.Result{
+		URL:       r.URL,
+		ErrorCode: 0,
+	}, found
 }
