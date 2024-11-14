@@ -74,12 +74,12 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	}
 
 	logger := klog.FromContext(ctx)
-	// defer func() {
-	// 	err = logFile.Close()
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to close the log file")
-	// 	}
-	// }()
+	defer func() {
+		err = logFile.Close()
+		if err != nil {
+			logger.Error(err, "failed to close the log file")
+		}
+	}()
 
 	writer := helpers.NewHeadWriter(logFile, out)
 	cmd.Stdout = writer
