@@ -157,12 +157,12 @@ func startFrontProxy(
 		return err
 	}
 
-	// defer func() {
-	// 	err = logFile.Close()
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to close the log file")
-	// 	}
-	// }()
+	defer func() {
+		err = logFile.Close()
+		if err != nil {
+			logger.Error(err, "failed to close the log file")
+		}
+	}()
 
 	writer := helpers.NewHeadWriter(logFile, out)
 	cmd.Stdout = writer
