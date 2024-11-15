@@ -29,7 +29,6 @@ import (
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
-	authzmodes "k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
@@ -114,15 +113,6 @@ func NewOptions(rootDir string) *Options {
 
 	// override all the stuff
 	o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = rootDir
-	o.GenericControlPlane.Authentication = kubeoptions.NewBuiltInAuthenticationOptions().
-		WithAnonymous().
-		WithBootstrapToken().
-		WithClientCert().
-		WithOIDC().
-		WithRequestHeader().
-		WithServiceAccounts().
-		WithTokenFile().
-		WithWebHook()
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 	o.GenericControlPlane.Authorization = nil // we have our own
@@ -315,7 +305,9 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	}
 	if o.GenericControlPlane.ServiceAccountSigningKeyFile == "" {
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
-	completedGenericServerRunOptions, err := o.GenericControlPlane.Complete(nil, nil)
+	}
+
+	completedGenericOptions, err := o.GenericControlPlane.Complete(nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +346,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	//    we already do that for cluster names (stored in the obj)
 	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
 	o.Cache.Server.Etcd.EnableWatchCache = false
-	o.Cache.Server.SecureServing = completedGenericServerRunOptions.SecureServing
+	o.Cache.Server.SecureServing = completedGenericOptions.SecureServing
 	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err
@@ -362,8 +354,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
-			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
-			GenericControlPlane: completedGenericServerRunOptions,
+			GenericControlPlane: completedGenericOptions,
 			EmbeddedEtcd:        completedEmbeddedEtcd,
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
