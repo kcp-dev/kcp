@@ -66,9 +66,11 @@ const (
 	LogicalClusterPhaseScheduling   LogicalClusterPhaseType = "Scheduling"
 	LogicalClusterPhaseInitializing LogicalClusterPhaseType = "Initializing"
 	LogicalClusterPhaseReady        LogicalClusterPhaseType = "Ready"
-	// LogicalClusterPhaseUnavailable phase is used to indicate that the logical cluster us unavailable to be used.
+	// LogicalClusterPhaseUnavailable phase is used to indicate that the logical cluster is unavailable to be used.
 	// It will will not be served via front-proxy when in this state.
 	// Possible state transitions are from Ready to Unavailable and from Unavailable to Ready.
+	// This should be used when we really can't serve the logical cluster content and not some
+	// temporary flakes, like readiness probe failing.
 	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
 )
 

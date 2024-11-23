@@ -40,19 +40,17 @@ type workspaceStatusUpdater struct {
 
 func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	var mount *tenancyv1alpha1.Mount
-	if workspace.Annotations != nil {
-		if v, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]; ok {
-			var err error
-			mount, err = tenancyv1alpha1.ParseTenancyMountAnnotation(v)
-			if err != nil {
-				return reconcileStatusStopAndRequeue, err
-			}
-		} else {
-			// no mount annotation, might be nothing or mount was soft "deleted" by removing the annotation
-			// Delete the condition
-			conditions.Delete(workspace, tenancyv1alpha1.MountConditionReady)
-			return reconcileStatusContinue, nil
+	if v, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]; ok {
+		var err error
+		mount, err = tenancyv1alpha1.ParseTenancyMountAnnotation(v)
+		if err != nil {
+			return reconcileStatusStopAndRequeue, err
 		}
+	} else {
+		// no mount annotation, might be nothing or mount was soft "deleted" by removing the annotation
+		// Delete the condition
+		conditions.Delete(workspace, tenancyv1alpha1.MountConditionReady)
+		return reconcileStatusContinue, nil
 	}
 
 	if mount == nil {
@@ -108,11 +106,10 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 			if current.Status == v1.ConditionTrue {
 				return reconcileStatusContinue, nil
 			}
-			conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
 			return reconcileStatusContinue, nil
 		default:
-			msg := fmt.Sprintf("Mount is not reporting ready. See %s %s status for more details", obj.GroupVersionKind().Kind, obj.GetName())
-			conditions.MarkFalse(workspace, tenancyv1alpha1.MountConditionReady, tenancyv1alpha1.MountReasonNotReady, conditionsv1alpha1.ConditionSeverityError, msg)
+			msg := fmt.Sprintf("Mount is not reporting ready. See %s %q status for more details", obj.GroupVersionKind().Kind, obj.GetName())
+			conditions.MarkFalse(workspace, tenancyv1alpha1.MountConditionReady, "Mount is not reporting ready.", conditionsv1alpha1.ConditionSeverityError, msg)
 		}
 	}
 

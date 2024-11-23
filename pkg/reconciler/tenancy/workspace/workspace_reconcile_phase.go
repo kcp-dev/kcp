@@ -77,7 +77,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
 	case corev1alpha1.LogicalClusterPhaseUnavailable:
-		if updateTerminalConditionsAndPhase(workspace) {
+		if updateTerminalConditionPhase(workspace) {
 			return reconcileStatusStopAndRequeue, nil
 		}
 		return reconcileStatusContinue, nil
@@ -118,7 +118,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		}
 
 		// if workspace is ready, we check if it suppose to be ready by checking conditions.
-		if updateTerminalConditionsAndPhase(workspace) {
+		if updateTerminalConditionPhase(workspace) {
 			logger.Info("workspace phase changed", "status", workspace.Status)
 			return reconcileStatusStopAndRequeue, nil
 		}
@@ -127,9 +127,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 	return reconcileStatusContinue, nil
 }
 
-// updateTerminalConditionsAndPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
+// updateTerminalConditionPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
 // It returns true if the phase was changed, false otherwise.
-func updateTerminalConditionsAndPhase(workspace *tenancyv1alpha1.Workspace) bool {
+func updateTerminalConditionPhase(workspace *tenancyv1alpha1.Workspace) bool {
 	var notReady bool
 	for _, c := range workspace.Status.Conditions {
 		if c.Status == v1.ConditionFalse && strings.HasPrefix(string(c.Type), "Workspace") {
