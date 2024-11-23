@@ -59,13 +59,19 @@ const (
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
 //
-// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;Unavailable
 type LogicalClusterPhaseType string
 
 const (
 	LogicalClusterPhaseScheduling   LogicalClusterPhaseType = "Scheduling"
 	LogicalClusterPhaseInitializing LogicalClusterPhaseType = "Initializing"
 	LogicalClusterPhaseReady        LogicalClusterPhaseType = "Ready"
+	// LogicalClusterPhaseUnavailable phase is used to indicate that the logical cluster is unavailable to be used.
+	// It will will not be served via front-proxy when in this state.
+	// Possible state transitions are from Ready to Unavailable and from Unavailable to Ready.
+	// This should be used when we really can't serve the logical cluster content and not some
+	// temporary flakes, like readiness probe failing.
+	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster

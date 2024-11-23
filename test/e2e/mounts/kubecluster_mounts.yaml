@@ -1,0 +1,6 @@
+---
+apiVersion: contrib.kcp.io/v1alpha1
+kind: KubeCluster
+metadata:
+  name: proxy-cluster
+spec:

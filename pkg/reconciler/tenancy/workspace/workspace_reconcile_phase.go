@@ -18,10 +18,12 @@ package workspace
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
@@ -74,7 +76,15 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
+	case corev1alpha1.LogicalClusterPhaseUnavailable:
+		if updateTerminalConditionPhase(workspace) {
+			return reconcileStatusStopAndRequeue, nil
+		}
+		return reconcileStatusContinue, nil
+
 	case corev1alpha1.LogicalClusterPhaseReady:
+		// On delete we need to wait for the logical cluster to be deleted
+		// before we can mark the workspace as deleted.
 		if !workspace.DeletionTimestamp.IsZero() {
 			logger = logger.WithValues("cluster", workspace.Spec.Cluster)
 
@@ -106,7 +116,34 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			logger.Info("workspace content is deleted")
 			return reconcileStatusContinue, nil
 		}
+
+		// if workspace is ready, we check if it suppose to be ready by checking conditions.
+		if updateTerminalConditionPhase(workspace) {
+			logger.Info("workspace phase changed", "status", workspace.Status)
+			return reconcileStatusStopAndRequeue, nil
+		}
 	}
 
 	return reconcileStatusContinue, nil
+}
+
+// updateTerminalConditionPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
+// It returns true if the phase was changed, false otherwise.
+func updateTerminalConditionPhase(workspace *tenancyv1alpha1.Workspace) bool {
+	var notReady bool
+	for _, c := range workspace.Status.Conditions {
+		if c.Status == v1.ConditionFalse && strings.HasPrefix(string(c.Type), "Workspace") {
+			notReady = true
+			break
+		}
+	}
+	if notReady && workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseUnavailable {
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseUnavailable
+		return true
+	}
+	if !notReady && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable {
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
+		return true
+	}
+	return false
 }

@@ -18,6 +18,7 @@ package workspacemounts
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -25,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 // workspaceStatusUpdater updates the status of the workspace based on the mount status.
@@ -37,14 +40,17 @@ type workspaceStatusUpdater struct {
 
 func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	var mount *tenancyv1alpha1.Mount
-	if workspace.Annotations != nil {
-		if v, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]; ok {
-			var err error
-			mount, err = tenancyv1alpha1.ParseTenancyMountAnnotation(v)
-			if err != nil {
-				return reconcileStatusStopAndRequeue, err
-			}
+	if v, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]; ok {
+		var err error
+		mount, err = tenancyv1alpha1.ParseTenancyMountAnnotation(v)
+		if err != nil {
+			return reconcileStatusStopAndRequeue, err
 		}
+	} else {
+		// no mount annotation, might be nothing or mount was soft "deleted" by removing the annotation
+		// Delete the condition
+		conditions.Delete(workspace, tenancyv1alpha1.MountConditionReady)
+		return reconcileStatusContinue, nil
 	}
 
 	if mount == nil {
@@ -77,10 +83,34 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 		if !ok {
 			statusURL = ""
 		}
-		mount.MountStatus.Phase = tenancyv1alpha1.MountPhaseType(statusPhase)
-		mount.MountStatus.URL = statusURL
 
-		workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = mount.String()
+		// Only Spec or Status can be updated, not both.
+		if mount.MountStatus.Phase != tenancyv1alpha1.MountPhaseType(statusPhase) || mount.MountStatus.URL != statusURL {
+			mount.MountStatus.Phase = tenancyv1alpha1.MountPhaseType(statusPhase)
+			mount.MountStatus.URL = statusURL
+
+			workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = mount.String()
+
+			return reconcileStatusStopAndRequeue, nil
+		}
+
+		current := conditions.Get(workspace, tenancyv1alpha1.MountConditionReady)
+		// Inject condition into the workspace
+		// This is a loose coupling, we are not interested in the rest of the status.
+		switch mount.MountStatus.Phase {
+		case tenancyv1alpha1.MountPhaseReady:
+			if current == nil {
+				conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
+				return reconcileStatusContinue, nil
+			}
+			if current.Status == v1.ConditionTrue {
+				return reconcileStatusContinue, nil
+			}
+			return reconcileStatusContinue, nil
+		default:
+			msg := fmt.Sprintf("Mount is not reporting ready. See %s %q status for more details", obj.GroupVersionKind().Kind, obj.GetName())
+			conditions.MarkFalse(workspace, tenancyv1alpha1.MountConditionReady, "Mount is not reporting ready.", conditionsv1alpha1.ConditionSeverityError, msg)
+		}
 	}
 
 	return reconcileStatusContinue, nil

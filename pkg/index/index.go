@@ -39,6 +39,10 @@ type Result struct {
 	Shard string
 	// Cluster canonical path
 	Cluster logicalcluster.Name
+
+	// ErrorCode is the HTTP error code to return for the request.
+	// If this is set, the URL and Shard fields are ignored.
+	ErrorCode int
 }
 
 // PathRewriter can rewrite a logical cluster path before the actual mapping through
@@ -55,9 +59,13 @@ func New(rewriters []PathRewriter) *State {
 		shardClusterParentCluster: map[string]map[logicalcluster.Name]logicalcluster.Name{},
 		shardBaseURLs:             map[string]string{},
 		// Experimental feature: allow mounts to be used with Workspaces
-		// structure: (clusterName, workspace name) -> string serialized mount objects
+		// structure: (shard, logical cluster, workspace name) -> string serialized mount objects
 		// This should be simplified once we promote this to workspace structure.
-		clusterWorkspaceMountAnnotation: map[logicalcluster.Name]map[string]string{},
+		shardClusterWorkspaceMountAnnotation: map[string]map[logicalcluster.Name]map[string]string{},
+
+		// shardClusterWorkspaceNameErrorCode is a map of shar,logical cluster, workspace to error code when we want to return an error code
+		// instead of a URL.
+		shardClusterWorkspaceNameErrorCode: map[string]map[logicalcluster.Name]map[string]int{},
 	}
 }
 
@@ -74,30 +82,38 @@ type State struct {
 	shardClusterParentCluster map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs             map[string]string                                                 // shard name -> base URL
 	// Experimental feature: allow mounts to be used with Workspaces
-	clusterWorkspaceMountAnnotation map[logicalcluster.Name]map[string]string // (clusterName, workspace name) -> mount object string
+	shardClusterWorkspaceMountAnnotation map[string]map[logicalcluster.Name]map[string]string // (shard name, logical cluster, workspace name) -> mount object string
+
+	shardClusterWorkspaceNameErrorCode map[string]map[logicalcluster.Name]map[string]int // (shard name, logical cluster, workspace name) -> error code
 }
 
 func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		return
 	}
+
 	clusterName := logicalcluster.From(ws)
-
-	c.lock.RLock()
-	cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
-	mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] // experimental feature
-	c.lock.RUnlock()
-
-	// TODO(mjudeikis): we are allowing upsert in 2 cases:
-	// 1. cluster name is different
-	// 2. mount object string is different (updated, added, or removed)
-	// When we promote this to workspace structure, we should make this check smarter and better tested.
-	if (cluster.String() == ws.Spec.Cluster) && (ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] != "" && mountObjString == ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]) {
-		return
-	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	// If the workspace is unavailable, we set custom error code for it. And add it to the index as normal.
+	// TODO(mjudeikis): Once we have one more case - move to a separate function.
+	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable {
+		if c.shardClusterWorkspaceNameErrorCode[shard] == nil {
+			c.shardClusterWorkspaceNameErrorCode[shard] = map[logicalcluster.Name]map[string]int{}
+		}
+		if c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)] == nil {
+			c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)] = map[string]int{}
+		}
+		// Unavailable workspaces should return 503
+		c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)][ws.Name] = 503
+	} else {
+		delete(c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)], ws.Name)
+		if len(c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)]) == 0 {
+			delete(c.shardClusterWorkspaceNameErrorCode[shard], logicalcluster.Name(ws.Spec.Cluster))
+		}
+	}
 
 	if cluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster.String() != ws.Spec.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
@@ -113,11 +129,14 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
 
-	if mountObjString := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
-		if c.clusterWorkspaceMountAnnotation[clusterName] == nil {
-			c.clusterWorkspaceMountAnnotation[clusterName] = map[string]string{}
+	if mountObjString := c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
+		if c.shardClusterWorkspaceMountAnnotation[shard] == nil {
+			c.shardClusterWorkspaceMountAnnotation[shard] = map[logicalcluster.Name]map[string]string{}
 		}
-		c.clusterWorkspaceMountAnnotation[clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
+		if c.shardClusterWorkspaceMountAnnotation[shard][clusterName] == nil {
+			c.shardClusterWorkspaceMountAnnotation[shard][clusterName] = map[string]string{}
+		}
+		c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
 	}
 }
 
@@ -126,7 +145,7 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 
 	c.lock.RLock()
 	_, foundCluster := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]
-	_, foundMount := c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]
+	_, foundMount := c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]
 	c.lock.RUnlock()
 
 	if !foundCluster && !foundMount {
@@ -156,11 +175,15 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		}
 	}
 
-	if _, foundMount = c.clusterWorkspaceMountAnnotation[clusterName][ws.Name]; foundMount {
-		delete(c.clusterWorkspaceMountAnnotation[clusterName], ws.Name)
-		if len(c.clusterWorkspaceMountAnnotation[clusterName]) == 0 {
-			delete(c.clusterWorkspaceMountAnnotation, clusterName)
+	if _, foundMount = c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]; foundMount {
+		delete(c.shardClusterWorkspaceMountAnnotation[shard][clusterName], ws.Name)
+		if len(c.shardClusterWorkspaceMountAnnotation[shard][clusterName]) == 0 {
+			delete(c.shardClusterWorkspaceMountAnnotation[shard], clusterName)
 		}
+	}
+	delete(c.shardClusterWorkspaceNameErrorCode[shard][clusterName], ws.Name)
+	if len(c.shardClusterWorkspaceNameErrorCode[shard][clusterName]) == 0 {
+		delete(c.shardClusterWorkspaceNameErrorCode[shard], clusterName)
 	}
 }
 
@@ -219,6 +242,7 @@ func (c *State) DeleteShard(shardName string) {
 	delete(c.shardBaseURLs, shardName)
 	delete(c.shardWorkspaceName, shardName)
 	delete(c.shardClusterParentCluster, shardName)
+	delete(c.shardClusterWorkspaceNameErrorCode, shardName)
 }
 
 func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
@@ -233,6 +257,7 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 
 	var shard string
 	var cluster logicalcluster.Name
+	var errorCode int
 
 	// walk through index graph to find the final logical cluster and shard
 	for i, s := range segments {
@@ -247,7 +272,7 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		}
 
 		// check mounts, if found return url and true
-		val, foundMount := c.clusterWorkspaceMountAnnotation[cluster][s] // experimental feature
+		val, foundMount := c.shardClusterWorkspaceMountAnnotation[shard][cluster][s] // experimental feature
 		if foundMount {
 			mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(val)
 			if !(err != nil || mount == nil || mount.MountStatus.URL == "") {
@@ -269,14 +294,21 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		if !found {
 			return Result{}, false
 		}
+		ec, found := c.shardClusterWorkspaceNameErrorCode[shard][cluster][s]
+		if found {
+			errorCode = ec
+		}
 	}
-	return Result{Shard: shard, Cluster: cluster}, true
+	return Result{Shard: shard, Cluster: cluster, ErrorCode: errorCode}, true
 }
 
 func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
 	result, found := c.Lookup(path)
 	if !found {
 		return Result{}, false
+	}
+	if result.ErrorCode != 0 {
+		return result, true
 	}
 
 	if result.URL != "" && result.Shard == "" && result.Cluster == "" {
