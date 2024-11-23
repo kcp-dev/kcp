@@ -22,19 +22,24 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/server/proxy"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
@@ -46,10 +51,10 @@ import (
 // mainly interesting for standalone mode, without a real front-proxy in-front.
 func WithLocalProxy(
 	handler http.Handler,
-	shardName, shardBaseURL string,
+	shardName, shardBaseURL, additionalMappingsFile string,
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-) http.Handler {
+) (http.Handler, error) {
 	indexState := index.New([]index.PathRewriter{
 		indexrewriters.UserRewriter,
 	})
@@ -91,7 +96,7 @@ func WithLocalProxy(
 		},
 	})
 
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		logger := klog.FromContext(ctx)
 
@@ -195,4 +200,123 @@ func WithLocalProxy(
 
 		handler.ServeHTTP(w, req.WithContext(ctx))
 	})
+
+	// If additional mappings file is provided, read it and add the mappings to the handler
+	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, indexState, additionalMappingsFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create local proxy handler: %w", err)
+	}
+
+	return handlers, nil
+}
+
+// NewLocalProxyHandler returns a handler with a local-only mini-front-proxy.
+// This function is very similar to proxy/mapping.go.NewHandler.
+// If we want to re-use that code, we basically would be merging proxy with server packages.
+// Which is not desirable at the point of writing (2024.10-26), but might be in the future.
+func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additionalMappingsFile string) (http.Handler, error) {
+	mapping := []proxy.PathMapping{}
+	if additionalMappingsFile != "" {
+		mappingData, err := os.ReadFile(additionalMappingsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read mapping file %q: %w", additionalMappingsFile, err)
+		}
+
+		var mapping []proxy.PathMapping
+		if err = yaml.Unmarshal(mappingData, &mapping); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal mapping file %q: %w", additionalMappingsFile, err)
+		}
+	}
+
+	handlers := proxy.HttpHandler{
+		Index: index,
+		Mappings: proxy.HttpHandlerMappings{
+			{
+				Weight:  0,
+				Path:    "/metrics",
+				Handler: legacyregistry.Handler(),
+			},
+		},
+		DefaultHandler: defaultHandler,
+	}
+
+	for _, m := range mapping {
+		u, err := url.Parse(m.Backend)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create path mapping for path %q: failed to parse URL %q: %w", m.Path, m.Backend, err)
+		}
+
+		// This is insecure, but just don't tell it to anyone :)
+		transport, err := newInsecureTransport()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
+		}
+
+		var handler http.Handler
+		p := httputil.NewSingleHostReverseProxy(u)
+		p.Transport = transport
+		handler = p
+
+		userHeader := "X-Remote-User"
+		groupHeader := "X-Remote-Group"
+		extraHeaderPrefix := "X-Remote-Extra-"
+		if m.UserHeader != "" {
+			userHeader = m.UserHeader
+		}
+		if m.GroupHeader != "" {
+			groupHeader = m.GroupHeader
+		}
+		if m.ExtraHeaderPrefix != "" {
+			extraHeaderPrefix = m.ExtraHeaderPrefix
+		}
+
+		handler = withProxyAuthHeaders(handler, userHeader, groupHeader, extraHeaderPrefix)
+
+		handlers.Mappings = append(handlers.Mappings, proxy.HttpHandlerMapping{
+			Weight:  len(m.Path),
+			Path:    m.Path,
+			Handler: handler,
+		})
+	}
+
+	handlers.Mappings.Sort()
+
+	return &handlers, nil
+}
+
+func newInsecureTransport() (*http.Transport, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	return transport, nil
+}
+
+// withProxyAuthHeaders does client cert termination by extracting the user and groups and
+// passing them through access headers to the shard.
+func withProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string, extraHeaderPrefix string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if u, ok := request.UserFrom(r.Context()); ok {
+			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
+		}
+
+		delegate.ServeHTTP(w, r)
+	}
+}
+
+func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader, extraHeaderPrefix string) {
+	header.Set(userHeader, user.GetName())
+
+	for _, group := range user.GetGroups() {
+		header.Add(groupHeader, group)
+	}
+
+	for k, values := range user.GetExtra() {
+		// Key must be encoded to enable e.g authentication.kubernetes.io/cluster-name
+		// This is decoded in the RequestHeader auth handler
+		encodedKey := url.PathEscape(k)
+		for _, v := range values {
+			header.Add(extraHeaderPrefix+encodedKey, v)
+		}
+	}
 }

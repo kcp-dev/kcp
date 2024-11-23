@@ -68,6 +68,7 @@ func main() {
 
 	// manually extract root directory from flags first as it influence all other flags
 	rootDir := ".kcp"
+	additionalMappingsFile := ""
 	for i, f := range os.Args {
 		if f == "--root-directory" {
 			if i < len(os.Args)-1 {
@@ -75,11 +76,18 @@ func main() {
 			} // else let normal flag processing fail
 		} else if strings.HasPrefix(f, "--root-directory=") {
 			rootDir = strings.TrimPrefix(f, "--root-directory=")
+		} else if f == "--mapping-file" {
+			if i < len(os.Args)-1 {
+				additionalMappingsFile = os.Args[i+1]
+			} // else let normal flag processing fail
+		} else if strings.HasPrefix(f, "--mapping-file") {
+			additionalMappingsFile = strings.TrimPrefix(f, "--mapping-file=")
 		}
 	}
 
 	kcpOptions := options.NewOptions(rootDir)
 	kcpOptions.Server.GenericControlPlane.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
+	kcpOptions.Server.Extra.AdditionalMappingsFile = additionalMappingsFile
 
 	startCmd := &cobra.Command{
 		Use:   "start",

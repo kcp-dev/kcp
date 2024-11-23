@@ -27,17 +27,20 @@ import (
 
 type GenericOptions struct {
 	RootDirectory string
+	MappingFile   string
 }
 
 func NewGeneric(rootDir string) *GenericOptions {
 	return &GenericOptions{
 		RootDirectory: rootDir,
+		MappingFile:   "",
 	}
 }
 
 func (o *GenericOptions) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory. Set to \"\" to disable file (e.g. certificates) generation in a root directory.")
+	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Path to additional mapping file to be used by mini-front-proxy.")
 }
 
 func (o *GenericOptions) Complete() (*GenericOptions, error) {
@@ -53,6 +56,15 @@ func (o *GenericOptions) Complete() (*GenericOptions, error) {
 		// Create the configuration root correctly before other components get a chance.
 		if err := mkdirRoot(o.RootDirectory); err != nil {
 			return nil, err
+		}
+	}
+	if o.MappingFile != "" {
+		if !filepath.IsAbs(o.MappingFile) {
+			pwd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			o.MappingFile = filepath.Join(pwd, o.MappingFile)
 		}
 	}
 
