@@ -37,3 +37,8 @@ docs/generators/cli-doc/cli-doc
 # Ignore UNIX sockets and delve binaries
 *.sock
 __debug_*
+
+dex/
+*.crt
+*.key
+*.pem
