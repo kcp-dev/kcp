@@ -29,7 +29,7 @@ import (
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
-	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+	authzmodes "k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
@@ -251,6 +251,10 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 		o.EmbeddedEtcd.Enabled = true
 	}
 
+	if err := o.Authorization.Complete(); err != nil {
+		return nil, err
+	}
+
 	var err error
 	if !filepath.IsAbs(o.EmbeddedEtcd.Directory) {
 		o.EmbeddedEtcd.Directory, err = filepath.Abs(o.EmbeddedEtcd.Directory)
@@ -311,8 +315,6 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 	}
 	if o.GenericControlPlane.ServiceAccountSigningKeyFile == "" {
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
-	}
-
 	completedGenericServerRunOptions, err := o.GenericControlPlane.Complete(nil, nil)
 	if err != nil {
 		return nil, err
