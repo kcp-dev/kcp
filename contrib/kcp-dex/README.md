@@ -8,18 +8,19 @@ How to run local kcp with dex.
 
 Run dex outside of kcp
 We use dex to manage OIDC, following the steps below you can run a local OIDC issuer using dex:
-* First, clone the dex repo: `git clone https://github.com/dexidp/dex.git`
+
+* First, clone the dex repo: `git clone https://github.com/mjudeikis/dex.git -b mjudeikis/groups.support`
+  * Important: We use fork to allow local group support k8s relies on: https://github.com/dexidp/dex/issues/1080
 * `cd dex` and then build the dex binary `make build`
 * The binary will be created in `bin/dex`
 * Adjust the config file(`examples/config-dev.yaml`) for dex by specifying the server callback method:
 * Generate certificates for dex:
 ```bash
 GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
-./bin/genkey -ca root
-./bin/genkey -keyFile root.key -certFile root.crt 127.0.0.1
+./bin/genkey 127.0.0.1
 ```
 
-* Run dex: `./bin/dex serve contrib/kcp-dex/kcp-config.yaml `
+* Run dex: `./bin/dex serve ../contrib/kcp-dex/kcp-config.yaml `
 
 
 ### KCP
@@ -46,7 +47,8 @@ kubectl oidc-login get-token \
 --oidc-issuer-url=https://127.0.0.1:5556/dex \
 --oidc-client-id=kcp-dev \
 --oidc-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
---insecure-skip-tls-verify
+--insecure-skip-tls-verify \
+--oidc-extra-scope=groups,email
 
 # to configure kubectl to use this plugin
 export KUBECONFIG=.kcp/admin.kubeconfig
@@ -60,7 +62,14 @@ kubectl config set-credentials oidc \
   --exec-arg=--oidc-issuer-url=https://127.0.0.1:5556/dex  \
   --exec-arg=--oidc-client-id=kcp-dev \
   --exec-arg=--oidc-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
+  --exec-arg=--oidc-extra-scope=groups \
+  --exec-arg=--oidc-extra-scope=email \
   --exec-arg=--insecure-skip-tls-verify
 
 # set current context to use oidc
 kubectl config set-context --current --user=oidc
+
+# test
+# password is admin:password
+kubectl get ws
+kubectl create workspace bob
