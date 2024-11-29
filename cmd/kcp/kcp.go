@@ -117,7 +117,9 @@ func main() {
 			logger := klog.FromContext(cmd.Context())
 			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Server.Extra.BatteriesIncluded, ","))
 
-			config, err := server.NewConfig(completed.Server)
+			ctx := genericapiserver.SetupSignalContext()
+
+			serverConfig, err := server.NewConfig(ctx, completed.Server)
 			if err != nil {
 				return err
 			}
@@ -126,8 +128,6 @@ func main() {
 			if err != nil {
 				return err
 			}
-
-			ctx := genericapiserver.SetupSignalContext()
 
 			// the etcd server must be up before NewServer because storage decorators access it right away
 			if completedConfig.EmbeddedEtcd.Config != nil {
