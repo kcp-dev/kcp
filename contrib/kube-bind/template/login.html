@@ -1,0 +1,49 @@
+<!--Copyright 2022 The Kubectl Bind API contributors.-->
+
+<!--Licensed under the Apache License, Version 2.0 (the "License");-->
+<!--you may not use this file except in compliance with the License.-->
+<!--You may obtain a copy of the License at-->
+
+<!--http://www.apache.org/licenses/LICENSE-2.0-->
+
+<!--Unless required by applicable law or agreed to in writing, software-->
+<!--distributed under the License is distributed on an "AS IS" BASIS,-->
+<!--WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.-->
+<!--See the License for the specific language governing permissions and-->
+<!--limitations under the License.-->
+
+<html>
+<head>
+    <link rel="stylesheet" href="styles.css">
+    <title>login</title>
+</head>
+<body>
+<div class="container" id="container">
+    <div class="form-container right-side-container">
+    </div>
+    <div class="form-container sign-in-container">
+        <form action="#">
+            <h1>Login to your account</h1>
+            <div class="social-container">
+                <a href="http://localhost:8080/authorize" class="social"><i><img src="icon/github-icon.svg" width="40" alt="github"></i></a>
+                <a href="#" class="social"><i><img src="icon/google-icon.svg" width="40" alt="google"></i></a>
+                <a href="#" class="social"><i><img src="icon/microsoft-icon.svg" width="40" alt="microsoft"></i></a>
+            </div>
+            <span>or use your email address</span>
+            <input type="email" placeholder="Email"/>
+            <input type="password" placeholder="Password"/>
+            <button>Sign In</button>
+        </form>
+    </div>
+    <div class="overlay-container">
+        <div class="overlay">
+            <div class="overlay-panel overlay-right">
+                <h1>MangoDB</h1>
+                <p></p>
+                <button class="ghost" id="signUp">Sign Up</button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

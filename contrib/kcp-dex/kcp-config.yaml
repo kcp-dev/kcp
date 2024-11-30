@@ -12,7 +12,8 @@ staticClients:
   - id: kcp-dev
     public: true
     redirectURIs:
-    - http://localhost:8000
+    - http://localhost:8000 # oidc-login callback url
+    - https://127.0.0.1:8080/callback # kube-bind callback url
     name: 'KCP App'
     secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
 
