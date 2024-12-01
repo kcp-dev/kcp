@@ -5,7 +5,15 @@ This is example backend for KCP that uses [kube-bind](https://github.com/kube-bi
 Values here should match the values used to start kcp with so that the oidc tokens are valid.
 We use kcp from `contrib/kcp-dex` as an example.
 
+
+1. Create a kube-bind provider backend.
+
+```bash
+
 ```
+
+
+```bash
 make build
 
 bin/backend \
@@ -17,7 +25,7 @@ bin/backend \
   --namespace-prefix="kube-bind-" \
   --cookie-signing-key=bGMHz7SR9XcI9JdDB68VmjQErrjbrAR9JdVqjAOKHzE= \
   --cookie-encryption-key=wadqi4u+w0bqnSrVFtM38Pz2ykYVIeeadhzT34XlC1Y=
-  ```
+```
 
 
 # Architecture

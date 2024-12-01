@@ -5,8 +5,11 @@ build:
 .PHONY: build
 
 
-run-dev:
-	bin/backend \
+run-dev-init: build
+	bin/bootstrap init --kcp-kubeconfig=../../.kcp/admin.kubeconfig
+
+run-dev: build
+	bin/backend start \
 	--oidc-issuer-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
 	--oidc-issuer-client-id=kcp-dev \
 	--oidc-issuer-url=https://127.0.0.1:5556/dex \

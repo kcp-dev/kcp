@@ -1,0 +1,10 @@
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: Workspace
+metadata:
+  name: kube-bind
+  annotations:
+    bootstrap.kcp.io/create-only: "true"
+spec:
+  type:
+    name: organization
+    path: root
