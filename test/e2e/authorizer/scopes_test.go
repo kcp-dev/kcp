@@ -177,7 +177,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 				impersonationConfig.Impersonate.Extra = map[string][]string{}
 			}
 			impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey],
-				fmt.Sprintf(`{"user":"system:serviceaccount:default:default","groups":["system:authenticated"],"extra":{"authentication.kubernetes.io/cluster-name":["%s"]}}`, ws.Spec.Cluster))
+				fmt.Sprintf(`{"user":"system:serviceaccount:default:default","groups":["system:authenticated"],"extra":{"authentication.kubernetes.io/cluster-name":[%q]}}`, ws.Spec.Cluster))
 			impersonatedClient, err := kcpkubernetesclientset.NewForConfig(impersonationConfig)
 			require.NoError(t, err)
 
