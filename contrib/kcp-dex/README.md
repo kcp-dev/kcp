@@ -28,7 +28,7 @@ GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
 Start kcp with oidc enabled:
 
 ```bash
-o run ./cmd/kcp start \
+go run ./cmd/kcp start \
 --oidc-issuer-url=https://127.0.0.1:5556/dex \
 --oidc-client-id=kcp-dev \
 --oidc-groups-claim=groups \
