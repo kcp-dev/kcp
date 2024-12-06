@@ -55,6 +55,7 @@ linters-settings:
     confidence: 0.6
     rules:
       - name: context-keys-type
+      - name: duplicated-imports
       - name: error-return
       - name: error-strings
       - name: error-naming
