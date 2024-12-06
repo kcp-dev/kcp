@@ -442,6 +442,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
+		apiHandler = WithServiceAccountRewrite(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
