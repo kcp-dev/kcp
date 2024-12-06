@@ -1,0 +1,32 @@
+
+issuer: https://127.0.0.1:5556/dex
+web:
+  https: 127.0.0.1:5556
+  tlsCert: ../127.0.0.1.pem
+  tlsKey: ../127.0.0.1.pem
+storage:
+  type: sqlite3
+  config:
+    file: examples/dex.db
+staticClients:
+  - id: kcp-dev
+    public: true
+    redirectURIs:
+    - http://localhost:8000
+    name: 'KCP App'
+    secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+
+# Let dex keep a list of passwords which can be used to login to dex.
+enablePasswordDB: true
+
+# A static list of passwords to login the end user. By identifying here, dex
+# won't look in its underlying storage for passwords.
+#
+# If this option isn't chosen users may be added through the gRPC API.
+staticPasswords:
+- email: "admin"
+  # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+  hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  username: "admin"
+  userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+  groups: ["system:kcp:admin", "system:admin"]
