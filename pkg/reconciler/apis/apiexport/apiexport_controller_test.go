@@ -138,8 +138,6 @@ func TestReconcile(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // to avoid t.Parallel() races
-
 		t.Run(name, func(t *testing.T) {
 			createSecretCalled := false
 

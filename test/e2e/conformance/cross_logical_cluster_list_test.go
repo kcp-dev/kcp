@@ -75,8 +75,6 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	}
 	expectedWorkspaces := sets.New[string]()
 	for i, clusterName := range logicalClusters {
-		clusterName := clusterName // shadow
-
 		t.Logf("Creating Workspace CRs in logical cluster %s", clusterName)
 		sourceWorkspace := &tenancyv1alpha1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -93,7 +91,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		})
 	}
 
-	t.Logf("Listing Workspace CRs across logical clusters with identity")
+	t.Log("Listing Workspace CRs across logical clusters with identity")
 	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(core.RootCluster.Path()).Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")

@@ -10,11 +10,11 @@ linters:
   - bidichk
   - bodyclose
   - containedctx
+  - copyloopvar
   - dupword
   - durationcheck
   - errcheck
   - errchkjson
-  - exportloopref
   - gocritic
   - godot
   - gofmt

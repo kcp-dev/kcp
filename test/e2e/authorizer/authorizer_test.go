@@ -369,8 +369,7 @@ func TestAuthorizer(t *testing.T) {
 		}},
 	}
 
-	for i := range testCases {
-		testCase := testCases[i]
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			testCase.run(t)
