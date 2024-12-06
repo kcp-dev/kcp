@@ -22,23 +22,23 @@ import (
 )
 
 func TestSortMappings(t *testing.T) {
-	mappings := []httpHandlerMapping{
-		{weight: 3},
-		{weight: 1},
-		{weight: 2},
-		{weight: 10},
+	mappings := HttpHandlerMappings{
+		{Weight: 3},
+		{Weight: 1},
+		{Weight: 2},
+		{Weight: 10},
 	}
 
-	expected := []httpHandlerMapping{
-		{weight: 10},
-		{weight: 3},
-		{weight: 2},
-		{weight: 1},
+	expected := HttpHandlerMappings{
+		{Weight: 10},
+		{Weight: 3},
+		{Weight: 2},
+		{Weight: 1},
 	}
 
-	sortedMappings := sortMappings(mappings)
+	mappings.Sort()
 
-	if !reflect.DeepEqual(sortedMappings, expected) {
-		t.Errorf("Expected %v, but got %v", expected, sortedMappings)
+	if !reflect.DeepEqual(mappings, expected) {
+		t.Errorf("Expected %v, but got %v", expected, mappings)
 	}
 }
