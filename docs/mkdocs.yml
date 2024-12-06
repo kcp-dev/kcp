@@ -37,7 +37,7 @@ theme:
 
   # Palette toggle for light mode
   - media: "(prefers-color-scheme: light)"
-    scheme: default 
+    scheme: default
     primary: white
     toggle:
       icon: material/brightness-7
@@ -92,6 +92,11 @@ markdown_extensions:
   - pymdownx.highlight:
       # Allows linking directly to specific lines in code blocks
       anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   # Inline code block highlighting
   - pymdownx.inlinehilite
   # Lets you embed content from another file

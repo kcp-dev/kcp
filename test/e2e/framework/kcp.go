@@ -655,7 +655,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 			return apierrors.NewAggregate(errs)
 		}
 
-		config, err := server.NewConfig(completed.Server)
+		config, err := server.NewConfig(ctx, completed.Server)
 		if err != nil {
 			cleanup()
 			return err
