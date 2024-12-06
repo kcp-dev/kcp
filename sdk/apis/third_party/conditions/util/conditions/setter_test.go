@@ -217,7 +217,7 @@ func TestMarkMethods(t *testing.T) {
 	}))
 
 	// test MarkUnknown
-	MarkUnknown(cluster, "conditionBaz", "reasonBaz", "messageBaz")
+	MarkUnknown(cluster, "conditionBaz", "reasonBaz", "%s", "messageBaz")
 	g.Expect(Get(cluster, "conditionBaz")).To(HaveSameStateOf(&conditionsapi.Condition{
 		Type:    "conditionBaz",
 		Status:  corev1.ConditionUnknown,

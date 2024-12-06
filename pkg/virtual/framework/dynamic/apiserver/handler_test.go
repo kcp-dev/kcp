@@ -188,7 +188,7 @@ func TestRouting(t *testing.T) {
 	}
 
 	// note that in production we delegate to the special handler that is attached at the end of the delegation chain that checks if the server has installed all known HTTP paths before replying to the client.
-	// it returns 503 if not all registered signals have been ready (closed) otherwise it simply replies with 404.
+	// it returns http.StatusServiceUnavailable if not all registered signals have been ready (closed) otherwise it simply replies with 404.
 	// the apiextentionserver is considered to be initialized once hasCRDInformerSyncedSignal is closed.
 	//
 	// here, in this test the delegate represent the special handler and hasSync represents the signal.
@@ -253,11 +253,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -289,11 +289,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -326,7 +326,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "nonexisting group discovery",
@@ -337,7 +337,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 
 		{
@@ -349,11 +349,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -387,11 +387,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -426,7 +426,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "nonexisting group version discovery",
@@ -437,7 +437,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 
 		{
@@ -449,7 +449,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "existing group, nonexisting version discovery",
@@ -460,7 +460,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 
 		{
@@ -474,7 +474,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    true,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "nonexisting group, resource request",
@@ -487,7 +487,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    true,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 
 		{
@@ -499,11 +499,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -533,11 +533,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -567,11 +567,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -610,11 +610,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         200,
+			ExpectStatus:         http.StatusOK,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -653,7 +653,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "existing core group, nonexisting version discovery",
@@ -664,7 +664,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    false,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 
 		{
@@ -678,7 +678,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            false,
 			IsResourceRequest:    true,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         503,
+			ExpectStatus:         http.StatusServiceUnavailable,
 		},
 		{
 			Name:                 "nonexisting core group, resource request",
@@ -691,7 +691,7 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    true,
 			ExpectDelegateCalled: true,
-			ExpectStatus:         418,
+			ExpectStatus:         http.StatusTeapot,
 		},
 		{
 			Name:                 "existing group, resource request",
@@ -704,11 +704,11 @@ func TestRouting(t *testing.T) {
 			HasSynced:            true,
 			IsResourceRequest:    true,
 			ExpectDelegateCalled: false,
-			ExpectStatus:         405,
+			ExpectStatus:         http.StatusMethodNotAllowed,
 			ExpectResponse: func(t *testing.T, r *http.Response, b []byte) {
 				t.Helper()
 
-				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != 200 {
+				if r.Header.Get("Content-Type") != "application/json" || r.StatusCode != http.StatusOK {
 					// why?
 					return
 				}
@@ -757,8 +757,8 @@ func TestRouting(t *testing.T) {
 					case "unknown":
 						req.Header.Set("Accept", "application/vnd.kubernetes.unknown")
 						// rather than success, we'll get a not supported error
-						if expectStatus == 200 {
-							expectStatus = 406
+						if expectStatus == http.StatusOK {
+							expectStatus = http.StatusNotAcceptable
 						}
 					default:
 						t.Fatalf("unknown content type %v", contentType)

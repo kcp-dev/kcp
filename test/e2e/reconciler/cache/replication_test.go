@@ -428,7 +428,6 @@ func TestReplication(t *testing.T) {
 		{"WorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
 	}
 	for _, scenario := range scenarios {
-		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
 			scenario.work(ctx, t, server, kcpShardDynamicClient, cacheKcpClusterDynamicClient)
@@ -446,8 +445,6 @@ func TestReplicationDisruptive(t *testing.T) {
 		{"ShardNegative", replicateShardNegativeScenario},
 	}
 	for _, scenario := range disruptiveScenarios {
-		scenario := scenario
-
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
 

@@ -18,6 +18,7 @@ package logicalcluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -157,25 +158,25 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		newStatus := toSet(logicalCluster.Status.Initializers)
 
 		if !oldSpec.Equal(newSpec) {
-			return admission.NewForbidden(a, fmt.Errorf("spec.initializers is immutable"))
+			return admission.NewForbidden(a, errors.New("spec.initializers is immutable"))
 		}
 
 		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 		if transitioningToInitializing && !newSpec.Equal(newStatus) {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers do not equal spec.initializers"))
+			return admission.NewForbidden(a, errors.New("status.initializers do not equal spec.initializers"))
 		}
 
 		if !transitioningToInitializing && logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.IsSuperset(newStatus) {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers must not grow"))
+			return admission.NewForbidden(a, errors.New("status.initializers must not grow"))
 		}
 
 		if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.Equal(newStatus) {
-			return admission.NewForbidden(a, fmt.Errorf("status.initializers is immutable after initialization"))
+			return admission.NewForbidden(a, errors.New("status.initializers is immutable after initialization"))
 		}
 
 		if old.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
 			if len(logicalCluster.Status.Initializers) > 0 {
-				return admission.NewForbidden(a, fmt.Errorf("status.initializers is not empty"))
+				return admission.NewForbidden(a, errors.New("status.initializers is not empty"))
 			}
 		}
 
@@ -188,14 +189,15 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	case admission.Delete:
 		logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
+			//nolint:revive
 			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
 		if !logicalCluster.Spec.DirectlyDeletable {
-			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
+			return admission.NewForbidden(a, errors.New("LogicalCluster cannot be deleted")) //nolint:revive
 		}
 
 	case admission.Create:
-		return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be created"))
+		return admission.NewForbidden(a, errors.New("LogicalCluster cannot be created")) //nolint:revive
 	}
 
 	return nil
@@ -203,7 +205,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 
 func (o *plugin) ValidateInitialization() error {
 	if o.logicalClusterLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
+		return errors.New(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	return nil
 }

@@ -70,8 +70,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting WorkspaceType %s|%s: %v",
-			wtCluster.String(), wtName,
-			err,
+			wtCluster.String(), wtName, err,
 		)
 
 		return nil
@@ -238,7 +237,8 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWaitingOnAPIBindings,
 			conditionsv1alpha1.ConditionSeverityInfo,
-			"APIBinding(s) not yet fully bound: %s", strings.Join(incomplete, ", "),
+			"APIBinding(s) not yet fully bound: %s",
+			strings.Join(incomplete, ", "),
 		)
 
 		return nil

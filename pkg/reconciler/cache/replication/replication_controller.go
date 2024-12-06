@@ -75,8 +75,6 @@ func NewController(
 	}
 
 	for gvr, info := range c.Gvrs {
-		// shadow gvr to get the right value in the closure
-		gvr := gvr
 		_, _ = info.Local.AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: IsNoSystemClusterName,
 			Handler: cache.ResourceEventHandlerFuncs{

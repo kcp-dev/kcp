@@ -239,7 +239,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			apisv1alpha1.BindingResourceDeleteSuccess,
 			ResourceDeletionFailedReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			deleteErr.Error(),
+			"%v",
+			deleteErr,
 		)
 
 		newResource := &Resource{ObjectMeta: apibindingCopy.ObjectMeta, Spec: &apibindingCopy.Spec, Status: &apibindingCopy.Status}
@@ -294,7 +295,8 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 			apisv1alpha1.BindingResourceDeleteSuccess,
 			ResourceFinalizersRemainReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")),
+			"Some content in the workspace has finalizers remaining: %s",
+			strings.Join(remainingByFinalizer, ", "),
 		)
 
 		return apibinding, &deletion.ResourcesRemainingError{
@@ -320,7 +322,8 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 			apisv1alpha1.BindingResourceDeleteSuccess,
 			ResourceRemainingReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")),
+			"Some resources are remaining: %s",
+			strings.Join(remainingResources, ", "),
 		)
 
 		return apibinding, &deletion.ResourcesRemainingError{

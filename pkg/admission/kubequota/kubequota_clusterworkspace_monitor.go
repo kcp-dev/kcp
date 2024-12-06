@@ -106,6 +106,7 @@ func (m *LogicalClusterDeletionMonitor) processNextWorkItem() bool {
 	defer m.queue.Done(key)
 
 	if err := m.process(key); err != nil {
+		//nolint:revive
 		runtime.HandleError(fmt.Errorf("LogicalClusterDeletionMonitor failed to sync %q, err: %w", key, err))
 
 		m.queue.AddRateLimited(key)

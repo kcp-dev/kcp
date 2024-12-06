@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -165,16 +166,18 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		rt,
 		func(rq *http.Request) (string, string, error) {
 			if serverConfig.Config.RequestInfoResolver == nil {
-				return "", "", fmt.Errorf("RequestInfoResolver wasn't provided")
+				return "", "", errors.New("no RequestInfoResolver provided")
 			}
 			// the k8s request info resolver expects a cluster-less path, but the client we're using knows how to
 			// add the cluster we are targeting to the path before this round-tripper fires, so we need to strip it
 			// to use the k8s library
 			parts := strings.Split(rq.URL.Path, "/")
 			if len(parts) < 4 {
+				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got invalid path: %v", rq.URL.Path)
 			}
 			if parts[1] != "clusters" {
+				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got path without cluster prefix: %v", rq.URL.Path)
 			}
 			// we clone the request here to safely mutate the URL path, but this cloned request is never realized

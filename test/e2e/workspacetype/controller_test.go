@@ -327,7 +327,6 @@ func TestWorkspaceTypes(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 

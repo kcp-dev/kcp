@@ -91,7 +91,8 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 			apisv1alpha1.APIExportIdentityValid,
 			apisv1alpha1.IdentityVerificationFailedReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"%v",
+			err,
 		)
 	}
 
@@ -115,7 +116,8 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 			apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
 			apisv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"%v",
+			err,
 		)
 	}
 

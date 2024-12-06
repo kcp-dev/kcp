@@ -124,7 +124,6 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 	if openAPIModels != nil {
 		schemas := make(map[string]*spec.Schema, len(s.Definitions))
 		for k, v := range s.Definitions {
-			v := v
 			schemas[k] = &v
 		}
 		typeConverter, err = managedfields.NewTypeConverter(schemas, false)

@@ -382,7 +382,6 @@ func TestCacheServerAllScenarios(t *testing.T) {
 
 	cacheClientRT := cache2e.ClientRoundTrippersFor(cacheClientRestConfig)
 	for _, scenario := range scenarios {
-		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
 			scenario.work(ctx, t, cacheClientRT, logicalcluster.NewPath("acme"), schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiexports"})

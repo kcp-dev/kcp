@@ -66,7 +66,7 @@ func TestMountsMachinery(t *testing.T) {
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 
 	workspaceName := "mounts-machinery"
-	mountPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName(workspaceName))
+	mountPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("%s", workspaceName))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
