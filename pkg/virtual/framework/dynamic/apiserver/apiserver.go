@@ -177,14 +177,13 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 
 	s.GenericAPIServer.Handler.GoRestfulContainer.Add(discovery.NewLegacyRootAPIHandler(c.GenericConfig.DiscoveryAddresses, s.GenericAPIServer.Serializer, "/api").WebService())
 
+	openAPIHandler := newOpenAPIHandler(s.APISetRetriever, delegateHandler)
+
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/api/v1", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/api/v1/", crdHandler)
-
-	// TODO(david): plug OpenAPI if necessary. For now, according to the various virtual workspace use-cases,
-	// it doesn't seem necessary.
-	// Of course this requires using the --validate=false argument with some kubectl command like kubectl apply.
-
+	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/openapi", openAPIHandler)
+	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/openapi/", openAPIHandler)
 	return s, nil
 }
