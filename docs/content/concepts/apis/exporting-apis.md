@@ -1,4 +1,4 @@
-# Exporting APIs
+# Exporting and Binding APIs
 
 If you're looking to provide APIs that can be consumed by multiple workspaces, this section is for you!
 
@@ -374,12 +374,33 @@ TODO
 ## Bind to Exported APIs
 
 ### APIBinding
-TODO
-- "imports" all the `APIResourceSchemas` defined in an `APIExport` into its workspace
-- Also provides access to the group/resources defined in an `APIExport`'s `PermissionClaims` slice
-- APIs are "imported" by accepting `PermissionClaims` within the `APIBinding` for each of the `APIExport`'s group/resources
-- The consumer of the `APIExport` must be granted permission to the `bind` verb on that `APIExport` in order to create an `APIBinding`
-- An `APIBinding` is bound to a specific `APIExport` and associated `APIResourceSchema`s via the `APIBinding.Status.BoundResources` field, which will hold the identity information to precisely identify relevant objects.
-- how do I correctly reference an APIExport?
 
-[diagram1]: https://asciiflow.com/#/share/eJyrVspLzE1VssorzcnRUcpJrEwtUrJSqo5RqohRsrI0NdGJUaoEsozMzYCsktSKEiAnRkmBGPBoyh5qoZiYPGKtVFBwzs8rLs1NLVIIzy%2FKLi5ITE6FyJBgyIC4G5cMEYZgtVwhPDMlPbWkWMExwNMpMy8lMy%2BdFAOp5C44BXGNgiMWY6gY4igBgNUBTtgdAGQDw0khoCi%2FLDMFNfHgNMp5gPxCxeSJO4YR8YeqEilVuVYU5BeVKDya3kKCDdj5ONROw68WyS1BqcX5pUXJqcHJGam5iehx1vNoSgM10AT6xHATzlKsiZRcN4dKvl5C1xIDS9DgKMmICQyoqU24ZUgyBEcpRpYh6CURWYagl0EkGDKFSsljRoxSrVItAH%2FrdL4%3D
+`APIBindings` are used to import API resources. They contain a reference to an `APIExport` using the namespace and workspace path of an `APIExport` and will bind all APIs defined in the `APIExport`. The reference path needs to be provided to you by the provider of the API or an external catalog solution.
+
+Furthermore, `APIBindings` provide access to the groups/resources defined in an `APIExport's` `PermissionClaims` list.
+
+Returning to our previous example, we can use the following `APIBinding` to import the widgets api.
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  name: example.kcp.io
+spec:
+  reference:
+    export:
+      name: example.kcp.io
+      path: "root:api-provider" # path of your api-provider workspace
+```
+
+It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`. Instead APIs are directly bound. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
+
+```sh
+# inside consumer workspace
+kubectl api-resources --api-group='example.kcp.io'
+
+NAME      SHORTNAMES   APIVERSION                NAMESPACED   KIND
+widgets                example.kcp.io/v1alpha1   false        Widget
+```
+
+Furthermore, you can use the `APIBinding.Status.BoundResources` field to precisely identify which `APIResourceSchemas` have been imported.
