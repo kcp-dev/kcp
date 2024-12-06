@@ -47,7 +47,7 @@ func TestReconcile(t *testing.T) {
 		wantError              bool
 		wantPartitionsReady    bool
 		wantPartitionsNotReady bool
-		wantPartitionCount     int
+		wantPartitionCount     uint
 		wantCountCreated       int
 		wantCountDeleted       int
 	}{
@@ -314,7 +314,7 @@ func TestReconcile(t *testing.T) {
 				require.Error(t, err, "expected an error")
 			} else {
 				require.NoError(t, err, "expected no error")
-				require.Equal(t, uint(tc.wantPartitionCount), partitionSet.Status.Count)
+				require.Equal(t, tc.wantPartitionCount, partitionSet.Status.Count)
 			}
 
 			if tc.wantPartitionsNotReady {
