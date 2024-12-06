@@ -118,6 +118,7 @@ func (o *Options) Validate() error {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))
 	}
 	if !strings.HasPrefix(o.RootPathPrefix, "/") {
+		//nolint:revive
 		errs = append(errs, fmt.Errorf("RootPathPrefix %q must start with /", o.RootPathPrefix))
 	}
 
