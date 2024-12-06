@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
@@ -79,6 +80,11 @@ func NewReservedNames() *ReservedNames {
 				tenancyv1alpha1.Resource("workspacetypes"),
 				tenancyv1alpha1.Kind("WorkspaceType"),
 				tenancyv1alpha1.WorkspaceTypeReservedNames()...,
+			),
+			newReservedNameFn(
+				corev1.Resource("serviceaccounts"),
+				corev1.SchemeGroupVersion.WithKind("ServiceAccount").GroupKind(),
+				"kcp-rest",
 			),
 		},
 	}

@@ -46,6 +46,17 @@ const (
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
 )
 
+const (
+	// SystemMastersGroup is the group inherited from k8s codebase - all powerful, all knowing!
+	// Users should not be added to this group.
+	SystemMastersGroup = "system:masters"
+)
+
+const (
+	// SystemServiceAccountDefaultRest is the default service account for fake rest client.
+	SystemServiceAccountDefaultRest = "system:serviceaccount:default:kcp-rest"
+)
+
 // ClusterRoleBindings return default rolebindings to the default roles.
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
