@@ -40,7 +40,8 @@ func (c *controller) reconcile(ctx context.Context, wt *tenancyv1alpha1.Workspac
 			tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady,
 			tenancyv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"%v",
+			err,
 		)
 	} else {
 		conditions.MarkTrue(

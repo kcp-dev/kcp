@@ -50,7 +50,8 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 				topologyv1alpha1.PartitionSetValid,
 				topologyv1alpha1.PartitionSetInvalidSelectorReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				err.Error(),
+				"%v",
+				err,
 			)
 			conditions.MarkFalse(
 				partitionSet,
@@ -84,7 +85,8 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 			topologyv1alpha1.PartitionsReady,
 			topologyv1alpha1.ErrorGeneratingPartitionsReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"%v",
+			err,
 		)
 		return err
 	}

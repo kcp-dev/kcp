@@ -76,7 +76,7 @@ func TestReconcileScheduling(t *testing.T) {
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(ws, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(ws, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(ws, initialWS))
 				}
 			},
 			expectedStatus: reconcileStatusStopAndRequeue,
@@ -99,7 +99,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
@@ -133,7 +133,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
@@ -162,7 +162,7 @@ func TestReconcileScheduling(t *testing.T) {
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
 				delete(initialWS.Annotations, "internal.tenancy.kcp.io/cluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			expectedStatus:           reconcileStatusStopAndRequeue,
@@ -196,7 +196,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
@@ -222,7 +222,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Message:  "No available shards to schedule the workspace",
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			expectedStatus: reconcileStatusContinue,
@@ -248,7 +248,7 @@ func TestReconcileScheduling(t *testing.T) {
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			expectedStatus: reconcileStatusStopAndRequeue,
@@ -274,7 +274,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Message:  "No available shards to schedule the workspace",
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
-					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
 				}
 			},
 			expectedStatus: reconcileStatusContinue,
@@ -461,7 +461,7 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			actualObj := createAction.GetObject().(*corev1alpha1.LogicalCluster)
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObj) {
-				t.Errorf(cmp.Diff(actualObj, expectedObj))
+				t.Error(cmp.Diff(actualObj, expectedObj))
 			}
 			wasLogicalClusterCreated = true
 		}
@@ -479,7 +479,7 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			delete(actualObj.Annotations, "kcp.io/cluster")
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
-				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
+				t.Error(cmp.Diff(actualObj, expectedObjCopy))
 			}
 			wasLogicalClusterUpdated = true
 		}

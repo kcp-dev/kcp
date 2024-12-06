@@ -357,7 +357,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 						apisv1alpha1.BindingUpToDate,
 						apisv1alpha1.APIResourceSchemaInvalidReason,
 						conditionsv1alpha1.ConditionSeverityError,
-						fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schemaClusterName, schemaName, status.Status().Details.Causes),
+						"APIResourceSchema %s|%s is invalid: %v",
+						schemaClusterName, schemaName, status.Status().Details.Causes,
 					)
 					// Only change InitialBindingCompleted if it's false
 					if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
@@ -366,7 +367,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 							apisv1alpha1.InitialBindingCompleted,
 							apisv1alpha1.APIResourceSchemaInvalidReason,
 							conditionsv1alpha1.ConditionSeverityError,
-							fmt.Sprintf("APIResourceSchema %s|%s is invalid: %v\"", schemaClusterName, schemaName, status.Status().Details.Causes),
+							"APIResourceSchema %s|%s is invalid: %v",
+							schemaClusterName, schemaName, status.Status().Details.Causes,
 						)
 					}
 
@@ -453,7 +455,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			apisv1alpha1.BindingUpToDate,
 			apisv1alpha1.WaitingForEstablishedReason,
 			conditionsv1alpha1.ConditionSeverityInfo,
-			"Waiting for API(s) to be established: %s", strings.Join(needToWaitForRequeueWhenEstablished, ", "),
+			"Waiting for API(s) to be established: %s",
+			strings.Join(needToWaitForRequeueWhenEstablished, ", "),
 		)
 
 		// Only change InitialBindingCompleted if it's false
@@ -463,7 +466,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				apisv1alpha1.InitialBindingCompleted,
 				apisv1alpha1.WaitingForEstablishedReason,
 				conditionsv1alpha1.ConditionSeverityInfo,
-				"Waiting for API(s) to be established: %s", strings.Join(needToWaitForRequeueWhenEstablished, ", "),
+				"Waiting for API(s) to be established: %s",
+				strings.Join(needToWaitForRequeueWhenEstablished, ", "),
 			)
 		}
 	} else {

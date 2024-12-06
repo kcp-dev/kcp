@@ -450,6 +450,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 			tenancyv1alpha1.WorkspaceContentDeleted,
 			"SomeResourcesRemain",
 			conditionsv1alpha1.ConditionSeverityInfo,
+			"%s",
 			message,
 		)
 		logger.V(4).Error(utilerrors.NewAggregate(errs), "resource remaining")
@@ -462,6 +463,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 			tenancyv1alpha1.WorkspaceContentDeleted,
 			deletionContentSuccessReason,
 			conditionsv1alpha1.ConditionSeverityError,
+			"%v",
 			utilerrors.NewAggregate(errs).Error(),
 		)
 		logger.Error(utilerrors.NewAggregate(errs), "content deletion failed", "message", deletionContentSuccessReason)

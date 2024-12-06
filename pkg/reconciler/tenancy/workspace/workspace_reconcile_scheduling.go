@@ -108,7 +108,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusStopAndRequeue, err
 			}
 			if shard == nil {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, reason)
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "%s", reason)
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			logger.V(2).Info("Chose shard", "shard", shard.Name)
