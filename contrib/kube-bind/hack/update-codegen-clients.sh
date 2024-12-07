@@ -29,6 +29,12 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 OPENAPI_PKG=${OPENAPI_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/kube-openapi)}
 
 
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+if [ ! -d "$REPO_ROOT/kube-bind/.git" ]; then
+    git clone "$KUBE_BIND_REPO" --branch "$KUBE_BIND_VERSION" "$REPO_ROOT/kube-bind"
+fi
+KUBE_BIND_REPO_ROOT=$REPO_ROOT/kube-bind
+
 # TODO: use generate-groups.sh directly instead once https://github.com/kubernetes/kubernetes/pull/114987 is available
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
 go install "${CODEGEN_PKG}"/cmd/client-gen
@@ -61,5 +67,15 @@ bash "${CODEGEN_PKG}"/kube_codegen.sh "deepcopy" \
   "proxy:v1alpha1 tenancy:v1alpha1" \
   --go-header-file ./hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
-  --trim-path-prefix github.com/faroshq/cluster-proxy
+  --trim-path-prefix github.com/kcp-dev/kcp/contrib/kube-bind
 
+
+echo "$BOILERPLATE_HEADER"
+pushd $KUBE_BIND_REPO_ROOT/pkg/apis
+${CODE_GENERATOR} \
+  "client:outputPackagePath=github.com/kcp-dev/kcp/contrib/kube-bind/clients,apiPackagePath=github.com/kube-bind/kube-bind/pkg/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/contrib/kube-bind/clients/clientset/versioned,singleClusterApplyConfigurationsPackagePath=github.com/kcp-dev/kcp/contrib/kube-bind/clients/applyconfiguration,headerFile=${BOILERPLATE_HEADER}" \
+  "lister:apiPackagePath=github.com/faroshq/cluster-proxy/apis,headerFile=${BOILERPLATE_HEADER}" \
+  "informer:outputPackagePath=github.com/kcp-dev/kcp/contrib/kube-bind/clients,singleClusterClientPackagePath=github.com/kcp-dev/kcp/contrib/kube-bind/clients/client/clientset/versioned,apiPackagePath=github.com/kube-bind/kube-bind/pkg/apis,headerFile=${BOILERPLATE_HEADER}" \
+  "paths=./..." \
+  "output:dir=./../clients"
+popd

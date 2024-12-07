@@ -49,6 +49,5 @@ func Bootstrap(
 	computeDynamicClient := dynamicClusterClient.Cluster(ClusterName)
 
 	crdClient := apiExtensionClusterClient.ApiextensionsV1().Cluster(ClusterName).CustomResourceDefinitions()
-
 	return resources.Bootstrap(ctx, kcpClientSet, computeDiscoveryClient, computeDynamicClient, crdClient, batteriesIncluded)
 }
