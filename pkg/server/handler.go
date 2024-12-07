@@ -30,6 +30,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,12 +42,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+
+	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 var (
@@ -251,6 +255,86 @@ func WithRequestIdentity(handler http.Handler) http.Handler {
 
 		handler.ServeHTTP(w, updatedReq)
 	})
+}
+
+type privilege int
+
+const (
+	superPrivileged privilege = iota
+	priviledged
+	unprivileged
+)
+
+var (
+	// specialGroups specify groups with special meaning kcp. Lower privilege (= higher number)
+	// cannot impersonate higher privilege levels.
+	specialGroups = map[string]privilege{
+		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
+		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
+	}
+)
+
+// WithImpersonationGatekeeper checks the request for impersonations and validates them,
+// if they are valid. If they are not, will return a 403.
+// We check for impersonation in the request headers, early to avoid it being propagated to
+// the backend services.
+func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Impersonation check is only done when impersonation is requested.
+		// And impersonations is only allowed for the users, who have metadata in the ctx.
+		// Else just pass the request.
+		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
+		var requestor user.Info
+		if len(impersonationUser) != 0 {
+			var exists bool
+			requestor, exists = request.UserFrom(req.Context())
+			if !exists {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is invalid for the requestor")),
+					errorCodecs, schema.GroupVersion{}, w, req)
+				return
+			}
+			if validImpersonation(requestor.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
+				handler.ServeHTTP(w, req)
+				return
+			}
+
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is not allowed for the requestor")),
+				errorCodecs, schema.GroupVersion{}, w, req)
+			return
+		}
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// validImpersonation checks if a user with given privilege levels can impersonate requested groups.
+func validImpersonation(userGroups []string, requestedGroups []string) bool {
+	userMaxPrivilege := unprivileged // Start with the lowest privilege
+
+	// Determine the highest privilege the user has
+	for _, userGroup := range userGroups {
+		if priv, exists := specialGroups[userGroup]; exists && priv < userMaxPrivilege {
+			userMaxPrivilege = priv
+		}
+	}
+
+	// Iterate through each requested group and verify if user's privilege allows impersonation
+	for _, requestedGroup := range requestedGroups {
+		requestedPrivilege, exists := specialGroups[requestedGroup]
+		// If requested group is not recognized, treat it as the lowest privilege level
+		if !exists {
+			requestedPrivilege = unprivileged
+		}
+
+		// Check if user's max privilege is less than or equal to the requested group's privilege
+		if userMaxPrivilege > requestedPrivilege {
+			return false // Deny impersonation if user's privilege is not sufficient
+		}
+	}
+
+	// If all checks pass, impersonation is allowed
+	return true
 }
 
 func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo) (*http.Request, error) {

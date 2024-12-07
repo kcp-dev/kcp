@@ -25,6 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 func TestProcessResourceIdentity(t *testing.T) {
@@ -150,6 +152,82 @@ func TestProcessResourceIdentity(t *testing.T) {
 
 			identity := IdentityFromContext(req.Context())
 			require.Equal(t, test.expectedIdentity, identity, "unexpected identity")
+		})
+	}
+}
+
+func TestCheckImpersonation(t *testing.T) {
+	var systemUserGroup = "system:user:group"
+	nonExistingGroup := "non-existing-group"
+	specialGroups = map[string]privilege{
+		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
+		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
+		systemUserGroup: unprivileged,
+	}
+
+	tests := []struct {
+		name            string
+		userGroups      []string
+		requestedGroups []string
+		expectedResult  bool
+	}{
+		{
+			name:            "Single group - allowed",
+			userGroups:      []string{authorizationbootstrap.SystemMastersGroup},
+			requestedGroups: []string{authorizationbootstrap.SystemKcpAdminGroup},
+			expectedResult:  true,
+		},
+		{
+			name:            "Multiple groups - allowed",
+			userGroups:      []string{authorizationbootstrap.SystemMastersGroup},
+			requestedGroups: []string{authorizationbootstrap.SystemKcpAdminGroup, systemUserGroup},
+			expectedResult:  true,
+		},
+		{
+			name:            "Single group - not allowed",
+			userGroups:      []string{authorizationbootstrap.SystemKcpAdminGroup},
+			requestedGroups: []string{authorizationbootstrap.SystemMastersGroup},
+			expectedResult:  false,
+		},
+		{
+			name:            "Multiple groups - mixed permissions",
+			userGroups:      []string{authorizationbootstrap.SystemKcpAdminGroup},
+			requestedGroups: []string{authorizationbootstrap.SystemMastersGroup, systemUserGroup},
+			expectedResult:  false,
+		},
+		{
+			name:            "Multiple groups - lower permissions only",
+			userGroups:      []string{systemUserGroup},
+			requestedGroups: []string{authorizationbootstrap.SystemKcpAdminGroup, authorizationbootstrap.SystemMastersGroup},
+			expectedResult:  false,
+		},
+		{
+			name:            "Empty user groups",
+			userGroups:      []string{},
+			requestedGroups: []string{authorizationbootstrap.SystemKcpAdminGroup},
+			expectedResult:  false,
+		},
+		{
+			name:            "Empty requested groups",
+			userGroups:      []string{authorizationbootstrap.SystemMastersGroup},
+			requestedGroups: []string{},
+			expectedResult:  true,
+		},
+		{
+			name:            "Unknown requested group",
+			userGroups:      []string{authorizationbootstrap.SystemMastersGroup},
+			requestedGroups: []string{nonExistingGroup},
+			expectedResult:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := validImpersonation(tt.userGroups, tt.requestedGroups)
+			if result != tt.expectedResult {
+				t.Errorf("checkImpersonation(%v, %v) = %v; want %v",
+					tt.userGroups, tt.requestedGroups, result, tt.expectedResult)
+			}
 		})
 	}
 }

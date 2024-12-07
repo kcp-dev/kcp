@@ -36,7 +36,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -116,8 +116,8 @@ func BuildVirtualWorkspace(
 
 				impersonationConfig := rest.CopyConfig(cfg)
 				impersonationConfig.Impersonate = rest.ImpersonationConfig{
-					UserName: "system:serviceaccount:default:rest",
-					Groups:   []string{bootstrap.SystemKcpAdminGroup},
+					UserName: authorizationbootstrap.SystemServiceAccountDefaultRest,
+					Groups:   []string{authorizationbootstrap.SystemKcpAdminGroup},
 					Extra: map[string][]string{
 						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
 					},

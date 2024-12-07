@@ -69,11 +69,13 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 			return shardClient, nil
 		},
 	)
-
 	handler, err := NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
 	if err != nil {
 		return s, err
 	}
+	// This must run before WithImpersonation upstream handler to
+	// catch this before user data is lost.
+	handler = server.WithImpersonationGatekeeper(handler)
 
 	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
 	handler = frontproxyfilters.WithOptionalAuthentication(
