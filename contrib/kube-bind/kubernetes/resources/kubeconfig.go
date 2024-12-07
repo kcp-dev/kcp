@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -34,8 +36,9 @@ import (
 )
 
 func GenerateKubeconfig(ctx context.Context,
-	client kubernetes.Interface,
+	client kubernetes.ClusterInterface,
 	clusterConfig *rest.Config,
+	cluster logicalcluster.Path,
 	externalAddress string,
 	externalCA []byte,
 	externalTLSServerName string,
@@ -53,7 +56,7 @@ func GenerateKubeconfig(ctx context.Context,
 	var saSecret *corev1.Secret
 	logger.V(2).Info("Waiting for service account secret to be updated with a token", "name", saSecretName)
 	if err := wait.PollImmediateWithContext(ctx, 500*time.Millisecond, 10*time.Second, func(ctx context.Context) (done bool, err error) {
-		saSecret, err = client.CoreV1().Secrets(ns).Get(ctx, saSecretName, v1.GetOptions{})
+		saSecret, err = client.CoreV1().Cluster(cluster).Secrets(ns).Get(ctx, saSecretName, v1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		} else if errors.IsNotFound(err) {
@@ -103,7 +106,7 @@ func GenerateKubeconfig(ctx context.Context,
 	}
 
 	logger.V(1).Info("Creating kubeconfig secret", "name", kubeconfigSecretName)
-	if secret, err := client.CoreV1().Secrets(ns).Create(ctx, kubeconfigSecret, v1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+	if secret, err := client.CoreV1().Cluster(cluster).Secrets(ns).Create(ctx, kubeconfigSecret, v1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 		return nil, err
 	} else if err == nil {
 		return secret, nil
@@ -111,13 +114,13 @@ func GenerateKubeconfig(ctx context.Context,
 
 	var updated *corev1.Secret
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		existing, err := client.CoreV1().Secrets(ns).Get(ctx, kubeconfigSecret.Name, v1.GetOptions{})
+		existing, err := client.CoreV1().Cluster(cluster).Secrets(ns).Get(ctx, kubeconfigSecret.Name, v1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		existing.Data = kubeconfigSecret.Data
 		logger.V(1).Info("Updating kubeconfig secret", "name", kubeconfigSecretName)
-		updated, err = client.CoreV1().Secrets(ns).Update(ctx, existing, v1.UpdateOptions{})
+		updated, err = client.CoreV1().Cluster(cluster).Secrets(ns).Update(ctx, existing, v1.UpdateOptions{})
 		return err
 	}); err != nil {
 		return nil, err

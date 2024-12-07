@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net"
 
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -33,7 +35,6 @@ import (
 	"github.com/kcp-dev/kcp/contrib/kube-bind/deploy"
 	examplehttp "github.com/kcp-dev/kcp/contrib/kube-bind/http"
 	examplekube "github.com/kcp-dev/kcp/contrib/kube-bind/kubernetes"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
 )
 
 type Server struct {

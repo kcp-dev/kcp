@@ -1,6 +1,8 @@
 module github.com/kcp-dev/kcp
 
-go 1.22.0
+go 1.23.2
+
+toolchain go1.23.3
 
 require (
 	github.com/abiosoft/lineprefix v0.1.4
@@ -90,6 +92,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
+	github.com/mjudeikis/genkey v0.0.0-20241129142017-727431f1d22e // indirect
 	github.com/moby/spdystream v0.4.0 // indirect
 	github.com/moby/sys/mountinfo v0.7.1 // indirect
 	github.com/moby/term v0.5.0 // indirect

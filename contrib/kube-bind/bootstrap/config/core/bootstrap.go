@@ -18,23 +18,16 @@ package core
 
 import (
 	"context"
-	"embed"
 
-	"github.com/davecgh/go-spew/spew"
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/logicalcluster/v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/config/core/resources"
 )
-
-//go:embed *.yaml
-var fs embed.FS
 
 var (
 	// RootClusterName is the workspace to host common APIs.
@@ -52,15 +45,6 @@ func Bootstrap(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	batteriesIncluded sets.Set[string],
 ) error {
-	spew.Dump(kcpClientSet.Cluster(RootClusterName).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{}))
-
-	rootDiscoveryClient := apiExtensionClusterClient.Cluster(RootClusterName).Discovery()
-	rootDynamicClient := dynamicClusterClient.Cluster(RootClusterName)
-	err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs)
-	if err != nil {
-		return err
-	}
-
 	computeDiscoveryClient := apiExtensionClusterClient.Cluster(ClusterName).Discovery()
 	computeDynamicClient := dynamicClusterClient.Cluster(ClusterName)
 

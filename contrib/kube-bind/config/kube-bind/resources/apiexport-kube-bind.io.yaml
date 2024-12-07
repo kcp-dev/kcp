@@ -1,0 +1,13 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: kube-bind.io
+spec:
+  latestResourceSchemas:
+  - v241207-140a2a40f.apiservicebindings.kube-bind.io
+  - v241207-140a2a40f.apiserviceexportrequests.kube-bind.io
+  - v241207-140a2a40f.apiserviceexports.kube-bind.io
+  - v241207-140a2a40f.apiservicenamespaces.kube-bind.io
+  - v241207-140a2a40f.clusterbindings.kube-bind.io
+status: {}

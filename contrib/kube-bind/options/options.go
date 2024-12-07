@@ -22,12 +22,11 @@ import (
 	"os"
 	"strings"
 
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
 	"github.com/spf13/pflag"
 
 	"k8s.io/component-base/logs"
 	logsv1 "k8s.io/component-base/logs/api/v1"
-
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
 )
 
 type Options struct {
@@ -40,6 +39,9 @@ type Options struct {
 }
 type ExtraOptions struct {
 	KubeConfig string
+
+	KubeBindWorkspacePath string
+	KubeBindAPIExportName string
 
 	NamespacePrefix       string
 	PrettyName            string
@@ -78,7 +80,7 @@ func NewOptions() *Options {
 
 		ExtraOptions: ExtraOptions{
 			NamespacePrefix: "cluster",
-			PrettyName:      "Example Backend",
+			PrettyName:      "KCP Backend",
 			ConsumerScope:   string(kubebindv1alpha1.NamespacedScope),
 		},
 	}
@@ -91,6 +93,9 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	options.Serve.AddFlags(fs)
 
 	fs.StringVar(&options.KubeConfig, "kubeconfig", options.KubeConfig, "path to a kubeconfig. Only required if out-of-cluster")
+	fs.StringVar(&options.KubeBindWorkspacePath, "workspace-path", options.KubeBindWorkspacePath, "path of the kubebind workspace, where master apiexport is located")
+	fs.StringVar(&options.KubeBindAPIExportName, "apiexport-name", options.KubeBindAPIExportName, "name of the apiexport to use")
+
 	fs.StringVar(&options.NamespacePrefix, "namespace-prefix", options.NamespacePrefix, "The prefix to use for cluster namespaces")
 	fs.StringVar(&options.PrettyName, "pretty-name", options.PrettyName, "Pretty name for the backend")
 	fs.StringVar(&options.ConsumerScope, "consumer-scope", options.ConsumerScope, "How consumers access the service provider cluster. In Kubernetes, \"namespaced\" allows namespace isolation. In kcp, \"cluster\" allows workspace isolation, and with that allows cluster-scoped resources to bind and it is generally more performant.")
@@ -169,6 +174,13 @@ func (options *CompletedOptions) Validate() error {
 		if err != nil {
 			return fmt.Errorf("invalid external hostname: %v", err)
 		}
+	}
+
+	if options.KubeBindAPIExportName == "" {
+		return fmt.Errorf("apiexport-name cannot be empty")
+	}
+	if options.KubeBindWorkspacePath == "" {
+		return fmt.Errorf("workspace-path cannot be empty")
 	}
 
 	return nil

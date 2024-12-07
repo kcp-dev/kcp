@@ -31,6 +31,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
+	bindversion "github.com/kube-bind/kube-bind/pkg/version"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
@@ -44,8 +46,6 @@ import (
 	"github.com/kcp-dev/kcp/contrib/kube-bind/kubernetes"
 	"github.com/kcp-dev/kcp/contrib/kube-bind/kubernetes/resources"
 	"github.com/kcp-dev/kcp/contrib/kube-bind/template"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindversion "github.com/kube-bind/kube-bind/pkg/version"
 )
 
 var (

@@ -19,16 +19,17 @@ package backend
 import (
 	"time"
 
+	kubeinformers "github.com/kcp-dev/client-go/informers"
+	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions"
+
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	kubeinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/contrib/kube-bind/options"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions"
 )
 
 type Config struct {
@@ -36,7 +37,7 @@ type Config struct {
 
 	ClientConfig        *rest.Config
 	BindClient          *bindclient.Clientset
-	KubeClient          *kubernetesclient.Clientset
+	KubeClient          *kubernetesclient.ClusterClientset
 	ApiextensionsClient *apiextensionsclient.Clientset
 
 	KubeInformers          kubeinformers.SharedInformerFactory

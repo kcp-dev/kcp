@@ -20,17 +20,19 @@ import (
 	"context"
 	"strings"
 
+	"github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	IdentityAnnotationKey = "example-backend.kube-bind.io/identity"
 )
 
-func CreateNamespace(ctx context.Context, client kubernetes.Interface, generateName, id string) (*corev1.Namespace, error) {
+func CreateNamespace(ctx context.Context, client kubernetes.ClusterInterface, cluster logicalcluster.Path, generateName, id string) (*corev1.Namespace, error) {
 	if !strings.HasSuffix(generateName, "-") {
 		generateName = generateName + "-"
 	}
@@ -43,11 +45,11 @@ func CreateNamespace(ctx context.Context, client kubernetes.Interface, generateN
 		},
 	}
 
-	ns, err := client.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
+	ns, err := client.CoreV1().Cluster(cluster).Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, err
 	} else if errors.IsAlreadyExists(err) {
-		ns, err := client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
+		ns, err := client.CoreV1().Cluster(cluster).Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

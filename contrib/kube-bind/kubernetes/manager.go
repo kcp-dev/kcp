@@ -20,21 +20,23 @@ import (
 	"context"
 	"fmt"
 
+	corev1informers "github.com/kcp-dev/client-go/informers/core/v1"
+	kubeclient "github.com/kcp-dev/client-go/kubernetes"
+	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
+	"github.com/kube-bind/kube-bind/pkg/indexers"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	kubeclient "k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	kuberesources "github.com/kcp-dev/kcp/contrib/kube-bind/kubernetes/resources"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/indexers"
 )
 
 type Manager struct {
@@ -46,10 +48,10 @@ type Manager struct {
 	externalCA            []byte
 	externalTLSServerName string
 
-	kubeClient kubeclient.Interface
+	kubeClient kubeclient.ClusterInterface
 	bindClient bindclient.Interface
 
-	namespaceLister  corev1listers.NamespaceLister
+	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
 	exportLister  bindlisters.APIServiceExportLister
@@ -62,7 +64,7 @@ func NewKubernetesManager(
 	externalAddress string,
 	externalCA []byte,
 	externalTLSServerName string,
-	namespaceInformer corev1informers.NamespaceInformer,
+	namespaceInformer corev1informers.NamespaceClusterInformer,
 	exportInformer bindinformers.APIServiceExportInformer,
 ) (*Manager, error) {
 	config = rest.CopyConfig(config)
@@ -107,6 +109,9 @@ func (m *Manager) HandleResources(ctx context.Context, identity, resource, group
 	logger := klog.FromContext(ctx).WithValues("identity", identity, "resource", resource, "group", group)
 	ctx = klog.NewContext(ctx, logger)
 
+	// TODO: Fix this
+	fakeCluster := logicalcluster.NewPath("fake-cluster")
+
 	// try to find an existing namespace by annotation, or create a new one.
 	nss, err := m.namespaceIndexer.ByIndex(NamespacesByIdentity, identity)
 	if err != nil {
@@ -120,7 +125,7 @@ func (m *Manager) HandleResources(ctx context.Context, identity, resource, group
 	if len(nss) == 1 {
 		ns = nss[0].(*corev1.Namespace).Name
 	} else {
-		nsObj, err := kuberesources.CreateNamespace(ctx, m.kubeClient, m.namespacePrefix, identity)
+		nsObj, err := kuberesources.CreateNamespace(ctx, m.kubeClient, fakeCluster, m.namespacePrefix, identity)
 		if err != nil {
 			return nil, err
 		}
@@ -144,17 +149,17 @@ func (m *Manager) HandleResources(ctx context.Context, identity, resource, group
 		kubeconfigSecretName = cb.Spec.KubeconfigSecretRef.Name // reuse old name
 	}
 
-	sa, err := kuberesources.CreateServiceAccount(ctx, m.kubeClient, ns, kuberesources.ServiceAccountName)
+	sa, err := kuberesources.CreateServiceAccount(ctx, m.kubeClient, fakeCluster, ns, kuberesources.ServiceAccountName)
 	if err != nil {
 		return nil, err
 	}
 
-	saSecret, err := kuberesources.CreateSASecret(ctx, m.kubeClient, ns, sa.Name)
+	saSecret, err := kuberesources.CreateSASecret(ctx, m.kubeClient, fakeCluster, ns, sa.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	kfgSecret, err := kuberesources.GenerateKubeconfig(ctx, m.kubeClient, m.clusterConfig, m.externalAddress, m.externalCA, m.externalTLSServerName, saSecret.Name, ns, kubeconfigSecretName)
+	kfgSecret, err := kuberesources.GenerateKubeconfig(ctx, m.kubeClient, m.clusterConfig, fakeCluster, m.externalAddress, m.externalCA, m.externalTLSServerName, saSecret.Name, ns, kubeconfigSecretName)
 	if err != nil {
 		return nil, err
 	}

@@ -21,6 +21,18 @@ import (
 	"fmt"
 	"time"
 
+	kubeinformers "github.com/kcp-dev/client-go/informers/core/v1"
+	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kubeclient "github.com/kcp-dev/client-go/kubernetes"
+	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
+	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
+	"github.com/kube-bind/kube-bind/pkg/committer"
+
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,21 +41,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers/core/v1"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	kubeclient "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/committer"
 )
 
 const (
@@ -56,10 +57,10 @@ func NewController(
 	scope kubebindv1alpha1.Scope,
 	clusterBindingInformer bindinformers.ClusterBindingInformer,
 	serviceExportInformer bindinformers.APIServiceExportInformer,
-	clusterRoleInformer rbacinformers.ClusterRoleInformer,
-	clusterRoleBindingInformer rbacinformers.ClusterRoleBindingInformer,
-	roleBindingInformer rbacinformers.RoleBindingInformer,
-	namespaceInformer kubeinformers.NamespaceInformer,
+	clusterRoleInformer rbacinformers.ClusterRoleClusterInformer,
+	clusterRoleBindingInformer rbacinformers.ClusterRoleBindingClusterInformer,
+	roleBindingInformer rbacinformers.RoleBindingClusterInformer,
+	namespaceInformer kubeinformers.NamespaceClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -100,38 +101,38 @@ func NewController(
 			listServiceExports: func(ns string) ([]*kubebindv1alpha1.APIServiceExport, error) {
 				return serviceExportInformer.Lister().APIServiceExports(ns).List(labels.Everything())
 			},
-			getClusterRole: func(name string) (*rbacv1.ClusterRole, error) {
-				return clusterRoleInformer.Lister().Get(name)
+			getClusterRole: func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
+				return clusterRoleInformer.Lister().Cluster(cluster).Get(name)
 			},
-			createClusterRole: func(ctx context.Context, binding *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-				return kubeClient.RbacV1().ClusterRoles().Create(ctx, binding, metav1.CreateOptions{})
+			createClusterRole: func(ctx context.Context, cluster logicalcluster.Path, binding *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
+				return kubeClient.RbacV1().Cluster(cluster).ClusterRoles().Create(ctx, binding, metav1.CreateOptions{})
 			},
-			updateClusterRole: func(ctx context.Context, binding *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-				return kubeClient.RbacV1().ClusterRoles().Update(ctx, binding, metav1.UpdateOptions{})
+			updateClusterRole: func(ctx context.Context, cluster logicalcluster.Path, binding *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
+				return kubeClient.RbacV1().Cluster(cluster).ClusterRoles().Update(ctx, binding, metav1.UpdateOptions{})
 			},
-			getClusterRoleBinding: func(name string) (*rbacv1.ClusterRoleBinding, error) {
-				return clusterRoleBindingInformer.Lister().Get(name)
+			getClusterRoleBinding: func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
+				return clusterRoleBindingInformer.Lister().Cluster(cluster).Get(name)
 			},
-			createClusterRoleBinding: func(ctx context.Context, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-				return kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
+			createClusterRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 			},
-			updateClusterRoleBinding: func(ctx context.Context, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-				return kubeClient.RbacV1().ClusterRoleBindings().Update(ctx, binding, metav1.UpdateOptions{})
+			updateClusterRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).ClusterRoleBindings().Update(ctx, binding, metav1.UpdateOptions{})
 			},
-			deleteClusterRoleBinding: func(ctx context.Context, name string) error {
-				return kubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, name, metav1.DeleteOptions{})
+			deleteClusterRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, name string) error {
+				return kubeClient.RbacV1().Cluster(cluster).ClusterRoleBindings().Delete(ctx, name, metav1.DeleteOptions{})
 			},
-			getNamespace: func(name string) (*v1.Namespace, error) {
-				return namespaceInformer.Lister().Get(name)
+			getNamespace: func(cluster logicalcluster.Name, name string) (*v1.Namespace, error) {
+				return namespaceInformer.Lister().Cluster(cluster).Get(name)
 			},
-			createRoleBinding: func(ctx context.Context, ns string, binding *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-				return kubeClient.RbacV1().RoleBindings(ns).Create(ctx, binding, metav1.CreateOptions{})
+			createRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, ns string, binding *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).RoleBindings(ns).Create(ctx, binding, metav1.CreateOptions{})
 			},
-			updateRoleBinding: func(ctx context.Context, ns string, binding *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-				return kubeClient.RbacV1().RoleBindings(ns).Update(ctx, binding, metav1.UpdateOptions{})
+			updateRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, ns string, binding *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).RoleBindings(ns).Update(ctx, binding, metav1.UpdateOptions{})
 			},
-			getRoleBinding: func(ns, name string) (*rbacv1.RoleBinding, error) {
-				return roleBindingInformer.Lister().RoleBindings(ns).Get(name)
+			getRoleBinding: func(cluster logicalcluster.Name, ns, name string) (*rbacv1.RoleBinding, error) {
+				return roleBindingInformer.Lister().Cluster(cluster).RoleBindings(ns).Get(name)
 			},
 		},
 
@@ -182,13 +183,13 @@ type Controller struct {
 	serviceExportLister  bindlisters.APIServiceExportLister
 	serviceExportIndexer cache.Indexer
 
-	clusterRoleLister  rbaclisters.ClusterRoleLister
+	clusterRoleLister  rbaclisters.ClusterRoleClusterLister
 	clusterRoleIndexer cache.Indexer
 
-	clusterRoleBindingLister  rbaclisters.ClusterRoleBindingLister
+	clusterRoleBindingLister  rbaclisters.ClusterRoleBindingClusterLister
 	clusterRoleBindingIndexer cache.Indexer
 
-	namespaceLister  corelisters.NamespaceLister
+	namespaceLister  corelisters.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
 	reconciler

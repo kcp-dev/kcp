@@ -8,6 +8,7 @@ import (
 
 	bootstrapconfig "github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/config/config"
 	bootstrapcore "github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/config/core"
+	bootstrapkubebind "github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/config/kube-bind"
 )
 
 type Server struct {
@@ -38,6 +39,17 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	if err := bootstrapcore.Bootstrap(
+		ctx,
+		s.Config.KcpClusterClient,
+		s.Config.ApiextensionsClient,
+		s.Config.DynamicClusterClient,
+		fakeBatteries,
+	); err != nil {
+		logger.Error(err, "failed to bootstrap core workspace")
+		return nil // don't klog.Fatal. This only happens when context is cancelled.
+	}
+
+	if err := bootstrapkubebind.Bootstrap(
 		ctx,
 		s.Config.KcpClusterClient,
 		s.Config.ApiextensionsClient,

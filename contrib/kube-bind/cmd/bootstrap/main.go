@@ -1,16 +1,18 @@
 package main
 
 import (
-	bootstrap "github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap"
-	"github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/options"
+	"context"
+	"fmt"
+	"os"
+
 	"github.com/spf13/pflag"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	logsv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 
-	"context"
-	"fmt"
-	"os"
+	bootstrap "github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap"
+	"github.com/kcp-dev/kcp/contrib/kube-bind/bootstrap/options"
 )
 
 func main() {

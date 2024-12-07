@@ -29,7 +29,7 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
-	backend "github.com/kcp-dev/kcp/contrib/kube-bind"
+	backend "github.com/kcp-dev/kcp/contrib/kube-bind/backend"
 	"github.com/kcp-dev/kcp/contrib/kube-bind/options"
 )
 

@@ -19,17 +19,19 @@ package resources
 import (
 	"context"
 
+	"github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
-func CreateSASecret(ctx context.Context, client kubernetes.Interface, ns, saName string) (*corev1.Secret, error) {
+func CreateSASecret(ctx context.Context, client kubernetes.ClusterInterface, cluster logicalcluster.Path, ns, saName string) (*corev1.Secret, error) {
 	logger := klog.FromContext(ctx)
 
-	secret, err := client.CoreV1().Secrets(ns).Get(ctx, saName, metav1.GetOptions{})
+	secret, err := client.CoreV1().Cluster(cluster).Secrets(ns).Get(ctx, saName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			secret = &corev1.Secret{
@@ -44,7 +46,7 @@ func CreateSASecret(ctx context.Context, client kubernetes.Interface, ns, saName
 			}
 
 			logger.V(1).Info("Creating service account secret", "name", secret.Name)
-			return client.CoreV1().Secrets(ns).Create(ctx, secret, metav1.CreateOptions{})
+			return client.CoreV1().Cluster(cluster).Secrets(ns).Create(ctx, secret, metav1.CreateOptions{})
 		}
 
 		return nil, err

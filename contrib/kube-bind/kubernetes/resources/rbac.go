@@ -19,17 +19,19 @@ package resources
 import (
 	"context"
 
+	kubeclient "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
-func CreateServiceAccount(ctx context.Context, client kubeclient.Interface, ns, name string) (*corev1.ServiceAccount, error) {
+func CreateServiceAccount(ctx context.Context, client kubeclient.ClusterInterface, cluster logicalcluster.Path, ns, name string) (*corev1.ServiceAccount, error) {
 	logger := klog.FromContext(ctx)
 
-	sa, err := client.CoreV1().ServiceAccounts(ns).Get(ctx, name, metav1.GetOptions{})
+	sa, err := client.CoreV1().Cluster(cluster).ServiceAccounts(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			sa = &corev1.ServiceAccount{
@@ -40,7 +42,7 @@ func CreateServiceAccount(ctx context.Context, client kubeclient.Interface, ns, 
 			}
 
 			logger.Info("Creating service account", "name", sa.Name)
-			return client.CoreV1().ServiceAccounts(ns).Create(ctx, sa, metav1.CreateOptions{})
+			return client.CoreV1().Cluster(cluster).ServiceAccounts(ns).Create(ctx, sa, metav1.CreateOptions{})
 		}
 	}
 

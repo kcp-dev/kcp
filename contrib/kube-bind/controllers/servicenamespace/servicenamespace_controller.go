@@ -22,6 +22,19 @@ import (
 	"reflect"
 	"time"
 
+	coreinformers "github.com/kcp-dev/client-go/informers/core/v1"
+	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
+	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
+	"github.com/kube-bind/kube-bind/pkg/committer"
+	"github.com/kube-bind/kube-bind/pkg/indexers"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,22 +42,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/committer"
-	"github.com/kube-bind/kube-bind/pkg/indexers"
 )
 
 const (
@@ -58,9 +59,9 @@ func NewController(
 	serviceNamespaceInformer bindinformers.APIServiceNamespaceInformer,
 	clusterBindingInformer bindinformers.ClusterBindingInformer,
 	serviceExportInformer bindinformers.APIServiceExportInformer,
-	namespaceInformer coreinformers.NamespaceInformer,
-	roleInformer rbacinformers.RoleInformer,
-	roleBindingInformer rbacinformers.RoleBindingInformer,
+	namespaceInformer coreinformers.NamespaceClusterInformer,
+	roleInformer rbacinformers.RoleClusterInformer,
+	roleBindingInformer rbacinformers.RoleBindingClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -105,22 +106,24 @@ func NewController(
 		reconciler: reconciler{
 			scope: scope,
 
-			getNamespace: namespaceInformer.Lister().Get,
-			createNamespace: func(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, error) {
-				return kubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+			getNamespace: func(cluster logicalcluster.Name, name string) (*corev1.Namespace, error) {
+				return namespaceInformer.Lister().Cluster(cluster).Get(name)
 			},
-			deleteNamespace: func(ctx context.Context, name string) error {
-				return kubeClient.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
+			createNamespace: func(ctx context.Context, cluster logicalcluster.Path, ns *corev1.Namespace) (*corev1.Namespace, error) {
+				return kubeClient.CoreV1().Cluster(cluster).Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+			},
+			deleteNamespace: func(ctx context.Context, cluster logicalcluster.Path, name string) error {
+				return kubeClient.CoreV1().Cluster(cluster).Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 			},
 
-			getRoleBinding: func(ns, name string) (*rbacv1.RoleBinding, error) {
-				return roleBindingInformer.Lister().RoleBindings(ns).Get(name)
+			getRoleBinding: func(cluster logicalcluster.Name, ns, name string) (*rbacv1.RoleBinding, error) {
+				return roleBindingInformer.Lister().Cluster(cluster).RoleBindings(ns).Get(name)
 			},
-			createRoleBinding: func(ctx context.Context, crb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-				return kubeClient.RbacV1().RoleBindings(crb.Namespace).Create(ctx, crb, metav1.CreateOptions{})
+			createRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, crb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).RoleBindings(crb.Namespace).Create(ctx, crb, metav1.CreateOptions{})
 			},
-			updateRoleBinding: func(ctx context.Context, crb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-				return kubeClient.RbacV1().RoleBindings(crb.Namespace).Update(ctx, crb, metav1.UpdateOptions{})
+			updateRoleBinding: func(ctx context.Context, cluster logicalcluster.Path, crb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
+				return kubeClient.RbacV1().Cluster(cluster).RoleBindings(crb.Namespace).Update(ctx, crb, metav1.UpdateOptions{})
 			},
 		},
 
@@ -200,9 +203,9 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	bindClient bindclient.Interface
-	kubeClient kubernetesclient.Interface
+	kubeClient kubernetesclient.ClusterInterface
 
-	namespaceLister  corelisters.NamespaceLister
+	namespaceLister  corelisters.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
 	serviceNamespaceLister  bindlisters.APIServiceNamespaceLister
@@ -214,10 +217,10 @@ type Controller struct {
 	serviceExportLister  bindlisters.APIServiceExportLister
 	serviceExportIndexer cache.Indexer
 
-	roleLister  rbaclisters.RoleLister
+	roleLister  rbaclisters.RoleClusterLister
 	roleIndexer cache.Indexer
 
-	roleBindingLister  rbaclisters.RoleBindingLister
+	roleBindingLister  rbaclisters.RoleBindingClusterLister
 	roleBindingIndexer cache.Indexer
 
 	reconciler
@@ -371,11 +374,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 	nsName := snsNamespace + "-" + snsName
 
+	// TODO: Fake path
+	clusterName := logicalcluster.NewPath("fake")
+
 	obj, err := c.serviceNamespaceLister.APIServiceNamespaces(snsNamespace).Get(snsName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if errors.IsNotFound(err) {
-		if err := c.deleteNamespace(ctx, nsName); err != nil && !errors.IsNotFound(err) {
+		if err := c.deleteNamespace(ctx, clusterName, nsName); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 		return nil
