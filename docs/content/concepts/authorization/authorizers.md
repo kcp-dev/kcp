@@ -16,36 +16,41 @@ They are related in the following way:
 
 ``` mermaid
 graph TD
-    start(Request):::state --> main_alt[/one of\]:::or
-    main_alt --> aapa[Always Allow Paths Auth]
-    main_alt --> aaga[Always Allow Groups Auth]
-    main_alt --> wa[Webhook Auth]
-    main_alt --> rga[Required Groups Auth]
+  start(Request):::state --> main_alt[/one of\]:::or
+  main_alt --> aapa[Always Allow Paths Auth]
+  main_alt --> aaga[Always Allow Groups Auth]
 
-    aapa --> decision(Decision):::state
-    aaga --> decision
-    wa --> decision
+  aapa --> decision(Decision):::state
+  aaga --> decision
+
+  main_alt --> kcp_alt[/one of\]:::or
+
+  subgraph "main authorizers"
+    kcp_alt --> rga[Required Groups Auth]
+    kcp_alt --> wa[Webhook Auth]
 
     subgraph "RBAC"
-    rga --> wca[Workspace Content Auth]
-    wca --> scrda[System CRD Auth]
-    scrda --> mppa[Max. Permission Policy Auth]
+      rga --> wca[Workspace Content Auth]
+      wca --> scrda[System CRD Auth]
+      scrda --> mppa[Max. Permission Policy Auth]
 
-    mppa --- mppa_alt[/one of\]:::or
-    mppa_alt --> lpa[Local Policy Auth]
-    mppa_alt --> gpa[Global Policy Auth]
-    mppa_alt --> bpa[Bootstrap Policy Auth]
+      mppa --- mppa_alt[/one of\]:::or
+      mppa_alt --> lpa[Local Policy Auth]
+      mppa_alt --> gpa[Global Policy Auth]
+      mppa_alt --> bpa[Bootstrap Policy Auth]
     end
+  end
 
-    lpa --> decision
-    gpa --> decision
-    bpa --> decision
+  wa --> decision
+  lpa --> decision
+  gpa --> decision
+  bpa --> decision
 
-    classDef state color:#F77
-    classDef or fill:none,stroke:none
+  classDef state color:#F77
+  classDef or fill:none,stroke:none
 ```
 
-[View graph on Kroki](https://kroki.io/mermaid/svg/eNqFkkFrwzAMhe_7Faa7dLBux0IOg7ZhvWxQusEOWRmKoyambuTZDln__RQnG02bUp-E3mfx9OzcginEe3wj-DgP1o_X-F2h83dRFHHDo5hMnsQeVPkF2iePVKKg7eeGZbLh2p8WQAADyUzXcHBipjXVYgW-4LryxWYIz0_wpaXKXORrSD4wLYh2lwjLA5sVlMWsPyywjb_AZSiVU1SO4674X7jj8j4XuvVJr42tSvMQ42g9ny1GoWe727Vkw2R3zoBEsaDSY-mPrLMeOCdtBsnbwXnci8U6PkKC1D6C4Wxf4edBrNDulWssiBVpJQ_HKzYY85NQXHy0TguDNc99IQm6P-2My5lbakqvgimDcyLvPAdzzmKZtVa1GQg5H2qmZih6qcG5GLei_amSNNno9nk67atkxVZpHZWcwz17oh2G-he4ue-L)
+[View graph on Kroki](https://kroki.io/mermaid/svg/eNqNkk1PwzAMhu_7Fda4DInBcVIPSGMTu4A0DSQOZUJumrVVs7okqcr49TgpHf3YgUtrxY9fv7GTaCxTeF1PAIxFbWc7-VlJY6-DIOADK2E-v4cjZsUHKhveUSGBDu97TpPmojbjMcQSw6Wq8WRgqRTVsEWbclzZdD-GkwG80VSVLc24k_NoLEVmMipm69_g7M5TSZ-aDDvlorxk3l25ihI_gKkrAOTOpLNvqc2Us9BWehXNdt1wMi3jvtUhWWP4JqOUKP-7S7fX7mG5avTBqTY1gotI56ZEIWFFhZWF7eiDIzxphI4xfDkZK4-w2q17kE82Kyt5F8_4dQtbqY-ZcZOBLalMnLquwINcMffB5SW32PmGirWfSKDqK14gEyY3iqJ_oBGjD0TWWB7TmJZFPGm-_KsHKwdnaXiUjI-icvxWhEJj1vIAzXsXpEgHV4-LRTdHGg6ZUkHBs7lhh5RLH_8Amf8GPg==)
 
 ### Always Allow Paths Authorizer
 
@@ -247,9 +252,14 @@ contexts:
       cluster: webhook
 ```
 
-The webhook will receive every authorization request made in kcp, including internal ones. This means if the webhook
-is badly configured, it can even prevent kcp from starting up successfully, but on the other hand this allows
-a lot of influence over the authorization in kcp.
+The webhook will receive every authorization request made in kcp and is therefore able to bypass traditional
+RBAC. However it cannot overrule the Always Allow Paths/Groups authorizers as these are required for core
+functionality in kcp like health checks.
+
+!!! note
+    However webhooks still have tremendous influence and a webhook that always denies every request will
+    block workspace creation, for example, potentially preventing kcp from even starting up because
+    the `root` workspace cannot be created.
 
 The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (compared to vanilla Kubernetes) include the name of target logical cluster as an `extra` field, like so:
 

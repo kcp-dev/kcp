@@ -131,29 +131,6 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	// re-use the authorizer from the generic control plane (this is only set for webhooks)
-	if webhook := s.Webhook; webhook != nil && webhook.WebhookConfigFile != "" {
-		authorizationConfig, err := webhook.ToAuthorizationConfig(informerfactoryhack.Wrap(kubeInformers))
-		if err != nil {
-			return err
-		}
-
-		if config.EgressSelector != nil {
-			egressDialer, err := config.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
-			if err != nil {
-				return err
-			}
-			authorizationConfig.CustomDial = egressDialer
-		}
-
-		authorizer, _, err := authorizationConfig.New(ctx, config.APIServerID)
-		if err != nil {
-			return err
-		}
-
-		authorizers = append(authorizers, authorizer)
-	}
-
 	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
@@ -169,6 +146,30 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			return err
 		}
 		authorizers = append(authorizers, a)
+	}
+
+	// re-use the authorizer from the generic control plane (this is only set for webhooks)
+	var webhookAuthorizer authorizer.Authorizer
+	if webhook := s.Webhook; webhook != nil && webhook.WebhookConfigFile != "" {
+		authorizationConfig, err := webhook.ToAuthorizationConfig(informerfactoryhack.Wrap(kubeInformers))
+		if err != nil {
+			return err
+		}
+
+		if config.EgressSelector != nil {
+			egressDialer, err := config.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
+			if err != nil {
+				return err
+			}
+			authorizationConfig.CustomDial = egressDialer
+		}
+
+		webhookAuthorizer, _, err = authorizationConfig.New(ctx, config.APIServerID)
+		if err != nil {
+			return err
+		}
+
+		webhookAuthorizer = authz.NewDecorator("10-webhook", webhookAuthorizer).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 	}
 
 	// kcp authorizers, these are evaluated in reverse order
@@ -209,7 +210,13 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister, contentAuth)
 	requiredGroupsAuth = authz.NewDecorator("01-requiredgroups", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
 
-	authorizers = append(authorizers, requiredGroupsAuth)
+	// The kcp authorizer chain and the webhook form a union of themselves, so that a faulty webhook
+	// cannot prevent the health checks or system tasks from succeeding.
+	if webhookAuthorizer != nil {
+		authorizers = append(authorizers, union.New(webhookAuthorizer, requiredGroupsAuth))
+	} else {
+		authorizers = append(authorizers, requiredGroupsAuth)
+	}
 
 	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)
