@@ -377,7 +377,7 @@ TODO
 
 `APIBindings` are used to import API resources. They contain a reference to an `APIExport` using the namespace and workspace path of an `APIExport` and will bind all APIs defined in the `APIExport`. The reference path needs to be provided to you by the provider of the API or an external catalog solution.
 
-Furthermore, `APIBindings` provide access to the groups/resources defined in an `APIExport's` `PermissionClaims` list.
+Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s `PermissionClaims` list. `PermissionClaims` must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
 
 Returning to our previous example, we can use the following `APIBinding` to import the widgets api.
 
@@ -393,7 +393,9 @@ spec:
       path: "root:api-provider" # path of your api-provider workspace
 ```
 
-It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`. Instead APIs are directly bound. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
+It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`. Instead APIs are directly bound. 
+
+Bound APIs are like any other resources in kcp or Kubernetes. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
 
 ```sh
 # inside consumer workspace
