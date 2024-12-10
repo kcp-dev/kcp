@@ -378,6 +378,7 @@ TODO
 `APIBindings` are used to import API resources. They contain a reference to an `APIExport` using the namespace and workspace path of an `APIExport` and will bind all APIs defined in the `APIExport`. The reference path needs to be provided to you by the provider of the API or an external catalog solution.
 
 Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s `PermissionClaims` list. `PermissionClaims` must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
+When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New `PermissionClaims` on the other hand are NOT automatically accepted.
 
 Returning to our previous example, we can use the following `APIBinding` to import the widgets api.
 
