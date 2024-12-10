@@ -30,6 +30,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,6 +48,8 @@ import (
 	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+
+	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 var (
@@ -251,6 +254,78 @@ func WithRequestIdentity(handler http.Handler) http.Handler {
 
 		handler.ServeHTTP(w, updatedReq)
 	})
+}
+
+type privilege int
+
+const (
+	unprivileged privilege = iota
+	priviledged
+	superPrivileged
+)
+
+var (
+	// specialGroups specify groups with special meaning kcp. Lower privilege (= lower number)
+	// cannot impersonate higher privilege levels.
+	specialGroups = map[string]privilege{
+		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
+		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
+	}
+)
+
+// WithImpersonationGatekeeper checks the request for impersonations and validates them,
+// if they are valid. If they are not, will return a 403.
+// We check for impersonation in the request headers, early to avoid it being propagated to
+// the backend services.
+func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Impersonation check is only done when impersonation is requested.
+		// And impersonations is only allowed for the users, who have metadata in the ctx.
+		// Else just pass the request.
+		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
+		if len(impersonationUser) == 0 {
+			handler.ServeHTTP(w, req)
+			return
+		}
+		requester, exists := request.UserFrom(req.Context())
+		if !exists {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is invalid for the requestor")),
+				errorCodecs, schema.GroupVersion{}, w, req)
+			return
+		}
+		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		responsewriters.ErrorNegotiated(
+			apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is not allowed for the requestor")),
+			errorCodecs, schema.GroupVersion{}, w, req)
+	})
+}
+
+// maxUserPrivilege returns the highest privilege level found among the user's groups.
+func maxUserPrivilege(userGroups []string) privilege {
+	max := unprivileged
+	for _, g := range userGroups {
+		if p, found := specialGroups[g]; found && p > max {
+			max = p
+		}
+	}
+	return max
+}
+
+// validImpersonation checks if a user can impersonate all requested groups.
+func validImpersonation(userGroups, requestedGroups []string) bool {
+	userMax := maxUserPrivilege(userGroups)
+
+	for _, g := range requestedGroups {
+		if userMax < specialGroups[g] {
+			return false
+		}
+	}
+	return true
 }
 
 func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo) (*http.Request, error) {

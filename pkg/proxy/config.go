@@ -97,7 +97,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.ShardsKubeconfig},
 		// We override the Server here so that the user doesn't have to specify unused server value
 		// The Server must have HTTPS scheme otherwise CA won't be loaded (see IsConfigTransportTLS method)
-		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: "https://fakeserver.io"}}).ClientConfig()
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: "https://kcp.io/fake"}}).ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load shard kubeconfig: %w", err)
 	}
