@@ -38,7 +38,7 @@ EOF
 fi
 
 repository=ghcr.io/kcp-dev/kcp
-architectures="amd64 arm64 ppc64le"
+architectures="amd64 arm64"
 
 # when building locally, just tag with the current HEAD hash
 version="$(git rev-parse --short HEAD)"
