@@ -409,7 +409,7 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
 		// configure audit logging enabled authorizer chain and build the apiHandler using this configuration.
 		genericConfig.Authorization.Authorizer = authorization.WithAuditLogging("request.auth.kcp.io", genericConfig.Authorization.Authorizer)
-		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthzToCompletion(apiHandler, genericConfig)
 		// reset authorizer chain with audit logging disabled.
 		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
 
@@ -442,7 +442,9 @@ func NewConfig(opts kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
-		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
+		apiHandler = WithImpersonationGatekeeper(apiHandler)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
