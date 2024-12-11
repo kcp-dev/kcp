@@ -136,8 +136,10 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	}
 
 	serverConfig.Config.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
-		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
-		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthzToCompletion(apiHandler, genericConfig)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
+
 		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)

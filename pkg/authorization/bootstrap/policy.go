@@ -19,6 +19,7 @@ package bootstrap
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	rbacv1helpers "k8s.io/kubernetes/pkg/apis/rbac/v1"
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
@@ -44,6 +45,12 @@ const (
 	SystemExternalLogicalClusterAdmin = "system:kcp:external-logical-cluster-admin"
 	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
+)
+
+const (
+	// SystemMastersGroup is the group inherited from k8s codebase - all powerful, all knowing!
+	// Users should not be added to this group.
+	SystemMastersGroup = user.SystemPrivilegedGroup
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles.
