@@ -161,7 +161,6 @@ func (tc *transformingListerWatcherClient) List(ctx context.Context, opts metav1
 	transformedResult := result.DeepCopy()
 	transformedResult.Items = []unstructured.Unstructured{}
 	for _, item := range result.Items {
-		item := item
 		itemAfterLogger := logging.WithObject(afterLogger, &item)
 		itemAfterLogger.Info(startingMessage)
 		if transformed, err := tc.transformer.AfterRead(tc.resourceClient(&item), ctx, tc.resource, &item, nil); err != nil {
@@ -428,7 +427,6 @@ func (tc *transformingResourceClient) DeleteCollectionWithResult(ctx context.Con
 	transformedResult := result.DeepCopy()
 	transformedResult.Items = []unstructured.Unstructured{}
 	for _, item := range result.Items {
-		item := item
 		itemAfterLogger := logging.WithObject(afterLogger, &item)
 		itemAfterLogger.Info(startingMessage)
 		if transformed, err := tc.transformer.AfterRead(tc.resourceClient(&item), ctx, tc.resource, &item, nil); err != nil {

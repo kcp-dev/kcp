@@ -55,13 +55,9 @@ OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
 OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
 export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v1.58.1
+GOLANGCI_LINT_VER := v1.62.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
-
-STATICCHECK_VER := 2023.1.7
-STATICCHECK_BIN := staticcheck
-STATICCHECK := $(TOOLS_GOBIN_DIR)/$(STATICCHECK_BIN)-$(STATICCHECK_VER)
 
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
@@ -140,9 +136,6 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
-$(STATICCHECK):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) honnef.co/go/tools/cmd/staticcheck $(STATICCHECK_BIN) $(STATICCHECK_VER)
-
 $(LOGCHECK):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
 
@@ -152,9 +145,8 @@ $(CODE_GENERATOR):
 $(KCP_APIGEN_GEN):
 	pushd . && cd sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
 
-lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK) ## Verify lint
+lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	$(GOLANGCI_LINT) run --timeout 20m ./...
-	$(STATICCHECK) -checks ST1019,ST1005 ./...
 	./hack/verify-contextual-logging.sh
 .PHONY: lint
 

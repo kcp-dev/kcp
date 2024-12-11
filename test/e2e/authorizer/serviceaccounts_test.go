@@ -162,8 +162,6 @@ func TestServiceAccounts(t *testing.T) {
 		}},
 	}
 	for i, ttc := range testCases {
-		i := i
-		ttc := ttc
 		t.Run(ttc.name, func(t *testing.T) {
 			t.Parallel()
 

@@ -125,7 +125,8 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 					apisv1alpha1.PartitionValid,
 					apisv1alpha1.PartitionInvalidReferenceReason,
 					conditionsv1alpha1.ConditionSeverityError,
-					err.Error(),
+					"%v",
+					err,
 				)
 				conditions.MarkFalse(
 					apiExportEndpointSlice,
@@ -142,7 +143,8 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 					apisv1alpha1.PartitionValid,
 					apisv1alpha1.InternalErrorReason,
 					conditionsv1alpha1.ConditionSeverityError,
-					err.Error(),
+					"%v",
+					err,
 				)
 				conditions.MarkUnknown(
 					apiExportEndpointSlice,
@@ -160,7 +162,8 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 				apisv1alpha1.PartitionValid,
 				apisv1alpha1.PartitionInvalidReferenceReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				err.Error(),
+				"%v",
+				err,
 			)
 			conditions.MarkFalse(
 				apiExportEndpointSlice,
@@ -196,7 +199,8 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 			apisv1alpha1.APIExportEndpointSliceURLsReady,
 			apisv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"%v",
+			err,
 		)
 		return err
 	}

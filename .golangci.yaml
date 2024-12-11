@@ -10,11 +10,11 @@ linters:
   - bidichk
   - bodyclose
   - containedctx
+  - copyloopvar
   - dupword
   - durationcheck
   - errcheck
   - errchkjson
-  - exportloopref
   - gocritic
   - godot
   - gofmt
@@ -51,9 +51,11 @@ linters-settings:
     allow-leading-space: false
     require-specific: true
   revive:
-    revive:
+    # make sure error-strings issues actually surface (default confidence is 0.8)
+    confidence: 0.6
     rules:
       - name: context-keys-type
+      - name: duplicated-imports
       - name: error-return
       - name: error-strings
       - name: error-naming
