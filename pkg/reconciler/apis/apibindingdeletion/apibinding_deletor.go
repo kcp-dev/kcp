@@ -118,7 +118,7 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 
 	deleteError := utilerrors.NewAggregate(deleteErrors)
 	if deleteError != nil {
-		return gvrDeletionMetadata{}, err
+		return gvrDeletionMetadata{}, deleteError
 	}
 
 	// resource will not be delete immediately, instead of list again, we just return the
