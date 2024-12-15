@@ -21,17 +21,18 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kubeinformers "github.com/kcp-dev/client-go/informers/core/v1"
 	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kubeclient "github.com/kcp-dev/client-go/kubernetes"
 	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
 	"github.com/kube-bind/kube-bind/pkg/committer"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -55,8 +56,8 @@ const (
 func NewController(
 	config *rest.Config,
 	scope kubebindv1alpha1.Scope,
-	clusterBindingInformer bindinformers.ClusterBindingInformer,
-	serviceExportInformer bindinformers.APIServiceExportInformer,
+	clusterBindingInformer bindinformers.ClusterBindingClusterInformer,
+	serviceExportInformer bindinformers.APIServiceExportClusterInformer,
 	clusterRoleInformer rbacinformers.ClusterRoleClusterInformer,
 	clusterRoleBindingInformer rbacinformers.ClusterRoleBindingClusterInformer,
 	roleBindingInformer rbacinformers.RoleBindingClusterInformer,
@@ -98,8 +99,8 @@ func NewController(
 
 		reconciler: reconciler{
 			scope: scope,
-			listServiceExports: func(ns string) ([]*kubebindv1alpha1.APIServiceExport, error) {
-				return serviceExportInformer.Lister().APIServiceExports(ns).List(labels.Everything())
+			listServiceExports: func(cluster logicalcluster.Name, ns string) ([]*kubebindv1alpha1.APIServiceExport, error) {
+				return serviceExportInformer.Lister().Cluster(cluster).APIServiceExports(ns).List(labels.Everything())
 			},
 			getClusterRole: func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 				return clusterRoleInformer.Lister().Cluster(cluster).Get(name)
@@ -177,10 +178,10 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	clusterBindingLister  bindlisters.ClusterBindingLister
+	clusterBindingLister  bindlisters.ClusterBindingClusterLister
 	clusterBindingIndexer cache.Indexer
 
-	serviceExportLister  bindlisters.APIServiceExportLister
+	serviceExportLister  bindlisters.APIServiceExportClusterLister
 	serviceExportIndexer cache.Indexer
 
 	clusterRoleLister  rbaclisters.ClusterRoleClusterLister
@@ -277,13 +278,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 
-	ns, name, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, ns, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
-		return nil // we cannot do anything
+		logger.Error(err, "invalid key")
+		return nil
 	}
 
-	obj, err := c.clusterBindingLister.ClusterBindings(ns).Get(name)
+	obj, err := c.clusterBindingLister.Cluster(clusterName).ClusterBindings(ns).Get(name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if errors.IsNotFound(err) {
@@ -295,7 +296,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	obj = obj.DeepCopy()
 
 	var errs []error
-	if err := c.reconcile(ctx, obj); err != nil {
+	if err := c.reconcile(ctx, clusterName, obj); err != nil {
 		errs = append(errs, err)
 	}
 

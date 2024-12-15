@@ -21,16 +21,18 @@ import (
 	"fmt"
 	"time"
 
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/committer"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
+	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
+	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -49,8 +51,8 @@ const (
 // NewController returns a new controller to reconcile ServiceExports.
 func NewController(
 	config *rest.Config,
-	serviceExportInformer bindinformers.APIServiceExportInformer,
-	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
+	serviceExportInformer bindinformers.APIServiceExportClusterInformer,
+	crdInformer apiextensionsinformers.CustomResourceDefinitionClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -76,14 +78,14 @@ func NewController(
 		crdIndexer: crdInformer.Informer().GetIndexer(),
 
 		reconciler: reconciler{
-			getCRD: func(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-				return crdInformer.Lister().Get(name)
+			getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+				return crdInformer.Lister().Cluster(clusterName).Get(name)
 			},
-			deleteServiceExport: func(ctx context.Context, ns, name string) error {
-				return bindClient.KubeBindV1alpha1().APIServiceExports(ns).Delete(ctx, name, metav1.DeleteOptions{})
+			deleteServiceExport: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) error {
+				return bindClient.KubeBindV1alpha1().Cluster(clusterName.Path()).APIServiceExports(ns).Delete(ctx, name, metav1.DeleteOptions{})
 			},
 			requeue: func(export *kubebindv1alpha1.APIServiceExport) {
-				key, err := cache.MetaNamespaceKeyFunc(export)
+				key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
 				if err != nil {
 					runtime.HandleError(err)
 					return
@@ -92,11 +94,10 @@ func NewController(
 			},
 		},
 
-		commit: committer.NewCommitter[*kubebindv1alpha1.APIServiceExport, *kubebindv1alpha1.APIServiceExportSpec, *kubebindv1alpha1.APIServiceExportStatus](
-			func(ns string) committer.Patcher[*kubebindv1alpha1.APIServiceExport] {
-				return bindClient.KubeBindV1alpha1().APIServiceExports(ns)
-			},
-		),
+		// TODO: Implement commit function
+		//commit: committer.NewCommitter[*kubebindv1alpha1.APIServiceExport, kubebindv1alpha1client.APIServiceExportInterface, *kubebindv1alpha1.APIServiceExportSpec, *kubebindv1alpha1.APIServiceExportStatus](
+		//	bindClient.KubeBindV1alpha1().APIServiceExports(),
+		//),
 	}
 
 	indexers.AddIfNotPresentOrDie(serviceExportInformer.Informer().GetIndexer(), cache.Indexers{
@@ -138,12 +139,12 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	bindClient bindclient.Interface
+	bindClient bindclient.ClusterInterface
 
-	serviceExportLister  bindlisters.APIServiceExportLister
+	serviceExportLister  bindlisters.APIServiceExportClusterLister
 	serviceExportIndexer cache.Indexer
 
-	crdLister  apiextensionslisters.CustomResourceDefinitionLister
+	crdLister  apiextensionslisters.CustomResourceDefinitionClusterLister
 	crdIndexer cache.Indexer
 
 	reconciler
@@ -241,13 +242,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	ns, name, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, snsNamespace, snsName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
-		return nil // we cannot do anything
+		return nil
 	}
 
-	obj, err := c.serviceExportLister.APIServiceExports(ns).Get(name)
+	obj, err := c.serviceExportLister.Cluster(clusterName).APIServiceExports(snsNamespace).Get(snsName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if errors.IsNotFound(err) {
@@ -258,7 +258,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	obj = obj.DeepCopy()
 
 	var errs []error
-	if err := c.reconcile(ctx, obj); err != nil {
+	if err := c.reconcile(ctx, clusterName, obj); err != nil {
 		errs = append(errs, err)
 	}
 

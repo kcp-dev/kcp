@@ -20,10 +20,11 @@ import (
 	"context"
 	"time"
 
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1/helpers"
-	conditionsapi "github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/logicalcluster/v3"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	"github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1/helpers"
+	conditionsapi "github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/util/conditions"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,17 +36,17 @@ import (
 type reconciler struct {
 	informerScope kubebindv1alpha1.Scope
 
-	getCRD              func(name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	getServiceExport    func(ns, name string) (*kubebindv1alpha1.APIServiceExport, error)
-	createServiceExport func(ctx context.Context, resource *kubebindv1alpha1.APIServiceExport) (*kubebindv1alpha1.APIServiceExport, error)
+	getCRD              func(cluster logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	getServiceExport    func(cluster logicalcluster.Name, ns, name string) (*kubebindv1alpha1.APIServiceExport, error)
+	createServiceExport func(ctx context.Context, cluster logicalcluster.Name, resource *kubebindv1alpha1.APIServiceExport) (*kubebindv1alpha1.APIServiceExport, error)
 
-	deleteServiceExportRequest func(ctx context.Context, namespace, name string) error
+	deleteServiceExportRequest func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) error
 }
 
-func (r *reconciler) reconcile(ctx context.Context, req *kubebindv1alpha1.APIServiceExportRequest) error {
+func (r *reconciler) reconcile(ctx context.Context, clusterName logicalcluster.Name, req *kubebindv1alpha1.APIServiceExportRequest) error {
 	var errs []error
 
-	if err := r.ensureExports(ctx, req); err != nil {
+	if err := r.ensureExports(ctx, clusterName, req); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -54,14 +55,14 @@ func (r *reconciler) reconcile(ctx context.Context, req *kubebindv1alpha1.APISer
 	return utilerrors.NewAggregate(errs)
 }
 
-func (r *reconciler) ensureExports(ctx context.Context, req *kubebindv1alpha1.APIServiceExportRequest) error {
+func (r *reconciler) ensureExports(ctx context.Context, clusterName logicalcluster.Name, req *kubebindv1alpha1.APIServiceExportRequest) error {
 	logger := klog.FromContext(ctx)
 
 	if req.Status.Phase == kubebindv1alpha1.APIServiceExportRequestPhasePending {
 		failure := false
 		for _, res := range req.Spec.Resources {
 			name := res.Resource + "." + res.Group
-			crd, err := r.getCRD(name)
+			crd, err := r.getCRD(clusterName, name)
 			if err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
@@ -78,7 +79,7 @@ func (r *reconciler) ensureExports(ctx context.Context, req *kubebindv1alpha1.AP
 				break
 			}
 
-			if _, err := r.getServiceExport(req.Namespace, name); err != nil && !apierrors.IsNotFound(err) {
+			if _, err := r.getServiceExport(clusterName, req.Namespace, name); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			} else if err == nil {
 				continue
@@ -114,7 +115,7 @@ func (r *reconciler) ensureExports(ctx context.Context, req *kubebindv1alpha1.AP
 			}
 
 			logger.V(1).Info("Creating APIServiceExport", "name", export.Name, "namespace", export.Namespace)
-			if _, err = r.createServiceExport(ctx, export); err != nil {
+			if _, err = r.createServiceExport(ctx, clusterName, export); err != nil {
 				return err
 			}
 		}
@@ -135,7 +136,7 @@ func (r *reconciler) ensureExports(ctx context.Context, req *kubebindv1alpha1.AP
 
 	if time.Since(req.CreationTimestamp.Time) > 10*time.Minute {
 		logger.Info("Deleting service binding request %s/%s", req.Namespace, req.Name, "reason", "timeout", "age", time.Since(req.CreationTimestamp.Time))
-		return r.deleteServiceExportRequest(ctx, req.Namespace, req.Name)
+		return r.deleteServiceExportRequest(ctx, clusterName, req.Namespace, req.Name)
 	}
 
 	return nil

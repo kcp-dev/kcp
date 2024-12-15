@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	conditionsapi "github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/util/conditions"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	conditionsapi "github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/util/conditions"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -40,7 +40,7 @@ import (
 type reconciler struct {
 	scope kubebindv1alpha1.Scope
 
-	listServiceExports func(ns string) ([]*kubebindv1alpha1.APIServiceExport, error)
+	listServiceExports func(cluster logicalcluster.Name, ns string) ([]*kubebindv1alpha1.APIServiceExport, error)
 
 	getClusterRole    func(cluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
 	createClusterRole func(ctx context.Context, cluster logicalcluster.Path, binding *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error)
@@ -58,19 +58,19 @@ type reconciler struct {
 	getNamespace func(cluster logicalcluster.Name, name string) (*corev1.Namespace, error)
 }
 
-func (r *reconciler) reconcile(ctx context.Context, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
+func (r *reconciler) reconcile(ctx context.Context, clusterName logicalcluster.Name, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
 	var errs []error
 
-	if err := r.ensureClusterBindingConditions(ctx, clusterBinding); err != nil {
+	if err := r.ensureClusterBindingConditions(ctx, clusterName, clusterBinding); err != nil {
 		errs = append(errs, err)
 	}
-	if err := r.ensureRBACRoleBinding(ctx, clusterBinding); err != nil {
+	if err := r.ensureRBACRoleBinding(ctx, clusterName, clusterBinding); err != nil {
 		errs = append(errs, err)
 	}
-	if err := r.ensureRBACClusterRole(ctx, clusterBinding); err != nil {
+	if err := r.ensureRBACClusterRole(ctx, clusterName, clusterBinding); err != nil {
 		errs = append(errs, err)
 	}
-	if err := r.ensureRBACClusterRoleBinding(ctx, clusterBinding); err != nil {
+	if err := r.ensureRBACClusterRoleBinding(ctx, clusterName, clusterBinding); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -79,7 +79,7 @@ func (r *reconciler) reconcile(ctx context.Context, clusterBinding *kubebindv1al
 	return utilerrors.NewAggregate(errs)
 }
 
-func (r *reconciler) ensureClusterBindingConditions(ctx context.Context, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
+func (r *reconciler) ensureClusterBindingConditions(ctx context.Context, _ logicalcluster.Name, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
 	if clusterBinding.Status.LastHeartbeatTime.IsZero() {
 		conditions.MarkFalse(clusterBinding,
 			kubebindv1alpha1.ClusterBindingConditionHealthy,
@@ -119,9 +119,8 @@ func (r *reconciler) ensureClusterBindingConditions(ctx context.Context, cluster
 	return nil
 }
 
-func (r *reconciler) ensureRBACClusterRole(ctx context.Context, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
+func (r *reconciler) ensureRBACClusterRole(ctx context.Context, clusterName logicalcluster.Name, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
 	name := "kube-binder-" + clusterBinding.Namespace
-	clusterName := logicalcluster.From(clusterBinding)
 	cluster := clusterName.Path()
 
 	role, err := r.getClusterRole(clusterName, name)
@@ -134,7 +133,7 @@ func (r *reconciler) ensureRBACClusterRole(ctx context.Context, clusterBinding *
 		return fmt.Errorf("failed to get Namespace %s: %w", clusterBinding.Namespace, err)
 	}
 
-	exports, err := r.listServiceExports(clusterBinding.Namespace)
+	exports, err := r.listServiceExports(clusterName, clusterBinding.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to list APIServiceExports: %w", err)
 	}
@@ -175,9 +174,8 @@ func (r *reconciler) ensureRBACClusterRole(ctx context.Context, clusterBinding *
 	return nil
 }
 
-func (r *reconciler) ensureRBACClusterRoleBinding(ctx context.Context, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
+func (r *reconciler) ensureRBACClusterRoleBinding(ctx context.Context, clusterName logicalcluster.Name, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
 	name := "kube-binder-" + clusterBinding.Namespace
-	clusterName := logicalcluster.From(clusterBinding)
 	cluster := clusterName.Path()
 
 	binding, err := r.getClusterRoleBinding(clusterName, name)
@@ -239,8 +237,7 @@ func (r *reconciler) ensureRBACClusterRoleBinding(ctx context.Context, clusterBi
 	return nil
 }
 
-func (r *reconciler) ensureRBACRoleBinding(ctx context.Context, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
-	clusterName := logicalcluster.From(clusterBinding)
+func (r *reconciler) ensureRBACRoleBinding(ctx context.Context, clusterName logicalcluster.Name, clusterBinding *kubebindv1alpha1.ClusterBinding) error {
 	cluster := clusterName.Path()
 
 	binding, err := r.getRoleBinding(clusterName, clusterBinding.Namespace, "kube-binder")

@@ -22,18 +22,19 @@ import (
 	"reflect"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	coreinformers "github.com/kcp-dev/client-go/informers/core/v1"
 	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
 	"github.com/kube-bind/kube-bind/pkg/committer"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
+	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -56,9 +57,9 @@ const (
 func NewController(
 	config *rest.Config,
 	scope kubebindv1alpha1.Scope,
-	serviceNamespaceInformer bindinformers.APIServiceNamespaceInformer,
-	clusterBindingInformer bindinformers.ClusterBindingInformer,
-	serviceExportInformer bindinformers.APIServiceExportInformer,
+	serviceNamespaceInformer bindinformers.APIServiceNamespaceClusterInformer,
+	clusterBindingInformer bindinformers.ClusterBindingClusterInformer,
+	serviceExportInformer bindinformers.APIServiceExportClusterInformer,
 	namespaceInformer coreinformers.NamespaceClusterInformer,
 	roleInformer rbacinformers.RoleClusterInformer,
 	roleBindingInformer rbacinformers.RoleBindingClusterInformer,
@@ -208,13 +209,13 @@ type Controller struct {
 	namespaceLister  corelisters.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	serviceNamespaceLister  bindlisters.APIServiceNamespaceLister
+	serviceNamespaceLister  bindlisters.APIServiceNamespaceClusterLister
 	serviceNamespaceIndexer cache.Indexer
 
-	clusterBindingLister  bindlisters.ClusterBindingLister
+	clusterBindingLister  bindlisters.ClusterBindingClusterLister
 	clusterBindingIndexer cache.Indexer
 
-	serviceExportLister  bindlisters.APIServiceExportLister
+	serviceExportLister  bindlisters.APIServiceExportClusterLister
 	serviceExportIndexer cache.Indexer
 
 	roleLister  rbaclisters.RoleClusterLister
@@ -367,21 +368,17 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	snsNamespace, snsName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, snsNamespace, snsName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
-		return nil // we cannot do anything
+		return nil
 	}
-	nsName := snsNamespace + "-" + snsName
+	nsName := clusterName.String() + "-" + snsNamespace + "-" + snsName
 
-	// TODO: Fake path
-	clusterName := logicalcluster.NewPath("fake")
-
-	obj, err := c.serviceNamespaceLister.APIServiceNamespaces(snsNamespace).Get(snsName)
+	obj, err := c.serviceNamespaceLister.Cluster(clusterName).APIServiceNamespaces(snsNamespace).Get(snsName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if errors.IsNotFound(err) {
-		if err := c.deleteNamespace(ctx, clusterName, nsName); err != nil && !errors.IsNotFound(err) {
+		if err := c.deleteNamespace(ctx, clusterName.Path(), nsName); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 		return nil

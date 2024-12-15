@@ -28,25 +28,25 @@ import (
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apiextensionsclient "github.com/kcp-dev/client-go/apiextensions/client"
+	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	bindclient "github.com/kcp-dev/kcp/contrib/kube-bind/clients/clientset/versioned"
-	bindinformers "github.com/kcp-dev/kcp/contrib/kube-bind/clients/informers/externalversions"
 	"github.com/kcp-dev/kcp/contrib/kube-bind/options"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions"
 )
 
 type Config struct {
 	Options *options.CompletedOptions
 
 	ClientConfig        *rest.Config
-	BindClient          *bindclient.Clientset
+	BindClient          *bindclient.ClusterClientset
 	KubeClient          *kubernetesclient.ClusterClientset
-	ApiextensionsClient *apiextensionsclient.Clientset
+	ApiextensionsClient *apiextensionsclient.ClusterClientset
 
 	KubeInformers          kubeinformers.SharedInformerFactory
 	BindInformers          bindinformers.SharedInformerFactory

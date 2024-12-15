@@ -31,11 +31,11 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
 	bindversion "github.com/kube-bind/kube-bind/pkg/version"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
 
+	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,7 +72,7 @@ type handler struct {
 	cookieSigningKey    []byte
 
 	client              *http.Client
-	apiextensionsLister apiextensionslisters.CustomResourceDefinitionLister
+	apiextensionsLister apiextensionslisters.CustomResourceDefinitionClusterLister
 	kubeManager         *kubernetes.Manager
 }
 
@@ -82,7 +82,7 @@ func NewHandler(
 	cookieSigningKey, cookieEncryptionKey []byte,
 	scope kubebindv1alpha1.Scope,
 	mgr *kubernetes.Manager,
-	apiextensionsLister apiextensionslisters.CustomResourceDefinitionLister,
+	apiextensionsLister apiextensionslisters.CustomResourceDefinitionClusterLister,
 ) (*handler, error) {
 	return &handler{
 		oidc:                provider,

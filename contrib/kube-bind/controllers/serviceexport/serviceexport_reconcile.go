@@ -19,10 +19,11 @@ package serviceexport
 import (
 	"context"
 
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	kubebindhelpers "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1/helpers"
-	conditionsapi "github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
-	"github.com/kube-bind/kube-bind/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/logicalcluster/v3"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	kubebindhelpers "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1/helpers"
+	conditionsapi "github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kube-bind/kube-bind/sdk/apis/third_party/conditions/util/conditions"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,16 +32,16 @@ import (
 )
 
 type reconciler struct {
-	getCRD              func(name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	deleteServiceExport func(ctx context.Context, namespace, name string) error
+	getCRD              func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	deleteServiceExport func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) error
 
 	requeue func(export *kubebindv1alpha1.APIServiceExport)
 }
 
-func (r *reconciler) reconcile(ctx context.Context, export *kubebindv1alpha1.APIServiceExport) error {
+func (r *reconciler) reconcile(ctx context.Context, clusterName logicalcluster.Name, export *kubebindv1alpha1.APIServiceExport) error {
 	var errs []error
 
-	if specChanged, err := r.ensureSchema(ctx, export); err != nil {
+	if specChanged, err := r.ensureSchema(ctx, clusterName, export); err != nil {
 		errs = append(errs, err)
 	} else if specChanged {
 		r.requeue(export)
@@ -50,10 +51,10 @@ func (r *reconciler) reconcile(ctx context.Context, export *kubebindv1alpha1.API
 	return utilerrors.NewAggregate(errs)
 }
 
-func (r *reconciler) ensureSchema(ctx context.Context, export *kubebindv1alpha1.APIServiceExport) (specChanged bool, err error) {
+func (r *reconciler) ensureSchema(ctx context.Context, clusterName logicalcluster.Name, export *kubebindv1alpha1.APIServiceExport) (specChanged bool, err error) {
 	logger := klog.FromContext(ctx)
 
-	crd, err := r.getCRD(export.Name)
+	crd, err := r.getCRD(clusterName, export.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err
 	}
@@ -61,7 +62,7 @@ func (r *reconciler) ensureSchema(ctx context.Context, export *kubebindv1alpha1.
 	if crd == nil {
 		// CRD missing => delete SER too
 		logger.V(1).Info("Deleting APIServiceExport because CRD is missing")
-		return false, r.deleteServiceExport(ctx, export.Namespace, export.Name)
+		return false, r.deleteServiceExport(ctx, clusterName, export.Namespace, export.Name)
 	}
 
 	expected, err := kubebindhelpers.CRDToServiceExport(crd)

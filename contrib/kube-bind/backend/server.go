@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net"
 
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
@@ -89,7 +89,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		config.Options.ExternalCA,
 		config.Options.TLSExternalServerName,
 		config.KubeInformers.Core().V1().Namespaces(),
-		config.BindInformers.KubeBind().V1alpha1().APIServiceExports(),
+		config.BindInformers,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up Kubernetes Manager: %w", err)

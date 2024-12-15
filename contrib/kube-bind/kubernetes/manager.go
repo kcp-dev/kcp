@@ -25,9 +25,9 @@ import (
 	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
-	bindinformers "github.com/kube-bind/kube-bind/pkg/client/informers/externalversions/kubebind/v1alpha1"
-	bindlisters "github.com/kube-bind/kube-bind/pkg/client/listers/kubebind/v1alpha1"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions"
+	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +54,7 @@ type Manager struct {
 	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	exportLister  bindlisters.APIServiceExportLister
+	exportLister  bindlisters.APIServiceExportClusterLister
 	exportIndexer cache.Indexer
 }
 
@@ -65,7 +65,7 @@ func NewKubernetesManager(
 	externalCA []byte,
 	externalTLSServerName string,
 	namespaceInformer corev1informers.NamespaceClusterInformer,
-	exportInformer bindinformers.APIServiceExportInformer,
+	exportInformer bindinformers.SharedInformerFactory,
 ) (*Manager, error) {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, "kube-bind-example-backend-kubernetes-manager")
@@ -94,8 +94,8 @@ func NewKubernetesManager(
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
 
-		exportLister:  exportInformer.Lister(),
-		exportIndexer: exportInformer.Informer().GetIndexer(),
+		exportLister:  exportInformer.KubeBind().V1alpha1().APIServiceExports().Lister(),
+		exportIndexer: exportInformer.KubeBind().V1alpha1().APIServiceBindings().Informer().GetIndexer(),
 	}
 
 	indexers.AddIfNotPresentOrDie(m.namespaceIndexer, cache.Indexers{
