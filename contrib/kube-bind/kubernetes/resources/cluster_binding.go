@@ -19,8 +19,8 @@ package resources
 import (
 	"context"
 
-	kubebindv1alpha1 "github.com/kube-bind/kube-bind/pkg/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
+	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"

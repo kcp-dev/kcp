@@ -26,20 +26,15 @@ fi
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 if [ ! -d "$REPO_ROOT/kube-bind/.git" ]; then
-    git clone "$KUBE_BIND_REPO" --branch "$KUBE_BIND_VERSION" "$REPO_ROOT/kube-bind"
+    git clone "$KUBE_BIND_REPO" --depth 1 --branch "$KUBE_BIND_VERSION" "$REPO_ROOT/kube-bind"
 fi
+#trap 'rm -rf $REPO_ROOT/kube-bind' EXIT
 
 KUBE_BIND_REPO_ROOT=$REPO_ROOT/kube-bind
 
 # Update generated CRD YAML
 (
-    cd "${KUBE_BIND_REPO_ROOT}/pkg/apis"
-    "${CONTROLLER_GEN}" \
-        crd \
-        rbac:roleName=manager-role \
-        webhook \
-        paths="./..." \
-        output:crd:artifacts:config="${REPO_ROOT}"/config/crds
+    cp -r "${KUBE_BIND_REPO_ROOT}"/deploy/crd/*.yaml "${REPO_ROOT}"/config/crds/
 )
 
 for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do

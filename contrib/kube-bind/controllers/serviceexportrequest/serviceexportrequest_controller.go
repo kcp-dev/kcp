@@ -22,6 +22,8 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
+	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kube-bind/kube-bind/pkg/committer"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
@@ -30,10 +32,7 @@ import (
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
-	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"

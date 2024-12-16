@@ -388,7 +388,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	obj = obj.DeepCopy()
 
 	var errs []error
-	if err := c.reconcile(ctx, obj); err != nil {
+	if err := c.reconcile(ctx, clusterName, obj); err != nil {
 		errs = append(errs, err)
 	}
 

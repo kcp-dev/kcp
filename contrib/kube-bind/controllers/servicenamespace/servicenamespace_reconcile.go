@@ -44,12 +44,11 @@ type reconciler struct {
 	updateRoleBinding func(ctx context.Context, cluster logicalcluster.Path, cr *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error)
 }
 
-func (c *reconciler) reconcile(ctx context.Context, sns *kubebindv1alpha1.APIServiceNamespace) error {
-	clusterName := logicalcluster.From(sns)
+func (c *reconciler) reconcile(ctx context.Context, clusterName logicalcluster.Name, sns *kubebindv1alpha1.APIServiceNamespace) error {
 	cluster := clusterName.Path()
 
 	var ns *corev1.Namespace
-	nsName := sns.Namespace + "-" + sns.Name
+	nsName := clusterName.String() + "-" + sns.Namespace + "-" + sns.Name
 	if sns.Status.Namespace != "" {
 		nsName = sns.Status.Namespace
 		ns, _ = c.getNamespace(clusterName, nsName) // golint:errcheck

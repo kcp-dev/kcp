@@ -27,10 +27,9 @@ import (
 	kubeclient "github.com/kcp-dev/client-go/kubernetes"
 	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kube-bind/kube-bind/pkg/committer"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
@@ -70,10 +69,11 @@ func NewController(
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, controllerName)
 
-	bindClient, err := bindclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
+	//bindClient, err := bindclient.NewForConfig(config)
+	//if err != nil {
+	//	return nil, err
+	//}
+
 	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -137,11 +137,12 @@ func NewController(
 			},
 		},
 
-		commit: committer.NewCommitter[*kubebindv1alpha1.ClusterBinding, *kubebindv1alpha1.ClusterBindingSpec, *kubebindv1alpha1.ClusterBindingStatus](
-			func(ns string) committer.Patcher[*kubebindv1alpha1.ClusterBinding] {
-				return bindClient.KubeBindV1alpha1().ClusterBindings(ns)
-			},
-		),
+		// TODO: Implement commit function
+		//	commit: committer.NewCommitter[*kubebindv1alpha1.ClusterBinding, *kubebindv1alpha1.ClusterBindingSpec, *kubebindv1alpha1.ClusterBindingStatus](
+		//		func(ns string) committer.Patcher[*kubebindv1alpha1.ClusterBinding] {
+		//			return bindClient.KubeBindV1alpha1().ClusterBindings(ns)
+		//		},
+		//	),
 	}
 
 	clusterBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -195,8 +196,10 @@ type Controller struct {
 
 	reconciler
 
-	commit CommitFunc
+	commit func(ctx context.Context, old, new *resource) error
 }
+
+type resource = committer.Resource[*kubebindv1alpha1.ClusterBindingSpec, *kubebindv1alpha1.ClusterBindingStatus]
 
 func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)

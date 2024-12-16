@@ -31,7 +31,7 @@ import (
 
 var (
 	// RootClusterName is the workspace to host common APIs.
-	RootClusterName = logicalcluster.NewPath("root:kube-bind:core")
+	RootClusterName = logicalcluster.NewPath("root:kube-bind")
 )
 
 // Bootstrap creates resources in this package by continuously retrying the list.

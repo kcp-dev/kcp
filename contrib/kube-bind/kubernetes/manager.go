@@ -24,8 +24,8 @@ import (
 	kubeclient "github.com/kcp-dev/client-go/kubernetes"
 	corev1listers "github.com/kcp-dev/client-go/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
-	bindclient "github.com/kube-bind/kube-bind/pkg/client/clientset/versioned"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 

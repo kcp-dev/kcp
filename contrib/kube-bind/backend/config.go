@@ -22,22 +22,22 @@ import (
 	"net/url"
 	"time"
 
+	apiextensionsclient "github.com/kcp-dev/client-go/apiextensions/client"
+	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	kubeinformers "github.com/kcp-dev/client-go/informers"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/logicalcluster/v3"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
+	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions"
 
-	apiextensionsclient "github.com/kcp-dev/client-go/apiextensions/client"
-	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/contrib/kube-bind/options"
-	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
-	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions"
 )
 
 type Config struct {

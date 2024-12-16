@@ -204,7 +204,9 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := deploy.Bootstrap(ctx, s.Config.KubeClient.Discovery(), dynamicClient, sets.NewString()); err != nil {
+	sets.New[string]()
+
+	if err := deploy.Bootstrap(ctx, s.Config.KubeClient.Discovery(), dynamicClient, sets.New[string]()); err != nil {
 		return err
 	}
 

@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.16.2
   name: apiservicenamespaces.kube-bind.io
 spec:
   group: kube-bind.io
@@ -27,20 +26,28 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "APIServiceNamespace defines how consumer namespaces map to service
-          namespaces. These objects are created by the konnector, and a service namespace
-          is then created by the service provider. \n The name of the APIServiceNamespace
-          equals the namespace name in the consumer cluster."
+        description: |-
+          APIServiceNamespace defines how consumer namespaces map to service namespaces.
+          These objects are created by the konnector, and a service namespace is then
+          created by the service provider.
+
+          The name of the APIServiceNamespace equals the namespace name in the consumer
+          cluster.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -52,8 +59,9 @@ spec:
               namespace
             properties:
               namespace:
-                description: namespace is the service provider namespace name that
-                  will be bound to the consumer namespace named like this object.
+                description: |-
+                  namespace is the service provider namespace name that will be bound to the
+                  consumer namespace named like this object.
                 type: string
             type: object
         type: object

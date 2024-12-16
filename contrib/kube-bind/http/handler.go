@@ -31,10 +31,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
+	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	bindversion "github.com/kube-bind/kube-bind/pkg/version"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
 
-	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"

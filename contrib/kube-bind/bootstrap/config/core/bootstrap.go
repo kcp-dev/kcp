@@ -32,7 +32,6 @@ import (
 var (
 	// RootClusterName is the workspace to host common APIs.
 	RootClusterName = logicalcluster.NewPath("root:kube-bind")
-	ClusterName     = logicalcluster.NewPath("root:kube-bind:core")
 )
 
 // Bootstrap creates resources in this package by continuously retrying the list.
@@ -45,9 +44,9 @@ func Bootstrap(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	batteriesIncluded sets.Set[string],
 ) error {
-	computeDiscoveryClient := apiExtensionClusterClient.Cluster(ClusterName).Discovery()
-	computeDynamicClient := dynamicClusterClient.Cluster(ClusterName)
+	computeDiscoveryClient := apiExtensionClusterClient.Cluster(RootClusterName).Discovery()
+	computeDynamicClient := dynamicClusterClient.Cluster(RootClusterName)
 
-	crdClient := apiExtensionClusterClient.ApiextensionsV1().Cluster(ClusterName).CustomResourceDefinitions()
+	crdClient := apiExtensionClusterClient.ApiextensionsV1().Cluster(RootClusterName).CustomResourceDefinitions()
 	return resources.Bootstrap(ctx, kcpClientSet, computeDiscoveryClient, computeDynamicClient, crdClient, batteriesIncluded)
 }

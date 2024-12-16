@@ -8,7 +8,7 @@ KCP_VERSION ?= 0.23.0
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/controller-gen
 export CONTROLLER_GEN # so hack scripts can use it
 
-KUBE_BIND_VERSION ?= v0.3.0
+KUBE_BIND_VERSION ?= v0.4.1
 KUBE_BIND_DIR := kube-bind
 KUBE_BIND_REPO := https://github.com/kube-bind/kube-bind
 export KUBE_BIND_DIR # so hack scripts can use it
@@ -74,9 +74,7 @@ crds: $(CONTROLLER_GEN) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen: crds $(CODE_GENERATOR) ## Generate all
-	go mod download
-	./hack/update-codegen-clients.sh
+codegen: crds
 	$(MAKE) imports
 .PHONY: codegen
 

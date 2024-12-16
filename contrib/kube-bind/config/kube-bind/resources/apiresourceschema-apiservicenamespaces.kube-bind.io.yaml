@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241207-140a2a40f.apiservicenamespaces.kube-bind.io
+  name: v241216-832011705.apiservicenamespaces.kube-bind.io
 spec:
   group: kube-bind.io
   names:
@@ -23,20 +23,28 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: "APIServiceNamespace defines how consumer namespaces map to service
-        namespaces. These objects are created by the konnector, and a service namespace
-        is then created by the service provider. \n The name of the APIServiceNamespace
-        equals the namespace name in the consumer cluster."
+      description: |-
+        APIServiceNamespace defines how consumer namespaces map to service namespaces.
+        These objects are created by the konnector, and a service namespace is then
+        created by the service provider.
+
+        The name of the APIServiceNamespace equals the namespace name in the consumer
+        cluster.
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
           type: object
@@ -47,8 +55,9 @@ spec:
           description: status contains reconciliation information for a service namespace
           properties:
             namespace:
-              description: namespace is the service provider namespace name that will
-                be bound to the consumer namespace named like this object.
+              description: |-
+                namespace is the service provider namespace name that will be bound to the
+                consumer namespace named like this object.
               type: string
           type: object
       type: object

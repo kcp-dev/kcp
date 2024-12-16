@@ -30,6 +30,6 @@ import (
 //go:embed *.yaml
 var raw embed.FS
 
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
 	return bootstrap.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, raw)
 }

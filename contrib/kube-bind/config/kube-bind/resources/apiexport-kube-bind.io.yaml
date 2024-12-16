@@ -5,9 +5,9 @@ metadata:
   name: kube-bind.io
 spec:
   latestResourceSchemas:
-  - v241207-140a2a40f.apiservicebindings.kube-bind.io
-  - v241207-140a2a40f.apiserviceexportrequests.kube-bind.io
-  - v241207-140a2a40f.apiserviceexports.kube-bind.io
-  - v241207-140a2a40f.apiservicenamespaces.kube-bind.io
-  - v241207-140a2a40f.clusterbindings.kube-bind.io
+  - v241216-832011705.apiservicebindings.kube-bind.io
+  - v241216-832011705.apiserviceexportrequests.kube-bind.io
+  - v241216-832011705.apiserviceexports.kube-bind.io
+  - v241216-832011705.apiservicenamespaces.kube-bind.io
+  - v241216-832011705.clusterbindings.kube-bind.io
 status: {}

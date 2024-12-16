@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241207-140a2a40f.clusterbindings.kube-bind.io
+  name: v241216-832011705.clusterbindings.kube-bind.io
 spec:
   group: kube-bind.io
   names:
@@ -29,18 +29,24 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: ClusterBinding represents a bound consumer class. It lives in a
-        service provider cluster and is a singleton named "cluster".
+      description: |-
+        ClusterBinding represents a bound consumer class. It lives in a service provider cluster
+        and is a singleton named "cluster".
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
           type: string
         metadata:
           type: object
@@ -68,16 +74,16 @@ spec:
               - message: kubeconfigSecretRef is immutable
                 rule: self == oldSelf
             providerPrettyName:
-              description: providerPrettyName is the pretty name of the service provider
-                cluster. This can be shared among different ServiceBindings.
+              description: |-
+                providerPrettyName is the pretty name of the service provider cluster. This
+                can be shared among different ServiceBindings.
               minLength: 1
               type: string
             serviceProviderSpec:
-              description: serviceProviderSpec contains all the data and information
-                about the service which has been bound to the service binding request.
-                The service providers decide what they need and what to configure
-                based on what then include in this field, such as service region,
-                type, tiers, etc...
+              description: |-
+                serviceProviderSpec contains all the data and information about the service which has been bound to the service
+                binding request. The service providers decide what they need and what to configure based on what then include in
+                this field, such as service region, type, tiers, etc...
               type: object
               x-kubernetes-preserve-unknown-fields: true
           required:
@@ -89,43 +95,45 @@ spec:
             binding.
           properties:
             conditions:
-              description: conditions is a list of conditions that apply to the ClusterBinding.
-                It is updated by the konnector and the service provider.
+              description: |-
+                conditions is a list of conditions that apply to the ClusterBinding. It is
+                updated by the konnector and the service provider.
               items:
                 description: Condition defines an observation of a object operational
                   state.
                 properties:
                   lastTransitionTime:
-                    description: Last time the condition transitioned from one status
-                      to another. This should be when the underlying condition changed.
-                      If that is not known, then using the time when the API field
-                      changed is acceptable.
+                    description: |-
+                      Last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed. If that is not known, then using the time when
+                      the API field changed is acceptable.
                     format: date-time
                     type: string
                   message:
-                    description: A human readable message indicating details about
-                      the transition. This field may be empty.
+                    description: |-
+                      A human readable message indicating details about the transition.
+                      This field may be empty.
                     type: string
                   reason:
-                    description: The reason for the condition's last transition in
-                      CamelCase. The specific API may choose whether or not this field
-                      is considered a guaranteed API. This field may not be empty.
+                    description: |-
+                      The reason for the condition's last transition in CamelCase.
+                      The specific API may choose whether or not this field is considered a guaranteed API.
+                      This field may not be empty.
                     type: string
                   severity:
-                    description: Severity provides an explicit classification of Reason
-                      code, so the users or machines can immediately understand the
-                      current situation and act accordingly. The Severity field MUST
-                      be set only when Status=False.
+                    description: |-
+                      Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                      understand the current situation and act accordingly.
+                      The Severity field MUST be set only when Status=False.
                     type: string
                   status:
                     description: Status of the condition, one of True, False, Unknown.
                     type: string
                   type:
-                    description: Type of condition in CamelCase or in foo.example.com/CamelCase.
-                      Many .condition.type values are consistent across resources
-                      like Available, but because arbitrary conditions can be useful
-                      (see .node.status.conditions), the ability to deconflict is
-                      important.
+                    description: |-
+                      Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                      can be useful (see .node.status.conditions), the ability to deconflict is important.
                     type: string
                 required:
                 - lastTransitionTime
@@ -134,14 +142,16 @@ spec:
                 type: object
               type: array
             heartbeatInterval:
-              description: heartbeatInterval is the maximal interval between heartbeats
-                that the konnector promises to send. The service provider can assume
-                that the konnector is not unhealthy if it does not receive a heartbeat
-                within this time.
+              description: |-
+                heartbeatInterval is the maximal interval between heartbeats that the
+                konnector promises to send. The service provider can assume that the
+                konnector is not unhealthy if it does not receive a heartbeat within
+                this time.
               type: string
             konnectorVersion:
-              description: konnectorVersion is the version of the konnector that is
-                running on the consumer cluster.
+              description: |-
+                konnectorVersion is the version of the konnector that is running on the
+                consumer cluster.
               type: string
             lastHeartbeatTime:
               description: lastHeartbeatTime is the last time the konnector updated
@@ -152,6 +162,9 @@ spec:
       required:
       - spec
       type: object
+      x-kubernetes-validations:
+      - message: cluster binding name should be cluster
+        rule: self.metadata.name == "cluster"
     served: true
     storage: true
     subresources:
