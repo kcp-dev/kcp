@@ -189,9 +189,94 @@ and work just like in a regular Kubernetes cluster.
 
 It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy `RoleBinding` or `ClusterRoleBinding`.
 
+### Scopes
+
+Scopes are a way to limit the access of a user to a specific logical cluster. Scopes are attached to the user identity
+by adding `cluster:<logical-cluster>` to the `authentication.kcp.io/scopes` extra field. The scope is then checked by
+the authorizers. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1
+```
+
+This user will only be allowed to access resources in `logical-cluster-1`.
+
+A scope mismatch does not invalidate the warrants (see next section) of a user. 
+
 ### Service Accounts
 
 Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.
 
 E.g. a service account "default" in `root:org:ws:ws` is granted access to `root:org:ws:ws`, and through the
 workspace content authorizer it gains the `system:kcp:clusterworkspace:access` group membership.
+
+Service accounts from foreign workspaces are authenticated as user `system:kcp:serviceaccount:<logicalcluster>:<ns>:<serviceaccount>` 
+and under that name can be granted access to workspaces and other permissions. The original service account name is 
+appended as a warrant (see next section) in order to match the same (cluster) role bindings:
+
+```yaml
+user: system:kcp:serviceaccount:logical-cluster-1:default:sa
+groups: ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"]
+extra:
+  authorization.kcp.io/warrants: |
+    {
+      "user": "system:serviceaccount:default:sa",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"],
+      "extra": {
+        "authentication.kubernetes.io/cluster-name": "cluster:logical-cluster-1"
+      }
+    }
+```
+
+### Warrants
+
+Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
+A warrant is attached by adding a `authorization.kcp.io/warrants` extra field to the user identity
+with a JSON-encoded user info, and the limiting logical cluster set as `authentication.kcp.io/scopes: cluster:<logical-cluster>`.
+in the embedded user info's extra. The warrant is then checked by the authorizers in the chain of every step
+if the primary users is not allowed. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authorization.kcp.io/warrants: |
+    {
+      "user": "user2",
+      "groups": ["group2"],
+      "extra": {
+        "authentication.kcp.io/scopes": "cluster:logical-cluster-1"
+      }
+    }
+```
+
+This warrant allows `user1` to act under the permissions of `user2` in 
+`logical-cluster-1` if `user1` is not allowed to act as `user2` in the first place.
+
+Note that a warrant only allow to act under the permissions of the warrant user, 
+but not to act as the warrant user itself. E.g. in auditing or admission control,
+the primary user is still the one that is acting.
+
+Warrants can be nested, i.e. a warrant can contain another warrant.
+
+A denied user invalidates all its warrants.
+
+Service account warrants must be qualified to their logical cluster through the `authentication.kubernetes.io/cluster-name` 
+extra value. For example:
+
+```yaml
+user: user1
+extra:
+    authorization.kcp.io/warrants: |
+      {
+        "user": "system:kcp:serviceaccount:logical-cluster-1:default:sa",
+        "groups": ["system:serviceaccounts", "system:serviceaccounts:logical-cluster-1"],
+        "extra": {
+          "authentication.kubernetes.io/cluster-name": "cluster:logical-cluster-1"
+        }
+      }
+```
