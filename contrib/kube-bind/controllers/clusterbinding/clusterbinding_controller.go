@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kubeinformers "github.com/kcp-dev/client-go/informers/core/v1"
 	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
@@ -28,18 +29,20 @@ import (
 	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kube-bind/kube-bind/pkg/committer"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/equality"
 
+	kubebindv1alpha1clusterclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster/typed/kubebind/v1alpha1"
+
+	"github.com/kcp-dev/kcp/contrib/kube-bind/committer"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -70,7 +73,7 @@ func NewController(
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, controllerName)
 
-	bindClient, err := bindclient.NewForConfig(config)
+	bindClientCluster, err := kubebindv1alpha1clusterclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +100,8 @@ func NewController(
 
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
+
+		bindClient: bindClientCluster,
 
 		reconciler: reconciler{
 			scope: scope,
@@ -137,13 +142,6 @@ func NewController(
 				return roleBindingInformer.Lister().Cluster(cluster).RoleBindings(ns).Get(name)
 			},
 		},
-
-		// TODO: Implement commit function
-		commit: committer.NewCommitter[*kubebindv1alpha1.ClusterBinding, *kubebindv1alpha1.ClusterBindingSpec, *kubebindv1alpha1.ClusterBindingStatus](
-			func(ns string) committer.Patcher[*kubebindv1alpha1.ClusterBinding] {
-				return bindClient.KubeBindV1alpha1().ClusterBindings(ns)
-			},
-		),
 	}
 
 	clusterBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -174,7 +172,6 @@ func NewController(
 }
 
 type Resource = committer.Resource[*kubebindv1alpha1.ClusterBindingSpec, *kubebindv1alpha1.ClusterBindingStatus]
-type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // Controller reconciles ClusterBinding conditions.
 type Controller struct {
@@ -195,9 +192,9 @@ type Controller struct {
 	namespaceLister  corelisters.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	reconciler
+	bindClient *kubebindv1alpha1clusterclient.KubeBindV1alpha1ClusterClient
 
-	commit CommitFunc
+	reconciler
 }
 
 func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) {
@@ -306,11 +303,28 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
+	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
+	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
+
+	specOrObjectMetaChanged := specChanged || objectMetaChanged
+
+	// Simultaneous updates of spec and status are never allowed.
+	if specOrObjectMetaChanged && statusChanged {
+		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+	}
+
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if err := c.commit(ctx, oldResource, newResource); err != nil {
+	patchBytes, subresources, err := committer.GeneratePatchAndSubResources(oldResource, newResource)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	_, err = c.bindClient.Cluster(clusterName.Path()).ClusterBindings(ns).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	return err
 }

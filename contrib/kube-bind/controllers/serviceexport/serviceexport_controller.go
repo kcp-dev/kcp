@@ -21,21 +21,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/contrib/kube-bind/committer"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
+	kubebindv1alpha1clusterclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster/typed/kubebind/v1alpha1"
+
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -61,7 +64,7 @@ func NewController(
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, controllerName)
 
-	bindClient, err := bindclient.NewForConfig(config)
+	bindClient, err := kubebindv1alpha1clusterclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +85,7 @@ func NewController(
 				return crdInformer.Lister().Cluster(clusterName).Get(name)
 			},
 			deleteServiceExport: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) error {
-				return bindClient.KubeBindV1alpha1().Cluster(clusterName.Path()).APIServiceExports(ns).Delete(ctx, name, metav1.DeleteOptions{})
+				return bindClient.Cluster(clusterName.Path()).APIServiceExports(ns).Delete(ctx, name, metav1.DeleteOptions{})
 			},
 			requeue: func(export *kubebindv1alpha1.APIServiceExport) {
 				key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
@@ -93,11 +96,6 @@ func NewController(
 				queue.Add(key)
 			},
 		},
-
-		// TODO: Implement commit function
-		//commit: committer.NewCommitter[*kubebindv1alpha1.APIServiceExport, kubebindv1alpha1client.APIServiceExportInterface, *kubebindv1alpha1.APIServiceExportSpec, *kubebindv1alpha1.APIServiceExportStatus](
-		//	bindClient.KubeBindV1alpha1().APIServiceExports(),
-		//),
 	}
 
 	indexers.AddIfNotPresentOrDie(serviceExportInformer.Informer().GetIndexer(), cache.Indexers{
@@ -132,14 +130,11 @@ func NewController(
 }
 
 type Resource = committer.Resource[*kubebindv1alpha1.APIServiceExportSpec, *kubebindv1alpha1.APIServiceExportStatus]
-type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // Controller reconciles ServiceNamespaces by creating a Namespace for each, and deleting it if
 // the APIServiceNamespace is deleted.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
-
-	bindClient bindclient.ClusterInterface
 
 	serviceExportLister  bindlisters.APIServiceExportClusterLister
 	serviceExportIndexer cache.Indexer
@@ -149,7 +144,7 @@ type Controller struct {
 
 	reconciler
 
-	commit CommitFunc
+	bindClient *kubebindv1alpha1clusterclient.KubeBindV1alpha1ClusterClient
 }
 
 func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
@@ -266,11 +261,29 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
+	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
+	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
+
+	specOrObjectMetaChanged := specChanged || objectMetaChanged
+
+	// Simultaneous updates of spec and status are never allowed.
+	if specOrObjectMetaChanged && statusChanged {
+		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+	}
+
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if err := c.commit(ctx, oldResource, newResource); err != nil {
+
+	patchBytes, subresources, err := committer.GeneratePatchAndSubResources(oldResource, newResource)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	_, err = c.bindClient.Cluster(clusterName.Path()).APIServiceExports(snsNamespace).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	return err
 }
