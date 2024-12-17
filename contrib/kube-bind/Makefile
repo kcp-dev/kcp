@@ -66,9 +66,10 @@ run-dev: build
 	--namespace-prefix="kube-bind-" \
 	--cookie-signing-key=bGMHz7SR9XcI9JdDB68VmjQErrjbrAR9JdVqjAOKHzE= \
 	--cookie-encryption-key=wadqi4u+w0bqnSrVFtM38Pz2ykYVIeeadhzT34XlC1Y= \
-	--workspace-path="root:kube-bind:core" \
-	--apiexport-name="core.kube-bind.io" \
+	--workspace-path="root:kube-bind" \
+	--apiexport-name="kube-bind.io" \
 	--kubeconfig=../../.kcp/admin.kubeconfig \
+	--dev-mode=true
 
 crds: $(CONTROLLER_GEN) ## Generate crds
 	./hack/update-codegen-crds.sh

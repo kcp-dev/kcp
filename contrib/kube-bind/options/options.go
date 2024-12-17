@@ -52,6 +52,11 @@ type ExtraOptions struct {
 	TLSExternalServerName string
 
 	TestingAutoSelect string
+
+	// DevMode will use kubeconfig provided (assumes it is kcp-admin)
+	// and will create in-memory kubeconfig from legacy secret token.
+	// TODO(mjudeikis): Move fully to TokenRequest api so this behaviour is default.
+	DevMode bool
 }
 
 type completedOptions struct {
@@ -105,6 +110,9 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&options.TestingAutoSelect, "testing-auto-select", options.TestingAutoSelect, "<resource>.<group> that is automatically selected on th bind screen for testing")
 	fs.MarkHidden("testing-auto-select") // nolint: errcheck
+
+	fs.BoolVar(&options.DevMode, "dev-mode", options.DevMode, "Use kubeconfig provided (assumes it is kcp-admin) and will create in-memory kubeconfig from legacy secret token")
+	fs.MarkHidden("dev-mode") // nolint: errcheck
 }
 
 func (options *Options) Complete() (*CompletedOptions, error) {

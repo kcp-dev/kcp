@@ -18,6 +18,7 @@ package backend
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"time"
@@ -70,24 +71,54 @@ func NewConfig(options *options.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	// Get rest configs for all virtual workspaces.
-	// TODO(mjudeikis): We will use only first one for now, hence NOT supporting sharding.
 	cluster := logicalcluster.NewPath(options.KubeBindWorkspacePath)
-	restConfigs, err := restConfigForAPIExport(context.Background(), config.ClientConfig, options.KubeBindAPIExportName, cluster)
-	if err != nil {
-		return nil, err
-	}
-	config.ClientConfig = restConfigs[0]
 
-	config.ClientConfig = rest.CopyConfig(config.ClientConfig)
-	config.ClientConfig = rest.AddUserAgent(config.ClientConfig, "kube-bind-kcp-backend")
-
-	h, err := url.Parse(config.ClientConfig.Host)
+	bootstrapConfig := rest.CopyConfig(config.ClientConfig)
+	bootstrapConfig = rest.AddUserAgent(bootstrapConfig, "kube-bind-kcp-bootstrap")
+	h, err := url.Parse(bootstrapConfig.Host)
 	if err != nil {
 		return nil, err
 	}
 	h.Path = ""
-	config.ClientConfig.Host = h.String()
+	bootstrapConfig.Host = h.String()
+	// Get rest configs for all virtual workspaces.
+	// TODO(mjudeikis): We will use only first one for now, hence NOT supporting sharding.
+	restConfigs, err := restConfigForAPIExport(context.Background(), bootstrapConfig, options.KubeBindAPIExportName, cluster)
+	if err != nil {
+		return nil, err
+	}
+	restConfig := restConfigs[0]
+
+	restConfig = rest.CopyConfig(restConfig)
+	restConfig = rest.AddUserAgent(restConfig, "kube-bind-kcp-backend")
+
+	h, err = url.Parse(restConfig.Host)
+	if err != nil {
+		return nil, err
+	}
+	h.Path = ""
+	restConfig.Host = h.String()
+
+	if options.DevMode {
+		fmt.Println("Running in dev mode, using kubeconfig from to get dev secrets and generate in-memory kubeconfig", options.KubeConfig)
+		fmt.Println("This will override restConfig object credentials to use service Account token, CA.")
+		clientset, err := kubernetesclient.NewForConfig(config.ClientConfig)
+		if err != nil {
+			return nil, err
+		}
+		secretName := "kube-bind-controller-secret"
+		saNamespace := "default"
+		secret, err := clientset.CoreV1().Cluster(cluster).Secrets(saNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		token := secret.Data["token"]
+		ca := base64.StdEncoding.EncodeToString(secret.Data["ca.crt"])
+
+		restConfig.BearerToken = string(token)
+		restConfig.TLSClientConfig.CAData = []byte(ca)
+	}
 
 	if config.BindClient, err = bindclient.NewForConfig(config.ClientConfig); err != nil {
 		return nil, err
@@ -121,7 +152,7 @@ func restConfigForAPIExport(ctx context.Context, rootRestConfig *rest.Config, ap
 	var apiExport *apisv1alpha1.APIExport
 	if apiExportName != "" {
 		if apiExport, err = bootstrapClient.ApisV1alpha1().APIExports().Cluster(cluster).Get(ctx, apiExportName, metav1.GetOptions{}); err != nil {
-			return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
+			return nil, fmt.Errorf("error getting APIExport [%q] in cluster [%s] %w", apiExportName, cluster, err)
 		}
 	} else {
 		logger := klog.FromContext(ctx)

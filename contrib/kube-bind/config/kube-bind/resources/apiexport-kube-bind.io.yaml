@@ -10,4 +10,17 @@ spec:
   - v241216-832011705.apiserviceexports.kube-bind.io
   - v241216-832011705.apiservicenamespaces.kube-bind.io
   - v241216-832011705.clusterbindings.kube-bind.io
+  permissionClaims:
+    - all: true
+      group: rbac.authorization.k8s.io
+      resource: clusterrolebindings
+    - all: true
+      resource: serviceaccounts
+    - all: true
+      resource: configmaps
+    - all: true
+      resource: secrets
+    - all: true
+      group: rbac.authorization.k8s.io
+      resource: clusterroles
 status: {}
