@@ -20,7 +20,7 @@ bin/backend \
   --oidc-issuer-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
   --oidc-issuer-client-id=kcp-dev \
   --oidc-issuer-url=https://127.0.0.1:5556/dex \
-  --oidc-callback-url=https://127.0.0.1:8080/callback \
+  --oidc-callback-url=https://127.0.0.1:6443/callback \
   --pretty-name="CorpAAA.com" \
   --namespace-prefix="kube-bind-" \
   --cookie-signing-key=bGMHz7SR9XcI9JdDB68VmjQErrjbrAR9JdVqjAOKHzE= \
@@ -33,11 +33,5 @@ bin/backend \
 Challenges:
 1. backend needs to be aware of every workspace where APIExports are enabled to be
 exported.
-   1.1. We can use separate workspace and bind dedicated workspace for kube-bind.
-   This means any workspace wanting to use kube-bind backend, would need to bind to this
-   workspace apis.
-   1.2. We can give global permissions to kube-bind and enable each labeled/annotated export
-   to be exported.
-
-Preferred solution: 1.1 as it would enable multipe kube-bind backends to be used simultaneously.
+   This is achieved by binding kube-bind api into workspace where APIExport is present. 
 

@@ -41,7 +41,8 @@ func Bootstrap(
 	discoveryClient discovery.DiscoveryInterface,
 	dynamicClient dynamic.Interface,
 	crdClient apiextensionsv1.CustomResourceDefinitionInterface,
-	batteriesIncluded sets.Set[string]) error {
+	batteriesIncluded sets.Set[string],
+) error {
 	// create resources in core cluster
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, KubeFS, confighelpers.ReplaceOption())
 }

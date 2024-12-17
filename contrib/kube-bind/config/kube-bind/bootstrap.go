@@ -135,6 +135,26 @@ func bindAPIExport(ctx context.Context, kcpClient kcpclient.Interface, exportNam
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
+		{
+			PermissionClaim: apisv1alpha1.PermissionClaim{
+				All: true,
+				GroupResource: apisv1alpha1.GroupResource{
+					Group:    apisv1alpha1.SchemeGroupVersion.Group,
+					Resource: "apiexports",
+				},
+			},
+			State: apisv1alpha1.ClaimAccepted,
+		},
+		{
+			PermissionClaim: apisv1alpha1.PermissionClaim{
+				All: true,
+				GroupResource: apisv1alpha1.GroupResource{
+					Group:    "apiextensions.k8s.io",
+					Resource: "customresourcedefinitions",
+				},
+			},
+			State: apisv1alpha1.ClaimAccepted,
+		},
 	}
 
 	_, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
@@ -154,7 +174,6 @@ func bindAPIExport(ctx context.Context, kcpClient kcpclient.Interface, exportNam
 		}
 
 		logger.V(2).Info("Updating API binding")
-
 		existing.Spec = binding.Spec
 
 		_, err = kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})

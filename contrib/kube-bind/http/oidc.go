@@ -45,17 +45,21 @@ type OIDCServiceProvider struct {
 
 	verifier *oidc.IDTokenVerifier
 	provider *oidc.Provider
+
+	oidcClient *http.Client
 }
 
 func NewOIDCServiceProvider(ctx context.Context, clientID, clientSecret, redirectURI, issuerURL, oidcCAFile string) (*OIDCServiceProvider, error) {
+	var oidcClient *http.Client
 	if oidcCAFile != "" {
-		httpClient, err := httpClientForRootCAs(oidcCAFile)
+		var err error
+		oidcClient, err = httpClientForRootCAs(oidcCAFile)
 		if err != nil {
 			return nil, err
 		}
-		ctx = oidc.ClientContext(ctx, httpClient)
 	}
 
+	ctx = oidc.ClientContext(ctx, oidcClient)
 	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		return nil, err
@@ -67,6 +71,7 @@ func NewOIDCServiceProvider(ctx context.Context, clientID, clientSecret, redirec
 		redirectURI:  redirectURI,
 		issuerURL:    issuerURL,
 		oidcCAFile:   oidcCAFile,
+		oidcClient:   oidcClient,
 		provider:     provider,
 		verifier:     provider.Verifier(&oidc.Config{ClientID: clientID}),
 	}, nil
@@ -80,6 +85,10 @@ func (o *OIDCServiceProvider) OIDCProviderConfig(scopes []string) *oauth2.Config
 		RedirectURL:  o.redirectURI,
 		Scopes:       scopes,
 	}
+}
+
+func (o *OIDCServiceProvider) GetHTTPClient() *http.Client {
+	return o.oidcClient
 }
 
 // httpClientForRootCAs return an HTTP client which trusts the provided root CAs.

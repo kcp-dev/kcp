@@ -18,6 +18,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -71,9 +72,17 @@ func (s *Server) Start(ctx context.Context) error {
 
 	go func() {
 		if s.options.KeyFile == "" {
-			server.Serve(s.listener) // nolint:errcheck
+			fmt.Printf("Listening on port http://%s\n", s.Addr())
+			err := server.Serve(s.listener)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
 		} else {
-			server.ServeTLS(s.listener, s.options.CertFile, s.options.KeyFile) // nolint:errcheck
+			fmt.Printf("Listening on port https://%s\n", s.Addr())
+			err := server.ServeTLS(s.listener, s.options.CertFile, s.options.KeyFile)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
 		}
 	}()
 

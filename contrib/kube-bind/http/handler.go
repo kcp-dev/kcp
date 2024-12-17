@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
@@ -127,7 +128,7 @@ func (h *handler) handleServiceExport(w http.ResponseWriter, r *http.Request) {
 			Kind:       "BindingProvider",
 		},
 		Version:            ver,
-		ProviderPrettyName: "example-backend",
+		ProviderPrettyName: "kcp-example-backend",
 		AuthenticationMethods: []kubebindv1alpha1.AuthenticationMethod{
 			{
 				Method: "OAuth2CodeGrant",
@@ -202,6 +203,7 @@ func parseJWT(p string) ([]byte, error) {
 // handleCallback handle the authorization redirect callback from OAuth2 auth flow.
 func (h *handler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	logger := klog.FromContext(r.Context()).WithValues("method", r.Method, "url", r.URL.String())
+	ctx := r.Context()
 
 	if errMsg := r.Form.Get("error"); errMsg != "" {
 		logger.Info("failed to authorize", "error", errMsg)
@@ -236,8 +238,8 @@ func (h *handler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: sign state and verify that it is not faked by the oauth provider
-
-	token, err := h.oidc.OIDCProviderConfig(nil).Exchange(r.Context(), code)
+	ctx = oidc.ClientContext(ctx, h.oidc.GetHTTPClient())
+	token, err := h.oidc.OIDCProviderConfig(nil).Exchange(ctx, code)
 	if err != nil {
 		logger.Info("failed to exchange token", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
