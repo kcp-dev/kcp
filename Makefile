@@ -59,6 +59,10 @@ GOLANGCI_LINT_VER := v1.62.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+HTTEST_VER := v0.3.2
+HTTEST_BIN := httest
+HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
+
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
 GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
@@ -136,6 +140,9 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
+$(HTTEST):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
+
 $(LOGCHECK):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
 
@@ -183,7 +190,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
+tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -269,6 +276,7 @@ endif
 ifdef USE_GOTESTSUM
 test-e2e: $(GOTESTSUM)
 endif
+test-e2e: $(HTTEST)
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all ## Run e2e tests
@@ -280,6 +288,7 @@ test-e2e: build-all ## Run e2e tests
 ifdef USE_GOTESTSUM
 test-e2e-shared-minimal: $(GOTESTSUM)
 endif
+test-e2e-shared-minimal: $(HTTEST)
 test-e2e-shared-minimal: TEST_ARGS ?=
 test-e2e-shared-minimal: WHAT ?= ./test/e2e...
 test-e2e-shared-minimal: WORK_DIR ?= .
@@ -305,6 +314,7 @@ test-e2e-shared-minimal: build-all
 ifdef USE_GOTESTSUM
 test-e2e-sharded-minimal: $(GOTESTSUM)
 endif
+test-e2e-sharded-minimal: $(HTTEST)
 test-e2e-sharded-minimal: TEST_ARGS ?=
 test-e2e-sharded-minimal: WHAT ?= ./test/e2e...
 test-e2e-sharded-minimal: WORK_DIR ?= .
