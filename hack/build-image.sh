@@ -40,8 +40,8 @@ fi
 repository=ghcr.io/kcp-dev/kcp
 architectures="amd64 arm64"
 
-# when building locally, just tag with the current HEAD hash with a "dev-" prefix for GC.
-version="dev-$(git rev-parse --short HEAD)"
+# when building locally, just tag with the current HEAD hash.
+version="$(git rev-parse --short HEAD)"
 branchName=""
 
 # deduce the tag from the Prow job metadata
@@ -58,6 +58,11 @@ if [ -n "${PULL_BASE_REF:-}" ]; then
     # branch; because of this we have to deduce the branch name from the tag
     branchName="$(echo "$version" | sed -E 's/^v([0-9]+)\.([0-9]+)\..*/release-\1.\2/')"
   fi
+fi
+
+# Prefix with "dev-" if not on a tag or branch
+if [ -z "$branchName" ]; then
+  version="dev-$version"
 fi
 
 image="$repository:$version"
