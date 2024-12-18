@@ -40,7 +40,7 @@ fi
 repository=ghcr.io/kcp-dev/kcp
 architectures="amd64 arm64"
 
-# when building locally, just tag with the current HEAD hash
+# when building locally, just tag with the current HEAD hash.
 version="$(git rev-parse --short HEAD)"
 branchName=""
 
@@ -60,6 +60,11 @@ if [ -n "${PULL_BASE_REF:-}" ]; then
   fi
 fi
 
+# Prefix with "dev-" if not on a tag or branch
+if [ -z "$branchName" ]; then
+  version="dev-$version"
+fi
+
 image="$repository:$version"
 echo "Building container image $image ..."
 
@@ -67,7 +72,7 @@ echo "Building container image $image ..."
 for arch in $architectures; do
   fullTag="$image-$arch"
 
-  echo "Building $version-$arch ..."
+  echo "Building $fullTag ..."
   buildah build-using-dockerfile \
     --file Dockerfile \
     --tag "$fullTag" \
