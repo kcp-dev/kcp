@@ -2832,13 +2832,13 @@ Other authorization schemes (i.e. ABAC) are not supported.
 Generally, the same (cluster) role and (cluster) role binding principles apply exactly as in Kubernetes.</p>
 <p>In addition, additional RBAC semantics is implemented cross-workspaces, namely the following:</p>
 <ul>
-<li><strong>Top-Level Organization</strong> access: the user must have this as pre-requisite to access any other workspace, or is
-  even member and by that can create workspaces inside the organization workspace.</li>
-<li><strong>Workspace Content</strong> access: the user needs access to a workspace or is even admin.</li>
-<li>for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules. E.g.</li>
+<li><strong>Workspace Content</strong> access: the user needs <code>access</code> permissions to a workspace or be even admin.</li>
+<li>for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules; for example<ul>
 <li>workspace creation checks for organization membership (see above).</li>
 <li>workspace creation checks for <code>use</code> verb on the <code>WorkspaceType</code>.</li>
 <li>API binding via APIBinding objects requires verb <code>bind</code> access to the corresponding <code>APIExport</code>.</li>
+</ul>
+</li>
 <li><strong>System Workspaces</strong> access: system workspaces are prefixed with <code>system:</code> and are not accessible by users.</li>
 </ul>
 <p>The details of the authorizer chain are documented in <a href="authorizers/">Authorizers</a>.</p>
