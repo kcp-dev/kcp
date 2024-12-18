@@ -176,7 +176,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueServiceExportRequest(logger klog.Logger, obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -187,7 +187,7 @@ func (c *Controller) enqueueServiceExportRequest(logger klog.Logger, obj interfa
 }
 
 func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
-	seKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	seKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -199,7 +199,7 @@ func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
 		return
 	}
 	for _, obj := range requests {
-		key, err := cache.MetaNamespaceKeyFunc(obj)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 		if err != nil {
 			runtime.HandleError(err)
 			continue
@@ -210,7 +210,7 @@ func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
 }
 
 func (c *Controller) enqueueCRD(logger klog.Logger, obj interface{}) {
-	crdKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	crdKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -222,7 +222,7 @@ func (c *Controller) enqueueCRD(logger klog.Logger, obj interface{}) {
 		return
 	}
 	for _, obj := range requests {
-		key, err := cache.MetaNamespaceKeyFunc(obj)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 		if err != nil {
 			runtime.HandleError(err)
 			continue

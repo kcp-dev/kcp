@@ -223,7 +223,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueServiceNamespace(logger klog.Logger, obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -234,12 +234,12 @@ func (c *Controller) enqueueServiceNamespace(logger klog.Logger, obj interface{}
 }
 
 func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) {
-	cbKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	cbKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	ns, _, err := cache.SplitMetaNamespaceKey(cbKey)
+	_, ns, _, err := kcpcache.SplitMetaClusterNamespaceKey(cbKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -262,12 +262,12 @@ func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) 
 }
 
 func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
-	seKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	seKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	ns, _, err := cache.SplitMetaNamespaceKey(seKey)
+	_, ns, _, err := kcpcache.SplitMetaClusterNamespaceKey(seKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -280,7 +280,7 @@ func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
 	}
 	logger.V(2).Info("queueing ServiceNamespaces", "namespace", ns, "number", len(snss), "reason", "APIServiceExport", "ServiceExportKey", seKey)
 	for _, sns := range snss {
-		key, err := cache.MetaNamespaceKeyFunc(sns)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(sns)
 		if err != nil {
 			runtime.HandleError(err)
 			continue
@@ -290,7 +290,7 @@ func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
 }
 
 func (c *Controller) enqueueNamespace(logger klog.Logger, obj interface{}) {
-	nsKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	nsKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -301,7 +301,7 @@ func (c *Controller) enqueueNamespace(logger klog.Logger, obj interface{}) {
 		return
 	}
 	for _, obj := range sns {
-		key, err := cache.MetaNamespaceKeyFunc(obj)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 		if err != nil {
 			runtime.HandleError(err)
 			continue

@@ -81,6 +81,7 @@ run-dev-init: build
 
 run-dev: build
 	bin/backend start \
+	-v 4 \
 	--tls-cert-file=../../127.0.0.1.pem \
 	--tls-key-file=../../127.0.0.1.pem \
 	--listen-address=127.0.0.1:6443 \

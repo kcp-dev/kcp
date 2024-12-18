@@ -148,7 +148,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -159,7 +159,7 @@ func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
 }
 
 func (c *Controller) enqueueCRD(logger klog.Logger, obj interface{}) {
-	crdKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	crdKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

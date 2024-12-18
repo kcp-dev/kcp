@@ -198,7 +198,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -209,12 +209,13 @@ func (c *Controller) enqueueClusterBinding(logger klog.Logger, obj interface{}) 
 }
 
 func (c *Controller) enqueueServiceExport(logger klog.Logger, obj interface{}) {
-	seKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	seKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	ns, _, err := cache.SplitMetaNamespaceKey(seKey)
+	// TODO: this might be wrong. In most cases is.
+	_, ns, _, err := kcpcache.SplitMetaClusterNamespaceKey(seKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -283,6 +284,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
+	logger.V(4).Info("processing ClusterBinding", "cluster", clusterName, "namespace", ns, "name", name)
 	obj, err := c.clusterBindingLister.Cluster(clusterName).ClusterBindings(ns).Get(name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
