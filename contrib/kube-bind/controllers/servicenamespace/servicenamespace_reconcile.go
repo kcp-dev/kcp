@@ -48,7 +48,7 @@ func (c *reconciler) reconcile(ctx context.Context, clusterName logicalcluster.N
 	cluster := clusterName.Path()
 
 	var ns *corev1.Namespace
-	nsName := clusterName.String() + "-" + sns.Namespace + "-" + sns.Name
+	nsName := sns.Namespace + "-" + sns.Name
 	if sns.Status.Namespace != "" {
 		nsName = sns.Status.Namespace
 		ns, _ = c.getNamespace(clusterName, nsName) // golint:errcheck

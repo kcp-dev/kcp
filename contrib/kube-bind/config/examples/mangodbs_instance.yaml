@@ -1,0 +1,6 @@
+apiVersion: mangodb.com/v1alpha1
+kind: MangoDB
+metadata:
+  name: my-db
+spec:
+  tokenSecret: not-sure-if-this-is-used
