@@ -40,8 +40,8 @@ fi
 repository=ghcr.io/kcp-dev/kcp
 architectures="amd64 arm64"
 
-# when building locally, just tag with the current HEAD hash
-version="$(git rev-parse --short HEAD)"
+# when building locally, just tag with the current HEAD hash with a "dev-" prefix for GC.
+version="dev-$(git rev-parse --short HEAD)"
 branchName=""
 
 # deduce the tag from the Prow job metadata
@@ -67,7 +67,7 @@ echo "Building container image $image ..."
 for arch in $architectures; do
   fullTag="$image-$arch"
 
-  echo "Building $version-$arch ..."
+  echo "Building $fullTag ..."
   buildah build-using-dockerfile \
     --file Dockerfile \
     --tag "$fullTag" \
