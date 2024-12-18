@@ -22,25 +22,27 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	coreinformers "github.com/kcp-dev/client-go/informers/core/v1"
 	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	corelisters "github.com/kcp-dev/client-go/listers/core/v1"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/kcp/contrib/kube-bind/committer"
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kube-bind/kube-bind/pkg/committer"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
-	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned"
+	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
 	bindinformers "github.com/kube-bind/kube-bind/sdk/kcp/informers/externalversions/kubebind/v1alpha1"
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -127,12 +129,6 @@ func NewController(
 				return kubeClient.RbacV1().Cluster(cluster).RoleBindings(crb.Namespace).Update(ctx, crb, metav1.UpdateOptions{})
 			},
 		},
-
-		commit: committer.NewCommitter[*kubebindv1alpha1.APIServiceNamespace, *kubebindv1alpha1.APIServiceNamespaceSpec, *kubebindv1alpha1.APIServiceNamespaceStatus](
-			func(ns string) committer.Patcher[*kubebindv1alpha1.APIServiceNamespace] {
-				return bindClient.KubeBindV1alpha1().APIServiceNamespaces(ns)
-			},
-		),
 	}
 
 	indexers.AddIfNotPresentOrDie(serviceNamespaceInformer.Informer().GetIndexer(), cache.Indexers{
@@ -196,14 +192,13 @@ func NewController(
 }
 
 type Resource = committer.Resource[*kubebindv1alpha1.APIServiceNamespaceSpec, *kubebindv1alpha1.APIServiceNamespaceStatus]
-type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // Controller reconciles ServiceNamespaces by creating a Namespace for each, and deleting it if
 // the APIServiceNamespace is deleted.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	bindClient bindclient.Interface
+	bindClient bindclient.ClusterInterface
 	kubeClient kubernetesclient.ClusterInterface
 
 	namespaceLister  corelisters.NamespaceClusterLister
@@ -225,8 +220,6 @@ type Controller struct {
 	roleBindingIndexer cache.Indexer
 
 	reconciler
-
-	commit CommitFunc
 }
 
 func (c *Controller) enqueueServiceNamespace(logger klog.Logger, obj interface{}) {
@@ -396,11 +389,29 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
+	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
+	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
+
+	specOrObjectMetaChanged := specChanged || objectMetaChanged
+
+	// Simultaneous updates of spec and status are never allowed.
+	if specOrObjectMetaChanged && statusChanged {
+		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+	}
+
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if err := c.commit(ctx, oldResource, newResource); err != nil {
+
+	patchBytes, subresources, err := committer.GeneratePatchAndSubResources(oldResource, newResource)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	_, err = c.bindClient.Cluster(clusterName.Path()).KubeBindV1alpha1().APIServiceNamespaces(snsNamespace).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	return err
 }

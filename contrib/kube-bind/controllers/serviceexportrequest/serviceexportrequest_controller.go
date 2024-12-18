@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	apiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	apiextensionslisters "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
+	"github.com/kcp-dev/kcp/contrib/kube-bind/committer"
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kube-bind/kube-bind/pkg/committer"
 	"github.com/kube-bind/kube-bind/pkg/indexers"
 	kubebindv1alpha1 "github.com/kube-bind/kube-bind/sdk/apis/kubebind/v1alpha1"
 	bindclient "github.com/kube-bind/kube-bind/sdk/kcp/clientset/versioned/cluster"
@@ -33,9 +34,10 @@ import (
 	bindlisters "github.com/kube-bind/kube-bind/sdk/kcp/listers/kubebind/v1alpha1"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
@@ -104,13 +106,6 @@ func NewController(
 				return bindClient.KubeBindV1alpha1().Cluster(cluster.Path()).APIServiceExportRequests(ns).Delete(ctx, name, metav1.DeleteOptions{})
 			},
 		},
-
-		// TODO: Implement commit function
-		//commit: committer.NewCommitter[*kubebindv1alpha1.APIServiceExportRequest, *kubebindv1alpha1.APIServiceExportRequestSpec, *kubebindv1alpha1.APIServiceExportRequestStatus](
-		//	func(ns string) committer.Patcher[*kubebindv1alpha1.APIServiceExportRequest] {
-		//		return bindClient.KubeBindV1alpha1().APIServiceExportRequests(ns)
-		//	},
-		//),
 	}
 
 	indexers.AddIfNotPresentOrDie(serviceExportRequestInformer.Informer().GetIndexer(), cache.Indexers{
@@ -160,7 +155,6 @@ func NewController(
 }
 
 type Resource = committer.Resource[*kubebindv1alpha1.APIServiceExportRequestSpec, *kubebindv1alpha1.APIServiceExportRequestStatus]
-type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // Controller to reconcile APIServiceExportRequests by creating corresponding APIServiceExports.
 type Controller struct {
@@ -179,8 +173,6 @@ type Controller struct {
 	crdIndexer cache.Indexer
 
 	reconciler
-
-	commit CommitFunc
 }
 
 func (c *Controller) enqueueServiceExportRequest(logger klog.Logger, obj interface{}) {
@@ -317,11 +309,29 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
+	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
+	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
+
+	specOrObjectMetaChanged := specChanged || objectMetaChanged
+
+	// Simultaneous updates of spec and status are never allowed.
+	if specOrObjectMetaChanged && statusChanged {
+		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+	}
+
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if err := c.commit(ctx, oldResource, newResource); err != nil {
+
+	patchBytes, subresources, err := committer.GeneratePatchAndSubResources(oldResource, newResource)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	_, err = c.bindClient.Cluster(clusterName.Path()).KubeBindV1alpha1().APIServiceExportRequests(snsNamespace).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	return err
 }
