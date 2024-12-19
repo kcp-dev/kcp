@@ -17,32 +17,18 @@ limitations under the License.
 package main
 
 import (
-	goflags "flag"
-	"fmt"
 	"os"
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/klog/v2"
-
-	"github.com/kcp-dev/kcp/cli/pkg/workspace/cmd"
+	"github.com/kcp-dev/kcp/cli/cmd/kubectl-ws/cmd"
 )
 
 func main() {
 	flags := pflag.NewFlagSet("kubectl-ws", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
-	workspaceCmd, err := cmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// setup klog
-	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
-	klog.InitFlags(fs)
-	workspaceCmd.PersistentFlags().AddGoFlagSet(fs)
+	workspaceCmd := cmd.KubectlWsCommand()
 
 	if err := workspaceCmd.Execute(); err != nil {
 		os.Exit(1)
