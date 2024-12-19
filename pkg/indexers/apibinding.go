@@ -107,3 +107,19 @@ func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 
 	return []string{path.Join(apiBinding.Spec.Reference.Export.Name).String()}, nil
 }
+
+const APIBindingsByAPIExportCluster = "APIBindingsByAPIExportCluster"
+
+// IndexAPIBindingsByAPIExportCluster indexes the APIBindings by their APIExport's logical cluster.
+func IndexAPIBindingsByAPIExportCluster(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
+	}
+
+	return []string{APIBindingByBoundResourceValue(logicalcluster.From(apiBinding), logicalcluster.Name(apiBinding.Status.APIExportClusterName))}, nil
+}
+
+func APIBindingByBoundResourceValue(clusterName, exportClusterName logicalcluster.Name) string {
+	return fmt.Sprintf("%s|%s", clusterName, exportClusterName)
+}
