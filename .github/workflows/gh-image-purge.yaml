@@ -1,0 +1,18 @@
+name: Daily Image Cleanup
+on:
+  # every day at 01:30am
+  schedule:
+    - cron: '30 1 * * *'
+jobs:
+  - name: ghcr cleanup action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          older-than: 1 month
+          owner: kcp-dev
+          repository: kcp
+          package: kcp-prs
+          delete-tags: '^pr-\d+-[a-z0-9]+-[a-z0-9]+$'
+          use-regex: true
+          dry-run: true
