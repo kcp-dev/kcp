@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/google/go-cmp v0.6.0
-	github.com/kcp-dev/client-go v0.0.0-20240903163341-318c14d7636e
+	github.com/kcp-dev/client-go v0.0.0-20240912145314-f5949d81732a
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/spf13/cobra v1.8.1
