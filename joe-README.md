@@ -1,0 +1,44 @@
+- Needs repo: mjudeikis/kcp, branch: mounts.vw.contrib, sha: b7704c2d574b30922cb51075dbce5b978dec1686
+- Needs kcp-branch.patch (git apply ~/Desktop/kcp-prototype/kcp-branch.patch)
+- Build kcp: IGNORE_GO_VERSION=1 make all
+- Clean up kcp: rm -rf /Users/joe/go/src/github.com/mjudeikis/kcp/.kcp/
+- Start kcp: ./bin/kcp start --mapping-file=./contrib/mounts-vw/assets/path-mapping.yaml --feature-gates=WorkspaceMounts=true
+- Export kubeconfig: (export KUBECONFIG=/Users/joe/go/src/github.com/mjudeikis/kcp/.kcp/admin.kubeconfig)
+- Create provider/mounts workspaces: # TODO: use the 'kubectl create workspace', see https://docs.kcp.io/kcp/latest/setup/kubectl-plugin/
+    - kubectl kcp workspace create providers --enter
+    - kubectl kcp workspace create mounts --enter
+- Ensure using providers mounts workspace: kubectl ws use :root:providers:mounts
+- Create API resources: # Note: You need vcluster and targetvcluster resources even if you're not using them, because otherwise targetkubecluster won't exist in :root:operators:mounts
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiresourceschema-kubeclusters.mounts.contrib.kcp.io.yaml
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiresourceschema-targetkubeclusters.targets.contrib.kcp.io.yaml
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiresourceschema-vclusters.mounts.contrib.kcp.io.yaml 
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiresourceschema-targetvclusters.targets.contrib.kcp.io.yaml
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiexport-mounts.contrib.kcp.io.yaml
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apiexport-targets.contrib.kcp.io.yaml
+- Run the proxy (and virtual workspace controller): 
+    - cd contrib/mounts-vw (needs cmd in contrib/mounts-vw)
+    - go run ./cmd/virtual-workspaces/ start --kubeconfig=../../.kcp/admin.kubeconfig  --tls-cert-file=../../.kcp/apiserver.crt  --tls-private-key-file=../../.kcp/apiserver.key --authentication-kubeconfig=../../.kcp/admin.kubeconfig --virtual-workspaces-proxy-hostname=https://localhost:6444 -v=8
+- Create operators/mounts workspaces:
+    - kubectl ws use :root
+    - kubectl kcp workspace create operators --enter
+    - kubectl kcp workspace create mounts --enter
+- Create API resources:
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apibinding-targets.yaml
+- Create kind cluster: kind create cluster --name kind --kubeconfig kind.kubeconfig
+- Create secret: 
+    - kubectl create secret generic kind-kubeconfig --from-file=kubeconfig=kind.kubeconfig
+- Create target cluster:
+    - kubectl create -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/example-target-cluster.yaml
+- Get secret string:
+    - secret="$(kubectl get TargetKubeCluster proxy-cluster -o jsonpath='{.status.secretString}')"
+- Create workspace for kind cluster:
+    - kubectl ws use :root
+    - kubectl kcp workspace create consumer --enter
+    - kubectl kcp workspace create kind-cluster
+- Create mount
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/apibinding-mounts.yaml
+- Template secret
+    - yq -i ".spec.secretString = \"${secret}\"" /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/example-mount-cluster.yaml
+    - kubectl apply -f /Users/joe/go/src/github.com/mjudeikis/kcp/contrib/mounts-vw/config/mounts/resources/example-mount-cluster.yaml
+- Annotate workspace
+    - kubectl annotate workspace kind-cluster experimental.tenancy.kcp.io/mount='{"spec":{"ref":{"kind":"KubeCluster","name":"proxy-cluster","apiVersion":"mounts.contrib.kcp.io/v1alpha1"}}}'
