@@ -22,7 +22,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
+	kubectlCreateWorkspace "github.com/kcp-dev/kcp/cli/cmd/kubectl-create-workspace/cmd"
 	kubectlKcp "github.com/kcp-dev/kcp/cli/cmd/kubectl-kcp/cmd"
+	kubectlWs "github.com/kcp-dev/kcp/cli/cmd/kubectl-ws/cmd"
 	"github.com/kcp-dev/kcp/hack/third_party/github.com/spf13/cobra/doc"
 )
 
@@ -40,6 +44,21 @@ func main() {
 	}
 
 	if err := doc.GenMarkdownTree(kubectlKcp.KubectlKcpCommand(), *output); err != nil {
-		log.Fatalf("Failed to generate docs: %v", err)
+		log.Fatalf("Failed to generate docs for kubectl-kcp: %v", err)
+	}
+
+	createWs := kubectlCreateWorkspace.KubectlCreateWorkspaceCommand()
+
+	// Override buildtime setup for clarity on the generated docs
+	// makes title `create_workspace` in line with other multi-part commands
+	createWs.Use = "workspace"
+	createParent := &cobra.Command{Use: "create"}
+	createParent.AddCommand(createWs)
+
+	if err := doc.GenMarkdownTree(createWs, *output); err != nil {
+		log.Fatalf("Failed to generate docs for kubectl-create-workspace: %v", err)
+	}
+	if err := doc.GenMarkdownTree(kubectlWs.KubectlWsCommand(), *output); err != nil {
+		log.Fatalf("Failed to generate docs for kubectl-ws: %v", err)
 	}
 }
