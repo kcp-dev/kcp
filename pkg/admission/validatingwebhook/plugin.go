@@ -203,28 +203,25 @@ func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactor
 
 // SetClusterAnnotation sets the cluster annotation on the given object to the given clusterName,
 // returning an undo function that can be used to revert the change.
-func SetClusterAnnotation(obj metav1.Object, clusterName logicalcluster.Name) (undoFn func()) {
+func SetClusterAnnotation(obj metav1.Object, clusterName logicalcluster.Name) func() {
+	undoFn := func() {
+		anns := obj.GetAnnotations()
+		delete(anns, logicalcluster.AnnotationKey)
+		obj.SetAnnotations(anns)
+	}
+
 	anns := obj.GetAnnotations()
 	if anns == nil {
 		obj.SetAnnotations(map[string]string{logicalcluster.AnnotationKey: clusterName.String()})
-		return func() { obj.SetAnnotations(nil) }
+		return undoFn
 	}
 
 	old, ok := anns[logicalcluster.AnnotationKey]
-	if old == clusterName.String() {
+	if ok && old == clusterName.String() {
 		return nil
 	}
 
 	anns[logicalcluster.AnnotationKey] = clusterName.String()
 	obj.SetAnnotations(anns)
-	if ok {
-		return func() {
-			anns[logicalcluster.AnnotationKey] = old
-			obj.SetAnnotations(anns)
-		}
-	}
-	return func() {
-		delete(anns, logicalcluster.AnnotationKey)
-		obj.SetAnnotations(anns)
-	}
+	return undoFn
 }
