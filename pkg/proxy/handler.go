@@ -56,9 +56,9 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		shardURLString, found, errCode := index.LookupURL(clusterPath)
-		if errCode != 0 {
-			http.Error(w, "Not available.", errCode)
+		result, found := index.LookupURL(clusterPath)
+		if result.ErrorCode != 0 {
+			http.Error(w, "Not available.", result.ErrorCode)
 			return
 		}
 		if !found {
@@ -66,7 +66,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
-		shardURL, err := url.Parse(shardURLString)
+		shardURL, err := url.Parse(result.URL)
 		if err != nil {
 			responsewriters.InternalError(w, req, err)
 			return
