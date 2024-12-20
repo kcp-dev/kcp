@@ -40,7 +40,7 @@ func NewGeneric(rootDir string) *GenericOptions {
 func (o *GenericOptions) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory. Set to \"\" to disable file (e.g. certificates) generation in a root directory.")
-	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Path to additional mapping file to be used by mini-front-proxy.")
+	fs.StringVar(&o.MappingFile, "miniproxy-mapping-file", o.MappingFile, "DEVELOPMENT ONLY. Path to additional mapping file to be used by mini-front-proxy. This should not be used in production. For production usecase use front-proxy component instead.")
 }
 
 func (o *GenericOptions) Complete() (*GenericOptions, error) {

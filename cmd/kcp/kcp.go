@@ -76,11 +76,11 @@ func main() {
 			} // else let normal flag processing fail
 		} else if strings.HasPrefix(f, "--root-directory=") {
 			rootDir = strings.TrimPrefix(f, "--root-directory=")
-		} else if f == "--mapping-file" {
+		} else if f == "--miniproxy-mapping-file" {
 			if i < len(os.Args)-1 {
 				additionalMappingsFile = os.Args[i+1]
 			} // else let normal flag processing fail
-		} else if strings.HasPrefix(f, "--mapping-file") {
+		} else if strings.HasPrefix(f, "--miniproxy-mapping-file") {
 			additionalMappingsFile = strings.TrimPrefix(f, "--mapping-file=")
 		}
 	}
