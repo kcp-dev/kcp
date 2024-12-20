@@ -34,5 +34,5 @@ fi
 # for local docs testing, we don't care what the remote branch looks like.
 MIKE_OPTIONS+=(--ignore-remote-status)
 
-mike set-default "${MIKE_OPTIONS[@]}" main
+mike set-default "${MIKE_OPTIONS[@]}" --allow-undefined main
 mike serve "${MIKE_OPTIONS[@]}"

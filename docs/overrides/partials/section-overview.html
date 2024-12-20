@@ -1,4 +1,4 @@
 {% for item in section_items(page, navigation, config) %}
-### [{{ item.title }}]({{ item.url }})
+### [{{ item.title }}]({{ item.file.url }})
 {{ item.meta.description or '' }}
 {% endfor %}
