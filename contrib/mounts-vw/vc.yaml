@@ -1,7 +1,0 @@
-apiVersion: mounts.contrib.kcp.io/v1alpha1
-kind: VCluster
-metadata:
-  name: virtual-cluster-3
-spec:
-  mode: Delegated
-  secretString: fsxB9wGTC_zXkmQ0
