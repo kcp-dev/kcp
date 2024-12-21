@@ -42,3 +42,8 @@ dex/
 *.crt
 *.key
 *.pem
+contrib/kube-bind/bin/backend
+contrib/kube-bind/bin/bootstrap
+dex/
+contrib/kube-bind/kubectl-bind
+contrib/kube-bind/bin/backend

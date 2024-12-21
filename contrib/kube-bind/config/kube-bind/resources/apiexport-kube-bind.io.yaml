@@ -1,0 +1,32 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: kube-bind.io
+spec:
+  latestResourceSchemas:
+  - v241216-832011705.apiservicebindings.kube-bind.io
+  - v241216-832011705.apiserviceexportrequests.kube-bind.io
+  - v241216-832011705.apiserviceexports.kube-bind.io
+  - v241216-832011705.apiservicenamespaces.kube-bind.io
+  - v241216-832011705.clusterbindings.kube-bind.io
+  permissionClaims:
+    - all: true
+      group: rbac.authorization.k8s.io
+      resource: clusterrolebindings
+    - all: true
+      resource: serviceaccounts
+    - all: true
+      resource: configmaps
+    - all: true
+      resource: secrets
+    - all: true
+      group: rbac.authorization.k8s.io
+      resource: clusterroles
+    - all: true
+      group: apiextensions.k8s.io
+      resource: customresourcedefinitions
+    - all: true
+      group: apis.kcp.io
+      resource: apiexports
+status: {}
