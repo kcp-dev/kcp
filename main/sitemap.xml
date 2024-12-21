@@ -217,6 +217,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/create_workspace/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/create_workspace/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp/</loc>
         <lastmod>2024-12-21</lastmod>
         <changefreq>daily</changefreq>
@@ -293,6 +299,36 @@
         <lastmod>2024-12-21</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_use/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_create-context/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_create-context/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_current/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_current/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_tree/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_tree/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_use/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_use/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apibindings/</loc>
