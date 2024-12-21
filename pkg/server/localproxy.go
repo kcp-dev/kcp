@@ -213,7 +213,7 @@ func WithLocalProxy(
 // NewLocalProxyHandler returns a handler with a local-only mini-front-proxy.
 // This function is very similar to proxy/mapping.go.NewHandler.
 // If we want to re-use that code, we basically would be merging proxy with server packages.
-// Which is not desirable at the point of writing (2024.10-26), but might be in the future.
+// Which is not desirable at the point of writing (2024-10-26), but might be in the future.
 func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additionalMappingsFile string) (http.Handler, error) {
 	mapping := []proxy.PathMapping{}
 	if additionalMappingsFile != "" {
@@ -222,7 +222,6 @@ func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additi
 			return nil, fmt.Errorf("failed to read mapping file %q: %w", additionalMappingsFile, err)
 		}
 
-		var mapping []proxy.PathMapping
 		if err = yaml.Unmarshal(mappingData, &mapping); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal mapping file %q: %w", additionalMappingsFile, err)
 		}
