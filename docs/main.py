@@ -14,9 +14,6 @@
 
 import copy
 
-from mkdocs_macros import fix_url
-
-
 def define_env(env):
     """
     This is the hook for defining variables, macros, and filters. See
@@ -58,11 +55,10 @@ def define_env(env):
 
             # Copy so we don't modify the original
             child = copy.deepcopy(child)
-
-            # Have to fix the URL - see
-            # https://mkdocs-macros-plugin.readthedocs.io/en/latest/tips/#how-do-i-deal-with-relative-links-to-documentsimages
-            child.file.url = fix_url(child.url)
-
+            
+            # Subsection nesting that works across any level of nesting
+            # Replaced mkdocs fix_url function
+            child.file.url = child.url.replace(page.url, "./")
             siblings.append(child)
 
         return siblings
