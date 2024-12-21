@@ -81,7 +81,7 @@ func main() {
 				additionalMappingsFile = os.Args[i+1]
 			} // else let normal flag processing fail
 		} else if strings.HasPrefix(f, "--miniproxy-mapping-file") {
-			additionalMappingsFile = strings.TrimPrefix(f, "--mapping-file=")
+			additionalMappingsFile = strings.TrimPrefix(f, "--miniproxy-mapping-file=")
 		}
 	}
 
