@@ -158,8 +158,9 @@ type WorkspaceSpec struct {
 	// MountName is the name of the mount that this workspace is mounted under.
 	//
 	// +optional
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="mountName is immutable"
-	MountName *string `json:"mountName,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.name) || !has(self.name) || self.name == oldSelf.name",message="name is immutable"
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.namespace) || !has(self.namespace) || self.namespace == oldSelf.namespace",message="namespace is immutable"
+	Mount *metav1.ObjectMeta `json:"mount,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
