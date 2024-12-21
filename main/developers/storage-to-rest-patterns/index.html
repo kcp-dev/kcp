@@ -6,33 +6,30 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to write a kcp-aware controller.
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/developers/controllers/writing-kcp-aware-controllers/">
-      
-      
-        <link rel="prev" href="../../storage-to-rest-patterns/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/">
       
       
-        <link rel="next" href="../../internals/etcd-structure/">
+        <link rel="prev" href="../">
       
       
-      <link rel="icon" href="../../../favicons/favicon.ico">
+        <link rel="next" href="../controllers/writing-kcp-aware-controllers/">
+      
+      
+      <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>Writing kcp-aware Controllers - docs.kcp.io</title>
+        <title>Storage to rest patterns - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -51,7 +48,7 @@
       
     
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -77,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#writing-kcp-aware-controllers" class="md-skip">
+        <a href="#workspaces" class="md-skip">
           Skip to content
         </a>
       
@@ -95,9 +92,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -114,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Writing kcp-aware Controllers
+              Storage to rest patterns
             
           </span>
         </div>
@@ -233,7 +230,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href="../.." class="md-tabs__link">
           
   
     
@@ -253,7 +250,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../setup/" class="md-tabs__link">
+        <a href="../../setup/" class="md-tabs__link">
           
   
     
@@ -273,7 +270,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../concepts/" class="md-tabs__link">
+        <a href="../../concepts/" class="md-tabs__link">
           
   
     
@@ -295,7 +292,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+        <a href="../" class="md-tabs__link">
           
   
     
@@ -315,7 +312,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../contributing/" class="md-tabs__link">
+        <a href="../../contributing/" class="md-tabs__link">
           
   
     
@@ -335,7 +332,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../reference/" class="md-tabs__link">
+        <a href="../../reference/" class="md-tabs__link">
           
   
     
@@ -370,9 +367,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -424,7 +421,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../.." class="md-nav__link ">
+            <a href="../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -457,7 +454,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOALS/" class="md-nav__link">
+      <a href="../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -514,7 +511,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../setup/" class="md-nav__link ">
+            <a href="../../setup/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -547,7 +544,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/quickstart/" class="md-nav__link">
+      <a href="../../setup/quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -568,7 +565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/helm/" class="md-nav__link">
+      <a href="../../setup/helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -589,7 +586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -654,7 +651,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/" class="md-nav__link ">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -687,7 +684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/terminology/" class="md-nav__link">
+      <a href="../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -708,7 +705,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -756,7 +753,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -789,7 +786,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -810,7 +807,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -868,7 +865,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/apis/" class="md-nav__link ">
+            <a href="../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -901,7 +898,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -922,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -943,7 +940,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -997,7 +994,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1030,7 +1027,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1088,7 +1085,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1121,7 +1118,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1142,7 +1139,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1163,7 +1160,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1217,7 +1214,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1250,7 +1247,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1320,7 +1317,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1350,10 +1347,28 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Storage to rest patterns
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1362,6 +1377,51 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      workspaces
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#etcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      etcd
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-generic-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      the generic registry
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1371,8 +1431,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1386,11 +1444,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
         
           
           <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
@@ -1404,7 +1464,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             Controllers
@@ -1415,30 +1475,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Writing kcp-aware Controllers
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1447,44 +1487,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Keys for Objects in Listers/Indexers
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      Encoding/Decoding Keys
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1551,7 +1553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../internals/etcd-structure/" class="md-nav__link">
+      <a href="../internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1572,7 +1574,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1632,7 +1634,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../investigations/" class="md-nav__link ">
+            <a href="../investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1665,7 +1667,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/logical-clusters/" class="md-nav__link">
+      <a href="../investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1686,7 +1688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1707,7 +1709,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/self-service-policy/" class="md-nav__link">
+      <a href="../investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1728,7 +1730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1795,7 +1797,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/" class="md-nav__link ">
+            <a href="../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1828,7 +1830,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../contributing/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1849,7 +1851,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../contributing/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1870,7 +1872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../contributing/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1891,7 +1893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/replicate-new-resource/" class="md-nav__link">
+      <a href="../../contributing/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1946,7 +1948,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2047,7 +2049,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2068,7 +2070,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2089,7 +2091,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2110,7 +2112,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2131,7 +2133,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2152,7 +2154,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2173,7 +2175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2194,7 +2196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2215,7 +2217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2236,7 +2238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2257,7 +2259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2278,7 +2280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2299,7 +2301,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2430,7 +2432,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2451,7 +2453,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2472,7 +2474,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2493,7 +2495,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2514,7 +2516,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2589,7 +2591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2610,7 +2612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2685,7 +2687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2706,7 +2708,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2781,7 +2783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2802,7 +2804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2856,8 +2858,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -2866,18 +2866,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
+  <a href="#workspaces" class="md-nav__link">
     <span class="md-ellipsis">
-      Keys for Objects in Listers/Indexers
+      workspaces
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
+  <a href="#etcd" class="md-nav__link">
     <span class="md-ellipsis">
-      Encoding/Decoding Keys
+      etcd
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-generic-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      the generic registry
     </span>
   </a>
   
@@ -2901,78 +2910,69 @@
   
 
 
-<h1 id="writing-kcp-aware-controllers">Writing kcp-aware Controllers</h1>
-<h2 id="keys-for-objects-in-listersindexers">Keys for Objects in Listers/Indexers</h2>
-<p>When you need to get an object from a kcp-aware lister or an indexer, you can't just pass the object's name to the
-<code>Get()</code> function, like you do with a typical controller targeting Kubernetes. Projects using kcp's copy of client-go
-are using a modified key function.</p>
-<p>Here are what keys look like for an object <code>foo</code> for both cluster-scoped and namespace-scoped varieties:</p>
-<table>
-<thead>
-<tr>
-<th>Organization</th>
-<th>Workspace</th>
-<th>Logical Cluster</th>
-<th>Namespace</th>
-<th>Key</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>-</td>
-<td>root</td>
-</tr>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>default</td>
-<td>default/root</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>-</td>
-<td>root:my-org</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>default</td>
-<td>default/root:my-org</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>-</td>
-<td>my-org:my-workspace</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>default</td>
-<td>default/my-org:my-workspace</td>
-</tr>
-</tbody>
-</table>
-<h2 id="encodingdecoding-keys">Encoding/Decoding Keys</h2>
-<p>Use the <code>github.com/kcp-dev/apimachinery/pkg/cache</code> package to encode and decode keys.</p>
+  <h1>Storage to rest patterns</h1>
+
+<h3 id="workspaces">workspaces</h3>
+<p>kcp promises to support 1 mln of workspaces. 
+A workspace is like a Kubernetes endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime and others) 
+and user interfaces (kubectl, helm, web console, ...) can talk to, just like to a Kubernetes cluster.
+Thus creating a workspace must be efficient, both in terms of storage and compute.
+It also must provide isolation, just like regular clusters.</p>
+<h3 id="etcd">etcd</h3>
+<p>etcd is the primary datastore used by kcp. 
+It stores data in a key-value store. 
+The store’s logical view is a flat binary key space. 
+The key space has a lexically sorted index on byte string keys.</p>
+<p>In order to create a logical hierarchy, keys are usually mixed with <code>/</code> e.g.  <code>/company/branch/location</code></p>
+<p>To make it more concrete let’s create a company acme with two branches, marketing, and sales in some locations.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>etcdctl put /acme/marketing/london foo
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>etcdctl put /acme/marketing/gdansk foo2
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>etcdctl put /acme/sales/warszawa foo3
+</code></pre></div>
+<p>In order to get all branches of acme company, all we have to do is to ask the database to return all keys matching <code>/acme</code> prefix
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>etcdctl get --prefix /acme
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>/acme/marketing/gdansk
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>foo2
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>/acme/marketing/london
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>foo
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>/acme/sales/warszawa
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>foo3
+</code></pre></div></p>
+<p>In order to see all locations of marketing teams, we as for records matching /acme/marketing prefix
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>etcdctl get --prefix /acme/marketing
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>/acme/marketing/gdansk
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>foo2
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>/acme/marketing/london
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>foo
+</code></pre></div></p>
+<p>Note that those queries are based on byte comparisons. 
+We didn't create an <code>/acme</code> key. 
+Everything matching the prefix will be returned when using the --prefix parameter.</p>
+<p>This is the key idea behind workspaces in kcp. 
+Creating a workspace on the storage layer is very efficient because it boils down to concatenating a string.
+It also provides isolation on the lowest possible level.
+Data is filtered by the database engine.</p>
+<h3 id="the-generic-registry">the generic registry</h3>
+<p>kcp is based on the generic apiserver library provided by Kubernetes. 
+The central type provided by the library that interacts with a storage layer is called the generic registry. 
+It connects an API endpoint (REST) with a database layer. 
+Almost all API types make use of it.</p>
+<p>The generic apiserver library keeps an in-memory representation of the store for each resource in an API group. 
+For example, <code>secrets</code> resources in the <code>core</code> API group gets their own storage.</p>
+<p>From the perspective of this document, we can assume that the most important feature of generic storage 
+is to compute the key that is passed to the database to find the data the user wants.</p>
+<p><img alt="" src="../registry.png" /></p>
+<p>When the server starts it precomputes the <code>ResourcePrefix</code> with a group and a resource name. 
+Everything else, like a workspace name, is added dynamically. 
+For example, a request with a URL of <code>/clusters/acme/core/secrets</code> finds a storage responsible 
+for <code>core/secrets</code> resources and adds <code>acme</code> to the <code>ResourcePrefix</code>. 
+The new string becomes a key that is passed to etcd to find only resources for <code>acme</code> cluster.</p>
 
 
 
 
 
 
-
-  
-  
 
 
 
@@ -3045,10 +3045,10 @@ are using a modified key function.</p>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
     
   </body>

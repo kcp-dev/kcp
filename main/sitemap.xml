@@ -157,6 +157,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/</loc>
+        <lastmod>2024-12-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/developers/controllers/writing-kcp-aware-controllers/</loc>
         <lastmod>2024-12-21</lastmod>
         <changefreq>daily</changefreq>
