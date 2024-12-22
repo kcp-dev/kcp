@@ -176,8 +176,8 @@ func main() {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintf(cmd.OutOrStderr(), usageFmt, startCmd.UseLine())
-			cliflag.PrintSections(cmd.OutOrStderr(), fss, cols)
+			fmt.Fprintf(cmd.OutOrStdout(), usageFmt, startCmd.UseLine())
+			cliflag.PrintSections(cmd.OutOrStdout(), fss, cols)
 			return nil
 		},
 	}
