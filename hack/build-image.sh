@@ -60,9 +60,10 @@ if [ -n "${PULL_BASE_REF:-}" ]; then
   fi
 fi
 
-# Prefix with "dev-" if not on a tag or branch
-if [ -z "$branchName" ]; then
-  version="dev-$version"
+# Prefix with "pr-" if not on a tag or branch
+if [ -n "${PULL_NUMBER:-}" ]; then
+  version="pr-$PULL_NUMBER-$version"
+  repository="$repository-prs"
 fi
 
 image="$repository:$version"
