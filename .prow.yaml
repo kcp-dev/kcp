@@ -61,7 +61,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/containers/buildah:v1.30.0
+        - image: quay.io/containers/buildah:v1.38.0
           command:
             - hack/build-image.sh
           env:
