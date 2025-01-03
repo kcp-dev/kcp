@@ -276,5 +276,24 @@ The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (co
 }
 ```
 
-!!! note
+
     The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
+
+### Scopes
+
+Scopes are a way to limit the access of a user to a specific logical cluster. Scopes are attached to the user identity
+by adding `cluster:<logical-cluster>` to the `authentication.kcp.io/scopes` extra field. The scope is then checked by
+the authorizers. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authentication.kcp.io/scopes: 
+  - cluster:logical-cluster-1
+```
+
+This user will only be allowed to access resources in `logical-cluster-1`.
+
+A scope mismatch does not invalidate the warrants (see next section) of a user. 
+
