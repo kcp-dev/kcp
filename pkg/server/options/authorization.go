@@ -18,6 +18,7 @@ package options
 
 import (
 	"context"
+	"errors"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
@@ -136,7 +137,8 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
-		authorizers = append(authorizers, authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...))
+		privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
+		authorizers = append(authorizers, authz.WithWarrants(privGroups))
 	}
 
 	// path authorizer
@@ -190,33 +192,77 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
 	globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	chain := union.New(bootstrapAuth, localAuth, globalAuth)
+	chain = authz.WithWarrants(chain)
+
 	// everything below - skipped for Deep SAR
 
 	// enforce maximal permission policy
-	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers, union.New(bootstrapAuth, localAuth, globalAuth))
-	maxPermissionPolicyAuth = authz.NewDecorator("04-maxpermissionpolicy", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = withWarrantsInChainCallingDelegateWithOriginalUser(authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers), chain)
+	chain = authz.NewDecorator("04-maxpermissionpolicy", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// protect status updates to apiexport and apibinding
-	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
-	systemCRDAuth = authz.NewDecorator("03-systemcrd", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = withWarrantsInChainCallingDelegateWithOriginalUser(authz.NewSystemCRDAuthorizer, chain)
+	chain = authz.NewDecorator("03-systemcrd", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
 	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 	// mean nothing unless they also have `verb=access` on `/`
-	contentAuth := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister, systemCRDAuth)
-	contentAuth = authz.NewDecorator("02-content", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = withWarrantsInChainCallingDelegateWithOriginalUser(authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister), chain)
+	chain = authz.NewDecorator("02-content", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
 	// by child workspaces; this gives administrators of an org control over which users can be given access
 	// to content in sub-workspaces
-	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister, contentAuth)
-	requiredGroupsAuth = authz.NewDecorator("01-requiredgroups", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
+	chain = withWarrantsInChainCallingDelegateWithOriginalUser(authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister), chain)
+	chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
 
-	authorizers = append(authorizers, requiredGroupsAuth)
+	authorizers = append(authorizers, chain)
 
-	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
+	config.RuleResolver = authz.ResolverWithWarrants(union.NewRuleResolvers(bootstrapRules, localResolver))
 	config.Authorization.Authorizer = union.New(authorizers...)
 	return nil
+}
+
+// withWarrantsInChainCallingDelegateWithOriginalUser could be named shorter, but then it would
+// look innocent which it isn't. It produces one level of the chain with the wrapper called
+// for the base and all warrents. The delegate though is called only once with the original user.
+// This is done by hooking into the delegate call, and storing the original user and the
+// result of the delegate call in the context. So it avoids calling the delegate multiple times.
+func withWarrantsInChainCallingDelegateWithOriginalUser(wrapper func(authorizer.Authorizer) authorizer.Authorizer, delegate authorizer.Authorizer) authorizer.Authorizer {
+	type T int
+	const last T = iota
+	type state struct {
+		original authorizer.Attributes
+		called   bool
+		dec      authorizer.Decision
+		reason   string
+		err      error
+	}
+
+	chain := wrapper(authorizer.AuthorizerFunc(func(ctx context.Context, _ authorizer.Attributes) (authorizer.Decision, string, error) {
+		// run delegate only once
+		k, _ := ctx.Value(last).(T)
+		st, ok := ctx.Value(k).(*state)
+		if !ok {
+			return authorizer.DecisionNoOpinion, "", errors.New("no state found in context") // should not happen
+		}
+		if !st.called {
+			st.dec, st.reason, st.err = delegate.Authorize(ctx, st.original)
+			st.called = true
+		}
+		return st.dec, st.reason, st.err
+	}))
+	chain = authz.WithWarrants(chain)
+
+	return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+		// store the attributes with original user in the context
+		k, _ := ctx.Value(last).(T)
+		k++
+		ctx = context.WithValue(context.WithValue(ctx, k, &state{original: a}), last, k)
+
+		return chain.Authorize(ctx, a)
+	})
 }
