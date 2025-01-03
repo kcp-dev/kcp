@@ -4,6 +4,7 @@ go 1.22.0
 
 require (
 	github.com/abiosoft/lineprefix v0.1.4
+	github.com/aojea/rwconn v0.1.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
 	github.com/emicklei/go-restful/v3 v3.11.0
