@@ -55,6 +55,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:debug
+
+# Copy wget so we can do basic healthchecks in the final image.
+COPY --from=builder /usr/bin/wget /usr/bin/wget
+
 WORKDIR /
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces workspace/bin/cache-server /
