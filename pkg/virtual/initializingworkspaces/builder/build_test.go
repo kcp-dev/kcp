@@ -15,44 +15,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func TestBuildVirtualWorkspace(t *testing.T) {
-	rootPathPrefix := "/services/initializingworkspaces/"
-	cfg := &rest.Config{
-		Host: "https://example.com",
-	}
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
-	require.NoError(t, err, "ClusterClientSet should not return an error")
-	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
-	require.NoError(t, err, "ClusterClientSet should not return an error")
-	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(nil, 0)
-
-	virtualWorkspaces, err := BuildVirtualWorkspace(cfg, rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardKcpInformers)
-	require.NoError(t, err, "BuildVirtualWorkspace should not return an error")
-
-	assert.Len(t, virtualWorkspaces, 3, "There should be three virtual workspaces")
-	expectedNames := map[string]bool{
-		wildcardLogicalClustersName: false,
-		logicalClustersName:         false,
-		workspaceContentName:        false,
-	}
-
-	for _, vw := range virtualWorkspaces {
-		t.Run(vw.Name, func(t *testing.T) {
-			require.NotNil(t, vw.VirtualWorkspace, "VirtualWorkspace should not be nil")
-			require.Implements(t, (*framework.RootPathResolver)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement RootPathResolver")
-			require.Implements(t, (*authorizer.Authorizer)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement Authorizer")
-			require.Implements(t, (*framework.ReadyChecker)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement ReadyChecker")
-			require.NotNil(t, vw.VirtualWorkspace.Register, "Register should not be nil")
-			_, exists := expectedNames[vw.Name]
-			require.True(t, exists, "VirtualWorkspace name should be one of the expected names")
-			expectedNames[vw.Name] = true
-		})
-	}
-	for name, found := range expectedNames {
-		require.True(t, found, "Expected VirtualWorkspace name %s was not found", name)
-	}
-}
-
 func TestDigestUrl(t *testing.T) {
 	rootPathPrefix := "/services/initializingworkspaces/"
 	testCases := []struct {
@@ -131,6 +93,41 @@ func TestIsLogicalClusterRequest(t *testing.T) {
 		t.Run(tc.path, func(t *testing.T) {
 			result := isLogicalClusterRequest(tc.path)
 			require.Equal(t, tc.expected, result, "Result should match expected value")
+		})
+	}
+}
+
+func TestBuildVirtualWorkspace(t *testing.T) {
+	rootPathPrefix := "/services/initializingworkspaces/"
+	cfg := &rest.Config{
+		Host: "https://example.com",
+	}
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err, "ClusterClientSet should not return an error")
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "ClusterClientSet should not return an error")
+	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(nil, 0)
+
+	virtualWorkspaces, err := BuildVirtualWorkspace(cfg, rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardKcpInformers)
+	require.NoError(t, err, "BuildVirtualWorkspace should not return an error")
+
+	assert.Len(t, virtualWorkspaces, 3, "There should be three virtual workspaces")
+	expectedNames := map[string]struct{}{
+		wildcardLogicalClustersName: {},
+		logicalClustersName:         {},
+		workspaceContentName:        {},
+	}
+
+	for _, vw := range virtualWorkspaces {
+		t.Run(vw.Name, func(t *testing.T) {
+			assert.NotNil(t, vw.VirtualWorkspace, "VirtualWorkspace should not be nil")
+			assert.Implements(t, (*framework.RootPathResolver)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement RootPathResolver")
+			assert.Implements(t, (*authorizer.Authorizer)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement Authorizer")
+			assert.Implements(t, (*framework.ReadyChecker)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement ReadyChecker")
+			assert.NotNil(t, vw.VirtualWorkspace.Register, "Register should not be nil")
+
+			_, exists := expectedNames[vw.Name]
+			assert.True(t, exists, "VirtualWorkspace name should be one of the expected names")
 		})
 	}
 }
