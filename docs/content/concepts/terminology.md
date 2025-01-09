@@ -14,13 +14,13 @@ this terminology before proceeding.
     Some terms might get changed as the project develops. This document will be kept up to date with all relevant
     changes, while additional details and history of changes will be covered by respective design documents.
 
-## `kcp` API server
+## `kcp` server
 
-kcp API server is a Kubernetes-like API server. It extends the Kubernetes API server to provide multi-tenancy and
-capabilities for building platforms on top of it. The kcp API server can be subdivided into multiple "logical clusters"
+kcp server is a Kubernetes-like API server. It extends the Kubernetes API server to provide multi-tenancy and
+capabilities for building platforms on top of it. The kcp server can be subdivided into multiple "logical clusters"
 where different logical clusters can be used by different users in the organization.
 
-The kcp API server only provides resources to accomplish this, such as `LogicalCluster`, `Workspace`, `APIBinding` and
+The kcp server only provides resources to accomplish this, such as `LogicalCluster`, `Workspace`, `APIBinding` and
 `APIExport`, on top of some core Kubernetes resources, like `ConfigMap` and `Secret`. It doesn't provide Kubernetes
 resources for managing and orchestrating workloads, such as Pods and Deployments. The list of resources provided by
 default can be found in the [Built-in APIs document](./apis/built-in).
@@ -32,11 +32,11 @@ kcp-specific resources instead of regular Kubernetes resources to accomplish som
 own resource that can be used across different logical clusters, you'll have to use `APIResourceSchema` resource
 instead of `CustomResourceDefinition`.
 
-As the kcp API servers is based on the Kubernetes API server, it provides very similar configuration options and uses
-etcd as its datastore, so if you have experience with operating Kubernetes, you can very easily apply it to kcp.
+As the kcp server is based on the Kubernetes API server, it provides very similar configuration options and uses etcd
+as its datastore, so if you have experience with operating Kubernetes, you can very easily apply it to kcp.
 
-At the end, the kcp API server and all logical clusters created on top of it can be accessed using the regular
-Kubernetes tooling such as kubectl and client-go.
+At the end, the kcp server and all logical clusters created on top of it can be accessed using the regular Kubernetes
+tooling such as kubectl and client-go.
 
 !!! note
     The only exception to this are Kubernetes controllers. Regular Kubernetes controllers can work with a single
@@ -49,17 +49,17 @@ Kubernetes tooling such as kubectl and client-go.
 
 ## Logical Cluster
 
-A logical cluster is a way to subdivide a kcp API server and its `etcd` datastore into multiple clusters without
-requiring multiple API server and etcd instances. A logical cluster is able to amortize the cost of a new cluster to be
-near-zero memory and storage, so that we can create a huge number of empty clusters cheaply.
+A logical cluster is a way to subdivide a kcp server and its `etcd` datastore into multiple clusters without requiring
+multiple API server and etcd instances. A logical cluster is able to amortize the cost of a new cluster to be near-zero
+memory and storage, so that we can create a huge number of empty clusters cheaply.
 
 Each logical cluster has it's own set of APIs installed, it's own objects, and different access semantics and
 policies, i.e. RBAC rules. In other words, each logical cluster is isolated from other logical clusters.
 
-This is accomplished by adding an additional attribute to an object's identifier in etcd and kcp API server to
-associate object with its logical cluster. On the storage level, the regular Kubernetes API server identifies objects
-using (group, version, resource, optional namespace, name). The kcp API server enriches this identifier with logical
-cluster name, so we have (group, version, resource, **logical cluster name**, optional namespace, name).
+This is accomplished by adding an additional attribute to an object's identifier in etcd and kcp server to associate
+object with its logical cluster. On the storage level, the regular Kubernetes API server identifies objects using
+(group, version, resource, optional namespace, name). The kcp server enriches this identifier with logical cluster
+name, so we have (group, version, resource, **logical cluster name**, optional namespace, name).
 
 A logical cluster provides Kubernetes-cluster-like HTTPS/CRUD endpoints, i.e. endpoints that typical Kubernetes client
 tooling (e.g. client-go, controller-runtime, and others) can interact with as they would with regular Kubernetes
@@ -101,7 +101,7 @@ spec:
   type: Universal
 ```
 
-Workspaces are organized in a multi-root tree structure. The root workspace is created by the kcp API server by default
+Workspaces are organized in a multi-root tree structure. The root workspace is created by the kcp server by default
 and it doesn't have its own `Workspace` object (it only has the appropriate `LogicalCluster` object). Each type of
 workspace may restrict the types of its children and may restrict the types it may be a child of; a parent-child
 relationship is allowed if and only if the parent allows the child and the child allows the parent.
@@ -180,7 +180,7 @@ better define their applications not to fail.
 
 In the sense of kcp, sharding involves:
 
-- running another kcp API server instance with its own etcd datastore
+- running another kcp server instance with its own etcd datastore
 - registering that kcp instance with the root shard by creating a `Shard` object
 
 A shard hosts its own set of Workspaces and logical clusters. The sharding mechanism in kcp allows you to bind APIs
@@ -188,10 +188,10 @@ from logical clusters running in other shards (although, this requires additiona
 recommend reading the [Sharding documentation](./sharding/shards/)).
 
 In a sharded setup, you'll be sending requests to a component called Front Proxy (`kcp-front-proxy`) instead to a
-specific shard (kcp API server). Front Proxy is a shard-aware stateless proxy that's running in front of kcp API
-servers. Front proxy is able to determine the shard where your workspace is running and redirect/forward your request
-to that shard. Upon creating a workspace, you'll be sending request to front proxy, which will schedule a workspace on
-one of available shards.
+specific shard (kcp server). Front Proxy is a shard-aware stateless proxy that's running in front of kcp API servers.
+Front proxy is able to determine the shard where your workspace is running and redirect/forward your request to that
+shard. Upon creating a workspace, you'll be sending request to front proxy, which will schedule a workspace on one of
+available shards.
 
 !!! note
     Depending on how you setup kcp, you might have front proxy running even though you don't have a sharded setup.
