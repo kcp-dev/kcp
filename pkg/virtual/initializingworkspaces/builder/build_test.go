@@ -21,14 +21,16 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 func TestDigestUrl(t *testing.T) {
@@ -43,42 +45,42 @@ func TestDigestUrl(t *testing.T) {
 		{
 			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/test-cluster/apis/workload.kcp.io/v1alpha1/synctargets",
 			expectedAccept:      true,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "test-cluster", Wildcard: false, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "test-cluster", Wildcard: false, PartialMetadataRequest: false},
 			expectedKey:         "test-initializer",
 			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/test-cluster",
 		},
 		{
 			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/*/apis/workload.kcp.io/v1alpha1/synctargets",
 			expectedAccept:      true,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false},
 			expectedKey:         "test-initializer",
 			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/*",
 		},
 		{
 			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/",
 			expectedAccept:      true,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
 			expectedKey:         "test-initializer",
 			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters",
 		},
 		{
 			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/*",
 			expectedAccept:      true,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false},
 			expectedKey:         "test-initializer",
 			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/*",
 		},
 		{
 			urlPath:             "/services/initializingworkspaces/test-initializer/",
 			expectedAccept:      false,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
 			expectedKey:         "",
 			expectedLogicalPath: "",
 		},
 		{
 			urlPath:             "/services/initializingworkspaces/",
 			expectedAccept:      false,
-			expectedCluster:     request.Cluster(request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false}),
+			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
 			expectedKey:         "",
 			expectedLogicalPath: "",
 		},
