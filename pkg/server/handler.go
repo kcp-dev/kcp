@@ -283,10 +283,20 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		// And impersonations is only allowed for the users, who have metadata in the ctx.
 		// Else just pass the request.
 		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
-		if len(impersonationUser) == 0 {
+		impersonationGroups := req.Header[authenticationv1.ImpersonateGroupHeader]
+		impersonationExtras := []string{}
+		for _, header := range req.Header {
+			for _, h := range header {
+				if strings.HasPrefix(h, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
+					impersonationExtras = append(impersonationExtras, h)
+				}
+			}
+		}
+		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 { // No user and group to impersonate - just pass the request.
 			handler.ServeHTTP(w, req)
 			return
 		}
+
 		requester, exists := request.UserFrom(req.Context())
 		if !exists {
 			responsewriters.ErrorNegotiated(
@@ -294,7 +304,8 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 				errorCodecs, schema.GroupVersion{}, w, req)
 			return
 		}
-		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
+		// TODO: Add scopes and warrants to the impersonation check.
+		if validImpersonation(requester.GetGroups(), impersonationGroups) {
 			handler.ServeHTTP(w, req)
 			return
 		}
