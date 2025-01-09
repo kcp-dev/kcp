@@ -25,12 +25,12 @@ The kcp server only provides resources to accomplish this, such as `LogicalClust
 resources for managing and orchestrating workloads, such as Pods and Deployments. The list of resources provided by
 default can be found in the [Built-in APIs document](./apis/built-in).
 
-kcp follows the Kubernetes API semantics, and all users are required to adhere to these semantics. In other words,
-if you're building a platform on top of kcp, you'll be required to build Kubernetes-like resources and APIs, think of
-CustomResourceDefinitions (CRDs) and controllers. The difference is that in some cases you might have to use a
-kcp-specific resources instead of regular Kubernetes resources to accomplish something. For example, to define your
-own resource that can be used across different logical clusters, you'll have to use `APIResourceSchema` resource
-instead of `CustomResourceDefinition`.
+kcp follows the Kubernetes API semantics in each logical cluster, i.e. kcp should be conformant to the subset of the
+Kubernetes conformance suite that applies to the APIs available in kcp. In other words, if you're building a platform
+on top of kcp, you'll be required to build Kubernetes-like resources and APIs, think of CustomResourceDefinitions
+(CRDs) and controllers. The difference is that in some cases you might have to use a kcp-specific resources instead of
+regular Kubernetes resources to accomplish something. For example, to define your own resource that can be used across
+different logical clusters, you'll have to use `APIResourceSchema` resource instead of `CustomResourceDefinition`.
 
 As the kcp server is based on the Kubernetes API server, it provides very similar configuration options and uses etcd
 as its datastore, so if you have experience with operating Kubernetes, you can very easily apply it to kcp.
@@ -51,22 +51,22 @@ tooling such as kubectl and client-go.
 
 A logical cluster is a way to subdivide a kcp server and its `etcd` datastore into multiple clusters without requiring
 multiple API server and etcd instances. A logical cluster is able to amortize the cost of a new cluster to be near-zero
-memory and storage, so that we can create a huge number of empty clusters cheaply.
+memory and storage (similar cost as a namespace), so that we can create a huge number of empty clusters cheaply.
 
 Each logical cluster has it's own set of APIs installed, it's own objects, and different access semantics and
 policies, i.e. RBAC rules. In other words, each logical cluster is isolated from other logical clusters.
 
 This is accomplished by adding an additional attribute to an object's identifier in etcd and kcp server to associate
-object with its logical cluster. On the storage level, the regular Kubernetes API server identifies objects using
+an object with its logical cluster. On the storage level, the regular Kubernetes API server identifies objects using
 (group, version, resource, optional namespace, name). The kcp server enriches this identifier with logical cluster
 name, so we have (group, version, resource, **logical cluster name**, optional namespace, name).
 
 A logical cluster provides Kubernetes-cluster-like HTTPS/CRUD endpoints, i.e. endpoints that typical Kubernetes client
 tooling (e.g. client-go, controller-runtime, and others) can interact with as they would with regular Kubernetes
-clusters. Using the appropriate kubeconfig file, a user can run `kubectl get all -A` to return all objects in all
-namespaces in that concrete logical cluster.
+clusters. Using the appropriate kubeconfig file, a user can run `kubectl get foo -A` to return all objects of type
+`foo` across all namespaces in that concrete logical cluster.
 
-To a user, a logical cluster appears to be a Kubernetes cluster without all the container orchestration specific
+To a user, a logical cluster appears to be a Kubernetes cluster without any of the container orchestration specific
 resources (e.g. Pods, ReplicaSets, Deployments...). It has its own discovery, its own OpenAPI spec, and follows the
 Kubernetes-like constraints about uniqueness of Group-Version-Resource and its behavior. For example, it's not
 possible to have two identical GVRs with different schemas in one logical cluster, but it's possible to have two
@@ -77,8 +77,8 @@ such as Workspace, to create logical cluster.
 
 !!! note
     There could be multiple different models that result in logical clusters being created, with different policies or
-    lifecycle, but Workspace is intended to be the most generic representation of the concept with the broadest possible
-    utility to anyone building control planes.
+    lifecycle. The Workspace is intended to be the most canonical way to create logical clusters for anyone willing
+    to build control planes.
 
 !!! note
     Throughout the documentation, terms "workspace" and "logical cluster" might be interchanged. In the most of cases,
@@ -98,6 +98,12 @@ Workspaces are organized in a multi-root tree structure. The root workspace is c
 and it doesn't have its own `Workspace` object (it only has the appropriate `LogicalCluster` object). Each type of
 workspace may restrict the types of its children and may restrict the types it may be a child of; a parent-child
 relationship is allowed if and only if the parent allows the child and the child allows the parent.
+
+Workspace's full name is based on the hierarchy and the user provided name. For example, if you create a workspace
+called `bar` in a workspace called `foo` (which is a child of the root workspace), the full workspace names will be:
+
+- `root:foo` for the `foo` workspace
+- `root:foo:bar` for the `bar` workspace
 
 More information, including examples, can be found in the the [Workspaces document](../workspaces).
 
@@ -132,10 +138,10 @@ view API objects across different workspaces in a "single pane of glass" fashion
 - a service provider might want to get a list of all instances (from all users) of the API resource they provide,
   so that they can do reconciliation, have insights into how their API is used, and more.
 
-Virtual Workspaces are limited in terms of what they can see, they can usually see only selected resources (e.g.
-resources owned by that use or resources provided by a given service provider). It's important to note that virtual
-workspaces are **not** read-only, they can also be used to modify resources (for more details see the document linked
-below).
+Virtual Workspaces are often limited in terms of what a client can see through them, for instance only selected
+resources are visible (e.g. resources owned by that user or resources provided by a given service provider). It's
+important to note that virtual workspaces are **not** (necessarily) read-only, some of them can also be used to
+modify resources (for more details see the document linked below).
 
 kcp provides a set of default virtual workspaces, but you can also build your own virtual workspaces. Virtual
 Workspaces are implemented in the Go programming language using the appropriate kcp library
@@ -155,10 +161,10 @@ The general workflow is:
 - Define your API resources through `APIResourceSchemes` similar to how you would define CustomResourceDefinitions
   (CRDs)
 - Create `APIExport` in the same workspace/logical cluster with a list of `APIResourceSchemes` that you want to export
-- User can create `APIBinding` in their workspaces referring to your `APIExport`. This will result in API resources that
-  are defined in the referenced `APIExport` to be installed in the user's workspace
-- User can now create API resources of those types in their workspace. You can build and run controllers that are going
-  to reconcile those resources across different workspaces.
+- Users can create `APIBinding` in their workspaces referring to your `APIExport` if you grant the permission. This
+  will result in API resources that are defined in the referenced `APIExport` to be installed in the user's workspace
+- Users can now create API resources of those types in their workspace. You can build and run controllers that are
+  going to reconcile those resources across different workspaces.
 
 ## Shard
 
@@ -175,12 +181,13 @@ better define their applications not to fail.
 
 In the sense of kcp, sharding involves:
 
-- running another kcp server instance with its own etcd datastore
-- registering that kcp instance with the root shard by creating a `Shard` object
+- running multiple kcp server instances, each with its own etcd datastore,
+- registering all kcp instances with the root shard by creating a `Shard` object in the root workspace.
 
-A shard hosts its own set of Workspaces and logical clusters. The sharding mechanism in kcp allows you to bind APIs
-from logical clusters running in other shards (although, this requires additional consideration so we strongly
-recommend reading the [Sharding documentation](./sharding/shards/)).
+A shard hosts its own set of Workspaces and logical clusters. The sharding mechanism in kcp allows you to make the
+workspace hierarchy span many shards transparently, while ensuring you can bind APIs from logical clusters running
+in different shards. The [Sharding documentation](./sharding/shards/) has more details about possibilities of sharding,
+and we strongly recommend reading this document if you want to shard your kcp setup.
 
 In a sharded setup, you'll be sending requests to a component called Front Proxy (`kcp-front-proxy`) instead to a
 specific shard (kcp server). Front Proxy is a shard-aware stateless proxy that's running in front of kcp API servers.
