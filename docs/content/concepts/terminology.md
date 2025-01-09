@@ -91,15 +91,8 @@ Workspace is an abstraction used to create and provision logical clusters. Aside
 object, the responsibility of a Workspace is to initialize the given logical cluster by installing the required
 resources for the given workspace type, creating initial objects, and more.
 
-Workspaces are managed via the `Workspace` resource. It's a simple resource that mainly contains that workspace name
-and type:
-
-```yaml
-kind: Workspace
-apiVersion: tenancy.kcp.io/v1alpha1
-spec:
-  type: Universal
-```
+Workspaces are managed via the `Workspace` resource. It's a simple resource that mainly contains that workspace name,
+type, and URL.
 
 Workspaces are organized in a multi-root tree structure. The root workspace is created by the kcp server by default
 and it doesn't have its own `Workspace` object (it only has the appropriate `LogicalCluster` object). Each type of
