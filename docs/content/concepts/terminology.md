@@ -118,27 +118,29 @@ More information, including a list of Workspace Types and examples, can be found
 ### Virtual Workspace
 
 Virtual Workspaces are proxy-like API servers under a custom URL that provide a computed view of real Workspaces.
-That means that Virtual Workspaces provide Kubernetes-cluster-like HTTPs endpoints, just like classic Workspaces,
-so you can use the typical Kubernetes client tooling to interact with Virtual Workspaces.
+Those workspaces are “virtual” because they adapt or transform the underlying source of truth for the object and
+potentially the schema the user sees. The virtual workspaces provide Kubernetes-cluster-like HTTPs endpoints, just
+like classic Workspaces, so you can use the typical Kubernetes client tooling to interact with Virtual Workspaces.
 
 An API object has one source of truth, i.e. it's transactional stored in one system. In the context of kcp, this
 means that an API object is stored in one logical cluster. However, a use case that arises is how can someone
 view API objects across different workspaces in a "single pane of glass" fashion. Concretely:
 
 - the user may have access to different workspaces: a workspace that belongs to the user personally, or one that
-  belongs to a business organization. User might want to list and manage their API objects from all workspaces in a
+  belongs to a business organization. The user might want to list and manage their API objects from all workspaces in a
   single call (e.g. single `kubectl get` invocation),
-- Service Provider might want to get a list of all instances (from all users) of the API resource they provide, so that
-  they can do reconciliation, have insights into how their API is used, and more.
+- a service provider might want to get a list of all instances (from all users) of the API resource they provide,
+  so that they can do reconciliation, have insights into how their API is used, and more.
 
 Virtual Workspaces are limited in terms of what they can see, they can usually see only selected resources (e.g.
 resources owned by that use or resources provided by a given service provider). It's important to note that virtual
 workspaces are **not** read-only, they can also be used to modify resources (for more details see the document linked
 below).
 
-kcp provides a set of default Virtual Workspaces, but you can also build your own virtual workspaces. Virtual
-workspaces are implemented in Go language using the appropriate kcp library, and then you run them along with
-kcp.
+kcp provides a set of default virtual workspaces, but you can also build your own virtual workspaces. Virtual
+Workspaces are implemented in the Go programming language using the appropriate kcp library
+([`pkg/virtual/framework`](https://github.com/kcp-dev/kcp/tree/main/pkg/virtual/framework)), and then you run them
+along with kcp.
 
 More information, including concrete examples and a list of frequently asked questions, can be found in the
 [Virtual Workspaces document](../workspaces/virtual-workspaces/).
@@ -146,7 +148,7 @@ More information, including concrete examples and a list of frequently asked que
 ## Exporting/Binding APIs
 
 One of the core values of the kcp project is to enable providing APIs that can be consumed inside multiple logical
-clusters. This is done via exporting/binding mechanism, i.e. via API Exports and API Bindings.
+clusters. This is done via an exporting/binding mechanism, i.e. via API Exports and API Bindings.
 
 The general workflow is:
 
