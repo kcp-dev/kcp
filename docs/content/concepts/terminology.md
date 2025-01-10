@@ -11,8 +11,8 @@ This document contains definitions used throughout the kcp project. We strongly 
 this terminology before proceeding.
 
 !!! note
-    Some terms might get changed as the project develops. This document will be kept up to date with all relevant
-    changes, while additional details and history of changes will be covered by respective design documents.
+    Some terms might get changed as the project develops. This document will be kept up to date with all the relevant
+    changes, while additional details and the history of changes will be covered by the respective design documents.
 
 ## `kcp` server
 
@@ -30,7 +30,7 @@ Kubernetes conformance suite that applies to the APIs available in kcp. In other
 on top of kcp, you'll be required to build Kubernetes-like resources and APIs, think of CustomResourceDefinitions
 (CRDs) and controllers. The difference is that in some cases you might have to use a kcp-specific resources instead of
 regular Kubernetes resources to accomplish something. For example, to define your own resource that can be used across
-different logical clusters, you'll have to use `APIResourceSchema` resource instead of `CustomResourceDefinition`.
+different logical clusters, you'll have to use the `APIResourceSchema` resource instead of `CustomResourceDefinition`.
 
 As the kcp server is based on the Kubernetes API server, it provides very similar configuration options and uses etcd
 as its datastore, so if you have experience with operating Kubernetes, you can very easily apply it to kcp.
@@ -39,12 +39,12 @@ At the end, the kcp server and all logical clusters created on top of it can be 
 tooling such as kubectl and client-go.
 
 !!! note
-    The only exception to this are Kubernetes controllers. Regular Kubernetes controllers can work with a single
+    The only exception to this are Kubernetes controllers. The regular Kubernetes controllers can work with a single
     (logical) cluster. However, if you're building a developer platform on top of kcp, you likely want your controller
     to reconcile objects across multiple logical clusters. At the moment, this is not supported by upstream Kubernetes
     controller-runtime. Instead you have to use
     [our fork of it](https://github.com/kcp-dev/controller-runtime/tree/kcp-0.19/examples/kcp).
-    We're working with the upstream community on adding support for multi-cluster setups to the Kubernetes
+    We're working with the upstream community on adding support for the multi-cluster setups to the Kubernetes
     controller-runtime.
 
 ## Logical Cluster
@@ -58,11 +58,11 @@ policies, i.e. RBAC rules. In other words, each logical cluster is isolated from
 
 This is accomplished by adding an additional attribute to an object's identifier in etcd and kcp server to associate
 an object with its logical cluster. On the storage level, the regular Kubernetes API server identifies objects using
-(group, version, resource, optional namespace, name). The kcp server enriches this identifier with logical cluster
+(group, version, resource, optional namespace, name). The kcp server enriches this identifier with logical cluster's
 name, so we have (group, version, resource, **logical cluster name**, optional namespace, name).
 
-A logical cluster provides Kubernetes-cluster-like HTTPS/CRUD endpoints, i.e. endpoints that typical Kubernetes client
-tooling (e.g. client-go, controller-runtime, and others) can interact with as they would with regular Kubernetes
+A logical cluster provides Kubernetes-cluster-like HTTPS/CRUD endpoints, i.e. endpoints that the typical Kubernetes
+client tooling (e.g. client-go, controller-runtime, and others) can interact with as they would with regular Kubernetes
 clusters. Using the appropriate kubeconfig file, a user can run `kubectl get foo -A` to return all objects of type
 `foo` across all namespaces in that concrete logical cluster.
 
@@ -87,23 +87,25 @@ such as Workspace, to create logical cluster.
 
 ## Workspace
 
-Workspace is an abstraction used to create and provision logical clusters. Aside from creating the LogicalCluster
+A Workspace is an abstraction used to create and provision logical clusters. Aside from creating the LogicalCluster
 object, the responsibility of a Workspace is to initialize the given logical cluster by installing the required
-resources for the given workspace type, creating initial objects, and more.
+resources for the given workspace type, creating the initial objects, and more.
 
-Workspaces are managed via the `Workspace` resource. It's a simple resource that mainly contains that workspace name,
+Workspaces are managed via the `Workspace` resource. It's a simple resource that mainly contains the workspace name,
 type, and URL.
 
 Workspaces are organized in a multi-root tree structure. The root workspace is created by the kcp server by default
-and it doesn't have its own `Workspace` object (it only has the appropriate `LogicalCluster` object). Each type of
+and it doesn't have its own `Workspace` object (it only has the corresponding `LogicalCluster` object). Each type of
 workspace may restrict the types of its children and may restrict the types it may be a child of; a parent-child
 relationship is allowed if and only if the parent allows the child and the child allows the parent.
 
-Workspace's full name is based on the hierarchy and the user provided name. For example, if you create a workspace
-called `bar` in a workspace called `foo` (which is a child of the root workspace), the full workspace names will be:
+A Workspace's path is based on the hierarchy and the user provided name. For example, if you create a workspace called
+`bar` in a workspace called `foo` (which is a child of the root workspace), the relevant workspace paths will be:
 
 - `root:foo` for the `foo` workspace
 - `root:foo:bar` for the `bar` workspace
+
+The workspace path is used for building the workspace URL and for accessing the workspace via the `ws` kubectl plugin.
 
 More information, including examples, can be found in the the [Workspaces document](../workspaces).
 
@@ -116,37 +118,55 @@ Workspaces have types, which are mostly oriented around a set of default or opti
 - a workspace intended for building Knative functions might expose only the Knative serving APIs, ConfigMaps, Secrets,
   and optionally enable Knative Eventing APIs.
 
-By default, each workspace has [built-in APIs installed and available to its users](./apis/built-in).
+By default, each workspace has the [built-in APIs installed and available to its users](./apis/built-in).
 
 More information, including a list of Workspace Types and examples, can be found in the
 [Workspace Types document](../workspaces/workspace-types/).
 
-### Virtual Workspace
+## Virtual Workspace
 
-Virtual Workspaces are proxy-like API servers under a custom URL that provide a computed view of real Workspaces.
-Those workspaces are “virtual” because they adapt or transform the underlying source of truth for the object and
-potentially the schema the user sees. The virtual workspaces provide Kubernetes-cluster-like HTTPs endpoints, just
-like classic Workspaces, so you can use the typical Kubernetes client tooling to interact with Virtual Workspaces.
+A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces and
+Virtual Logical Clusters. This API server is very similar to the kcp server and they share the access semantics
+(in terms of the URL paths and the permission model).
 
-An API object has one source of truth, i.e. it's transactional stored in one system. In the context of kcp, this
-means that an API object is stored in one logical cluster. However, a use case that arises is how can someone
-view API objects across different workspaces in a "single pane of glass" fashion. Concretely:
+That API server provides Virtual Workspaces as a set of HTTP/CRUD endpoints that follow the same semantics as the real
+Workspaces, but that can serve any data (as decided by the virtual workspace developer) in a similar way as the real
+Workspaces serve resources and objects. The term Virtual Logical Cluster has the same meaning, but it's used in a
+context when the data that's served is the data that's coming from the real logical cluster.
 
-- the user may have access to different workspaces: a workspace that belongs to the user personally, or one that
+Most often, the Virtual Workspaces are used to collect and show objects from multiple real Workspaces in a single
+Virtual Workspace. The Virtual Workspaces mechanism also allows transforming that data, e.g. to hide the sensitive
+information or to add additional information. This allows viewing resources across different logical clusters in a
+"single pane of glass" fashion, which enables two important use cases:
+
+- the user may have access to different workspaces: a workspace that belongs to the user personally, and one that
   belongs to a business organization. The user might want to list and manage their API objects from all workspaces in a
   single call (e.g. single `kubectl get` invocation),
 - a service provider might want to get a list of all instances (from all users) of the API resource they provide,
   so that they can do reconciliation, have insights into how their API is used, and more.
 
-Virtual Workspaces are often limited in terms of what a client can see through them, for instance only selected
-resources are visible (e.g. resources owned by that user or resources provided by a given service provider). It's
-important to note that virtual workspaces are **not** (necessarily) read-only, some of them can also be used to
-modify resources (for more details see the document linked below).
+For that reason, the Virtual Workspaces are often tied to another resource, such as `APIExport` or `WorkspaceType`.
+For example, the Virtual Workspace that's showing some resource from all real workspaces might be tied to an APIExport
+(more about APIExports later in the document). However, this is not a strict requirement, there might be Virtual
+Workspaces that are standalone in this way.
 
-kcp provides a set of default virtual workspaces, but you can also build your own virtual workspaces. Virtual
-Workspaces are implemented in the Go programming language using the appropriate kcp library
-([`pkg/virtual/framework`](https://github.com/kcp-dev/kcp/tree/main/pkg/virtual/framework)), and then you run them
-along with kcp.
+The RBAC mechanism is used to control what the Virtual Workspaces can access and in what manner. It's important to note
+that the Virtual Workspaces are not read-only, but that they can also mutate resources in the corresponding real
+logical cluster.
+
+**Finally, for simplicity, it has been decided to call the Virtual Workspace API server simply as the Virtual
+Workspace.** This is very important to understand, and this is coming from the fact that the Virtual Workspaces,
+as introduced above, are simply different endpoints served by that API server. The Virtual Workspace doesn't exist as
+a resource in kcp, it's purely a very flexible API (server) that can connect to the kcp server for the sake of
+gathering and mutating the needed objects.
+
+kcp provides a set of default Virtual Workspaces, but you can also build and run your own. The Virtual Workspaces are
+implemented in the Go programming language using the [appropriate kcp library](https://github.com/kcp-dev/kcp/tree/main/pkg/virtual/framework).
+Naturally, such Virtual Workspaces are not integrated in the kcp binary, but are supposed to be run as a dedicated
+binary alongside the kcp server.
+
+!!! note
+    In a sharded setup, you need to run the Virtual Workspace (API server) for each kcp shard/server that you have.
 
 More information, including concrete examples and a list of frequently asked questions, can be found in the
 [Virtual Workspaces document](../workspaces/virtual-workspaces/).
@@ -184,10 +204,10 @@ In the sense of kcp, sharding involves:
 - running multiple kcp server instances, each with its own etcd datastore,
 - registering all kcp instances with the root shard by creating a `Shard` object in the root workspace.
 
-A shard hosts its own set of Workspaces and logical clusters. The sharding mechanism in kcp allows you to make the
-workspace hierarchy span many shards transparently, while ensuring you can bind APIs from logical clusters running
-in different shards. The [Sharding documentation](./sharding/shards/) has more details about possibilities of sharding,
-and we strongly recommend reading this document if you want to shard your kcp setup.
+A shard hosts its own set of Workspaces. The sharding mechanism in kcp allows you to make the workspace hierarchy span
+many shards transparently, while ensuring you can bind APIs from logical clusters running in different shards.
+The [Sharding documentation](./sharding/shards/) has more details about possibilities of sharding, and we strongly
+recommend reading this document if you want to shard your kcp setup.
 
 In a sharded setup, you'll be sending requests to a component called Front Proxy (`kcp-front-proxy`) instead to a
 specific shard (kcp server). Front Proxy is a shard-aware stateless proxy that's running in front of kcp API servers.
