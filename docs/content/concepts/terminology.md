@@ -123,11 +123,12 @@ By default, each workspace has the [built-in APIs installed and available to its
 More information, including a list of Workspace Types and examples, can be found in the
 [Workspace Types document](../workspaces/workspace-types/).
 
-## Virtual Workspace
+## Virtual Workspaces
 
-A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces and
-Virtual Logical Clusters. This API server is very similar to the kcp server and they share the access semantics
-(in terms of the URL paths and the permission model).
+A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces
+or more precisely Virtual Logical Clusters. The API surface looks very similar to the kcp server itself sharing the
+same HTTP path structure, with each (Virtual) Logical Cluster having its own HTTP endpoints under
+`clusters/<logical cluster>`.
 
 That API server provides Virtual Workspaces as a set of HTTP/CRUD endpoints that follow the same semantics as the real
 Workspaces, but that can serve any data (as decided by the virtual workspace developer) in a similar way as the real
