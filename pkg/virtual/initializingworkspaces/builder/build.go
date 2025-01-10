@@ -60,6 +60,12 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
+const (
+	wildcardLogicalClustersName = initializingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
+	logicalClustersName         = initializingworkspaces.VirtualWorkspaceName + "-logicalclusters"
+	workspaceContentName        = initializingworkspaces.VirtualWorkspaceName + "-workspace-content"
+)
+
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
@@ -88,8 +94,6 @@ func BuildVirtualWorkspace(
 	}
 
 	cachingAuthorizer := delegated.NewCachingAuthorizer(kubeClusterClient, authorizerWithCache, delegated.CachingOptions{})
-
-	wildcardLogicalClustersName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
@@ -121,7 +125,6 @@ func BuildVirtualWorkspace(
 		},
 	}
 
-	LogicalClustersName := initializingworkspaces.VirtualWorkspaceName + "-logicalclusters"
 	logicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
@@ -159,7 +162,6 @@ func BuildVirtualWorkspace(
 	}
 
 	workspaceContentReadyCh := make(chan struct{})
-	workspaceContentName := initializingworkspaces.VirtualWorkspaceName + "-workspace-content"
 	workspaceContent := &handler.VirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
@@ -290,7 +292,7 @@ func BuildVirtualWorkspace(
 
 	return []rootapiserver.NamedVirtualWorkspace{
 		{Name: wildcardLogicalClustersName, VirtualWorkspace: wildcardLogicalClusters},
-		{Name: LogicalClustersName, VirtualWorkspace: logicalClusters},
+		{Name: logicalClustersName, VirtualWorkspace: logicalClusters},
 		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
 	}, nil
 }
