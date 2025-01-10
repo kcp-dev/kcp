@@ -125,44 +125,44 @@ More information, including a list of Workspace Types and examples, can be found
 
 ## Virtual Workspaces
 
-A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces
-or more precisely Virtual Logical Clusters. The API surface looks very similar to the kcp server itself sharing the
-same HTTP path structure, with each (Virtual) Logical Cluster having its own HTTP endpoints under
-`clusters/<logical cluster>`.
+A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces or
+more precisely Virtual Logical Clusters. The API surface looks very similar to the kcp server itself, sharing the same
+HTTP path structure, with each (virtual) logical cluster having its own HTTP endpoint under `/clusters/<logical cluster>`.
+As with kcp itself, each of these endpoints looks like a Kubernetes cluster on its own, i.e. with `/api/v1` and API
+groups under `/apis/<group>/<version>`.
 
-That API server provides Virtual Workspaces as a set of HTTP/CRUD endpoints that follow the same semantics as the real
-Workspaces, but that can serve any data (as decided by the virtual workspace developer) in a similar way as the real
-Workspaces serve resources and objects. The term Virtual Logical Cluster has the same meaning, but it's used in a
-context when the data that's served is the data that's coming from the real logical cluster.
+The Virtual Logical Clusters are called virtual because they don’t actually have their own storage, i.e. they are not 
+a source of truth, instead they are just proxied representations of the real logical clusters from kcp. In the process
+of proxying, the Virtual Workspace API server might filter the visible objects, hide certain API groups completely, or
+even transform objects depending on the use case (e.g. strip the sensitive data). Also, the permission semantics might
+be completely different from the real logical clusters.
 
-Most often, the Virtual Workspaces are used to collect and show objects from multiple real Workspaces in a single
-Virtual Workspace. The Virtual Workspaces mechanism also allows transforming that data, e.g. to hide the sensitive
-information or to add additional information. This allows viewing resources across different logical clusters in a
-"single pane of glass" fashion, which enables two important use cases:
+Virtual Workspace API servers are often coupled with certain APIs in the kcp platform. kcp ships a couple of Virtual
+Workspace API servers by default, served by the kcp binary itself under `/services/<name>`. The actual URL is announced
+by the API objects, e.g. in `APIExport.status` or `WorkspaceType.status`.
 
-- the user may have access to different workspaces: a workspace that belongs to the user personally, and one that
-  belongs to a business organization. The user might want to list and manage their API objects from all workspaces in a
-  single call (e.g. single `kubectl get` invocation),
+Such a Virtual Workspaces concept enables some important use cases:
+
 - a service provider might want to get a list of all instances (from all users) of the API resource they provide,
-  so that they can do reconciliation, have insights into how their API is used, and more.
+  so that they can do reconciliation, have insights into how their API is used, and more,
+- a `WorkspaceType` owner wants to initialize a workspace of that type before they become ready for the user. They can
+  write a controller that watches the Virtual Workspaces to show up, giving the necessary visibility and the necessary
+  access (which they otherwise would not have) to do initialization from a controller.
 
-For that reason, the Virtual Workspaces are often tied to another resource, such as `APIExport` or `WorkspaceType`.
-For example, the Virtual Workspace that's showing some resource from all real workspaces might be tied to an APIExport
-(more about APIExports later in the document). However, this is not a strict requirement, there might be Virtual
-Workspaces that are standalone in this way.
+Usually RBAC is used to authorize access to Virtual Workspaces, but the semantics might differ from directly accessing
+the underlying logical cluster. For example, a service provider usually cannot see all the objects a user might have,
+or even see the user's workspace at all. But when a user uses the service provider API, the service provider will see
+the objects for the resources they provide and potentially other related objects through the Virtual Workspaces.
 
-The RBAC mechanism is used to control what the Virtual Workspaces can access and in what manner. It's important to note
-that the Virtual Workspaces are not read-only, but that they can also mutate resources in the corresponding real
-logical cluster.
+It's important to note that the Virtual Workspaces are not necessarily read-only, but that they can also mutate
+resources in the corresponding real logical cluster.
 
-**Finally, for simplicity, it has been decided to call the Virtual Workspace API server simply as the Virtual
-Workspace.** This is very important to understand, and this is coming from the fact that the Virtual Workspaces,
-as introduced above, are simply different endpoints served by that API server. The Virtual Workspace doesn't exist as
-a resource in kcp, it's purely a very flexible API (server) that can connect to the kcp server for the sake of
-gathering and mutating the needed objects.
+**Finally, for brevity, the Virtual Workspace API server is often simply called the Virtual Workspace.** 
+The Virtual Workspace doesn't exist as a resource in kcp, it's purely a very flexible API (server) that can connect to
+the kcp server for the sake of gathering and mutating the needed objects.
 
-kcp provides a set of default Virtual Workspaces, but you can also build and run your own. The Virtual Workspaces are
-implemented in the Go programming language using the [appropriate kcp library](https://github.com/kcp-dev/kcp/tree/main/pkg/virtual/framework).
+While kcp provides a set of default Virtual Workspaces, you can also build and run your own. The Virtual Workspaces
+are implemented in the Go programming language using the [appropriate kcp library](https://github.com/kcp-dev/kcp/tree/main/pkg/virtual/framework).
 Naturally, such Virtual Workspaces are not integrated in the kcp binary, but are supposed to be run as a dedicated
 binary alongside the kcp server.
 
