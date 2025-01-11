@@ -40,21 +40,6 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
 
-func newUser(name string, groups ...string) *user.DefaultInfo {
-	return &user.DefaultInfo{
-		Name:   name,
-		Groups: groups,
-	}
-}
-
-func newUserWithExtra(name string, extra map[string][]string, groups ...string) *user.DefaultInfo {
-	return &user.DefaultInfo{
-		Name:   name,
-		Groups: groups,
-		Extra:  extra,
-	}
-}
-
 func newServiceAccountWithCluster(name string, cluster string, groups ...string) *user.DefaultInfo {
 	extra := make(map[string][]string)
 	if len(cluster) > 0 {
@@ -93,7 +78,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "unknown requested workspace",
 
 			requestedWorkspace: "root:unknown",
-			requestingUser:     newUser("user-access"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access"},
 			wantDecision:       authorizer.DecisionDeny,
 			wantReason:         "LogicalCluster not found",
 		},
@@ -101,7 +86,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "workspace without parent",
 
 			requestedWorkspace: "rootwithoutparent",
-			requestingUser:     newUser("user-access"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access"},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to user logical cluster access",
 		},
@@ -109,7 +94,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "non-permitted user is not allowed",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-unknown"),
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "no verb=access permission on /",
 		},
@@ -117,7 +102,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "permitted user is granted access",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to user logical cluster access",
 		},
@@ -133,9 +118,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "user with scope to this cluster is allowed",
 
 			requestedWorkspace: "root:ready",
-			requestingUser: newUserWithExtra("user-access", map[string][]string{
+			requestingUser: &user.DefaultInfo{Name: "user-access", Extra: map[string][]string{
 				"authentication.kcp.io/scopes": {"cluster:root:ready"},
-			}),
+			}},
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "delegating due to user logical cluster access",
 		},
@@ -143,9 +128,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "user with scope to another cluster is denied",
 
 			requestedWorkspace: "root:ready",
-			requestingUser: newUserWithExtra("user-access", map[string][]string{
+			requestingUser: &user.DefaultInfo{Name: "user-access", Extra: map[string][]string{
 				"authentication.kcp.io/scopes": {"cluster:anotherws"},
-			}),
+			}},
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "out of scope",
 		},
@@ -161,7 +146,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "user is granted access on root",
 
 			requestedWorkspace: "root",
-			requestingUser:     newUser("somebody", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "somebody", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to user logical cluster access",
 		},
@@ -201,7 +186,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "system:kcp:logical-cluster-admin can always pass",
 
 			requestedWorkspace: "root:non-existent",
-			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
+			requestingUser:     &user.DefaultInfo{Name: "lcluster-admin", Groups: []string{"system:kcp:logical-cluster-admin"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to logical cluster admin access",
 		},
@@ -209,9 +194,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "system:kcp:logical-cluster-admin can always pass with exeception if scoped",
 
 			requestedWorkspace: "root:non-existent",
-			requestingUser: newUserWithExtra("lcluster-admin", map[string][]string{
+			requestingUser: &user.DefaultInfo{Name: "lcluster-admin", Extra: map[string][]string{
 				"authentication.kcp.io/scopes": {"cluster:other"},
-			}, "system:kcp:logical-cluster-admin"),
+			}, Groups: []string{"system:kcp:logical-cluster-admin"}},
 			wantDecision: authorizer.DecisionDeny,
 			wantReason:   "LogicalCluster not found",
 		},
@@ -219,7 +204,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "permitted user is granted access to initializing workspace",
 
 			requestedWorkspace: "root:initializing",
-			requestingUser:     newUser("user-access", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to user logical cluster access",
 		},
@@ -227,7 +212,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "any user passed for deep SAR",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-unknown"),
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to deep SAR request",
