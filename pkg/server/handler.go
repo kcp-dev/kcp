@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -273,6 +274,13 @@ var (
 	}
 )
 
+const (
+	// kcpImpersonationHeader is the header key for impersonation marker.
+	// This should never be exposed to the anything outside WithImpersonationGatekeeper and withScoping.
+	// We use headers headers already has all the helpers to manipulate the request :) it just easy :)
+	kcpImpersonationHeader = "X-Kcp-Impersonated"
+)
+
 // WithImpersonationGatekeeper checks the request for impersonations and validates them,
 // if they are valid. If they are not, will return a 403.
 // We check for impersonation in the request headers, early to avoid it being propagated to
@@ -283,10 +291,24 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		// And impersonations is only allowed for the users, who have metadata in the ctx.
 		// Else just pass the request.
 		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
-		if len(impersonationUser) == 0 {
+		impersonationGroups := req.Header[authenticationv1.ImpersonateGroupHeader]
+		impersonationExtras := []string{}
+		for _, header := range req.Header {
+			for _, h := range header {
+				if strings.HasPrefix(h, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
+					impersonationExtras = append(impersonationExtras, h)
+				}
+			}
+		}
+		// If no impersonation is requested, just pass the request.
+		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 {
 			handler.ServeHTTP(w, req)
 			return
 		}
+		// If imepersonation is requested, validate and add "marker" for withScoping to scope the request.
+		// This is done so we know that request was impersonated as upstream code will remove any sign of impersonation.
+		req.Header.Set(kcpImpersonationHeader, "true")
+
 		requester, exists := request.UserFrom(req.Context())
 		if !exists {
 			responsewriters.ErrorNegotiated(
@@ -305,6 +327,47 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 	})
 }
 
+// withScoping scopes the request to the cluster it is intended for.
+func withScoping(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get(kcpImpersonationHeader) != "true" { // no impersonation, no scoping.
+			handler.ServeHTTP(w, req)
+			return
+		}
+		req.Header.Del(kcpImpersonationHeader) // remove the marker.
+
+		u, exists := request.UserFrom(req.Context())
+		if !exists {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("scoping is invalid for the requestor")),
+				errorCodecs, schema.GroupVersion{}, w, req)
+			return
+		}
+
+		cluster := request.ClusterFrom(req.Context())
+		if cluster == nil {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("no cluster found in the context")),
+				errorCodecs, schema.GroupVersion{}, w, req)
+			return
+		}
+
+		extra := u.GetExtra()
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		userScoped := &user.DefaultInfo{
+			Name:   u.GetName(),
+			UID:    u.GetUID(),
+			Groups: u.GetGroups(),
+			Extra:  extra,
+		}
+
+		extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster.Name))
+		handler.ServeHTTP(w, req.WithContext(request.WithUser(req.Context(), userScoped)))
+	})
+}
+
 // maxUserPrivilege returns the highest privilege level found among the user's groups.
 func maxUserPrivilege(userGroups []string) privilege {
 	max := unprivileged
@@ -320,11 +383,19 @@ func maxUserPrivilege(userGroups []string) privilege {
 func validImpersonation(userGroups, requestedGroups []string) bool {
 	userMax := maxUserPrivilege(userGroups)
 
+	// Case 1: User is requesting to impersonate a group with higher privilege.
 	for _, g := range requestedGroups {
 		if userMax < specialGroups[g] {
 			return false
 		}
 	}
+	// Case 2: User is requesting to impersonate a `system:authenticated` group without having the group itself and not being privileged.
+	// This is very much academic, as all users reaching this point will have the `system:authenticated` group or be privileged.
+	if sets.New(requestedGroups...).Has(user.AllAuthenticated) &&
+		!(sets.New(userGroups...).HasAny(user.AllAuthenticated, authorizationbootstrap.SystemMastersGroup, authorizationbootstrap.SystemKcpAdminGroup)) {
+		return false
+	}
+
 	return true
 }
 

@@ -442,6 +442,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
+		// There is ordering here in play:
+		// 1. Default handlers up to impersonation gatekeeper preventing impersonation of the privileged user.
+		// 2. Rest of the handlers up to Authz
+		// 3. Scoping handlers to ensure that the request is scoped to the user's clusters before authz is done.
+		// 4. Rest of the handlers.
+		apiHandler = withScoping(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
