@@ -62,6 +62,13 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
+	// Create rolebinding to allow bind to APIExport of coboys provider. Else nobody can bind to it.
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrole_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrolebinding_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
 	t.Logf("Create today-cowboys APIExport")
 	cowboysAPIExport := &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
@@ -94,10 +101,6 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 					Path:   cowboysProviderPath.String(),
 					Export: cowboysAPIExport.Name,
 				},
-				{
-					Path:   "root",
-					Export: "tenancy.kcp.io",
-				},
 			},
 		},
 	}
@@ -124,7 +127,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
-					Export: "shards.core.kcp.io",
+					Export: "tenancy.kcp.io",
 				},
 			},
 			Extend: tenancyv1alpha1.WorkspaceTypeExtension{

@@ -252,6 +252,8 @@ func BuildVirtualWorkspace(
 				for k, v := range info.Extra {
 					extra[k] = v
 				}
+				// Scope the user to the cluster they are accessing.
+				extra["authentication.kcp.io/scopes"] = []string{fmt.Sprintf("cluster:%s", cluster)}
 
 				thisCfg := rest.CopyConfig(cfg)
 				thisCfg.Impersonate = rest.ImpersonationConfig{
