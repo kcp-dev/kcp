@@ -56,7 +56,9 @@ roleRef:
 
 ## initializingworkspaces Virtual Workspace
 
-As a service provider, you can use initializingworkspaces virtual workspace to manage workspace resources in the initializing phase.
+As a service provider, you can use the `initializingworkspaces` virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch `LogicalCluster` objects that are in the initializing phase and request initialization by a specific controller.
+
+This Virtual Workspace can fetch `LogicalCluster` either by specific its name or using wildcard.
 
 ### Endpoint URL path
 
@@ -71,7 +73,13 @@ As a service provider, you can use initializingworkspaces virtual workspace to m
 This is an example URL path for accessing logical cluster apis for a specific initializer in a `initializingworkspaces` virtual workspace.
 
 ```yaml
-/services/initializingworkspaces/<initializer>/clusters/<logical-cluster>/apis/example.com/v1alpha1/exampleapis
+/services/initializingworkspaces/<initializer>/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters
+```
+
+You can also use `LogicalCluster` name for the direct view, allowing to manage all resources within that logical cluster.
+
+```yaml
+/services/initializingworkspaces/<initializer>/clusters/<logical-cluster-name>/apis/core.kcp.io/v1alpha1/logicalclusters
 ```
 
 ### Example workflow
