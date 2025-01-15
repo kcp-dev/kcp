@@ -6,18 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="What are workspaces and how to use them.
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types/">
-      
-      
-        <link rel="prev" href="../">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-initialization/">
       
       
-        <link rel="next" href="../virtual-workspaces/">
+        <link rel="prev" href="../virtual-workspaces/">
+      
+      
+        <link rel="next" href="../../apis/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +22,7 @@
     
     
       
-        <title>Workspace Types - docs.kcp.io</title>
+        <title>Workspace Initialization - docs.kcp.io</title>
       
     
     
@@ -77,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#workspace-types" class="md-skip">
+        <a href="#workspace-initialization" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Workspace Types
+              Workspace Initialization
             
           </span>
         </div>
@@ -791,30 +788,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Workspace Types
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -823,95 +800,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#user-home-workspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      User Home Workspaces
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="User Home Workspaces">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#bucket-configuration-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Bucket Configuration Options
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#valid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Valid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#invalid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Invalid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#organization-workspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      Organization Workspaces
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#root-workspace" class="md-nav__link">
-    <span class="md-ellipsis">
-      Root Workspace
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#system-workspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      System Workspaces
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -942,10 +830,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../workspace-initialization/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Workspace Initialization
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -954,6 +862,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#initializers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Initializers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Initializers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#defining-initializers-in-workspacetypes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Defining Initializers in WorkspaceTypes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforcing-permissions-for-initializers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enforcing Permissions for Initializers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initializingworkspaces-virtual-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      initializingworkspaces Virtual Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="initializingworkspaces Virtual Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#endpoint-url-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Endpoint URL path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3078,37 +3072,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#user-home-workspaces" class="md-nav__link">
+  <a href="#initializers" class="md-nav__link">
     <span class="md-ellipsis">
-      User Home Workspaces
+      Initializers
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="User Home Workspaces">
+    <nav class="md-nav" aria-label="Initializers">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#bucket-configuration-options" class="md-nav__link">
+  <a href="#defining-initializers-in-workspacetypes" class="md-nav__link">
     <span class="md-ellipsis">
-      Bucket Configuration Options
+      Defining Initializers in WorkspaceTypes
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#valid-configurations" class="md-nav__link">
+  <a href="#enforcing-permissions-for-initializers" class="md-nav__link">
     <span class="md-ellipsis">
-      Valid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#invalid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Invalid Configurations
+      Enforcing Permissions for Initializers
     </span>
   </a>
   
@@ -3120,29 +3105,35 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#organization-workspaces" class="md-nav__link">
+  <a href="#initializingworkspaces-virtual-workspace" class="md-nav__link">
     <span class="md-ellipsis">
-      Organization Workspaces
+      initializingworkspaces Virtual Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="initializingworkspaces Virtual Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#endpoint-url-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Endpoint URL path
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#root-workspace" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#example-workflow" class="md-nav__link">
     <span class="md-ellipsis">
-      Root Workspace
+      Example workflow
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#system-workspaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      System Workspaces
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3164,205 +3155,86 @@
   
 
 
-<h1 id="workspace-types">Workspace Types</h1>
-<p>Workspaces have a type. A type is defined by a <code>WorkspaceType</code>. A type
-defines initializers. They are set on new Workspace objects and block the
-workspace from leaving the initializing phase. Both system components and
-3rd party components can use initializers to customize Workspaces on creation,
-e.g. to bootstrap resources inside the workspace, or to set up permission in its parent.</p>
-<p>kcp comes with a built-in set of workspace types, and the admin may create objects that
-define additional types.</p>
+<h1 id="workspace-initialization">Workspace Initialization</h1>
+<p>Workspace initialization in kcp involves setting up initial configurations and resources for a workspace when it is created. This process is managed through <code>initializers</code>, which are enabled via <code>WorkspaceType</code> objects. This concept is the opposite of Kubernetes <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/">finalizers</a>. This document covers how to configure initializers, the necessary RBAC permissions, URL schemes, and the reasons for using initializers.</p>
+<h2 id="initializers">Initializers</h2>
+<p>Initializers are used to customize workspaces and bootstrap required resources upon creation. Initializers are defined in WorkspaceType objects. This way, a user can define a controller that will process the Workspace and remove the initializer, moving it from the Initializing phase to the Ready phase.</p>
+<h3 id="defining-initializers-in-workspacetypes">Defining Initializers in WorkspaceTypes</h3>
+<p>A <code>WorkspaceType</code> can specify an initializer using the <code>initializer</code> field. Here is an example of a <code>WorkspaceType</code> with an initializer.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">initializer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">defaultChildWorkspaceType</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">universal</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+</code></pre></div>
+<h3 id="enforcing-permissions-for-initializers">Enforcing Permissions for Initializers</h3>
+<p>The non-root user must have the <code>verb=initialize</code> on the <code>WorkspaceType</code> that the initializer is for. This ensures that only authorized users can perform initialization actions using virtual workspace endpoint. Here is an example of the <code>ClusterRole</code>.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;tenancy.kcp.io&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;workspacetypes&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">resourceNames</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;example&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;initialize&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+You can then bind this role to a user or a group.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype-binding</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+</code></pre></div>
+<h2 id="initializingworkspaces-virtual-workspace">initializingworkspaces Virtual Workspace</h2>
+<p>As a service provider, you can use the <code>initializingworkspaces</code> virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch <code>LogicalCluster</code> objects that are in the initializing phase and request initialization by a specific controller.</p>
+<p>This Virtual Workspace can fetch <code>LogicalCluster</code> either by specific its name or using wildcard.</p>
+<h3 id="endpoint-url-path">Endpoint URL path</h3>
+<p><code>initializingworkspaces</code> Virtual Workspace provide a virtual api-server to access workspaces that are initializing with the specific initializer. These URLs are published in the status of WorkspaceType object.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="w">  </span><span class="nt">virtualWorkspaces</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://&lt;front-proxy-ip&gt;:6443/services/initializingworkspaces/&lt;initializer&gt;</span>
+</code></pre></div>
+<p>This is an example URL path for accessing logical cluster apis for a specific initializer in a <code>initializingworkspaces</code> virtual workspace.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/&lt;initializer&gt;/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters</span>
+</code></pre></div>
+<p>You can also use <code>LogicalCluster</code> name for the direct view, allowing to manage all resources within that logical cluster.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/&lt;initializer&gt;/clusters/&lt;logical-cluster-name&gt;/apis/core.kcp.io/v1alpha1/logicalclusters</span>
+</code></pre></div>
+<h3 id="example-workflow">Example workflow</h3>
 <ul>
-<li><strong>Root Workspace</strong> is a singleton.  It holds some data that applies
-  to all workspaces, such as the set of defined workspace types
-  (objects of type <code>WorkspaceType</code>).</li>
-<li><strong>HomeRoot Workspace</strong> is normally a singleton, holding the branch
-  of workspaces that contains the user home workspaces as descendants.
-  Can only be a child of the root workspace, and can only have
-  HomeBucket children.</li>
-<li><strong>HomeBucket Workspace</strong> are intermediate vertices in the hierarchy
-  between the HomeRoot and the user home workspaces.  Can be a child
-  of the root or another HomeBucket workspace.  Allowed children are
-  home and HomeBucket workspaces.</li>
-<li><strong>Home Workspace</strong> is a user's home workspace.  These hold user
-  resources such as applications with services, secrets, configmaps,
-  deployments, etc.  Can only be a child of a HomeBucket workspace.</li>
-<li><strong>Universal Workspace</strong> is a basic type of workspace with no
-  particular nature.  Has no restrictions on parent or child workspace
-  types.</li>
+<li>
+<p>Add your custom WorkspaceType to the platform with an initializer.</p>
+</li>
+<li>
+<p>Create a workspace with the necessary warrants and scopes. The workspace will stay in the initializing state as the initializer is present.</p>
+</li>
+<li>
+<p>Use a controller to watch your initializing workspaces, you can interact with the workspace through the virtual workspace endpoint:</p>
+</li>
 </ul>
-<p>The following workspace types are created by kcp if the <code>workspace-types</code> battery
-is enabled:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/foo/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters</span>
+</code></pre></div>
+* Once you get the object, you need to initialize the workspace with its related resources, using the same endpoint</p>
 <ul>
-<li><strong>Organization Workspace</strong> are workspaces holding organizational
-  data, e.g. definitions of user workspaces, roles, policies,
-  accounting data. Can only be a child of root.</li>
-<li><strong>Team Workspace</strong> can only be a child of an Organization workspace.</li>
+<li>Once the initialization is complete, use the same endpoint to remove the initializer from the workspace.</li>
 </ul>
-<p>A workspace of type <code>Universal</code> is a workspace without further initialization
-or special properties by default, and it can be used without a corresponding
-<code>WorkspaceType</code> object (though one can be added and its initializers will be
-applied).</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>In order to create workspaces of a given type (including <code>Universal</code>)
-you must have <code>use</code> permissions against the <code>workspacetypes</code> resources with the
-lower-case name of the cluster workspace type (e.g. <code>universal</code>). All <code>system:authenticated</code>
-users inherit this permission automatically for type <code>Universal</code>.</p>
-</div>
-<p>The different workspace types are discussed below.</p>
-<h2 id="user-home-workspaces">User Home Workspaces</h2>
-<p>User home workspaces are an optional feature of kcp. If enabled (through <code>--enable-home-workspaces</code>), there is a special
-virtual <code>Workspace</code> called <code>~</code> in the root workspace. It is used by <code>kubectl ws</code> to derive the full path to the user
-home workspace, similar to how Unix <code>cd ~</code> move the users to their home.</p>
-<p>The full path for a user's home workspace has a number of parts: <code>&lt;prefix&gt;(:&lt;bucket&gt;)+:&lt;user-name&gt;</code>. Buckets are used to
-ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
-derived from the user name (via some hash). Example for user <code>adam</code> when using default configuration:
-<code>root:users:a8:f1:adam</code>.</p>
-<p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
-the system to only incur the cost of these workspaces when they are needed. Only users of the configured
-home-creator-groups (default <code>system:authenticated</code>) will have a home workspace.</p>
-<h3 id="bucket-configuration-options">Bucket Configuration Options</h3>
-<p>The <code>kcp</code> administrator can configure:</p>
-<ul>
-<li><code>&lt;prefix&gt;</code>, which defaults to <code>root:users</code></li>
-<li>bucket depth, which defaults to 2</li>
-<li>bucket name length, in characters, which defaults to 2</li>
-</ul>
-<p>The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in
-any bucket.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.</p>
-</div>
-<p>User-names have <code>(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)</code> permutations, and buckets are made up of lowercase-alpha
-chars.  Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
-having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.</p>
-<h3 id="valid-configurations">Valid Configurations</h3>
-<table>
-<thead>
-<tr>
-<th>length</th>
-<th>depth</th>
-<th>sub-buckets</th>
-<th>users</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>3</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^3 = 124</td>
-</tr>
-<tr>
-<td>1</td>
-<td>4</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^4 = 5</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26)^2 = 5</td>
-</tr>
-</tbody>
-</table>
-<h3 id="invalid-configurations">Invalid Configurations</h3>
-<p>These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
-will be sufficient.</p>
-<table>
-<thead>
-<tr>
-<th>length</th>
-<th>depth</th>
-<th>sub-buckets</th>
-<th>users</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26) = 83448</td>
-</tr>
-<tr>
-<td>1</td>
-<td>2</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^2 = 3209</td>
-</tr>
-<tr>
-<td>2</td>
-<td>1</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26) = 3209</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26)^3 = .007</td>
-</tr>
-<tr>
-<td>3</td>
-<td>1</td>
-<td>26 <em>26</em> 26 = 17576</td>
-<td>2169648 / (26<em>26</em>26) = 124</td>
-</tr>
-<tr>
-<td>3</td>
-<td>2</td>
-<td>26 <em>26</em> 26 = 17576</td>
-<td>2169648 / (26<em>26</em>26)^2 = .007</td>
-</tr>
-</tbody>
-</table>
-<h2 id="organization-workspaces">Organization Workspaces</h2>
-<p>Organization workspaces are workspaces of type <code>Organization</code>, defined in the
-root workspace. Organization workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The organization WorkspaceType can only be created in the root workspace
-verified through admission.</p>
-</div>
-<p>Organization workspaces have standard resources (on-top of <code>Universal</code> workspaces)
-which include the <code>Workspace</code> API defined through an CRD deployed during
-organization workspace initialization.</p>
-<h2 id="root-workspace">Root Workspace</h2>
-<p>The default root workspace is a singleton in the system accessible under <code>/clusters/root</code>.
-It is not represented by a <code>Workspace</code> anywhere, but shares the same properties.</p>
-<p>Inside the root workspace at least the following resources are bootstrapped on
-kcp startup:</p>
-<ul>
-<li>Workspace CRD</li>
-<li>WorkspaceType CRD</li>
-<li>Shard CRD</li>
-<li>Partion CRD</li>
-<li>PartionSet CRD</li>
-</ul>
-<p>The root workspace is the only one that holds <code>Shard</code> objects. Shards
-are used to schedule a new Workspace to, i.e. to select in which etcd the
-workspace content is to be persisted.</p>
-<h2 id="system-workspaces">System Workspaces</h2>
-<p>System workspaces are local to a shard and are named in the pattern <code>system:&lt;system-workspace-name&gt;</code>.</p>
-<p>System workspace are only accessible to a shard-local admin user, and there is
-neither a definition via a Workspace, nor is there any validation of requests
-that the system workspace exists.</p>
-<p>As an example, the <code>system:admin</code> workspace exists for administrative objects
-that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if
-leader election is enabled). It is accessible via <code>/clusters/system:admin</code>.</p>
 
 
 
 
 
 
-
-  
-  
 
 
 
