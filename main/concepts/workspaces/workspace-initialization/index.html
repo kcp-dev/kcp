@@ -3223,11 +3223,15 @@ You can then bind this role to a user or a group.</p>
 <p>Use a controller to watch your initializing workspaces, you can interact with the workspace through the virtual workspace endpoint:</p>
 </li>
 </ul>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/foo/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/foo/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters</span>
 </code></pre></div>
-* Once you get the object, you need to initialize the workspace with its related resources, using the same endpoint</p>
 <ul>
-<li>Once the initialization is complete, use the same endpoint to remove the initializer from the workspace.</li>
+<li>
+<p>Once you get the object, you need to initialize the workspace with its related resources, using the same endpoint</p>
+</li>
+<li>
+<p>Once the initialization is complete, use the same endpoint to remove the initializer from the workspace.</p>
+</li>
 </ul>
 
 
