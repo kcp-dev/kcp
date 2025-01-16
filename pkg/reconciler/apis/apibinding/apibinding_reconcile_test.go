@@ -163,6 +163,8 @@ func TestReconcileBinding(t *testing.T) {
 
 	todaywidgetsuid := withName(newCRD("kcp.io", "widgets"), "todaywidgetsuid")
 	anotherwidgetsuid := withName(newCRD("kcp.io", "widgets"), "anotherwidgetsuid")
+	uid1 := withName(newCRD("someresources.mygroup", "todays"), "uid1")
+	uid2 := withName(newCRD("someresources.anothergroup", "todays"), "uid2")
 
 	type wantAPIExportValid struct {
 		invalidReference bool
@@ -297,6 +299,9 @@ func TestReconcileBinding(t *testing.T) {
 			apiBinding: binding.Build(),
 			existingAPIBindings: []*apisv1alpha1.APIBinding{
 				bound.Build(),
+			},
+			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
+				SystemBoundCRDsClusterName: {anotherwidgetsuid, uid1, uid2},
 			},
 			wantCreateCRD: true,
 			wantAPIExportValid: wantAPIExportValid{
@@ -514,7 +519,6 @@ func TestReconcileBinding(t *testing.T) {
 							return crd, nil
 						}
 					}
-
 					return nil, apierrors.NewNotFound(schema.GroupResource{}, name)
 				},
 				listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
