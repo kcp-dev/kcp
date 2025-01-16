@@ -23,33 +23,26 @@ import (
 	"net/http/httputil"
 	_ "net/http/pprof"
 	"net/url"
-	"path"
 	"sort"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/apimachinery/pkg/util/sets"
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
-
-	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 var (
@@ -66,32 +59,6 @@ func init() {
 const (
 	passthroughHeader = "X-Kcp-Api-V1-Discovery-Passthrough"
 )
-
-type (
-	userAgentContextKeyType int
-)
-
-const (
-	// userAgentContextKey is the context key for the request user-agent.
-	userAgentContextKey userAgentContextKeyType = iota
-)
-
-func WithUserAgent(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		ctx := context.WithValue(req.Context(), userAgentContextKey, req.Header.Get("User-Agent"))
-		handler.ServeHTTP(w, req.WithContext(ctx))
-	})
-}
-
-func UserAgentFrom(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	if v := ctx.Value(userAgentContextKey); v != nil {
-		return v.(string)
-	}
-	return ""
-}
 
 // WithVirtualWorkspacesProxy proxies internal requests to virtual workspaces (i.e., requests that did
 // not go through the front proxy) to the external virtual workspaces server. Proxying is required to avoid
@@ -134,239 +101,6 @@ func WithVirtualWorkspacesProxy(apiHandler http.Handler, shardVirtualWorkspaceUR
 		logger.V(4).Info("proxying virtual workspace", "target", req.URL.String())
 		proxy.ServeHTTP(w, req)
 	}
-}
-
-func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		cluster := request.ClusterFrom(req.Context())
-
-		if cluster != nil && cluster.Wildcard {
-			requestInfo, ok := request.RequestInfoFrom(req.Context())
-			if !ok {
-				responsewriters.ErrorNegotiated(
-					apierrors.NewInternalError(fmt.Errorf("missing requestInfo")),
-					errorCodecs, schema.GroupVersion{}, w, req,
-				)
-
-				return
-			}
-
-			if requestInfo.IsResourceRequest && !sets.New[string]("list", "watch").Has(requestInfo.Verb) {
-				statusErr := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
-				statusErr.ErrStatus.Message += " in the `*` logical cluster"
-
-				responsewriters.ErrorNegotiated(
-					statusErr,
-					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
-				)
-
-				return
-			}
-		}
-
-		apiHandler.ServeHTTP(w, req)
-	}
-}
-
-// WithInClusterServiceAccountRequestRewrite adds the /clusters/<clusterName> prefix to the request path if the request comes
-// from an InCluster service account requests (InCluster clients don't support prefixes).
-func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// some header we set for sharding, those are not the requests from InCluster clients
-		shardedHeader := req.Header.Get("X-Kubernetes-Sharded-Request")
-
-		if shardedHeader != "" {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		if strings.HasPrefix(req.RequestURI, "/clusters/") {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		if strings.HasPrefix(req.RequestURI, "/services/") {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		prefix := "Bearer "
-		token := req.Header.Get("Authorization")
-		if !strings.HasPrefix(token, prefix) {
-			handler.ServeHTTP(w, req)
-			return
-		}
-		token = token[len(prefix):]
-
-		var claims map[string]interface{}
-		decoded, err := jwt2.ParseSigned(token)
-		if err != nil { // just ignore
-			handler.ServeHTTP(w, req)
-			return
-		}
-		if err = decoded.UnsafeClaimsWithoutVerification(&claims); err != nil {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		clusterName, ok, err := unstructured.NestedString(claims, "kubernetes.io", "clusterName") // bound
-		if err != nil || !ok {
-			clusterName, ok, err = unstructured.NestedString(claims, "kubernetes.io/serviceaccount/clusterName") // legacy
-			if err != nil || !ok {
-				handler.ServeHTTP(w, req)
-				return
-			}
-		}
-
-		req.URL.Path = path.Join("/clusters", clusterName, req.URL.Path)
-		req.RequestURI = path.Join("/clusters", clusterName, req.RequestURI)
-
-		handler.ServeHTTP(w, req)
-	})
-}
-
-// WithRequestIdentity checks list/watch requests for an APIExport identity for the resource in the path.
-// If it finds one (e.g. /api/v1/services:identityabcd1234/default/my-service), it places the identity from the path
-// to the context, updates the request to remove the identity from the path, and updates requestInfo.Resource to also
-// remove the identity. Finally, it hands off to the passed in handler to handle the request.
-func WithRequestIdentity(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		requestInfo, ok := request.RequestInfoFrom(req.Context())
-		if !ok {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewInternalError(fmt.Errorf("missing requestInfo")),
-				errorCodecs, schema.GroupVersion{}, w, req,
-			)
-			return
-		}
-
-		updatedReq, err := processResourceIdentity(req, requestInfo)
-		if err != nil {
-			klog.FromContext(req.Context()).WithValues("operation", "WithRequestIdentity", "path", req.URL.Path).Error(err, "unable to determine resource")
-
-			responsewriters.ErrorNegotiated(
-				apierrors.NewInternalError(err),
-				errorCodecs, schema.GroupVersion{}, w, req,
-			)
-
-			return
-		}
-
-		handler.ServeHTTP(w, updatedReq)
-	})
-}
-
-type privilege int
-
-const (
-	unprivileged privilege = iota
-	priviledged
-	superPrivileged
-)
-
-var (
-	// specialGroups specify groups with special meaning kcp. Lower privilege (= lower number)
-	// cannot impersonate higher privilege levels.
-	specialGroups = map[string]privilege{
-		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
-		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
-	}
-)
-
-// WithImpersonationGatekeeper checks the request for impersonations and validates them,
-// if they are valid. If they are not, will return a 403.
-// We check for impersonation in the request headers, early to avoid it being propagated to
-// the backend services.
-func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Impersonation check is only done when impersonation is requested.
-		// And impersonations is only allowed for the users, who have metadata in the ctx.
-		// Else just pass the request.
-		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
-		impersonationGroups := req.Header[authenticationv1.ImpersonateGroupHeader]
-		impersonationExtras := []string{}
-		for _, header := range req.Header {
-			for _, h := range header {
-				if strings.HasPrefix(h, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
-					impersonationExtras = append(impersonationExtras, h)
-				}
-			}
-		}
-		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 { // No user and group to impersonate - just pass the request.
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		requester, exists := request.UserFrom(req.Context())
-		if !exists {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is invalid for the requestor")),
-				errorCodecs, schema.GroupVersion{}, w, req)
-			return
-		}
-		// TODO: Add scopes and warrants to the impersonation check.
-		if validImpersonation(requester.GetGroups(), impersonationGroups) {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
-		responsewriters.ErrorNegotiated(
-			apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonation is not allowed for the requestor")),
-			errorCodecs, schema.GroupVersion{}, w, req)
-	})
-}
-
-// maxUserPrivilege returns the highest privilege level found among the user's groups.
-func maxUserPrivilege(userGroups []string) privilege {
-	max := unprivileged
-	for _, g := range userGroups {
-		if p, found := specialGroups[g]; found && p > max {
-			max = p
-		}
-	}
-	return max
-}
-
-// validImpersonation checks if a user can impersonate all requested groups.
-func validImpersonation(userGroups, requestedGroups []string) bool {
-	userMax := maxUserPrivilege(userGroups)
-
-	for _, g := range requestedGroups {
-		if userMax < specialGroups[g] {
-			return false
-		}
-	}
-	return true
-}
-
-func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo) (*http.Request, error) {
-	if !requestInfo.IsResourceRequest {
-		return req, nil
-	}
-
-	i := strings.Index(requestInfo.Resource, ":")
-
-	if i < 0 {
-		return req, nil
-	}
-
-	resource := requestInfo.Resource[:i]
-	identity := requestInfo.Resource[i+1:]
-
-	if identity == "" {
-		return nil, fmt.Errorf("invalid resource %q: missing identity", resource)
-	}
-
-	req = utilnet.CloneRequest(req)
-
-	req = req.WithContext(WithIdentity(req.Context(), identity))
-
-	req.URL.Path = strings.Replace(req.URL.Path, requestInfo.Resource, resource, 1)
-	req.URL.RawPath = strings.Replace(req.URL.RawPath, requestInfo.Resource, resource, 1)
-
-	requestInfo.Resource = resource
-
-	return req, nil
 }
 
 func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {

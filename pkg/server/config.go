@@ -397,8 +397,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.preHandlerChainMux = &handlerChainMuxes{}
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = openapiv3.WithOpenAPIv3(apiHandler, c.openAPIv3ServiceCache) // will be initialized further down after apiextensions-apiserver
-		apiHandler = WithWildcardListWatchGuard(apiHandler)
-		apiHandler = WithRequestIdentity(apiHandler)
+		apiHandler = kcpfilters.WithWildcardListWatchGuard(apiHandler)
+		apiHandler = kcpfilters.WithResourceIdentity(apiHandler)
 		apiHandler = authorization.WithSubjectAccessReviewAuditAnnotations(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
@@ -443,7 +443,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
-		apiHandler = WithImpersonationGatekeeper(apiHandler)
+		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
@@ -472,9 +472,9 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}
-		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
+		apiHandler = kcpfilters.WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
-		apiHandler = WithUserAgent(apiHandler)
+		apiHandler = kcpfilters.WithUserAgent(apiHandler)
 
 		return apiHandler
 	}

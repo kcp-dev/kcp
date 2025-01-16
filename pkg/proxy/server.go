@@ -32,7 +32,7 @@ import (
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
-	"github.com/kcp-dev/kcp/pkg/server"
+	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -83,7 +83,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		s.CompletedConfig.AdditionalAuthEnabled)
 
 	requestInfoFactory := requestinfo.NewFactory()
-	handler = server.WithInClusterServiceAccountRequestRewrite(handler)
+	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
 	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 	handler = genericfilters.WithHTTPLogging(handler)
 	handler = metrics.WithLatencyTracking(handler)
