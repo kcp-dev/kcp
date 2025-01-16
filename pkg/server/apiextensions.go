@@ -39,7 +39,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
-	"github.com/kcp-dev/kcp/pkg/server/filters"
+	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
@@ -223,12 +223,12 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		return nil, err
 	}
 
-	partialMetadataRequest := filters.IsPartialMetadataRequest(ctx)
+	partialMetadataRequest := kcpfilters.IsPartialMetadataRequest(ctx)
 
 	if crd == nil {
 		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster
 
-		identity := IdentityFromContext(ctx)
+		identity := kcpfilters.IdentityFromContext(ctx)
 		if clusterName == "*" && identity != "" {
 			// Priority 2: APIBinding CRD
 			crd, err = c.getForIdentityWildcard(name, identity)
