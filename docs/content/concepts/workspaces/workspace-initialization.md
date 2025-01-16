@@ -93,6 +93,7 @@ You can also use `LogicalCluster` name for the direct view, allowing to manage a
 ```yaml
 /services/initializingworkspaces/foo/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters
 ```
+
 * Once you get the object, you need to initialize the workspace with its related resources, using the same endpoint
 
 * Once the initialization is complete, use the same endpoint to remove the initializer from the workspace.
