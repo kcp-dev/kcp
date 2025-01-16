@@ -41,25 +41,25 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 	}{
 		"deep SAR": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-unknown"),
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to deep SAR request",
 		},
 		"missing cluster in request": {
-			requestingUser: newUser("user-unknown"),
+			requestingUser: &user.DefaultInfo{Name: "user-unknown"},
 			wantDecision:   authorizer.DecisionNoOpinion,
 			wantReason:     "empty cluster name",
 		},
 		"system:kcp:logical-cluster-admin can always pass": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
+			requestingUser:     &user.DefaultInfo{Name: "lcluster-admin", Groups: []string{"system:kcp:logical-cluster-admin"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to logical cluster admin access",
 		},
 		"system:kcp:external-logical-cluster-admin can always pass": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("external-lcluster-admin", "system:kcp:external-logical-cluster-admin"),
+			requestingUser:     &user.DefaultInfo{Name: "external-lcluster-admin", Groups: []string{"system:kcp:external-logical-cluster-admin"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to external logical cluster admin access",
 		},
@@ -77,14 +77,14 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is granted access to logical cluster without required groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster:     &v1alpha1.LogicalCluster{},
 			wantReason:         "delegating due to logical cluster does not require groups",
 		},
 		"permitted user is denied access to logical cluster with required groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionDeny,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -97,7 +97,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is allowed access to logical cluster with matching all of multiple disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1", "special-group-2"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1", "special-group-2"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -110,7 +110,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is allowed access to logical cluster with matching one of multiple disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1", "other-group"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1", "other-group"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -123,7 +123,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is allowed access to logical cluster with multiple conjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1", "special-group-2"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1", "special-group-2"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -136,7 +136,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is denied access to logical cluster with multiple conjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1", "other-group"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1", "other-group"}},
 			wantDecision:       authorizer.DecisionDeny,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -149,7 +149,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is allowed access to logical cluster with matching two of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1", "special-group-2"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1", "special-group-2"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -162,7 +162,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is allowed access to logical cluster with matching one of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-3"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-3"}},
 			wantDecision:       authorizer.DecisionAllow,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -175,7 +175,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is denied access to logical cluster with matching only one of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "special-group-1"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"special-group-1"}},
 			wantDecision:       authorizer.DecisionDeny,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
@@ -188,7 +188,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 		"permitted user is denied access to logical cluster with matching none of multiple conjunctive and disjunctive groups": {
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access", "system:authenticated"),
+			requestingUser:     &user.DefaultInfo{Name: "user-access", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionDeny,
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{

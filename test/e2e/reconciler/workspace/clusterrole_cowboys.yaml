@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:apiexport:today-cowboys:bind
+rules:
+- apiGroups: ["apis.kcp.io"]
+  resources:
+  - "apiexports"
+  resourceNames:
+  - "today-cowboys"
+  verbs: ["bind"]
