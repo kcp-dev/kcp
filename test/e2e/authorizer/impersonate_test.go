@@ -24,6 +24,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -80,4 +81,43 @@ func TestImpersonation(t *testing.T) {
 		_, err = user1Client.TenancyV1alpha1().Workspaces().Cluster(org).UpdateStatus(ctx, ws, metav1.UpdateOptions{})
 		return apierrors.IsForbidden(err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "user-1 should NOT be able to edit its own workspace status with impersonation")
+}
+
+func TestImpersonateScoping(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	ctx, cancelFn := context.WithCancel(context.Background())
+	t.Cleanup(cancelFn)
+
+	server := framework.SharedKcpServer(t)
+	cfg := server.BaseConfig(t)
+
+	org, ws := framework.NewOrganizationFixture(t, server)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	t.Log("Make user-1 an admin of the org")
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org, []string{"user-1"}, []string{"cluster-admin"}, true)
+	user1Cfg := framework.StaticTokenUserConfig("user-1", cfg)
+
+	t.Logf("Impersonate user-1 as some group")
+	user1Cfg.Impersonate = rest.ImpersonationConfig{
+		UserName: "user-1",
+		Groups:   []string{"elephant"},
+	}
+	user1Client, err := kcpkubernetesclientset.NewForConfig(user1Cfg)
+	require.NoError(t, err)
+
+	t.Logf("Scoping should be added in SelfSubjectReview")
+	require.Eventually(t, func() bool {
+		r, err := user1Client.AuthenticationV1().SelfSubjectReviews().Cluster(org).Create(ctx, &authenticationv1.SelfSubjectReview{}, metav1.CreateOptions{})
+		if err != nil {
+			return false
+		}
+
+		require.Contains(t, r.Status.UserInfo.Extra["authentication.kcp.io/scopes"], "cluster:"+ws.Spec.Cluster, "scoping to cluster:%s should be added in SelfSubjectReview", ws.Spec.Cluster)
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "scoping should be added in SelfSubjectReview")
 }
