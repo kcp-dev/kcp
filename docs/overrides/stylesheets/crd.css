@@ -1,0 +1,111 @@
+/* Taken from https://github.com/giantswarm/docs/blob/main/src/static/css/crd.css 
+* Changes made:
+* - Change font-family to var(--md-code-font-family) and property colors to match theme.
+* - Adjust border colors to be more in line with material theme.
+* - Add dark theme variants for crd-meta elements.
+* - Add padding to crd-meta.
+*/
+
+/* Styles for the CRD schema reference documentation */
+
+ul.crd-index {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+.crd-index .tag {
+  background-color: #ccc;
+  padding: 2px 7px;
+  font-size: 14px;
+  border-radius: 3px;
+}
+.crd-index .tag-provider {
+  text-transform: uppercase;
+}
+.crd-index .tag-provider-aws {
+  background-color: #ed9235;
+  color: #232f3b;
+}
+.crd-index .tag-provider-azure {
+  background-color: #1773bd;
+  color: #fff;
+}
+.crd-index .tag-topic {
+  background-color: #5eaebb;
+  color: #fff;
+}
+
+
+dl.crd-meta {
+  display: flex;
+  flex-flow: row wrap;
+  border-bottom: 1px solid #00000012;
+}
+
+[data-md-color-primary=black] dl.crd-meta {
+  border-bottom: 1px solid #e6e6e612;
+}
+
+.crd-meta dt {
+  flex-basis: 20%;
+  margin: 0;
+  padding: 8px 8px;
+  border-top: 1px solid #00000012;
+  font-weight: bold;
+}
+
+.crd-meta dd {
+  flex-basis: 70%;
+  flex-grow: 1;
+  margin: 0;
+  padding: 8px 8px;
+  border-top: 1px solid #00000012;
+}
+
+[data-md-color-primary=black] .crd-meta dt, [data-md-color-primary=black] .crd-meta dd {
+  border-top: 1px solid #e6e6e612;
+}
+
+.crd-meta a.version {
+  font-family: var(--md-code-font-family);
+  font-size:
+  margin-right: 10px;
+}
+
+.property {
+  margin-bottom: 1em;
+}
+
+.property-header h3 {
+  font-family: var(--md-code-font-family);
+  font-size: 22px;
+  margin: 0;
+  margin-left: -0.1em;
+}
+
+.property-description, .property-meta {
+  margin: 5px 0
+}
+
+.property-title {
+  font-style: italic;
+}
+
+.property-type {
+  color: var(--md-code-fg-color);
+  background-color: var(--md-code-bg-color);
+  font-family: var(--md-code-font-family);
+  font-size: 14px;
+  line-height: 22px;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
+.property-required {
+  background-color: var(--md-accent-fg-color);
+  color: var(--md-accent-bg-color);
+  font-size: 14px;
+  line-height: 22px;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
