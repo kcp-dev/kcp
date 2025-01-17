@@ -51,6 +51,9 @@ theme:
       icon: material/brightness-4
       name: Switch to system preference
 
+extra_css:
+  - stylesheets/crd.css
+
 extra:
   version:
     # Enable mike for multi-version selection
