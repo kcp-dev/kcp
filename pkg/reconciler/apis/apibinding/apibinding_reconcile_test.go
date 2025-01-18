@@ -18,9 +18,11 @@ package apibinding
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
@@ -36,6 +38,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
@@ -173,11 +176,13 @@ func TestReconcileBinding(t *testing.T) {
 		valid            bool
 	}
 	type wantInitialBindingComplete struct {
-		internalError         bool
-		schemaInvalid         bool
-		waitingForEstablished bool
-		namingConflict        bool
-		completed             bool
+		internalError          bool
+		schemaInvalid          bool
+		waitingForEstablished  bool
+		logicalClusterNotFound bool
+		resourceConflict       bool
+		namingConflict         bool
+		completed              bool
 	}
 	tests := map[string]struct {
 		// input objects
@@ -185,6 +190,8 @@ func TestReconcileBinding(t *testing.T) {
 		getAPIExportError         error
 		getAPIResourceSchemaError error
 		existingAPIBindings       []*apisv1alpha1.APIBinding
+		logicalCluster            *corev1alpha1.LogicalCluster
+		updateLogicalClusterError error
 
 		// reconcile result
 		wantError   bool
@@ -252,21 +259,91 @@ func TestReconcileBinding(t *testing.T) {
 				valid: false,
 			},
 		},
+		"No LogicalCluster": {
+			apiBinding: binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				logicalClusterNotFound: true,
+			},
+			wantError: true,
+		},
+		"LogicalCluster without resource binding annotation": {
+			logicalCluster: newLogicalCluster(),
+			apiBinding:     binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				resourceConflict: true,
+			},
+			wantError: true,
+		},
+		"LogicalCluster update error": {
+			logicalCluster:            withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:                binding.Build(),
+			updateLogicalClusterError: errors.New("foo"),
+			wantError:                 true,
+		},
+		"Resource already bound by other APIBinding": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
+				"widgets.kcp.io": ExpirableLock{Lock: Lock{Name: "some-other-binding"}},
+			}),
+			apiBinding: binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				resourceConflict: true,
+			},
+		},
+		"Resource already bound by CRD without expiry": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
+				"widgets.kcp.io": ExpirableLock{Lock: Lock{CRD: true}},
+			}),
+			apiBinding: binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				resourceConflict: true,
+			},
+		},
+		"Resource already bound by unexpired CRD": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
+				"widgets.kcp.io": ExpirableLock{Lock: Lock{CRD: true}, CRDExpiry: ptr.To(metav1.Time{Time: time.Now().Add(time.Hour)})},
+			}),
+			apiBinding: binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				resourceConflict: true,
+			},
+		},
+		"Resource already bound by expired, but existing CRD": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
+				"widgets.kcp.io": ExpirableLock{Lock: Lock{CRD: true}, CRDExpiry: ptr.To(metav1.Time{Time: time.Now().Add(-time.Hour)})},
+			}),
+			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
+				logicalcluster.Name("org:ws"): {newCRD("kcp.io", "widgets")},
+			},
+			apiBinding: binding.Build(),
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				resourceConflict: true,
+			},
+		},
+		"Resource already bound by expired and non-existing CRD": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
+				"widgets.kcp.io": ExpirableLock{Lock: Lock{CRD: true}, CRDExpiry: ptr.To(metav1.Time{Time: time.Now().Add(-time.Hour)})},
+			}),
+			apiBinding:    binding.Build(),
+			wantCreateCRD: true,
+		},
 		"APIResourceSchema invalid": {
-			apiBinding: invalidSchema.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     invalidSchema.Build(),
 			wantAPIExportValid: wantAPIExportValid{
 				internalError: true,
 			},
 		},
 		"CRD get error": {
-			apiBinding:  binding.Build(),
-			getCRDError: errors.New("foo"),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
+			getCRDError:    errors.New("foo"),
 			wantAPIExportValid: wantAPIExportValid{
 				internalError: true,
 			},
 			wantError: true,
 		},
 		"create CRD fails - invalid": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
 			apiBinding:     binding.Build(),
 			wantCreateCRD:  true,
 			createCRDError: apierrors.NewInvalid(apiextensionsv1.Kind("CustomResourceDefinition"), "todaywidgetsuid", field.ErrorList{field.Forbidden(field.NewPath("foo"), "details")}),
@@ -276,6 +353,7 @@ func TestReconcileBinding(t *testing.T) {
 			wantError: false,
 		},
 		"create CRD fails - other error": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
 			apiBinding:     binding.Build(),
 			wantCreateCRD:  true,
 			createCRDError: errors.New("foo"),
@@ -285,8 +363,9 @@ func TestReconcileBinding(t *testing.T) {
 			wantError: true,
 		},
 		"create CRD - no other bindings": {
-			apiBinding:    binding.Build(),
-			wantCreateCRD: true,
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
+			wantCreateCRD:  true,
 			wantAPIExportValid: wantAPIExportValid{
 				valid: true,
 			},
@@ -296,7 +375,8 @@ func TestReconcileBinding(t *testing.T) {
 			wantBoundResources: nil, // not yet established
 		},
 		"create CRD - other bindings - no conflicts": {
-			apiBinding: binding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
 			existingAPIBindings: []*apisv1alpha1.APIBinding{
 				bound.Build(),
 			},
@@ -313,7 +393,8 @@ func TestReconcileBinding(t *testing.T) {
 			wantBoundResources: nil, // not yet established
 		},
 		"create CRD - other bindings - conflicts": {
-			apiBinding: binding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
 			existingAPIBindings: []*apisv1alpha1.APIBinding{
 				conflicting.Build(),
 			},
@@ -328,7 +409,8 @@ func TestReconcileBinding(t *testing.T) {
 			wantNoReady: true,
 		},
 		"bind existing CRD - other bindings - conflicts": {
-			apiBinding: binding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
 				SystemBoundCRDsClusterName: {todaywidgetsuid, anotherwidgetsuid},
 			},
@@ -343,7 +425,8 @@ func TestReconcileBinding(t *testing.T) {
 			wantNoReady: true,
 		},
 		"CRD already exists but isn't established yet": {
-			apiBinding: binding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
 				SystemBoundCRDsClusterName: {withStoredVersions(todaywidgetsuid, "v0", "v1")},
 			},
@@ -357,7 +440,8 @@ func TestReconcileBinding(t *testing.T) {
 			wantBoundResources: nil, // not established yet
 		},
 		"CRD already exists and is established": {
-			apiBinding: binding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
 				SystemBoundCRDsClusterName: {withEstablished(withStoredVersions(todaywidgetsuid, "v0", "v1"))},
 			},
@@ -383,7 +467,8 @@ func TestReconcileBinding(t *testing.T) {
 			},
 		},
 		"Ensure merging storage versions works": {
-			apiBinding: rebinding.Build(),
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     rebinding.Build(),
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
 				SystemBoundCRDsClusterName: {withEstablished(withStoredVersions(todaywidgetsuid, "v2")), anotherwidgetsuid},
 			},
@@ -528,6 +613,18 @@ func TestReconcileBinding(t *testing.T) {
 					createCRDCalled = true
 					return crd, tc.createCRDError
 				},
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					if tc.logicalCluster == nil {
+						return nil, apierrors.NewNotFound(schema.GroupResource{}, clusterName.String())
+					}
+					return tc.logicalCluster, nil
+				},
+				updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+					if tc.updateLogicalClusterError != nil {
+						return tc.updateLogicalClusterError
+					}
+					return nil
+				},
 				deletedCRDTracker: &lockedStringSet{},
 			}
 
@@ -596,6 +693,22 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.APIResourceSchemaInvalidReason,
+				})
+			}
+			if tc.wantInitialBindingComplete.logicalClusterNotFound {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.LogicalClusterNotFoundReason,
+				})
+			}
+			if tc.wantInitialBindingComplete.resourceConflict {
+				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
+					Type:     apisv1alpha1.InitialBindingCompleted,
+					Status:   corev1.ConditionFalse,
+					Severity: conditionsv1alpha1.ConditionSeverityError,
+					Reason:   apisv1alpha1.NamingConflictsReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.namingConflict {
@@ -1080,6 +1193,26 @@ func withEstablished(crd *apiextensionsv1.CustomResourceDefinition) *apiextensio
 		Status: apiextensionsv1.ConditionTrue,
 	})
 	return crd
+}
+
+func newLogicalCluster() *corev1alpha1.LogicalCluster {
+	return &corev1alpha1.LogicalCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: corev1alpha1.LogicalClusterName,
+		},
+	}
+}
+
+func withResourceBindings(lc *corev1alpha1.LogicalCluster, rbs ResourceBindingsAnnotation) *corev1alpha1.LogicalCluster {
+	bs, err := json.Marshal(rbs)
+	if err != nil {
+		panic(err)
+	}
+
+	lc = lc.DeepCopy()
+	lc.Annotations = make(map[string]string)
+	lc.Annotations[ResourceBindingsAnnotationKey] = string(bs)
+	return lc
 }
 
 // requireConditionMatches looks for a condition matching c in g. Only fields that are set in c are compared (Type is
