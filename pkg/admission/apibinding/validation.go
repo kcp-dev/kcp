@@ -55,7 +55,6 @@ func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha1.APIBinding) f
 func ValidateAPIBindingReference(reference apisv1alpha1.BindingReference, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// For now, field "export" is required via OpenAPI. But just in case...
 	if reference.Export == nil {
 		allErrs = append(allErrs, field.Required(path.Child("export"), ""))
 	} else if reference.Export.Name == "" {

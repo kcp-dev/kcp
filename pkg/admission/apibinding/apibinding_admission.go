@@ -106,6 +106,7 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 	}
 
 	if apiBinding.Spec.Reference.Export == nil {
+		// should not happen due to validation.
 		return nil
 	}
 

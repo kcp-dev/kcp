@@ -72,11 +72,7 @@ func newConflictChecker(clusterName logicalcluster.Name,
 	}
 	for _, b := range bindings {
 		if b.Spec.Reference.Export == nil {
-			continue
-		}
-
-		if b.Spec.Reference.Export == nil {
-			// this should not happen because of OpenAPI
+			// this should not happen because of validation.
 			return nil, fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(b), b.Name)
 		}
 		path := logicalcluster.NewPath(b.Spec.Reference.Export.Path)
