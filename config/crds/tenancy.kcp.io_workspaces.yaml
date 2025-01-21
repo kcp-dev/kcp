@@ -93,6 +93,10 @@ spec:
                 x-kubernetes-validations:
                 - message: cluster is immutable
                   rule: self == oldSelf
+              defaultAPIBindingLifecycle:
+                description: |
+                  Configure the lifecycle behaviour of defaultAPIBindings declared on the workspace type.
+                type: string
               location:
                 description: |-
                   location constraints where this workspace can be scheduled to.

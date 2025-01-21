@@ -235,7 +235,7 @@ func TestReconcilePhase(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			reconciler := phaseReconciler{
+			reconciler := lifecycleReconciler{
 				getLogicalCluster: testCase.getLogicalCluster,
 				requeueAfter:      func(workspace *tenancyv1alpha1.Workspace, after time.Duration) {},
 			}

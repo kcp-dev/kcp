@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241020-fce06d31d.workspaces.tenancy.kcp.io
+  name: v250121-d45cb04b.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -91,6 +91,10 @@ spec:
               x-kubernetes-validations:
               - message: cluster is immutable
                 rule: self == oldSelf
+            defaultAPIBindingLifecycle:
+              description: |
+                Configure the lifecycle behaviour of defaultAPIBindings declared on the workspace type.
+              type: string
             location:
               description: |-
                 location constraints where this workspace can be scheduled to.
