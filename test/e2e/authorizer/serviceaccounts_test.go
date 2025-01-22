@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
@@ -194,6 +195,79 @@ func TestServiceAccounts(t *testing.T) {
 				t.Log("Accessing workspace with the service account")
 				obj, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
+
+				t.Log("Giving the access to configmaps in the other workspace")
+				_, err = kubeClusterClient.Cluster(otherPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sa-access",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"configmaps"},
+							Verbs:     []string{"get", "list", "watch"},
+						},
+						{
+							Verbs:           []string{"access"},
+							NonResourceURLs: []string{"/"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create cluster role")
+				_, err = kubeClusterClient.Cluster(otherPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sa-access",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:     "Group",
+							APIGroup: "rbac.authorization.k8s.io",
+							Name:     "system:authenticated",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "sa-access",
+						APIGroup: rbacv1.GroupName,
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create cluster role binding")
+
+				t.Log("Accessing other workspace with the (there foreigh) service account should eventually work because it is authenticated")
+				framework.Eventually(t, func() (bool, string) {
+					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Log("Taking away the authenticated access to the other workspace, restricting to only service accounts")
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					crb, err := kubeClusterClient.Cluster(otherPath).RbacV1().ClusterRoleBindings().Get(ctx, "sa-access", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					crb.Subjects = []rbacv1.Subject{
+						{
+							Kind:     "Group",
+							APIGroup: "rbac.authorization.k8s.io",
+							Name:     "system:serviceaccounts",
+						},
+					}
+					_, err = kubeClusterClient.Cluster(otherPath).RbacV1().ClusterRoleBindings().Update(ctx, crb, metav1.UpdateOptions{})
+					return err
+				})
+				require.NoError(t, err, "failed to update cluster role binding")
+
+				t.Log("The foreign service account should not be able to access the other workspace anymore eventually")
+				framework.Eventually(t, func() (bool, string) {
+					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
+					if err == nil {
+						return false, "access should not be allowed. Keeping trying."
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
 			})
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
