@@ -125,7 +125,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:   "delegating due to user logical cluster access",
 		},
 		{
-			testName: "user with scope to another cluster is denied",
+			testName: "user with scope to another cluster is not allowed",
 
 			requestedWorkspace: "root:ready",
 			requestingUser: &user.DefaultInfo{Name: "user-access", Extra: map[string][]string{
@@ -143,26 +143,26 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "delegating due to local service account access",
 		},
 		{
-			testName: "user is granted access on root",
+			testName: "a authenticated user is granted access on root:authenticated",
 
-			requestedWorkspace: "root",
+			requestedWorkspace: "root:authenticated",
 			requestingUser:     &user.DefaultInfo{Name: "somebody", Groups: []string{"system:authenticated"}},
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to user logical cluster access",
 		},
 		{
-			testName: "service account from other cluster is denied on root",
+			testName: "service account from other cluster is denied on root:authenticated",
 
-			requestedWorkspace: "root",
+			requestedWorkspace: "root:authenticated",
 			requestingUser:     newServiceAccountWithCluster("somebody", "someworkspace", "system:authenticated"),
 			wantDecision:       authorizer.DecisionDeny,
 			wantReason:         "foreign service account",
 		},
 		{
-			testName: "service account from root cluster is granted access on root",
+			testName: "service account from root:authenticated cluster is granted access on root:authenticated",
 
-			requestedWorkspace: "root",
-			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
+			requestedWorkspace: "root:authenticated",
+			requestingUser:     newServiceAccountWithCluster("somebody", "root:authenticated", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to local service account access",
 		},
@@ -248,9 +248,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
+							logicalcluster.AnnotationKey: "root:authenticated",
 						},
-						Name: "system:authenticated:access",
+						Name: "system:authenticated:root:authenticated:access",
 					},
 					Subjects: []v1.Subject{
 						{
@@ -270,7 +270,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:ready",
 						},
-						Name: "user-access-ready-access",
+						Name: "user-access:root:ready:access",
 					},
 					Subjects: []v1.Subject{
 						{
@@ -290,7 +290,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:initializing",
 						},
-						Name: "user-access-initializing-access",
+						Name: "user-access:root:initializing:access",
 					},
 					Subjects: []v1.Subject{
 						{
@@ -310,7 +310,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "rootwithoutparent",
 						},
-						Name: "system:authenticated:access",
+						Name: "user-access:rootwithoutparent:access",
 					},
 					Subjects: []v1.Subject{
 						{
@@ -343,7 +343,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			localIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:authenticated"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
 			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
