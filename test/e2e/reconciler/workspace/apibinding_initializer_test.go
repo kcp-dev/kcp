@@ -25,8 +25,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -159,4 +161,86 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly
 	_, _ = framework.NewWorkspaceFixture(t, server, universalPath, framework.WithType(universalPath, "test"), framework.WithName("init"))
+}
+
+func TestWorkspaceTypesAPIBindingWithCustomPermissions(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, server)
+
+	cowboysProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("cowboys-provider"))
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "error creating kcp cluster client")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "error creating dynamic cluster client")
+
+	cowboysProviderKCPClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "error creating cowboys provider kcp client")
+
+	t.Logf("Install a cowboys APIResourceSchema into workspace %q", cowboysProviderPath)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cowboysProviderKCPClient.Cluster(cowboysProviderPath).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	// Create rolebinding to allow bind to APIExport of coboys provider. Else nobody can bind to it.
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrole_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrolebinding_cowboys_custom.yaml", testFiles)
+	require.NoError(t, err)
+
+	t.Logf("Create today-cowboys APIExport")
+	cowboysAPIExport := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "today-cowboys",
+		},
+		Spec: apisv1alpha1.APIExportSpec{
+			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+			PermissionClaims: []apisv1alpha1.PermissionClaim{
+				{
+					GroupResource: apisv1alpha1.GroupResource{
+						Resource: "configmaps",
+					},
+					All: true,
+				},
+			},
+		},
+	}
+	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating APIExport")
+
+	universalPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("universal"))
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	// create a user with custom permissions
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, universalPath, []string{"user"}, []string{"private-cowboys"}, true)
+	userClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+
+	_, err = userClient.Cluster(universalPath).ApisV1alpha1().APIBindings().Create(ctx, &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom-binding",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: cowboysProviderPath.String(),
+					Name: cowboysAPIExport.Name,
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+
+	require.NoError(t, err, "error creating APIBinding")
 }
