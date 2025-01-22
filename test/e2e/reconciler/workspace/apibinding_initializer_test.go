@@ -18,13 +18,16 @@ package workspace
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -228,19 +231,21 @@ func TestWorkspaceTypesAPIBindingWithCustomPermissions(t *testing.T) {
 	userClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
 
-	_, err = userClient.Cluster(universalPath).ApisV1alpha1().APIBindings().Create(ctx, &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "custom-binding",
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
-					Path: cowboysProviderPath.String(),
-					Name: cowboysAPIExport.Name,
+	framework.Eventually(t, func() (bool, string) {
+		_, err := userClient.Cluster(universalPath).ApisV1alpha1().APIBindings().Create(ctx, &apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "custom-binding",
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: cowboysProviderPath.String(),
+						Name: cowboysAPIExport.Name,
+					},
 				},
 			},
-		},
-	}, metav1.CreateOptions{})
+		}, metav1.CreateOptions{})
 
-	require.NoError(t, err, "error creating APIBinding")
+		return err == nil, fmt.Sprintf("failed to create APIBinding with custom permissions: %v", err)
+	}, wait.ForeverTestTimeout, time.Second*1)
 }
