@@ -27,11 +27,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
-	"k8s.io/kubernetes/pkg/registry/rbac/validation"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -89,23 +88,10 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
 	}
 
-	isServiceAccount := validation.IsServiceAccount(attr.GetUser())
-	isAuthenticated := sets.New[string](attr.GetUser().GetGroups()...).Has("system:authenticated")
-	isForeign := validation.IsForeign(attr.GetUser(), cluster.Name)
-	isInScope := validation.IsInScope(attr.GetUser(), cluster.Name)
+	isServiceAccount := rbacregistryvalidation.IsServiceAccount(attr.GetUser())
+	isInScope := rbacregistryvalidation.IsInScope(attr.GetUser(), cluster.Name)
 
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
-		attr := deepCopyAttributes(attr)
-		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		if isAuthenticated && isServiceAccount && !isForeign {
-			// service accounts from other workspaces might conflict with local service accounts by name.
-			// This could lead to unwanted side effects of unwanted applied permissions.
-			// Hence, these requests have to be anonymized.
-			attr.User = &user.DefaultInfo{
-				Name:   "system:anonymous",
-				Groups: []string{"system:authenticated"},
-			}
-		}
 		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
 	}
 
@@ -128,17 +114,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	switch {
-	case isServiceAccount && isForeign:
-		// Service accounts from other workspaces might conflict with local service accounts by name.
-		// Use another reason string to make this very common case clearer.
-		return authorizer.DecisionDeny, "foreign service account", nil
-
-	case !isInScope:
-		// No opinion, but there could be a warrant giving access.
-		return authorizer.DecisionNoOpinion, "out of scope", nil
-
-	case isServiceAccount:
-		// A service account declared in the requested workspace is authorized inside that workspace.
+	case isServiceAccount && isInScope:
+		// A service account declared in the requested workspace is always authorized inside that workspace.
 		return DelegateAuthorization("local service account access", a.delegate).Authorize(ctx, attr)
 
 	default:

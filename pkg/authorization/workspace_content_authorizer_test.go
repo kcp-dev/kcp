@@ -107,12 +107,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "delegating due to user logical cluster access",
 		},
 		{
-			testName: "service account from other cluster is denied",
+			testName: "service account from other cluster is not allowed",
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
-			wantDecision:       authorizer.DecisionDeny, // this must be a deny because otherwise naming conflicts could lead to unwanted permissions
-			wantReason:         "foreign service account",
+			wantDecision:       authorizer.DecisionNoOpinion,
+			wantReason:         "no verb=access permission on /",
 		},
 		{
 			testName: "user with scope to this cluster is allowed",
@@ -132,7 +132,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				"authentication.kcp.io/scopes": {"cluster:anotherws"},
 			}},
 			wantDecision: authorizer.DecisionNoOpinion,
-			wantReason:   "out of scope",
+			wantReason:   "no verb=access permission on /",
 		},
 		{
 			testName: "service account from same cluster is granted access",
@@ -151,12 +151,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "delegating due to user logical cluster access",
 		},
 		{
-			testName: "service account from other cluster is denied on root:authenticated",
+			testName: "service account from other cluster is granted access on root:authenticated", // as it act as system:anonymous+system:authenticated there.
 
 			requestedWorkspace: "root:authenticated",
 			requestingUser:     newServiceAccountWithCluster("somebody", "someworkspace", "system:authenticated"),
-			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         "foreign service account",
+			wantDecision:       authorizer.DecisionAllow,
+			wantReason:         "delegating due to user logical cluster access",
 		},
 		{
 			testName: "service account from root:authenticated cluster is granted access on root:authenticated",
