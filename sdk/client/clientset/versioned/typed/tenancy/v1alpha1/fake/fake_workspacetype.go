@@ -19,169 +19,36 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
+	typedtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 )
 
-// FakeWorkspaceTypes implements WorkspaceTypeInterface
-type FakeWorkspaceTypes struct {
+// fakeWorkspaceTypes implements WorkspaceTypeInterface
+type fakeWorkspaceTypes struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.WorkspaceType, *v1alpha1.WorkspaceTypeList, *tenancyv1alpha1.WorkspaceTypeApplyConfiguration]
 	Fake *FakeTenancyV1alpha1
 }
 
-var workspacetypesResource = v1alpha1.SchemeGroupVersion.WithResource("workspacetypes")
-
-var workspacetypesKind = v1alpha1.SchemeGroupVersion.WithKind("WorkspaceType")
-
-// Get takes name of the workspaceType, and returns the corresponding workspaceType object, and an error if there is any.
-func (c *FakeWorkspaceTypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.WorkspaceType, err error) {
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(workspacetypesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeWorkspaceTypes(fake *FakeTenancyV1alpha1) typedtenancyv1alpha1.WorkspaceTypeInterface {
+	return &fakeWorkspaceTypes{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.WorkspaceType, *v1alpha1.WorkspaceTypeList, *tenancyv1alpha1.WorkspaceTypeApplyConfiguration](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
+			v1alpha1.SchemeGroupVersion.WithKind("WorkspaceType"),
+			func() *v1alpha1.WorkspaceType { return &v1alpha1.WorkspaceType{} },
+			func() *v1alpha1.WorkspaceTypeList { return &v1alpha1.WorkspaceTypeList{} },
+			func(dst, src *v1alpha1.WorkspaceTypeList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.WorkspaceTypeList) []*v1alpha1.WorkspaceType {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.WorkspaceTypeList, items []*v1alpha1.WorkspaceType) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// List takes label and field selectors, and returns the list of WorkspaceTypes that match those selectors.
-func (c *FakeWorkspaceTypes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.WorkspaceTypeList, err error) {
-	emptyResult := &v1alpha1.WorkspaceTypeList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(workspacetypesResource, workspacetypesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.WorkspaceTypeList{ListMeta: obj.(*v1alpha1.WorkspaceTypeList).ListMeta}
-	for _, item := range obj.(*v1alpha1.WorkspaceTypeList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested workspaceTypes.
-func (c *FakeWorkspaceTypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(workspacetypesResource, opts))
-}
-
-// Create takes the representation of a workspaceType and creates it.  Returns the server's representation of the workspaceType, and an error, if there is any.
-func (c *FakeWorkspaceTypes) Create(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.CreateOptions) (result *v1alpha1.WorkspaceType, err error) {
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(workspacetypesResource, workspaceType, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// Update takes the representation of a workspaceType and updates it. Returns the server's representation of the workspaceType, and an error, if there is any.
-func (c *FakeWorkspaceTypes) Update(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceType, err error) {
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(workspacetypesResource, workspaceType, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeWorkspaceTypes) UpdateStatus(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (result *v1alpha1.WorkspaceType, err error) {
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(workspacetypesResource, "status", workspaceType, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// Delete takes name of the workspaceType and deletes it. Returns an error if one occurs.
-func (c *FakeWorkspaceTypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(workspacetypesResource, name, opts), &v1alpha1.WorkspaceType{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeWorkspaceTypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(workspacetypesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.WorkspaceTypeList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched workspaceType.
-func (c *FakeWorkspaceTypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.WorkspaceType, err error) {
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied workspaceType.
-func (c *FakeWorkspaceTypes) Apply(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.WorkspaceType, err error) {
-	if workspaceType == nil {
-		return nil, fmt.Errorf("workspaceType provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(workspaceType)
-	if err != nil {
-		return nil, err
-	}
-	name := workspaceType.Name
-	if name == nil {
-		return nil, fmt.Errorf("workspaceType.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *FakeWorkspaceTypes) ApplyStatus(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.WorkspaceType, err error) {
-	if workspaceType == nil {
-		return nil, fmt.Errorf("workspaceType provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(workspaceType)
-	if err != nil {
-		return nil, err
-	}
-	name := workspaceType.Name
-	if name == nil {
-		return nil, fmt.Errorf("workspaceType.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.WorkspaceType{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(workspacetypesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.WorkspaceType), err
 }

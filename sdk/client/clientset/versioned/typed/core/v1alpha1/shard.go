@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -39,36 +39,37 @@ type ShardsGetter interface {
 
 // ShardInterface has methods to work with Shard resources.
 type ShardInterface interface {
-	Create(ctx context.Context, shard *v1alpha1.Shard, opts v1.CreateOptions) (*v1alpha1.Shard, error)
-	Update(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (*v1alpha1.Shard, error)
+	Create(ctx context.Context, shard *corev1alpha1.Shard, opts v1.CreateOptions) (*corev1alpha1.Shard, error)
+	Update(ctx context.Context, shard *corev1alpha1.Shard, opts v1.UpdateOptions) (*corev1alpha1.Shard, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, shard *v1alpha1.Shard, opts v1.UpdateOptions) (*v1alpha1.Shard, error)
+	UpdateStatus(ctx context.Context, shard *corev1alpha1.Shard, opts v1.UpdateOptions) (*corev1alpha1.Shard, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Shard, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ShardList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha1.Shard, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha1.ShardList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Shard, err error)
-	Apply(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha1.Shard, err error)
+	Apply(ctx context.Context, shard *applyconfigurationcorev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *corev1alpha1.Shard, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, shard *corev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Shard, err error)
+	ApplyStatus(ctx context.Context, shard *applyconfigurationcorev1alpha1.ShardApplyConfiguration, opts v1.ApplyOptions) (result *corev1alpha1.Shard, err error)
 	ShardExpansion
 }
 
 // shards implements ShardInterface
 type shards struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.Shard, *v1alpha1.ShardList, *corev1alpha1.ShardApplyConfiguration]
+	*gentype.ClientWithListAndApply[*corev1alpha1.Shard, *corev1alpha1.ShardList, *applyconfigurationcorev1alpha1.ShardApplyConfiguration]
 }
 
 // newShards returns a Shards
 func newShards(c *CoreV1alpha1Client) *shards {
 	return &shards{
-		gentype.NewClientWithListAndApply[*v1alpha1.Shard, *v1alpha1.ShardList, *corev1alpha1.ShardApplyConfiguration](
+		gentype.NewClientWithListAndApply[*corev1alpha1.Shard, *corev1alpha1.ShardList, *applyconfigurationcorev1alpha1.ShardApplyConfiguration](
 			"shards",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.Shard { return &v1alpha1.Shard{} },
-			func() *v1alpha1.ShardList { return &v1alpha1.ShardList{} }),
+			func() *corev1alpha1.Shard { return &corev1alpha1.Shard{} },
+			func() *corev1alpha1.ShardList { return &corev1alpha1.ShardList{} },
+		),
 	}
 }

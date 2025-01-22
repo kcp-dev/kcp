@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	applyconfigurationwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 )
 
@@ -39,36 +39,37 @@ type SherifvesGetter interface {
 
 // SheriffInterface has methods to work with Sheriff resources.
 type SheriffInterface interface {
-	Create(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.CreateOptions) (*v1alpha1.Sheriff, error)
-	Update(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (*v1alpha1.Sheriff, error)
+	Create(ctx context.Context, sheriff *wildwestv1alpha1.Sheriff, opts v1.CreateOptions) (*wildwestv1alpha1.Sheriff, error)
+	Update(ctx context.Context, sheriff *wildwestv1alpha1.Sheriff, opts v1.UpdateOptions) (*wildwestv1alpha1.Sheriff, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (*v1alpha1.Sheriff, error)
+	UpdateStatus(ctx context.Context, sheriff *wildwestv1alpha1.Sheriff, opts v1.UpdateOptions) (*wildwestv1alpha1.Sheriff, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Sheriff, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.SheriffList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*wildwestv1alpha1.Sheriff, error)
+	List(ctx context.Context, opts v1.ListOptions) (*wildwestv1alpha1.SheriffList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Sheriff, err error)
-	Apply(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *wildwestv1alpha1.Sheriff, err error)
+	Apply(ctx context.Context, sheriff *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *wildwestv1alpha1.Sheriff, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error)
+	ApplyStatus(ctx context.Context, sheriff *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *wildwestv1alpha1.Sheriff, err error)
 	SheriffExpansion
 }
 
 // sherifves implements SheriffInterface
 type sherifves struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration]
+	*gentype.ClientWithListAndApply[*wildwestv1alpha1.Sheriff, *wildwestv1alpha1.SheriffList, *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration]
 }
 
 // newSherifves returns a Sherifves
 func newSherifves(c *WildwestV1alpha1Client) *sherifves {
 	return &sherifves{
-		gentype.NewClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration](
+		gentype.NewClientWithListAndApply[*wildwestv1alpha1.Sheriff, *wildwestv1alpha1.SheriffList, *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration](
 			"sherifves",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.Sheriff { return &v1alpha1.Sheriff{} },
-			func() *v1alpha1.SheriffList { return &v1alpha1.SheriffList{} }),
+			func() *wildwestv1alpha1.Sheriff { return &wildwestv1alpha1.Sheriff{} },
+			func() *wildwestv1alpha1.SheriffList { return &wildwestv1alpha1.SheriffList{} },
+		),
 	}
 }

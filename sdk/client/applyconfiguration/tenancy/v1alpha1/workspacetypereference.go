@@ -19,14 +19,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 // WorkspaceTypeReferenceApplyConfiguration represents a declarative configuration of the WorkspaceTypeReference type for use
 // with apply.
 type WorkspaceTypeReferenceApplyConfiguration struct {
-	Name *v1alpha1.WorkspaceTypeName `json:"name,omitempty"`
-	Path *string                     `json:"path,omitempty"`
+	Name *tenancyv1alpha1.WorkspaceTypeName `json:"name,omitempty"`
+	Path *string                            `json:"path,omitempty"`
 }
 
 // WorkspaceTypeReferenceApplyConfiguration constructs a declarative configuration of the WorkspaceTypeReference type for use with
@@ -38,7 +38,7 @@ func WorkspaceTypeReference() *WorkspaceTypeReferenceApplyConfiguration {
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *WorkspaceTypeReferenceApplyConfiguration) WithName(value v1alpha1.WorkspaceTypeName) *WorkspaceTypeReferenceApplyConfiguration {
+func (b *WorkspaceTypeReferenceApplyConfiguration) WithName(value tenancyv1alpha1.WorkspaceTypeName) *WorkspaceTypeReferenceApplyConfiguration {
 	b.Name = &value
 	return b
 }
