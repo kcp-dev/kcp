@@ -30,11 +30,11 @@ type FakeCoreV1alpha1 struct {
 }
 
 func (c *FakeCoreV1alpha1) LogicalClusters() v1alpha1.LogicalClusterInterface {
-	return &FakeLogicalClusters{c}
+	return newFakeLogicalClusters(c)
 }
 
 func (c *FakeCoreV1alpha1) Shards() v1alpha1.ShardInterface {
-	return &FakeShards{c}
+	return newFakeShards(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

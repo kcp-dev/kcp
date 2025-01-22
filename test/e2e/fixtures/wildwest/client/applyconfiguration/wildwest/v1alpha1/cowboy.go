@@ -49,7 +49,7 @@ func Cowboy(name, namespace string) *CowboyApplyConfiguration {
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithKind(value string) *CowboyApplyConfiguration {
-	b.Kind = &value
+	b.TypeMetaApplyConfiguration.Kind = &value
 	return b
 }
 
@@ -57,7 +57,7 @@ func (b *CowboyApplyConfiguration) WithKind(value string) *CowboyApplyConfigurat
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithAPIVersion(value string) *CowboyApplyConfiguration {
-	b.APIVersion = &value
+	b.TypeMetaApplyConfiguration.APIVersion = &value
 	return b
 }
 
@@ -66,7 +66,7 @@ func (b *CowboyApplyConfiguration) WithAPIVersion(value string) *CowboyApplyConf
 // If called multiple times, the Name field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithName(value string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Name = &value
+	b.ObjectMetaApplyConfiguration.Name = &value
 	return b
 }
 
@@ -75,7 +75,7 @@ func (b *CowboyApplyConfiguration) WithName(value string) *CowboyApplyConfigurat
 // If called multiple times, the GenerateName field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithGenerateName(value string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.GenerateName = &value
+	b.ObjectMetaApplyConfiguration.GenerateName = &value
 	return b
 }
 
@@ -84,7 +84,7 @@ func (b *CowboyApplyConfiguration) WithGenerateName(value string) *CowboyApplyCo
 // If called multiple times, the Namespace field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithNamespace(value string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Namespace = &value
+	b.ObjectMetaApplyConfiguration.Namespace = &value
 	return b
 }
 
@@ -93,7 +93,7 @@ func (b *CowboyApplyConfiguration) WithNamespace(value string) *CowboyApplyConfi
 // If called multiple times, the UID field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithUID(value types.UID) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.UID = &value
+	b.ObjectMetaApplyConfiguration.UID = &value
 	return b
 }
 
@@ -102,7 +102,7 @@ func (b *CowboyApplyConfiguration) WithUID(value types.UID) *CowboyApplyConfigur
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithResourceVersion(value string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.ResourceVersion = &value
+	b.ObjectMetaApplyConfiguration.ResourceVersion = &value
 	return b
 }
 
@@ -111,7 +111,7 @@ func (b *CowboyApplyConfiguration) WithResourceVersion(value string) *CowboyAppl
 // If called multiple times, the Generation field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithGeneration(value int64) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Generation = &value
+	b.ObjectMetaApplyConfiguration.Generation = &value
 	return b
 }
 
@@ -120,7 +120,7 @@ func (b *CowboyApplyConfiguration) WithGeneration(value int64) *CowboyApplyConfi
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithCreationTimestamp(value metav1.Time) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.CreationTimestamp = &value
+	b.ObjectMetaApplyConfiguration.CreationTimestamp = &value
 	return b
 }
 
@@ -129,7 +129,7 @@ func (b *CowboyApplyConfiguration) WithCreationTimestamp(value metav1.Time) *Cow
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.DeletionTimestamp = &value
+	b.ObjectMetaApplyConfiguration.DeletionTimestamp = &value
 	return b
 }
 
@@ -138,7 +138,7 @@ func (b *CowboyApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *Cow
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
 func (b *CowboyApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.DeletionGracePeriodSeconds = &value
+	b.ObjectMetaApplyConfiguration.DeletionGracePeriodSeconds = &value
 	return b
 }
 
@@ -148,11 +148,11 @@ func (b *CowboyApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *
 // overwriting an existing map entries in Labels field with the same key.
 func (b *CowboyApplyConfiguration) WithLabels(entries map[string]string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	if b.Labels == nil && len(entries) > 0 {
-		b.Labels = make(map[string]string, len(entries))
+	if b.ObjectMetaApplyConfiguration.Labels == nil && len(entries) > 0 {
+		b.ObjectMetaApplyConfiguration.Labels = make(map[string]string, len(entries))
 	}
 	for k, v := range entries {
-		b.Labels[k] = v
+		b.ObjectMetaApplyConfiguration.Labels[k] = v
 	}
 	return b
 }
@@ -163,11 +163,11 @@ func (b *CowboyApplyConfiguration) WithLabels(entries map[string]string) *Cowboy
 // overwriting an existing map entries in Annotations field with the same key.
 func (b *CowboyApplyConfiguration) WithAnnotations(entries map[string]string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	if b.Annotations == nil && len(entries) > 0 {
-		b.Annotations = make(map[string]string, len(entries))
+	if b.ObjectMetaApplyConfiguration.Annotations == nil && len(entries) > 0 {
+		b.ObjectMetaApplyConfiguration.Annotations = make(map[string]string, len(entries))
 	}
 	for k, v := range entries {
-		b.Annotations[k] = v
+		b.ObjectMetaApplyConfiguration.Annotations[k] = v
 	}
 	return b
 }
@@ -181,7 +181,7 @@ func (b *CowboyApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerRefere
 		if values[i] == nil {
 			panic("nil value passed to WithOwnerReferences")
 		}
-		b.OwnerReferences = append(b.OwnerReferences, *values[i])
+		b.ObjectMetaApplyConfiguration.OwnerReferences = append(b.ObjectMetaApplyConfiguration.OwnerReferences, *values[i])
 	}
 	return b
 }
@@ -192,7 +192,7 @@ func (b *CowboyApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerRefere
 func (b *CowboyApplyConfiguration) WithFinalizers(values ...string) *CowboyApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
-		b.Finalizers = append(b.Finalizers, values[i])
+		b.ObjectMetaApplyConfiguration.Finalizers = append(b.ObjectMetaApplyConfiguration.Finalizers, values[i])
 	}
 	return b
 }
@@ -222,5 +222,5 @@ func (b *CowboyApplyConfiguration) WithStatus(value *CowboyStatusApplyConfigurat
 // GetName retrieves the value of the Name field in the declarative configuration.
 func (b *CowboyApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
-	return b.Name
+	return b.ObjectMetaApplyConfiguration.Name
 }

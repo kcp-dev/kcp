@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -39,32 +39,33 @@ type APIConversionsGetter interface {
 
 // APIConversionInterface has methods to work with APIConversion resources.
 type APIConversionInterface interface {
-	Create(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.CreateOptions) (*v1alpha1.APIConversion, error)
-	Update(ctx context.Context, aPIConversion *v1alpha1.APIConversion, opts v1.UpdateOptions) (*v1alpha1.APIConversion, error)
+	Create(ctx context.Context, aPIConversion *apisv1alpha1.APIConversion, opts v1.CreateOptions) (*apisv1alpha1.APIConversion, error)
+	Update(ctx context.Context, aPIConversion *apisv1alpha1.APIConversion, opts v1.UpdateOptions) (*apisv1alpha1.APIConversion, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.APIConversion, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIConversionList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*apisv1alpha1.APIConversion, error)
+	List(ctx context.Context, opts v1.ListOptions) (*apisv1alpha1.APIConversionList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIConversion, err error)
-	Apply(ctx context.Context, aPIConversion *apisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIConversion, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *apisv1alpha1.APIConversion, err error)
+	Apply(ctx context.Context, aPIConversion *applyconfigurationapisv1alpha1.APIConversionApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIConversion, err error)
 	APIConversionExpansion
 }
 
 // aPIConversions implements APIConversionInterface
 type aPIConversions struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.APIConversion, *v1alpha1.APIConversionList, *apisv1alpha1.APIConversionApplyConfiguration]
+	*gentype.ClientWithListAndApply[*apisv1alpha1.APIConversion, *apisv1alpha1.APIConversionList, *applyconfigurationapisv1alpha1.APIConversionApplyConfiguration]
 }
 
 // newAPIConversions returns a APIConversions
 func newAPIConversions(c *ApisV1alpha1Client) *aPIConversions {
 	return &aPIConversions{
-		gentype.NewClientWithListAndApply[*v1alpha1.APIConversion, *v1alpha1.APIConversionList, *apisv1alpha1.APIConversionApplyConfiguration](
+		gentype.NewClientWithListAndApply[*apisv1alpha1.APIConversion, *apisv1alpha1.APIConversionList, *applyconfigurationapisv1alpha1.APIConversionApplyConfiguration](
 			"apiconversions",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.APIConversion { return &v1alpha1.APIConversion{} },
-			func() *v1alpha1.APIConversionList { return &v1alpha1.APIConversionList{} }),
+			func() *apisv1alpha1.APIConversion { return &apisv1alpha1.APIConversion{} },
+			func() *apisv1alpha1.APIConversionList { return &apisv1alpha1.APIConversionList{} },
+		),
 	}
 }

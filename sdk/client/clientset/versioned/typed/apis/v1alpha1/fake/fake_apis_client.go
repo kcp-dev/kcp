@@ -30,23 +30,23 @@ type FakeApisV1alpha1 struct {
 }
 
 func (c *FakeApisV1alpha1) APIBindings() v1alpha1.APIBindingInterface {
-	return &FakeAPIBindings{c}
+	return newFakeAPIBindings(c)
 }
 
 func (c *FakeApisV1alpha1) APIConversions() v1alpha1.APIConversionInterface {
-	return &FakeAPIConversions{c}
+	return newFakeAPIConversions(c)
 }
 
 func (c *FakeApisV1alpha1) APIExports() v1alpha1.APIExportInterface {
-	return &FakeAPIExports{c}
+	return newFakeAPIExports(c)
 }
 
 func (c *FakeApisV1alpha1) APIExportEndpointSlices() v1alpha1.APIExportEndpointSliceInterface {
-	return &FakeAPIExportEndpointSlices{c}
+	return newFakeAPIExportEndpointSlices(c)
 }
 
 func (c *FakeApisV1alpha1) APIResourceSchemas() v1alpha1.APIResourceSchemaInterface {
-	return &FakeAPIResourceSchemas{c}
+	return newFakeAPIResourceSchemas(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

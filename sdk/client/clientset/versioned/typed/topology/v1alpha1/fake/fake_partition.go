@@ -19,134 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
+	typedtopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
 
-// FakePartitions implements PartitionInterface
-type FakePartitions struct {
+// fakePartitions implements PartitionInterface
+type fakePartitions struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.Partition, *v1alpha1.PartitionList, *topologyv1alpha1.PartitionApplyConfiguration]
 	Fake *FakeTopologyV1alpha1
 }
 
-var partitionsResource = v1alpha1.SchemeGroupVersion.WithResource("partitions")
-
-var partitionsKind = v1alpha1.SchemeGroupVersion.WithKind("Partition")
-
-// Get takes name of the partition, and returns the corresponding partition object, and an error if there is any.
-func (c *FakePartitions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Partition, err error) {
-	emptyResult := &v1alpha1.Partition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(partitionsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakePartitions(fake *FakeTopologyV1alpha1) typedtopologyv1alpha1.PartitionInterface {
+	return &fakePartitions{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.Partition, *v1alpha1.PartitionList, *topologyv1alpha1.PartitionApplyConfiguration](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("partitions"),
+			v1alpha1.SchemeGroupVersion.WithKind("Partition"),
+			func() *v1alpha1.Partition { return &v1alpha1.Partition{} },
+			func() *v1alpha1.PartitionList { return &v1alpha1.PartitionList{} },
+			func(dst, src *v1alpha1.PartitionList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.PartitionList) []*v1alpha1.Partition { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1alpha1.PartitionList, items []*v1alpha1.Partition) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.Partition), err
-}
-
-// List takes label and field selectors, and returns the list of Partitions that match those selectors.
-func (c *FakePartitions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PartitionList, err error) {
-	emptyResult := &v1alpha1.PartitionList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(partitionsResource, partitionsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.PartitionList{ListMeta: obj.(*v1alpha1.PartitionList).ListMeta}
-	for _, item := range obj.(*v1alpha1.PartitionList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested partitions.
-func (c *FakePartitions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(partitionsResource, opts))
-}
-
-// Create takes the representation of a partition and creates it.  Returns the server's representation of the partition, and an error, if there is any.
-func (c *FakePartitions) Create(ctx context.Context, partition *v1alpha1.Partition, opts v1.CreateOptions) (result *v1alpha1.Partition, err error) {
-	emptyResult := &v1alpha1.Partition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(partitionsResource, partition, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Partition), err
-}
-
-// Update takes the representation of a partition and updates it. Returns the server's representation of the partition, and an error, if there is any.
-func (c *FakePartitions) Update(ctx context.Context, partition *v1alpha1.Partition, opts v1.UpdateOptions) (result *v1alpha1.Partition, err error) {
-	emptyResult := &v1alpha1.Partition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(partitionsResource, partition, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Partition), err
-}
-
-// Delete takes name of the partition and deletes it. Returns an error if one occurs.
-func (c *FakePartitions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(partitionsResource, name, opts), &v1alpha1.Partition{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePartitions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(partitionsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.PartitionList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched partition.
-func (c *FakePartitions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Partition, err error) {
-	emptyResult := &v1alpha1.Partition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(partitionsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Partition), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied partition.
-func (c *FakePartitions) Apply(ctx context.Context, partition *topologyv1alpha1.PartitionApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Partition, err error) {
-	if partition == nil {
-		return nil, fmt.Errorf("partition provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(partition)
-	if err != nil {
-		return nil, err
-	}
-	name := partition.Name
-	if name == nil {
-		return nil, fmt.Errorf("partition.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.Partition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(partitionsResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Partition), err
 }

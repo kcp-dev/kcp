@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 // CustomResourceConversionApplyConfiguration represents a declarative configuration of the CustomResourceConversion type for use
 // with apply.
 type CustomResourceConversionApplyConfiguration struct {
-	Strategy *v1alpha1.ConversionStrategyType     `json:"strategy,omitempty"`
+	Strategy *apisv1alpha1.ConversionStrategyType `json:"strategy,omitempty"`
 	Webhook  *WebhookConversionApplyConfiguration `json:"webhook,omitempty"`
 }
 
@@ -38,7 +38,7 @@ func CustomResourceConversion() *CustomResourceConversionApplyConfiguration {
 // WithStrategy sets the Strategy field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Strategy field is set to the value of the last call.
-func (b *CustomResourceConversionApplyConfiguration) WithStrategy(value v1alpha1.ConversionStrategyType) *CustomResourceConversionApplyConfiguration {
+func (b *CustomResourceConversionApplyConfiguration) WithStrategy(value apisv1alpha1.ConversionStrategyType) *CustomResourceConversionApplyConfiguration {
 	b.Strategy = &value
 	return b
 }

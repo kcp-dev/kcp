@@ -19,14 +19,14 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 // LabelSelectorApplyConfiguration represents a declarative configuration of the LabelSelector type for use
 // with apply.
 type LabelSelectorApplyConfiguration struct {
-	MatchLabels      map[string]string                               `json:"matchLabels,omitempty"`
-	MatchExpressions []v1.LabelSelectorRequirementApplyConfiguration `json:"matchExpressions,omitempty"`
+	MatchLabels      map[string]string                                   `json:"matchLabels,omitempty"`
+	MatchExpressions []metav1.LabelSelectorRequirementApplyConfiguration `json:"matchExpressions,omitempty"`
 }
 
 // LabelSelectorApplyConfiguration constructs a declarative configuration of the LabelSelector type for use with
@@ -52,7 +52,7 @@ func (b *LabelSelectorApplyConfiguration) WithMatchLabels(entries map[string]str
 // WithMatchExpressions adds the given value to the MatchExpressions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the MatchExpressions field.
-func (b *LabelSelectorApplyConfiguration) WithMatchExpressions(values ...*v1.LabelSelectorRequirementApplyConfiguration) *LabelSelectorApplyConfiguration {
+func (b *LabelSelectorApplyConfiguration) WithMatchExpressions(values ...*metav1.LabelSelectorRequirementApplyConfiguration) *LabelSelectorApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithMatchExpressions")

@@ -22,18 +22,18 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
 // with apply.
 type ConditionApplyConfiguration struct {
-	Type               *v1alpha1.ConditionType     `json:"type,omitempty"`
-	Status             *v1.ConditionStatus         `json:"status,omitempty"`
-	Severity           *v1alpha1.ConditionSeverity `json:"severity,omitempty"`
-	LastTransitionTime *metav1.Time                `json:"lastTransitionTime,omitempty"`
-	Reason             *string                     `json:"reason,omitempty"`
-	Message            *string                     `json:"message,omitempty"`
+	Type               *conditionsv1alpha1.ConditionType     `json:"type,omitempty"`
+	Status             *v1.ConditionStatus                   `json:"status,omitempty"`
+	Severity           *conditionsv1alpha1.ConditionSeverity `json:"severity,omitempty"`
+	LastTransitionTime *metav1.Time                          `json:"lastTransitionTime,omitempty"`
+	Reason             *string                               `json:"reason,omitempty"`
+	Message            *string                               `json:"message,omitempty"`
 }
 
 // ConditionApplyConfiguration constructs a declarative configuration of the Condition type for use with
@@ -45,7 +45,7 @@ func Condition() *ConditionApplyConfiguration {
 // WithType sets the Type field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Type field is set to the value of the last call.
-func (b *ConditionApplyConfiguration) WithType(value v1alpha1.ConditionType) *ConditionApplyConfiguration {
+func (b *ConditionApplyConfiguration) WithType(value conditionsv1alpha1.ConditionType) *ConditionApplyConfiguration {
 	b.Type = &value
 	return b
 }
@@ -61,7 +61,7 @@ func (b *ConditionApplyConfiguration) WithStatus(value v1.ConditionStatus) *Cond
 // WithSeverity sets the Severity field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Severity field is set to the value of the last call.
-func (b *ConditionApplyConfiguration) WithSeverity(value v1alpha1.ConditionSeverity) *ConditionApplyConfiguration {
+func (b *ConditionApplyConfiguration) WithSeverity(value conditionsv1alpha1.ConditionSeverity) *ConditionApplyConfiguration {
 	b.Severity = &value
 	return b
 }

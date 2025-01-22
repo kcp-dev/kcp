@@ -19,180 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
+	typedwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
-// FakeCowboys implements CowboyInterface
-type FakeCowboys struct {
+// fakeCowboys implements CowboyInterface
+type fakeCowboys struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration]
 	Fake *FakeWildwestV1alpha1
-	ns   string
 }
 
-var cowboysResource = v1alpha1.SchemeGroupVersion.WithResource("cowboys")
-
-var cowboysKind = v1alpha1.SchemeGroupVersion.WithKind("Cowboy")
-
-// Get takes name of the cowboy, and returns the corresponding cowboy object, and an error if there is any.
-func (c *FakeCowboys) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Cowboy, err error) {
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(cowboysResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeCowboys(fake *FakeWildwestV1alpha1, namespace string) typedwildwestv1alpha1.CowboyInterface {
+	return &fakeCowboys{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("cowboys"),
+			v1alpha1.SchemeGroupVersion.WithKind("Cowboy"),
+			func() *v1alpha1.Cowboy { return &v1alpha1.Cowboy{} },
+			func() *v1alpha1.CowboyList { return &v1alpha1.CowboyList{} },
+			func(dst, src *v1alpha1.CowboyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.CowboyList) []*v1alpha1.Cowboy { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1alpha1.CowboyList, items []*v1alpha1.Cowboy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// List takes label and field selectors, and returns the list of Cowboys that match those selectors.
-func (c *FakeCowboys) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CowboyList, err error) {
-	emptyResult := &v1alpha1.CowboyList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(cowboysResource, cowboysKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.CowboyList{ListMeta: obj.(*v1alpha1.CowboyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.CowboyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested cowboys.
-func (c *FakeCowboys) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(cowboysResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a cowboy and creates it.  Returns the server's representation of the cowboy, and an error, if there is any.
-func (c *FakeCowboys) Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.CreateOptions) (result *v1alpha1.Cowboy, err error) {
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(cowboysResource, c.ns, cowboy, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// Update takes the representation of a cowboy and updates it. Returns the server's representation of the cowboy, and an error, if there is any.
-func (c *FakeCowboys) Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(cowboysResource, c.ns, cowboy, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCowboys) UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(cowboysResource, "status", c.ns, cowboy, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// Delete takes name of the cowboy and deletes it. Returns an error if one occurs.
-func (c *FakeCowboys) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(cowboysResource, c.ns, name, opts), &v1alpha1.Cowboy{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCowboys) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(cowboysResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.CowboyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched cowboy.
-func (c *FakeCowboys) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error) {
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(cowboysResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied cowboy.
-func (c *FakeCowboys) Apply(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
-	if cowboy == nil {
-		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(cowboy)
-	if err != nil {
-		return nil, err
-	}
-	name := cowboy.Name
-	if name == nil {
-		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(cowboysResource, c.ns, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *FakeCowboys) ApplyStatus(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error) {
-	if cowboy == nil {
-		return nil, fmt.Errorf("cowboy provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(cowboy)
-	if err != nil {
-		return nil, err
-	}
-	name := cowboy.Name
-	if name == nil {
-		return nil, fmt.Errorf("cowboy.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.Cowboy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(cowboysResource, c.ns, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Cowboy), err
 }

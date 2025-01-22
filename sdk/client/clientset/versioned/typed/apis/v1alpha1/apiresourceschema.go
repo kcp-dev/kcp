@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -39,32 +39,33 @@ type APIResourceSchemasGetter interface {
 
 // APIResourceSchemaInterface has methods to work with APIResourceSchema resources.
 type APIResourceSchemaInterface interface {
-	Create(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.CreateOptions) (*v1alpha1.APIResourceSchema, error)
-	Update(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.UpdateOptions) (*v1alpha1.APIResourceSchema, error)
+	Create(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchema, opts v1.CreateOptions) (*apisv1alpha1.APIResourceSchema, error)
+	Update(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchema, opts v1.UpdateOptions) (*apisv1alpha1.APIResourceSchema, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.APIResourceSchema, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIResourceSchemaList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*apisv1alpha1.APIResourceSchema, error)
+	List(ctx context.Context, opts v1.ListOptions) (*apisv1alpha1.APIResourceSchemaList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceSchema, err error)
-	Apply(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceSchema, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *apisv1alpha1.APIResourceSchema, err error)
+	Apply(ctx context.Context, aPIResourceSchema *applyconfigurationapisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIResourceSchema, err error)
 	APIResourceSchemaExpansion
 }
 
 // aPIResourceSchemas implements APIResourceSchemaInterface
 type aPIResourceSchemas struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration]
+	*gentype.ClientWithListAndApply[*apisv1alpha1.APIResourceSchema, *apisv1alpha1.APIResourceSchemaList, *applyconfigurationapisv1alpha1.APIResourceSchemaApplyConfiguration]
 }
 
 // newAPIResourceSchemas returns a APIResourceSchemas
 func newAPIResourceSchemas(c *ApisV1alpha1Client) *aPIResourceSchemas {
 	return &aPIResourceSchemas{
-		gentype.NewClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration](
+		gentype.NewClientWithListAndApply[*apisv1alpha1.APIResourceSchema, *apisv1alpha1.APIResourceSchemaList, *applyconfigurationapisv1alpha1.APIResourceSchemaApplyConfiguration](
 			"apiresourceschemas",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.APIResourceSchema { return &v1alpha1.APIResourceSchema{} },
-			func() *v1alpha1.APIResourceSchemaList { return &v1alpha1.APIResourceSchemaList{} }),
+			func() *apisv1alpha1.APIResourceSchema { return &apisv1alpha1.APIResourceSchema{} },
+			func() *apisv1alpha1.APIResourceSchemaList { return &apisv1alpha1.APIResourceSchemaList{} },
+		),
 	}
 }

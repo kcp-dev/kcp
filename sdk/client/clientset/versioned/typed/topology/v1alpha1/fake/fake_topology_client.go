@@ -30,11 +30,11 @@ type FakeTopologyV1alpha1 struct {
 }
 
 func (c *FakeTopologyV1alpha1) Partitions() v1alpha1.PartitionInterface {
-	return &FakePartitions{c}
+	return newFakePartitions(c)
 }
 
 func (c *FakeTopologyV1alpha1) PartitionSets() v1alpha1.PartitionSetInterface {
-	return &FakePartitionSets{c}
+	return newFakePartitionSets(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

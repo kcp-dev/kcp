@@ -30,11 +30,11 @@ type FakeWildwestV1alpha1 struct {
 }
 
 func (c *FakeWildwestV1alpha1) Cowboys(namespace string) v1alpha1.CowboyInterface {
-	return &FakeCowboys{c, namespace}
+	return newFakeCowboys(c, namespace)
 }
 
 func (c *FakeWildwestV1alpha1) Sherifves() v1alpha1.SheriffInterface {
-	return &FakeSherifves{c}
+	return newFakeSherifves(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
