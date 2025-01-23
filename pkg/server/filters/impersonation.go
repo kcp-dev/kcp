@@ -52,12 +52,13 @@ var (
 	}
 )
 
-// impersonationContextType is a context key for impersonation marker. It's true
-// if the request is impersonated.
+// impersonationContextType is a context key for impersonation markers.
 type impersonationContextType int
 
 const (
+	// impersonationContextKey is true if a request is impersonated.
 	impersonationContextKey impersonationContextType = iota
+	originalUserContextKey
 )
 
 // WithImpersonationGatekeeper checks the request for impersonations and validates them,
@@ -72,10 +73,10 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
 		impersonationGroups := req.Header[authenticationv1.ImpersonateGroupHeader]
 		impersonationExtras := []string{}
-		for _, header := range req.Header {
-			for _, h := range header {
-				if strings.HasPrefix(h, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
-					impersonationExtras = append(impersonationExtras, h)
+		for header, headerValues := range req.Header {
+			for _, h := range headerValues {
+				if strings.HasPrefix(header, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
+					impersonationExtras = append(impersonationExtras, fmt.Sprintf("%s=%s", header, h))
 				}
 			}
 		}
@@ -94,7 +95,6 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		// remember that we impersonated for withScoping
 		ctx := req.Context()
 		ctx = context.WithValue(ctx, impersonationContextKey, true)
-		req = req.WithContext(ctx)
 
 		requester, exists := request.UserFrom(ctx)
 		if !exists {
@@ -103,6 +103,9 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 				errorCodecs, schema.GroupVersion{}, w, req)
 			return
 		}
+		ctx = context.WithValue(ctx, originalUserContextKey, requester)
+		req = req.WithContext(ctx)
+
 		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
 			handler.ServeHTTP(w, req)
 			return
@@ -126,15 +129,25 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 			return
 		}
 
-		// get user from context. Should always be there.
+		var (
+			originalUser user.Info
+			ok           bool
+		)
+		// fetch the original user from context. We stored this in WithImpersonationGatekeeper.
+		if originalUser, ok = req.Context().Value(originalUserContextKey).(user.Info); !ok {
+			responsewriters.InternalError(w, req, fmt.Errorf("no impersonating user in context"))
+			return
+		}
+
+		// get impersonated user from context. Should always be there.
 		u, exists := request.UserFrom(req.Context())
 		if !exists {
 			responsewriters.InternalError(w, req, fmt.Errorf("no user in context"))
 			return
 		}
 
-		// system:masters can impersonate any group, without a scope
-		if sets.New(u.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
+		// system:masters can impersonate any group, without a scope.
+		if sets.New(originalUser.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
 			handler.ServeHTTP(w, req)
 			return
 		}
@@ -146,10 +159,13 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 			return
 		}
 
+		// add a scope to the user information.
 		extra := u.GetExtra()
 		if extra == nil {
 			extra = map[string][]string{}
 		}
+		extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster.Name))
+
 		userScoped := &user.DefaultInfo{
 			Name:   u.GetName(),
 			UID:    u.GetUID(),
@@ -157,7 +173,6 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 			Extra:  extra,
 		}
 
-		extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster.Name))
 		handler.ServeHTTP(w, req.WithContext(request.WithUser(req.Context(), userScoped)))
 	})
 }
