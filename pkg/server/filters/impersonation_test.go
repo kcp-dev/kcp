@@ -175,13 +175,15 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 
 	// Define test cases
 	tests := []struct {
-		name                   string
-		impersonateUserHeader  string
-		impersonateGroupHeader []string
-		otherHeaders           map[string]string
-		user                   user.Info
-		expectedStatus         int
-		handlerCalled          bool
+		name                     string
+		impersonateUserHeader    string
+		impersonateGroupHeader   []string
+		otherHeaders             map[string]string
+		user                     user.Info
+		expectedStatus           int
+		expectedImpersonationKey bool
+		expectedOriginalUser     bool
+		handlerCalled            bool
 	}{
 		{
 			name:                   "No impersonation headers",
@@ -209,8 +211,10 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 				Groups: []string{"group1", "group2"},
 				Extra:  nil,
 			},
-			expectedStatus: http.StatusOK,
-			handlerCalled:  true,
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
 		},
 		{
 			name:                   "Impersonation headers present, invalid impersonation with higher privilege group",
@@ -235,8 +239,10 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 				Groups: []string{SystemKcpAdminGroup, "group2"},
 				Extra:  nil,
 			},
-			expectedStatus: http.StatusOK,
-			handlerCalled:  true,
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
 		},
 		{
 			name:                   "Impersonation headers present, invalid impersonation with higher privilege group",
@@ -272,8 +278,10 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 				Groups: []string{"group1"},
 				Extra:  nil,
 			},
-			expectedStatus: http.StatusOK,
-			handlerCalled:  true,
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
 		},
 		{
 			name:                   "Impersonation headers present only for groups, invalid impersonation with privileged group",
@@ -298,8 +306,10 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 				Groups: []string{"group1"},
 				Extra:  nil,
 			},
-			expectedStatus: http.StatusOK,
-			handlerCalled:  true,
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
 		},
 	}
 
@@ -309,6 +319,18 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 
 			// Create a mock handler that sets the flag when called
 			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := r.Context()
+
+				impersonationFlag, ok := ctx.Value(impersonationContextKey).(bool)
+				assert.True(t, ok, "context should always contain impersonation context key")
+				assert.Equal(t, tt.expectedImpersonationKey, impersonationFlag, "impersonation context key should match expected value")
+
+				if tt.expectedOriginalUser {
+					user, ok := ctx.Value(originalUserContextKey).(user.Info)
+					assert.True(t, ok, "context should include original user (impersonation requestor)")
+					assert.Equal(t, tt.user, user, "user stored in context should equal requesting user")
+				}
+
 				handlerCalledFlag = true
 				w.WriteHeader(http.StatusOK)
 			})
@@ -358,7 +380,8 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 func TestWithScoping(t *testing.T) {
 	tests := []struct {
 		name               string
-		user               user.Info
+		originalUser       user.Info
+		impersonatedUser   user.Info
 		cluster            *request.Cluster
 		expectedStatus     int
 		handlerCalled      bool
@@ -367,22 +390,25 @@ func TestWithScoping(t *testing.T) {
 	}{
 		{
 			name:               "no scoping marker. Programmers error.",
-			user:               &mockUser{Name: "test-user", UID: "uid-123", Groups: []string{"group1"}, Extra: nil},
+			originalUser:       &mockUser{Name: "original-user"},
+			impersonatedUser:   &mockUser{Name: "test-user", UID: "uid-123", Groups: []string{"group1"}, Extra: nil},
 			cluster:            &request.Cluster{Name: "cluster-1"},
 			expectedStatus:     http.StatusInternalServerError,
 			handlerCalled:      false,
 			noImpersonationKey: true,
 		},
 		{
-			name:           "No user in context",
-			user:           nil,
-			cluster:        &request.Cluster{Name: "cluster-1"},
-			expectedStatus: http.StatusInternalServerError,
-			handlerCalled:  false,
+			name:             "No user in context",
+			originalUser:     &mockUser{Name: "original-user"},
+			impersonatedUser: nil,
+			cluster:          &request.Cluster{Name: "cluster-1"},
+			expectedStatus:   http.StatusInternalServerError,
+			handlerCalled:    false,
 		},
 		{
-			name: "No cluster in context",
-			user: &mockUser{
+			name:         "No cluster in context",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
 				Name:   "test-user",
 				UID:    "uid-123",
 				Groups: []string{"group1"},
@@ -392,8 +418,9 @@ func TestWithScoping(t *testing.T) {
 			handlerCalled:  false,
 		},
 		{
-			name: "Valid user and cluster with no existing extra scopes",
-			user: &mockUser{
+			name:         "Valid user and cluster with no existing extra scopes",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
 				Name:   "test-user",
 				UID:    "uid-456",
 				Groups: []string{"group1"},
@@ -405,8 +432,9 @@ func TestWithScoping(t *testing.T) {
 			expectedExtraScope: "cluster:cluster-2",
 		},
 		{
-			name: "Valid user and cluster with existing extra scopes",
-			user: &mockUser{
+			name:         "Valid user and cluster with existing extra scopes",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
 				Name:   "test-user",
 				UID:    "uid-789",
 				Groups: []string{"group1"},
@@ -418,6 +446,18 @@ func TestWithScoping(t *testing.T) {
 			expectedStatus:     http.StatusOK,
 			handlerCalled:      true,
 			expectedExtraScope: "cluster:cluster-3",
+		},
+		{
+			name:         "Original user was part of system:masters group",
+			originalUser: &mockUser{Name: "original-user", Groups: []string{"system:masters"}},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-789",
+			},
+			cluster:            &request.Cluster{Name: "cluster-4"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "",
 		},
 	}
 
@@ -455,9 +495,10 @@ func TestWithScoping(t *testing.T) {
 			ctx := req.Context()
 			if !tt.noImpersonationKey {
 				ctx = context.WithValue(ctx, impersonationContextKey, true)
+				ctx = context.WithValue(ctx, originalUserContextKey, tt.originalUser)
 			}
-			if tt.user != nil {
-				ctx = request.WithUser(ctx, tt.user)
+			if tt.impersonatedUser != nil {
+				ctx = request.WithUser(ctx, tt.impersonatedUser)
 			}
 			if tt.cluster != nil {
 				ctx = request.WithCluster(ctx, *tt.cluster)
