@@ -29,19 +29,26 @@ import (
 type MountPhaseType string
 
 const (
-	// Initializing means the cluster proxy is being initialized.
+	// MountPhaseInitializing means the cluster proxy is being initialized.
 	MountPhaseInitializing MountPhaseType = "Initializing"
-	// Connecting means the cluster proxy is waiting for the agent to connect.
+	// MountPhaseConnecting means the cluster proxy is waiting for the agent to connect.
 	MountPhaseConnecting MountPhaseType = "Connecting"
-	// Ready means the cluster proxy is ready, and agent connected.
+	// MountPhaseReady means the cluster proxy is ready, and agent connected.
 	MountPhaseReady MountPhaseType = "Ready"
-	// Unknown means the cluster proxy status is unknown.
+	// MountPhaseUnknown means the cluster proxy status is unknown.
 	MountPhaseUnknown MountPhaseType = "Unknown"
 )
 
 const (
 	// MountConditionReady is the condition type for MountReady.
 	MountConditionReady conditionsv1alpha1.ConditionType = "WorkspaceMountReady"
+
+	// MountAnnotationInvalidReason is the reason for the mount annotation being invalid.
+	MountAnnotationInvalidReason = "MountAnnotationInvalid"
+	// MountObjectNotFoundReason is the reason for the mount object not being found.
+	MountObjectNotFoundReason = "MountObjectNotFound"
+	// MountObjectNotReadyReason is the reason for the mount object not being in ready phase.
+	MountObjectNotReadyReason = "MountObjectNotReady"
 )
 
 // Mount is a workspace mount that can be used to mount a workspace into another workspace or resource.
