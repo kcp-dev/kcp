@@ -34,7 +34,7 @@ import (
 // we should add second reconciler that will update the status of the workspace so triggering
 // it to be "not ready" if the mount is not ready.
 type workspaceStatusUpdater struct {
-	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref *v1.ObjectReference) (*unstructured.Unstructured, error)
+	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref *tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
 }
 
 func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {

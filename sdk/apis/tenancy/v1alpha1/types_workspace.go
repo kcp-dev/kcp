@@ -57,10 +57,6 @@ const (
 	ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
 	// ExperimentalWorkspaceMountAnnotationKey is the annotation key used to indicate the mounts of the workspace.
 	ExperimentalWorkspaceMountAnnotationKey string = "experimental.tenancy.kcp.io/mount"
-	// ExperimentalIsMountAnnotationKey is the annotation key used to indicate that object is a mount.
-	ExperimentalIsMountAnnotationKey string = "experimental.tenancy.kcp.io/is-mount"
-	// ExperimentalMountWorkspaceAnnotationKey is the annotation key used to indicate the owner workspace of the mount.
-	ExperimentalMountWorkspaceAnnotationKey string = "experimental.tenancy.kcp.io/owning-workspace"
 )
 
 // These are valid conditions of workspace.

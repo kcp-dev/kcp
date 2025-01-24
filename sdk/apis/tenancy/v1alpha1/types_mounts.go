@@ -20,8 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -57,7 +55,18 @@ type Mount struct {
 
 type MountSpec struct {
 	// Reference is an ObjectReference to the object that is mounted.
-	Reference *corev1.ObjectReference `json:"ref,omitempty"`
+	Reference *ObjectReference `json:"ref,omitempty"`
+}
+
+type ObjectReference struct {
+	// APIVersion is the API group and version of the object.
+	APIVersion string `json:"apiVersion"`
+	// Kind is the kind of the object.
+	Kind string `json:"kind"`
+	// Name is the name of the object.
+	Name string `json:"name"`
+	// Namespace is the namespace of the object.
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // MountStatus is the status of a mount. It is used to indicate the status of a mount,

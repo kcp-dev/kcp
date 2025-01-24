@@ -28,7 +28,6 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +107,7 @@ func TestMountsMachinery(t *testing.T) {
 
 		mount := tenancyv1alpha1.Mount{
 			MountSpec: tenancyv1alpha1.MountSpec{
-				Reference: &corev1.ObjectReference{
+				Reference: &tenancyv1alpha1.ObjectReference{
 					APIVersion: "contrib.kcp.io/v1alpha1",
 					Kind:       "KubeCluster",
 					Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml

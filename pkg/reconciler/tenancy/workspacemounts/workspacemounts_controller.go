@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -27,7 +28,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -37,11 +37,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -79,14 +79,19 @@ func NewController(
 	}
 
 	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueWorkspace(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueWorkspace(obj, "") },
 	})
 
 	c.discoveringDynamicSharedInformerFactory.AddEventHandler(events.WithoutGVRSyncs(informer.GVREventHandlerFuncs{
-		AddFunc:    func(_ schema.GroupVersionResource, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
-		UpdateFunc: func(_ schema.GroupVersionResource, _, obj interface{}) { c.enqueuePotentiallyMountResource(obj) },
-		DeleteFunc: nil, // Nothing to do.
+		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueuePotentiallyMountResource(gvr, obj) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueuePotentiallyMountResource(gvr, obj) },
+		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = final.Obj
+			}
+			c.enqueuePotentiallyMountResource(gvr, obj)
+		},
 	}))
 
 	return c, nil
@@ -111,14 +116,14 @@ type Controller struct {
 }
 
 // enqueueWorkspace adds the object to the work queue.
-func (c *Controller) enqueueWorkspace(obj interface{}) {
+func (c *Controller) enqueueWorkspace(obj interface{}, suffix string) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing Workspace")
+	logger.V(4).Info("queueing Workspace" + suffix)
 	c.queue.Add(key)
 }
 
@@ -209,32 +214,92 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 }
 
 // enqueuePotentiallyMountResource looks for workspaces referencing this kind.
-func (c *Controller) enqueuePotentiallyMountResource(obj interface{}) {
+func (c *Controller) enqueuePotentiallyMountResource(gvr schema.GroupVersionResource, obj interface{}) {
 	u := obj.(*unstructured.Unstructured)
-
-	// We only care about mount objects. All owner objects must have IsMountAnnotationKey set
-	// to simplify the logic here. And owner annotation to owner workspaces.
-	val, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalIsMountAnnotationKey]
-	if !ok || val != "true" {
+	key, err := indexWorkspaceByMountObjectValue(gvr, u)
+	if err != nil {
+		runtime.HandleError(err)
 		return
 	}
 
-	workspaceOwnerRaw, ok := u.GetAnnotations()[tenancyv1alpha1.ExperimentalMountWorkspaceAnnotationKey]
+	wss, err := indexers.ByIndex[*tenancyv1alpha1.Workspace](c.workspaceIndexer, workspaceMountsReferenceIndex, key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	for _, ws := range wss {
+		c.enqueueWorkspace(ws, fmt.Sprintf(", because of mount resource: %s", key))
+	}
+}
+
+const workspaceMountsReferenceIndex = "WorkspacesByMountReference"
+
+type workspaceMountsReferenceKey struct {
+	ClusterName string `json:"clusterName"`
+	Group       string `json:"group"`
+	Resource    string `json:"resource"`
+	Name        string `json:"name"`
+	Namespace   string `json:"namespace,omitempty"`
+}
+
+// InstallIndexers adds the additional indexers that this controller requires to the informers.
+func InstallIndexers(
+	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
+) {
+	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
+		workspaceMountsReferenceIndex: indexWorkspaceByMountObject,
+	})
+}
+
+func indexWorkspaceByMountObject(obj interface{}) ([]string, error) {
+	ws, ok := obj.(*tenancyv1alpha1.Workspace)
 	if !ok {
-		return
+		return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
 	}
 
-	var owner metav1.OwnerReference
-	if err := json.Unmarshal([]byte(workspaceOwnerRaw), &owner); err != nil {
-		runtime.HandleError(fmt.Errorf("unable to unmarshal owner reference: %w", err))
-		return
-	}
-	if owner.Kind != tenancy.WorkspaceKind {
-		runtime.HandleError(fmt.Errorf("owner reference is not a workspace: %s", owner.Kind))
-		return
+	v, ok := ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
+	if !ok {
+		return nil, nil
 	}
 
-	// queue workspace
-	key := kcpcache.ToClusterAwareKey(logicalcluster.From(u).String(), "", owner.Name)
-	c.queue.Add(key)
+	mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(v)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse mount annotation: %w", err)
+	}
+	if mount.MountSpec.Reference == nil {
+		return nil, nil
+	}
+
+	key := workspaceMountsReferenceKey{
+		ClusterName: logicalcluster.From(ws).String(),
+		// TODO(sttts): do proper REST mapping
+		Resource:  strings.ToLower(mount.MountSpec.Reference.Kind) + "s",
+		Name:      mount.MountSpec.Reference.Name,
+		Namespace: mount.MountSpec.Reference.Namespace,
+	}
+	cs := strings.SplitN(mount.MountSpec.Reference.APIVersion, "/", 2)
+	if len(cs) == 2 {
+		key.Group = cs[0]
+	}
+	bs, err := json.Marshal(key)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal mount reference: %w", err)
+	}
+
+	return []string{string(bs)}, nil
+}
+
+func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) (string, error) {
+	key := workspaceMountsReferenceKey{
+		ClusterName: logicalcluster.From(obj).String(),
+		Group:       gvr.Group,
+		Resource:    gvr.Resource,
+		Name:        obj.GetName(),
+		Namespace:   obj.GetNamespace(),
+	}
+	bs, err := json.Marshal(key)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal mount reference: %w", err)
+	}
+	return string(bs), nil
 }
