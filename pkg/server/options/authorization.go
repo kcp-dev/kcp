@@ -136,7 +136,8 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
-		authorizers = append(authorizers, authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...))
+		privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
+		authorizers = append(authorizers, privGroups)
 	}
 
 	// path authorizer
@@ -190,31 +191,33 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
 	globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
+	chain := union.New(bootstrapAuth, localAuth, globalAuth)
+
 	// everything below - skipped for Deep SAR
 
 	// enforce maximal permission policy
-	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers, union.New(bootstrapAuth, localAuth, globalAuth))
-	maxPermissionPolicyAuth = authz.NewDecorator("04-maxpermissionpolicy", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers)(chain)
+	chain = authz.NewDecorator("04-maxpermissionpolicy", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// protect status updates to apiexport and apibinding
-	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
-	systemCRDAuth = authz.NewDecorator("03-systemcrd", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = authz.NewSystemCRDAuthorizer(chain)
+	chain = authz.NewDecorator("03-systemcrd", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
 	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 	// mean nothing unless they also have `verb=access` on `/`
-	contentAuth := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister, systemCRDAuth)
-	contentAuth = authz.NewDecorator("02-content", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	chain = authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(chain)
+	chain = authz.NewDecorator("02-content", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
 	// by child workspaces; this gives administrators of an org control over which users can be given access
 	// to content in sub-workspaces
-	requiredGroupsAuth := authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister, contentAuth)
-	requiredGroupsAuth = authz.NewDecorator("01-requiredgroups", requiredGroupsAuth).AddAuditLogging().AddAnonymization()
+	chain = authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister)(chain)
+	chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
 
-	authorizers = append(authorizers, requiredGroupsAuth)
+	authorizers = append(authorizers, chain)
 
 	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)
