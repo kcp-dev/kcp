@@ -233,7 +233,7 @@ func TestServiceAccounts(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster role binding")
 
-				t.Log("Accessing other workspace with the (there foreigh) service account should eventually work because it is authenticated")
+				t.Log("Accessing other workspace with the (there foreign) service account should eventually work because it is authenticated")
 				framework.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 					if err != nil {
