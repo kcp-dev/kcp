@@ -44,25 +44,27 @@ const (
 	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 )
 
-func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetesinformers.SharedInformerFactory, localLogicalClusterLister, globalLogicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
-	return &workspaceContentAuthorizer{
-		localClusterRoleLister:        localInformers.Rbac().V1().ClusterRoles().Lister(),
-		localClusterRoleBindingLister: localInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetesinformers.SharedInformerFactory, localLogicalClusterLister, globalLogicalClusterLister corev1alpha1listers.LogicalClusterClusterLister) func(delegate authorizer.Authorizer) authorizer.Authorizer {
+	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
+		return &workspaceContentAuthorizer{
+			localClusterRoleLister:        localInformers.Rbac().V1().ClusterRoles().Lister(),
+			localClusterRoleBindingLister: localInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 
-		globalClusterRoleLister:        globalInformers.Rbac().V1().ClusterRoles().Lister(),
-		globalClusterRoleBindingLister: globalInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+			globalClusterRoleLister:        globalInformers.Rbac().V1().ClusterRoles().Lister(),
+			globalClusterRoleBindingLister: globalInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 
-		getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-			obj, err := localLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, err
-			} else if errors.IsNotFound(err) {
-				return globalLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-			}
-			return obj, nil
-		},
+			getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+				obj, err := localLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, err
+				} else if errors.IsNotFound(err) {
+					return globalLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
+				}
+				return obj, nil
+			},
 
-		delegate: delegate,
+			delegate: delegate,
+		}
 	}
 }
 
