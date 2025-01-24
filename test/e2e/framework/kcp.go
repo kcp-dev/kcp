@@ -174,6 +174,8 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	args = append(args, TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...)
 	clientCADir, clientCAFile := CreateClientCA(t)
 	args = append(args, TestServerWithClientCAFile(clientCAFile)...)
+	args = append(args, "--feature-gates=WorkspaceMounts=true")
+
 	f := newKcpFixture(t, kcpConfig{
 		Name:        serverName,
 		Args:        args,
