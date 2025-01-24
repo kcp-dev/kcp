@@ -26,7 +26,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
@@ -96,7 +95,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// always let logical-cluster-admins through
-	if !isServiceAccount && isInScope && sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
+	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 

@@ -22,12 +22,12 @@ import (
 	"net/http"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 )
 
 type deepSARKeyType int
@@ -97,7 +97,7 @@ func WithDeepSubjectAccessReview(handler http.Handler) http.Handler {
 			responsewriters.InternalError(w, r, fmt.Errorf("cannot get user"))
 			return
 		}
-		if !sets.New[string](user.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+		if !rbacregistryvalidation.EffectiveGroups(r.Context(), user).Has(kuser.SystemPrivilegedGroup) {
 			handler.ServeHTTP(w, r)
 			return
 		}
