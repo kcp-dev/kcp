@@ -46,9 +46,12 @@ var (
 	// specialGroups specify groups with special meaning kcp. Lower privilege (= lower number)
 	// cannot impersonate higher privilege levels.
 	specialGroups = map[string]privilege{
-		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
-		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
-		user.AllAuthenticated:                      authenticated,
+		authorizationbootstrap.SystemMastersGroup:                superPrivileged,
+		authorizationbootstrap.SystemLogicalClusterAdmin:         priviledged,
+		authorizationbootstrap.SystemExternalLogicalClusterAdmin: priviledged,
+		authorizationbootstrap.SystemKcpWorkspaceBootstrapper:    priviledged,
+		authorizationbootstrap.SystemKcpAdminGroup:               priviledged,
+		user.AllAuthenticated:                                    authenticated,
 	}
 )
 
@@ -177,32 +180,19 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 	})
 }
 
-// maxUserPrivilege returns the highest privilege level found among the user's groups.
-func maxUserPrivilege(userGroups []string) privilege {
-	max := unprivileged
-	for _, g := range userGroups {
-		if p, found := specialGroups[g]; found && p > max {
-			max = p
-		}
-	}
-	return max
-}
-
 // validImpersonation checks if a user can impersonate all requested groups.
-func validImpersonation(userGroups, requestedGroups []string) bool {
-	userMax := maxUserPrivilege(userGroups)
-
-	// Case 1: User is requesting to impersonate a group with higher privilege.
-	for _, g := range requestedGroups {
-		if userMax < specialGroups[g] {
-			return false
+func validImpersonation(existingGroups, requestedGroups []string) bool {
+	for _, g := range existingGroups {
+		if g == authorizationbootstrap.SystemMastersGroup {
+			return true
 		}
 	}
-	// Case 2: User is requesting to impersonate a `system:authenticated` group without having the group itself and not being privileged.
-	// This is very much academic, as all users reaching this point will have the `system:authenticated` group or be privileged.
-	if sets.New(requestedGroups...).Has(user.AllAuthenticated) &&
-		!(sets.New(userGroups...).HasAny(user.AllAuthenticated, authorizationbootstrap.SystemMastersGroup, authorizationbootstrap.SystemKcpAdminGroup)) {
-		return false
+
+	existing := sets.New(existingGroups...)
+	for _, g := range requestedGroups {
+		if specialGroups[g] != unprivileged && !existing.Has(g) {
+			return false // only impersonate non-unprivileged groups the user already has.
+		}
 	}
 
 	return true

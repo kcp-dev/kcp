@@ -33,14 +33,9 @@ import (
 	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
-func TestCheckImpersonation(t *testing.T) {
+func TestValidImpersonation(t *testing.T) {
 	var systemUserGroup = "system:user:group"
 	nonExistingGroup := "non-existing-group"
-	specialGroups = map[string]privilege{
-		authorizationbootstrap.SystemMastersGroup:  superPrivileged,
-		authorizationbootstrap.SystemKcpAdminGroup: priviledged,
-		systemUserGroup: unprivileged,
-	}
 
 	tests := []struct {
 		name            string
@@ -79,7 +74,7 @@ func TestCheckImpersonation(t *testing.T) {
 			expectedResult:  false,
 		},
 		{
-			name:            "system:autenticated is beyond unprivileged",
+			name:            "system:authenticated is beyond unprivileged",
 			userGroups:      []string{systemUserGroup},
 			requestedGroups: []string{user.AllAuthenticated},
 			expectedResult:  false,
