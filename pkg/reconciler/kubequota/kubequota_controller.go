@@ -269,6 +269,8 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},
+		// TODO(sttts): this discovery function is wrong. It is some aggregation of all logical clusters, but has non-deterministic
+		//              behaviour if logical clusters don't agree about REST mappings.
 		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     c.informersStarted,
