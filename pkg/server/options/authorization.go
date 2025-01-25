@@ -173,6 +173,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		if err != nil {
 			return err
 		}
+		authorizer = authz.WithWarrantsAndScopes(authorizer)
 
 		authorizers = append(authorizers, authorizer)
 	}
