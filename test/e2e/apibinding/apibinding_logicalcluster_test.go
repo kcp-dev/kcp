@@ -86,7 +86,6 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, &apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create api export")
 
-	// validate the valid claims condition occurs
 	t.Logf("validate that the permission claim's conditions true")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
@@ -118,8 +117,10 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to create api binding")
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
+	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
@@ -143,7 +144,6 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 			require.NoError(t, err)
 
 			list, err := vwClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-
 			if err != nil {
 				return false, fmt.Sprintf("Error listing LogicalClusters on %s: %v", vw.URL, err)
 			}
@@ -217,7 +217,6 @@ func TestAPIBindingCRDs(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, &apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create api export")
 
-	// validate the valid claims condition occurs
 	t.Logf("validate that the permission claim's conditions true")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
@@ -249,8 +248,10 @@ func TestAPIBindingCRDs(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to create api binding")
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
+	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {

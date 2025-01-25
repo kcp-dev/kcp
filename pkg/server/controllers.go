@@ -1548,6 +1548,7 @@ func (s *Server) addIndexersToInformers(ctx context.Context) map[schema.GroupVer
 	workspace.InstallIndexers(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
+	workspacemounts.InstallIndexers(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces())
 
 	extraannotationsync.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),

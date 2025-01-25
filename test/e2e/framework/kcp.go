@@ -38,20 +38,15 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	gopkgyaml "gopkg.in/yaml.v3"
 
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/client-go/kubernetes"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -64,7 +59,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 )
 
 // TestServerArgs returns the set of kcp args used to start a test
@@ -180,6 +174,8 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	args = append(args, TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...)
 	clientCADir, clientCAFile := CreateClientCA(t)
 	args = append(args, TestServerWithClientCAFile(clientCAFile)...)
+	args = append(args, "--feature-gates=WorkspaceMounts=true")
+
 	f := newKcpFixture(t, kcpConfig{
 		Name:        serverName,
 		Args:        args,
@@ -983,85 +979,6 @@ func newPersistentKCPServer(name, kubeconfigPath string, shardKubeconfigPaths ma
 		shardCfgs:            shardCfgs,
 		caDir:                clientCADir,
 	}, nil
-}
-
-// NewFakeWorkloadServer creates a workspace in the provided server and org
-// and creates a server fixture for the logical cluster that results.
-func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Path, syncTargetName string) RunningServer {
-	t.Helper()
-
-	path, ws := NewWorkspaceFixture(t, server, org, WithName("%s", syncTargetName+"-sink"), TODO_WithoutMultiShardSupport())
-	logicalClusterName := logicalcluster.Name(ws.Spec.Cluster)
-	rawConfig, err := server.RawConfig()
-	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", path)
-	fakeServer := &unmanagedKCPServer{
-		name:           logicalClusterName.String(),
-		cfg:            logicalConfig,
-		kubeconfigPath: kubeconfigPath,
-	}
-
-	downstreamConfig := fakeServer.BaseConfig(t)
-
-	// Install the required crds in the fake cluster to allow creation of the syncer deployment.
-	crdClient, err := apiextensionsclient.NewForConfig(downstreamConfig)
-	require.NoError(t, err)
-	kubefixtures.Create(t, crdClient.ApiextensionsV1().CustomResourceDefinitions(),
-		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
-		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-		metav1.GroupResource{Group: "core.k8s.io", Resource: "pods"},
-		metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-		metav1.GroupResource{Group: "networking.k8s.io", Resource: "networkpolicies"},
-	)
-
-	// Wait for the required crds to become ready
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-	kubeClient, err := kubernetes.NewForConfig(downstreamConfig)
-	require.NoError(t, err)
-	require.Eventually(t, func() bool {
-		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("error seen waiting for deployment crd to become active: %v", err)
-			return false
-		}
-		_, err = kubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("error seen waiting for service crd to become active: %v", err)
-			return false
-		}
-		_, err = kubeClient.CoreV1().Endpoints("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("error seen waiting for endpoint crd to become active: %v", err)
-			return false
-		}
-		_, err = kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("error seen waiting for pods crd to become active: %v", err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	// Install the kubernetes endpoint in the default namespace. The DNS network policies reference this endpoint.
-	require.Eventually(t, func() bool {
-		_, err = kubeClient.CoreV1().Endpoints("default").Create(ctx, &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "kubernetes",
-			},
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{IP: "172.19.0.2:6443"}},
-			}},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			t.Logf("failed to create the kubernetes endpoint: %v", err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	return fakeServer
 }
 
 func (s *unmanagedKCPServer) Name() string {

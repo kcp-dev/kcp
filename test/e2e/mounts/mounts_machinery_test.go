@@ -28,19 +28,20 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -52,11 +53,7 @@ func TestMountsMachinery(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	serverArgs := framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)
-	serverArgs = append(serverArgs, "--feature-gates=WorkspaceMounts=true")
-
-	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(serverArgs...))
+	server := framework.SharedKcpServer(t)
 
 	fmt.Println(server.KubeconfigPath())
 
@@ -86,126 +83,120 @@ func TestMountsMachinery(t *testing.T) {
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "apiresourceschema_kubecluster.yaml", testFiles)
 	require.NoError(t, err)
 
-	t.Logf("waiting for CRD to be established")
-	var lastMsg string
+	t.Logf("Waiting for CRD to be established")
 	name := "kubeclusters.contrib.kcp.io"
-	err = wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+	framework.Eventually(t, func() (bool, string) {
 		crd, err := extensionsClusterClient.Cluster(orgPath).CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return false, fmt.Errorf("CRD %s was deleted before being established", name)
-			}
-			return false, fmt.Errorf("error fetching CRD %s: %w", name, err)
-		}
-		var reason string
-		condition := crdhelpers.FindCRDCondition(crd, apiextensionsv1.Established)
-		if condition == nil {
-			reason = fmt.Sprintf("CRD has no %s condition", apiextensionsv1.Established)
-		} else {
-			reason = fmt.Sprintf("CRD is not established: %s: %s", condition.Reason, condition.Message)
-		}
-		if reason != lastMsg {
-			lastMsg = reason
-		}
-		t.Log(reason)
-		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
-	})
+		require.NoError(t, err)
+		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
 	require.NoError(t, err)
 
 	t.Logf("Install a mount object into workspace %q", orgPath)
-	mapper2 := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper2, nil, "kubecluster_mounts.yaml", testFiles)
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		mapper2 := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper2, nil, "kubecluster_mounts.yaml", testFiles)
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for mount object to be installed")
 
 	// At this point we have object backing the mount object. So lets add mount annotation to the workspace.
-	t.Logf("Install a mount annotation into workspace %q", orgPath)
-	current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-	require.NoError(t, err)
+	t.Logf("Set a mount annotation into workspace %q", orgPath)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		require.NoError(t, err)
 
-	mount := tenancyv1alpha1.Mount{
-		MountSpec: tenancyv1alpha1.MountSpec{
-			Reference: &corev1.ObjectReference{
-				APIVersion: "contrib.kcp.io/v1alpha1",
-				Kind:       "KubeCluster",
-				Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml
+		mount := tenancyv1alpha1.Mount{
+			MountSpec: tenancyv1alpha1.MountSpec{
+				Reference: &tenancyv1alpha1.ObjectReference{
+					APIVersion: "contrib.kcp.io/v1alpha1",
+					Kind:       "KubeCluster",
+					Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml
+				},
 			},
-		},
-	}
-	data, err := json.Marshal(mount)
+		}
+		data, err := json.Marshal(mount)
+		require.NoError(t, err)
+
+		current.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = string(data)
+
+		_, err = kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Update(ctx, current, metav1.UpdateOptions{})
+		return err
+	})
 	require.NoError(t, err)
 
-	current.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = string(data)
-
-	_, err = kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Update(ctx, current, metav1.UpdateOptions{})
-	require.NoError(t, err)
-
+	t.Log("Updating the mount object to be ready")
 	mountGVR := schema.GroupVersionResource{
 		Group:    "contrib.kcp.io",
 		Version:  "v1alpha1",
 		Resource: "kubeclusters",
 	}
-	currentMount, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
-	require.NoError(t, err)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		currentMount, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
+		require.NoError(t, err)
 
-	currentMount.Object["status"] = map[string]interface{}{
-		"conditions": []interface{}{
-			map[string]interface{}{
-				"lastTransitionTime": "2024-10-19T12:30:47Z",
-				"message":            "The agent sent a heartbeat",
-				"reason":             "AgentReady",
-				"status":             "True",
-				"type":               "WorkspaceClusterReady",
+		currentMount.Object["status"] = map[string]interface{}{
+			"conditions": []interface{}{
+				map[string]interface{}{
+					"lastTransitionTime": "2024-10-19T12:30:47Z",
+					"message":            "The agent sent a heartbeat",
+					"reason":             "AgentReady",
+					"status":             "True",
+					"type":               "WorkspaceClusterReady",
+				},
 			},
-		},
-		"phase": "Ready",
-	}
-
-	_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
-	require.NoError(t, err)
-
-	// Workspace should have 2 conditions now, and be in Ready state
-	err = wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
+			"phase": "Ready",
 		}
 
-		if len(current.Status.Conditions) != 2 {
-			return false, nil
-		}
-		var failed bool
-		for _, condition := range current.Status.Conditions {
-			if condition.Status != corev1.ConditionTrue {
-				failed = true
-			}
-		}
-		return !failed, nil
+		_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
+		return err
 	})
 	require.NoError(t, err)
 
-	// Workspace access should work.
+	t.Log("Workspace should have WorkspaceMountReady and WorkspaceInitialized conditions, both true")
+	framework.Eventually(t, func() (bool, string) {
+		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		initialized := conditions.IsTrue(current, tenancyv1alpha1.WorkspaceInitialized)
+		ready := conditions.IsTrue(current, tenancyv1alpha1.MountConditionReady)
+		return initialized && ready, yamlMarshal(t, current)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for WorkspaceMountReady and WorkspaceInitialized conditions to be true")
+	require.NoError(t, err)
+
+	t.Log("Workspace access should work")
 	_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 
-	// set mount to not ready and verify workspace is not ready
-	currentMount, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	currentMount.Object["status"].(map[string]interface{})["phase"] = "Connecting"
-	_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
+	t.Log("Set mount to not ready")
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
+		require.NoError(t, err)
+		current.Object["status"].(map[string]interface{})["phase"] = "Connecting"
+		updated, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		t.Logf("Updated mount object: %v", yamlMarshal(t, updated))
+		return err
+	})
 	require.NoError(t, err)
 
-	err = wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+	t.Log("Workspace phase should become unavailable")
+	framework.Eventually(t, func() (bool, string) {
 		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return current.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable, nil
-	})
+		require.NoError(t, err)
+		return current.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable, yamlMarshal(t, current)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to become unavailable")
 	require.NoError(t, err)
 
-	// Workspace access should not with denied.
-	err = wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
+	t.Logf("Workspace access should eventually fail")
+	framework.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
-		return err != nil, nil
-	})
+		return err != nil, fmt.Sprintf("err = %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to fail")
+}
+
+func yamlMarshal(t *testing.T, obj interface{}) string {
+	data, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(data)
 }

@@ -20,8 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -31,19 +29,26 @@ import (
 type MountPhaseType string
 
 const (
-	// Initializing means the cluster proxy is being initialized.
+	// MountPhaseInitializing means the cluster proxy is being initialized.
 	MountPhaseInitializing MountPhaseType = "Initializing"
-	// Connecting means the cluster proxy is waiting for the agent to connect.
+	// MountPhaseConnecting means the cluster proxy is waiting for the agent to connect.
 	MountPhaseConnecting MountPhaseType = "Connecting"
-	// Ready means the cluster proxy is ready, and agent connected.
+	// MountPhaseReady means the cluster proxy is ready, and agent connected.
 	MountPhaseReady MountPhaseType = "Ready"
-	// Unknown means the cluster proxy status is unknown.
+	// MountPhaseUnknown means the cluster proxy status is unknown.
 	MountPhaseUnknown MountPhaseType = "Unknown"
 )
 
 const (
 	// MountConditionReady is the condition type for MountReady.
 	MountConditionReady conditionsv1alpha1.ConditionType = "WorkspaceMountReady"
+
+	// MountAnnotationInvalidReason is the reason for the mount annotation being invalid.
+	MountAnnotationInvalidReason = "MountAnnotationInvalid"
+	// MountObjectNotFoundReason is the reason for the mount object not being found.
+	MountObjectNotFoundReason = "MountObjectNotFound"
+	// MountObjectNotReadyReason is the reason for the mount object not being in ready phase.
+	MountObjectNotReadyReason = "MountObjectNotReady"
 )
 
 // Mount is a workspace mount that can be used to mount a workspace into another workspace or resource.
@@ -57,7 +62,18 @@ type Mount struct {
 
 type MountSpec struct {
 	// Reference is an ObjectReference to the object that is mounted.
-	Reference *corev1.ObjectReference `json:"ref,omitempty"`
+	Reference *ObjectReference `json:"ref,omitempty"`
+}
+
+type ObjectReference struct {
+	// APIVersion is the API group and version of the object.
+	APIVersion string `json:"apiVersion"`
+	// Kind is the kind of the object.
+	Kind string `json:"kind"`
+	// Name is the name of the object.
+	Name string `json:"name"`
+	// Namespace is the namespace of the object.
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // MountStatus is the status of a mount. It is used to indicate the status of a mount,

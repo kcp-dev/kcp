@@ -20,15 +20,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 func TestParseTenancyMountAnnotation(t *testing.T) {
 	input := "{\"spec\":{\"ref\":{\"apiVersion\":\"proxy.faros.sh/v1alpha1\",\"kind\":\"KubeCluster\",\"name\":\"dev-cluster\"}},\"status\":{}}"
 	expected := &Mount{
 		MountSpec: MountSpec{
-			Reference: &v1.ObjectReference{
+			Reference: &ObjectReference{
 				APIVersion: "proxy.faros.sh/v1alpha1",
 				Kind:       "KubeCluster",
 				Name:       "dev-cluster",
