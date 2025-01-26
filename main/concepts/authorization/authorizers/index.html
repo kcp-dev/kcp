@@ -1232,6 +1232,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#warrants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Warrants
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3268,6 +3277,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#warrants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Warrants
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3575,6 +3593,30 @@ cluster.</p>
 <p>When impersonating a user in a logical cluster, the resulting user identity is 
 scoped to the logical cluster the impersonation is happening in.</p>
 <p>A scope mismatch does not invalidate the warrants (see next section) of a user. </p>
+<h3 id="warrants">Warrants</h3>
+<p>Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
+A warrant is attached by adding a <code>authorization.kcp.io/warrant</code> extra field to the user identity
+with a JSON-encoded user info, and the limiting logical cluster set as <code>authentication.kcp.io/scopes: cluster:&lt;logical-cluster&gt;</code>.
+in the embedded user info's extra. The warrant is then checked by the authorizers in the chain of every step
+if the primary users is not allowed. For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">groups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;group1&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">extra</span><span class="p">:</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">authorization.kcp.io/warrant</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="no">{</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">      </span><span class="no">&quot;user&quot;: &quot;user2&quot;,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">      </span><span class="no">&quot;groups&quot;: [&quot;group2&quot;],</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="no">&quot;extra&quot;: {</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="no">&quot;authentication.kcp.io/scopes&quot;: &quot;cluster:logical-cluster-1&quot;</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">      </span><span class="no">}</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="no">}</span>
+</code></pre></div>
+<p>This warrant allows <code>user1</code> to act under the permissions of <code>user2</code> in 
+<code>logical-cluster-1</code> if <code>user1</code> is not allowed to act as <code>user2</code> in the first place.</p>
+<p>Note that a warrant only allow to act under the permissions of the warrant user, 
+but not to act as the warrant user itself. E.g. in auditing or admission control,
+the primary user is still the one that is acting.</p>
+<p>Warrants can be nested, i.e. a warrant can contain another warrant.</p>
 
 
 
