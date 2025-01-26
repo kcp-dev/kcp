@@ -90,7 +90,6 @@ func TestMountsMachinery(t *testing.T) {
 		require.NoError(t, err)
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
-	require.NoError(t, err)
 
 	t.Logf("Install a mount object into workspace %q", orgPath)
 	framework.Eventually(t, func() (bool, string) {
@@ -163,11 +162,12 @@ func TestMountsMachinery(t *testing.T) {
 		ready := conditions.IsTrue(current, tenancyv1alpha1.MountConditionReady)
 		return initialized && ready, yamlMarshal(t, current)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for WorkspaceMountReady and WorkspaceInitialized conditions to be true")
-	require.NoError(t, err)
 
 	t.Log("Workspace access should work")
-	_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
+		return err == nil, fmt.Sprintf("err = %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to work")
 
 	t.Log("Set mount to not ready")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -186,7 +186,6 @@ func TestMountsMachinery(t *testing.T) {
 		require.NoError(t, err)
 		return current.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable, yamlMarshal(t, current)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to become unavailable")
-	require.NoError(t, err)
 
 	t.Logf("Workspace access should eventually fail")
 	framework.Eventually(t, func() (bool, string) {
