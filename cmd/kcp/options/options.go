@@ -22,6 +22,9 @@ import (
 
 	cliflag "k8s.io/component-base/cli/flag"
 
+	"github.com/kcp-dev/client-go/kubernetes"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+
 	serveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 )
 
@@ -35,11 +38,11 @@ type Options struct {
 
 type ExtraOptions struct{}
 
-func NewOptions(rootDir string) *Options {
+func NewOptions(rootDir string, delayedClusterKubeClient *kubernetes.ClusterInterface, delayedKcpInformers *kcpinformers.SharedInformerFactory) *Options { //nolint:gocritic
 	opts := &Options{
 		Output: nil,
 
-		Server:  *serveroptions.NewOptions(rootDir),
+		Server:  *serveroptions.NewOptions(rootDir, delayedClusterKubeClient, delayedKcpInformers),
 		Generic: *NewGeneric(rootDir),
 		Extra:   ExtraOptions{},
 	}

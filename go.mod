@@ -19,6 +19,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
+	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/kcp-dev/apimachinery/v2 v2.29.1-0.20260223112726-38863b7c2c8e
 	github.com/kcp-dev/client-go v0.28.1-0.20260223113551-9948318ac6d7
 	github.com/kcp-dev/code-generator/v3 v3.0.0-00010101000000-000000000000

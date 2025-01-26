@@ -246,10 +246,7 @@ func TestServiceAccounts(t *testing.T) {
 				t.Log("Accessing other workspace with the (there foreign) service account should eventually work because it is authenticated")
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false, err.Error()
-					}
-					return true, ""
+					return err == nil, fmt.Sprintf("err = %v", err)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Log("Taking away the authenticated access to the other workspace, restricting to only service accounts")
