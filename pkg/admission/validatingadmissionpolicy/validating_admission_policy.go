@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -74,7 +73,6 @@ type KubeValidatingAdmissionPolicy struct {
 	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 	serverDone                      <-chan struct{}
-	featureGates                    featuregate.FeatureGate
 	authorizer                      authorizer.Authorizer
 
 	lock      sync.RWMutex
@@ -88,7 +86,6 @@ var _ = initializers.WantsKubeClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsKubeInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeValidatingAdmissionPolicy{})
-var _ = initializer.WantsFeatures(&KubeValidatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeValidatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeValidatingAdmissionPolicy{})
 
@@ -111,10 +108,6 @@ func (k *KubeValidatingAdmissionPolicy) SetServerShutdownChannel(ch <-chan struc
 
 func (k *KubeValidatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.ClusterInterface) {
 	k.dynamicClusterClient = c
-}
-
-func (k *KubeValidatingAdmissionPolicy) InspectFeatureGates(featureGates featuregate.FeatureGate) {
-	k.featureGates = featureGates
 }
 
 func (k *KubeValidatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
@@ -190,7 +183,6 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(clusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())
-	plugin.InspectFeatureGates(k.featureGates)
 	plugin.SetAuthorizer(k.authorizer)
 	plugin.SetClusterName(clusterName)
 	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, clusterName logicalcluster.Name) generic.Source[validating.PolicyHook] {
