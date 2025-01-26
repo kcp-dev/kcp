@@ -89,9 +89,8 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	WorkspaceMounts: {Default: false, PreRelease: featuregate.Alpha},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-	genericfeatures.APIResponseCompression:    {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.OpenAPIEnums:              {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.ServerSideFieldValidation: {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
+	genericfeatures.APIResponseCompression: {Default: true, PreRelease: featuregate.Beta},
+	genericfeatures.OpenAPIEnums:           {Default: true, PreRelease: featuregate.Beta},
 
 	logsapi.LoggingBetaOptions: {Default: true, PreRelease: featuregate.Beta},
 	logsapi.ContextualLogging:  {Default: true, PreRelease: featuregate.Alpha},
