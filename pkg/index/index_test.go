@@ -44,6 +44,7 @@ func TestLookup(t *testing.T) {
 		expectedCluster logicalcluster.Name
 		expectFound     bool
 		expectedURL     string
+		expectedError   int
 	}{
 		{
 			name: "an empty indexer is usable",
@@ -228,7 +229,7 @@ func TestLookup(t *testing.T) {
 			expectFound: false,
 		},
 		{
-			name: "multiple shards: a logical cluster for one:rh workspace is found",
+			name: "multiple shards: one:rh workspace is a mount with URL",
 			initialShardsToUpsert: []shardStub{
 				{
 					name: "root",
@@ -248,6 +249,39 @@ func TestLookup(t *testing.T) {
 				"beta": {newWorkspaceWithAnnotation("rh", "one", "two", map[string]string{
 					"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
 				})},
+			},
+			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
+				"root": {newLogicalCluster("root")},
+				"beta": {newLogicalCluster("one")},
+				"gama": {newLogicalCluster("two")},
+			},
+			targetPath:      logicalcluster.NewPath("one:rh"),
+			expectFound:     true,
+			expectedCluster: "",
+			expectedShard:   "",
+			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
+		},
+		{
+			name: "multiple shards: one:rh workspace is a mount, but phase is Unavailable",
+			initialShardsToUpsert: []shardStub{
+				{
+					name: "root",
+					url:  "https://root.kcp.dev",
+				},
+				{
+					name: "beta",
+					url:  "https://beta.kcp.dev",
+				},
+				{
+					name: "gama",
+					url:  "https://gama.kcp.dev",
+				},
+			},
+			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
+				"root": {newWorkspace("org", "root", "one")},
+				"beta": {withPhase(newWorkspaceWithAnnotation("rh", "one", "two", map[string]string{
+					"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
+				}), corev1alpha1.LogicalClusterPhaseUnavailable)},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
 				"root": {newLogicalCluster("root")},
@@ -297,6 +331,9 @@ func TestLookup(t *testing.T) {
 			}
 			if r.URL != scenario.expectedURL {
 				t.Errorf("unexpected url = %v, for path = %v, expected = %v", r.URL, scenario.targetPath, scenario.expectedURL)
+			}
+			if r.ErrorCode != scenario.expectedError {
+				t.Errorf("unexpected error code = %v, for path = %v, expected = %v", r.ErrorCode, scenario.targetPath, scenario.expectedError)
 			}
 		})
 	}
@@ -500,6 +537,11 @@ func newWorkspaceWithAnnotation(name, cluster, scheduledCluster string, annotati
 	for k, v := range annotations {
 		ws.Annotations[k] = v
 	}
+	return ws
+}
+
+func withPhase(ws *tenancyv1alpha1.Workspace, phase corev1alpha1.LogicalClusterPhaseType) *tenancyv1alpha1.Workspace {
+	ws.Status.Phase = phase
 	return ws
 }
 

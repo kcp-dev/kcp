@@ -103,15 +103,15 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		if c.shardClusterWorkspaceNameErrorCode[shard] == nil {
 			c.shardClusterWorkspaceNameErrorCode[shard] = map[logicalcluster.Name]map[string]int{}
 		}
-		if c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)] == nil {
-			c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)] = map[string]int{}
+		if c.shardClusterWorkspaceNameErrorCode[shard][clusterName] == nil {
+			c.shardClusterWorkspaceNameErrorCode[shard][clusterName] = map[string]int{}
 		}
 		// Unavailable workspaces should return 503
-		c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)][ws.Name] = 503
+		c.shardClusterWorkspaceNameErrorCode[shard][clusterName][ws.Name] = 503
 	} else {
-		delete(c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)], ws.Name)
-		if len(c.shardClusterWorkspaceNameErrorCode[shard][logicalcluster.Name(ws.Spec.Cluster)]) == 0 {
-			delete(c.shardClusterWorkspaceNameErrorCode[shard], logicalcluster.Name(ws.Spec.Cluster))
+		delete(c.shardClusterWorkspaceNameErrorCode[shard][clusterName], ws.Name)
+		if len(c.shardClusterWorkspaceNameErrorCode[shard][clusterName]) == 0 {
+			delete(c.shardClusterWorkspaceNameErrorCode[shard], clusterName)
 		}
 	}
 
@@ -285,6 +285,9 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			}
 		}
 
+		if ec, found := c.shardClusterWorkspaceNameErrorCode[shard][cluster][s]; found {
+			errorCode = ec
+		}
 		var found bool
 		cluster, found = c.shardClusterWorkspaceNameCluster[shard][cluster][s]
 		if !found {
@@ -293,10 +296,6 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		shard, found = c.clusterShards[cluster]
 		if !found {
 			return Result{}, false
-		}
-		ec, found := c.shardClusterWorkspaceNameErrorCode[shard][cluster][s]
-		if found {
-			errorCode = ec
 		}
 	}
 	return Result{Shard: shard, Cluster: cluster, ErrorCode: errorCode}, true
