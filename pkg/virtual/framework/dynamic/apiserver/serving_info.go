@@ -40,14 +40,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
-	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
@@ -245,23 +243,21 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		OpenapiModels:            modelsByGKV,
 	}
 
-	if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
-		if withResetFields, canGetResetFields := storage.(rest.ResetFieldsStrategy); canGetResetFields {
-			resetFields := withResetFields.GetResetFields()
-			reqScope := *requestScope
-			reqScope, err = apiextensionsapiserver.ScopeWithFieldManager(
-				typeConverter,
-				reqScope,
-				resetFields,
-				"",
-			)
-			if err != nil {
-				return nil, err
-			}
-			requestScope = &reqScope
-		} else {
-			return nil, fmt.Errorf("storage for resource %q should define GetResetFields", gvk.String())
+	if withResetFields, canGetResetFields := storage.(rest.ResetFieldsStrategy); canGetResetFields {
+		resetFields := withResetFields.GetResetFields()
+		reqScope := *requestScope
+		reqScope, err = apiextensionsapiserver.ScopeWithFieldManager(
+			typeConverter,
+			reqScope,
+			resetFields,
+			"",
+		)
+		if err != nil {
+			return nil, err
 		}
+		requestScope = &reqScope
+	} else {
+		return nil, fmt.Errorf("storage for resource %q should define GetResetFields", gvk.String())
 	}
 
 	var statusScope handlers.RequestScope
@@ -275,21 +271,19 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 			ClusterScoped: clusterScoped,
 		}
 
-		if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
-			if withResetFields, canGetResetFields := statusStorage.(rest.ResetFieldsStrategy); canGetResetFields {
-				resetFields := withResetFields.GetResetFields()
-				statusScope, err = apiextensionsapiserver.ScopeWithFieldManager(
-					typeConverter,
-					statusScope,
-					resetFields,
-					"status",
-				)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", gvk.String())
+		if withResetFields, canGetResetFields := statusStorage.(rest.ResetFieldsStrategy); canGetResetFields {
+			resetFields := withResetFields.GetResetFields()
+			statusScope, err = apiextensionsapiserver.ScopeWithFieldManager(
+				typeConverter,
+				statusScope,
+				resetFields,
+				"status",
+			)
+			if err != nil {
+				return nil, err
 			}
+		} else {
+			return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", gvk.String())
 		}
 	}
 
