@@ -62,8 +62,8 @@ func TestMountsMachinery(t *testing.T) {
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
 
-	workspaceName := "mounts-machinery"
-	mountPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("%s", workspaceName))
+	mountWorkspaceName := "mounts-machinery"
+	mountPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("%s", mountWorkspaceName))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -90,34 +90,33 @@ func TestMountsMachinery(t *testing.T) {
 		require.NoError(t, err)
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
-	require.NoError(t, err)
 
 	t.Logf("Install a mount object into workspace %q", orgPath)
 	framework.Eventually(t, func() (bool, string) {
-		mapper2 := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
-		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper2, nil, "kubecluster_mounts.yaml", testFiles)
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "kubecluster_mounts.yaml", testFiles)
 		return err == nil, fmt.Sprintf("%v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for mount object to be installed")
 
 	// At this point we have object backing the mount object. So lets add mount annotation to the workspace.
-	t.Logf("Set a mount annotation into workspace %q", orgPath)
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-		require.NoError(t, err)
-
-		mount := tenancyv1alpha1.Mount{
-			MountSpec: tenancyv1alpha1.MountSpec{
-				Reference: &tenancyv1alpha1.ObjectReference{
-					APIVersion: "contrib.kcp.io/v1alpha1",
-					Kind:       "KubeCluster",
-					Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml
-				},
+	// But order should not matter.
+	t.Logf("Set a mount annotation onto workspace %q", orgPath)
+	mount := tenancyv1alpha1.Mount{
+		MountSpec: tenancyv1alpha1.MountSpec{
+			Reference: &tenancyv1alpha1.ObjectReference{
+				APIVersion: "contrib.kcp.io/v1alpha1",
+				Kind:       "KubeCluster",
+				Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml
 			},
-		}
-		data, err := json.Marshal(mount)
+		},
+	}
+	annValue, err := json.Marshal(mount)
+	require.NoError(t, err)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
 		require.NoError(t, err)
 
-		current.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = string(data)
+		current.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = string(annValue)
 
 		_, err = kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Update(ctx, current, metav1.UpdateOptions{})
 		return err
@@ -147,14 +146,14 @@ func TestMountsMachinery(t *testing.T) {
 			"phase": "Ready",
 		}
 
-		_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
+		_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
 		return err
 	})
 	require.NoError(t, err)
 
 	t.Log("Workspace should have WorkspaceMountReady and WorkspaceInitialized conditions, both true")
 	framework.Eventually(t, func() (bool, string) {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -163,11 +162,12 @@ func TestMountsMachinery(t *testing.T) {
 		ready := conditions.IsTrue(current, tenancyv1alpha1.MountConditionReady)
 		return initialized && ready, yamlMarshal(t, current)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for WorkspaceMountReady and WorkspaceInitialized conditions to be true")
-	require.NoError(t, err)
 
 	t.Log("Workspace access should work")
-	_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
+		return err == nil, fmt.Sprintf("err = %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to work")
 
 	t.Log("Set mount to not ready")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -182,11 +182,10 @@ func TestMountsMachinery(t *testing.T) {
 
 	t.Log("Workspace phase should become unavailable")
 	framework.Eventually(t, func() (bool, string) {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		return current.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable, yamlMarshal(t, current)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to become unavailable")
-	require.NoError(t, err)
 
 	t.Logf("Workspace access should eventually fail")
 	framework.Eventually(t, func() (bool, string) {
