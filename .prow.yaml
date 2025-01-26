@@ -109,6 +109,8 @@ presubmits:
             - ./hack/run-with-prometheus.sh
             - make
             - test-e2e
+          args:
+            - ARTIFACT_DIR=$(ARTIFACTS) # propagate prow artifact directory
           env:
             - name: SUITES
               value: control-plane
@@ -137,6 +139,8 @@ presubmits:
             - ./hack/run-with-prometheus.sh
             - make
             - test-e2e
+          args:
+            - ARTIFACT_DIR=$(ARTIFACTS) # propagate prow artifact directory
           env:
             - name: SUITES
               value: control-plane
@@ -167,6 +171,8 @@ presubmits:
             - ./hack/run-with-prometheus.sh
             - make
             - test-e2e-shared-minimal
+          args:
+            - ARTIFACT_DIR=$(ARTIFACTS) # propagate prow artifact directory
           env:
             - name: SUITES
               value: control-plane
@@ -193,6 +199,8 @@ presubmits:
             - ./hack/run-with-prometheus.sh
             - make
             - test-e2e-sharded-minimal
+          args:
+            - ARTIFACT_DIR=$(ARTIFACTS) # propagate prow artifact directory
           env:
             - name: SUITES
               value: control-plane

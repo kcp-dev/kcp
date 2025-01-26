@@ -34,6 +34,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -161,13 +162,35 @@ func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
 }
 
 // ScratchDirs determines where artifacts and data should live for a test server.
+// The passed subDir is appended to the artifact directory and should be unique
+// to the test.
 func ScratchDirs(t *testing.T) (string, string, error) {
 	t.Helper()
-	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+
+	artifactDir, err := CreateTempDirForTest(t, toTestDir(t.Name()))
 	if err != nil {
 		return "", "", err
 	}
 	return artifactDir, t.TempDir(), nil
+}
+
+// toTestDir converts a test name into a Unix-compatible directory name.
+func toTestDir(testName string) string {
+	// Insert a dash before uppercase letters in the middle of the string
+	reg := regexp.MustCompile(`([a-z0-9])([A-Z])`)
+	safeName := reg.ReplaceAllString(testName, "${1}-${2}")
+
+	// Replace any remaining non-alphanumeric characters (except dashes and underscores) with underscores
+	reg = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+	safeName = reg.ReplaceAllString(safeName, "_")
+
+	// Remove any leading or trailing underscores or dashes
+	safeName = strings.Trim(safeName, "_-")
+
+	// Convert to lowercase (optional, depending on your preference)
+	safeName = strings.ToLower(safeName)
+
+	return safeName
 }
 
 func (c *kcpServer) CADirectory() string {

@@ -48,7 +48,7 @@ import (
 //
 //	$ go test -v --use-default-kcp-server
 func main() {
-	flag.String("log-file-path", ".kcp/kcp.log", "Path to the log file")
+	logDirPath := flag.String("log-dir-path", "", "Directory for log files. If empty, .kcp is used.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
 	// split flags into --shard-* and everything else (generic). The former are
@@ -67,7 +67,7 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(shardFlags, *quiet); err != nil {
+	if err := start(shardFlags, *logDirPath, *quiet); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
@@ -77,7 +77,7 @@ func main() {
 	}
 }
 
-func start(shardFlags []string, quiet bool) error {
+func start(shardFlags []string, logDirPath string, quiet bool) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shard
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -98,7 +98,11 @@ func start(shardFlags []string, quiet bool) error {
 		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
 
-	logFilePath := flag.Lookup("log-file-path").Value.String()
+	logFilePath := filepath.Join(".kcp", "kcp.log")
+	if logDirPath != "" {
+		logFilePath = filepath.Join(logDirPath, "kcp.log")
+	}
+
 	s := shard.NewShard(
 		"kcp",
 		".kcp",
