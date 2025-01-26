@@ -30,6 +30,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -166,12 +167,7 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	// If bound, create a rbac authorizer filtered to the cluster.
 	clusterAuthorizer := a.newAuthorizer(logicalcluster.From(apiExport))
 	prefixedAttr := deepCopyAttributes(attr)
-	userInfo := prefixedAttr.User.(*user.DefaultInfo)
-	userInfo.Name = apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix + userInfo.Name
-	userInfo.Groups = make([]string, 0, len(attr.GetUser().GetGroups()))
-	for _, g := range attr.GetUser().GetGroups() {
-		userInfo.Groups = append(userInfo.Groups, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+g)
-	}
+	prefixedAttr.User = rbacregistryvalidation.PrefixUser(prefixedAttr.GetUser(), apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix)
 	dec, reason, err := clusterAuthorizer.Authorize(ctx, prefixedAttr)
 	reason = fmt.Sprintf("API export %q|%q policy: %v", logicalcluster.From(apiExport), apiExport.Name, reason)
 	if err != nil {

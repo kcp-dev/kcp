@@ -330,3 +330,34 @@ When impersonating a user in a logical cluster, the resulting user identity is
 scoped to the logical cluster the impersonation is happening in.
 
 A scope mismatch does not invalidate the warrants (see next section) of a user. 
+
+### Warrants
+
+Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
+A warrant is attached by adding a `authorization.kcp.io/warrant` extra field to the user identity
+with a JSON-encoded user info, and the limiting logical cluster set as `authentication.kcp.io/scopes: cluster:<logical-cluster>`.
+in the embedded user info's extra. The warrant is then checked by the authorizers in the chain of every step
+if the primary users is not allowed. For example:
+
+```yaml
+user: user1
+groups: ["group1"]
+extra:
+  authorization.kcp.io/warrant: |
+    {
+      "user": "user2",
+      "groups": ["group2"],
+      "extra": {
+        "authentication.kcp.io/scopes": "cluster:logical-cluster-1"
+      }
+    }
+```
+
+This warrant allows `user1` to act under the permissions of `user2` in 
+`logical-cluster-1` if `user1` is not allowed to act as `user2` in the first place.
+
+Note that a warrant only allow to act under the permissions of the warrant user, 
+but not to act as the warrant user itself. E.g. in auditing or admission control,
+the primary user is still the one that is acting.
+
+Warrants can be nested, i.e. a warrant can contain another warrant.

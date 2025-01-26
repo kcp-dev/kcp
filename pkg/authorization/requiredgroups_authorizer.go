@@ -24,10 +24,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/registry/rbac/validation"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -75,12 +74,13 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
-	if sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
+	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
 	switch {
-	case validation.IsServiceAccount(attr.GetUser()):
+	case rbacregistryvalidation.IsServiceAccount(attr.GetUser()):
 		// service accounts are always allowed
 		return DelegateAuthorization("service account access to logical cluster", a.delegate).Authorize(ctx, attr)
 
@@ -95,7 +95,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		}
 
 		// always let external-logical-cluster-admins through
-		if sets.New[string](attr.GetUser().GetGroups()...).Has(bootstrap.SystemExternalLogicalClusterAdmin) {
+		if effGroups.Has(bootstrap.SystemExternalLogicalClusterAdmin) {
 			return DelegateAuthorization("external logical cluster admin access", a.delegate).Authorize(ctx, attr)
 		}
 
@@ -107,7 +107,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		disjunctiveClauses := append(strings.Split(value, ";"), bootstrap.SystemKcpAdminGroup, bootstrap.SystemKcpWorkspaceBootstrapper)
 		for _, set := range disjunctiveClauses {
 			groups := strings.Split(set, ",")
-			if sets.New[string](attr.GetUser().GetGroups()...).HasAll(groups...) {
+			if effGroups.HasAll(groups...) {
 				return DelegateAuthorization(fmt.Sprintf("user is member of required groups: %s", logicalCluster.Annotations[RequiredGroupsAnnotationKey]), a.delegate).Authorize(ctx, attr)
 			}
 		}

@@ -119,10 +119,17 @@ func TestSubjectAccessReview(t *testing.T) {
 			user:   "system:serviceaccount:default:default",
 			groups: []string{"system:kcp:admin"},
 			extra: map[string]authorizationv1.ExtraValue{
-				serviceaccount.ClusterNameKey: {"root"},
+				serviceaccount.ClusterNameKey: {"other"},
 			},
 			wantAllowed: false,
 		},
+		{
+			name: "service account with other cluster and warrant",
+			user: "system:serviceaccount:default:default", groups: []string{"system:kcp:admin"}, extra: map[string]authorizationv1.ExtraValue{
+				serviceaccount.ClusterNameKey:          {"other"},
+				rbacregistryvalidation.WarrantExtraKey: {`{"user":"user","groups":["system:kcp:admin"]}`},
+			},
+			wantAllowed: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -209,7 +216,6 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 		groups    []string
 		extra     map[string][]string
 		wantRules []authorizationv1.ResourceRule
-		wantError bool
 	}
 	for _, tt := range []tests{
 		{
@@ -246,6 +252,11 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 			}, authenticatedBaseRules...),
 		},
 		{
+			name: "service account with other cluster",
+			user: "system:serviceaccount:default:default", groups: []string{"system:kcp:admin"}, extra: map[string][]string{serviceaccount.ClusterNameKey: {"other"}},
+			wantRules: authenticatedBaseRules,
+		},
+		{
 			name: "admin scoped to other cluster",
 			user: "user", groups: []string{"system:kcp:admin", user.AllAuthenticated}, extra: map[string][]string{rbacregistryvalidation.ScopeExtraKey: {"cluster:other"}},
 			wantRules: authenticatedBaseRules,
@@ -257,6 +268,16 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 				rbacregistryvalidation.ScopeExtraKey: {"cluster:other"},
 			},
 			wantRules: authenticatedBaseRules,
+		},
+		{
+			name: "service account with other cluster and warrant",
+			user: "system:serviceaccount:default:default", groups: []string{"system:kcp:admin"}, extra: map[string][]string{
+				serviceaccount.ClusterNameKey:          {"other"},
+				rbacregistryvalidation.WarrantExtraKey: {`{"user":"user","groups":["system:kcp:admin"]}`},
+			},
+			wantRules: append([]authorizationv1.ResourceRule{
+				{Verbs: []string{"*"}, APIGroups: []string{"*"}, Resources: []string{"*"}},
+			}, authenticatedBaseRules...),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -282,12 +303,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 				},
 			}
 			resp, err := impersonatedClient.Cluster(wsPath).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, req, metav1.CreateOptions{})
-			if tt.wantError {
-				require.Error(t, err)
-				return
-			} else {
-				require.NoError(t, err)
-			}
+			require.NoError(t, err)
 
 			sort.Sort(sortedResourceRules(resp.Status.ResourceRules))
 			sort.Sort(sortedResourceRules(tt.wantRules))
