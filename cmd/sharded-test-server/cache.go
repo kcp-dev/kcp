@@ -64,7 +64,10 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
-	logFilePath := filepath.Join(logDirPath, ".kcp-cache", "out.log")
+	logFilePath := filepath.Join(".kcp-cache", "kcp.log")
+	if logDirPath != "" {
+		logFilePath = filepath.Join(logDirPath, "kcp-cache.log")
+	}
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
 		return nil, "", err
 	}
