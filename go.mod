@@ -12,6 +12,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
+	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250223115924-431177b024f3
 	github.com/kcp-dev/client-go v0.0.0-20250223133118-3dea338dc267
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000

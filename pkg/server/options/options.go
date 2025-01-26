@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,6 +35,7 @@ import (
 	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
+	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type Options struct {
@@ -91,7 +93,7 @@ type CompletedOptions struct {
 }
 
 // NewOptions creates a new Options with default parameters.
-func NewOptions(rootDir string) *Options {
+func NewOptions(rootDir string, delayedKubeClusterClient *kubernetes.ClusterInterface, delayedKcpInformers *kcpinformers.SharedInformerFactory) *Options {
 	o := &Options{
 		GenericControlPlane: *controlplaneapiserver.NewOptions(),
 		EmbeddedEtcd:        *etcdoptions.NewOptions(rootDir),
@@ -119,6 +121,7 @@ func NewOptions(rootDir string) *Options {
 	// override all the stuff
 	o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = rootDir
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
+	o.GenericControlPlane.Authentication.ServiceAccounts.OptionalTokenGetter = newServiceAccountTokenCache(delayedKubeClusterClient, delayedKcpInformers)
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 	o.GenericControlPlane.Authorization = nil // we have our own
 
