@@ -115,7 +115,9 @@ func main() {
 				return err
 			}
 
-			completedKcpOptions, err := kcpOptions.Complete()
+			ctx := genericapiserver.SetupSignalContext()
+
+			completedKcpOptions, err := kcpOptions.Complete(ctx)
 			if err != nil {
 				return err
 			}
@@ -126,8 +128,6 @@ func main() {
 
 			logger := klog.FromContext(cmd.Context())
 			logger.Info("running with selected batteries", "batteries", strings.Join(completedKcpOptions.Server.Extra.BatteriesIncluded, ","))
-
-			ctx := genericapiserver.SetupSignalContext()
 
 			serverConfig, err := server.NewConfig(ctx, completedKcpOptions.Server)
 			if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -242,7 +243,7 @@ func (o *CompletedOptions) Validate() []error {
 	return errs
 }
 
-func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
+func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptions, error) {
 	if servers := o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
 		o.EmbeddedEtcd.Enabled = true
 	}
@@ -313,7 +314,7 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericOptions, err := o.GenericControlPlane.Complete(nil, nil)
+	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, nil, nil)
 	if err != nil {
 		return nil, err
 	}

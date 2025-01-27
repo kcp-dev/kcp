@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"io"
 
 	cliflag "k8s.io/component-base/cli/flag"
@@ -63,13 +64,13 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	o.Server.AddFlags(fss)
 }
 
-func (o *Options) Complete() (*CompletedOptions, error) {
+func (o *Options) Complete(ctx context.Context) (*CompletedOptions, error) {
 	generic, err := o.Generic.Complete()
 	if err != nil {
 		return nil, err
 	}
 
-	server, err := o.Server.Complete(generic.RootDirectory)
+	server, err := o.Server.Complete(ctx, generic.RootDirectory)
 	if err != nil {
 		return nil, err
 	}
