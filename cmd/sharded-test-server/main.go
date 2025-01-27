@@ -320,7 +320,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if i >= len(regions) {
 			break
 		}
-		patch := fmt.Sprintf(`{"metadata":{"labels":{"region":%q}}}`, regions[i])
+		patch := fmt.Sprintf(`{"metadata":{"labels":{"region":%q,"shared": "true"}}}`, regions[i])
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			_, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Patch(ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 			return err

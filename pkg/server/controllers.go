@@ -1533,40 +1533,52 @@ func (s *Server) WaitForSync(stop <-chan struct{}) error {
 
 // addIndexerstoInformers is separated out from controllers as the re-election calls for controller re-initialization,
 // it would panics in indexer addition to informers as they are already started at bootup.
-func (s *Server) addIndexersToInformers(ctx context.Context) map[schema.GroupVersionResource]replication.ReplicatedGVR {
-	permissionclaimlabel.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
-	permissionclaimlabler.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
+func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersionResource]replication.ReplicatedGVR {
+	permissionclaimlabel.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
+	permissionclaimlabler.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
 	apibinding.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports())
-	apiexport.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
-	apiexportendpointslice.InstallIndexers(s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices())
-	labelclusterrolebindings.InstallIndexers(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings())
-	labelclusterroles.InstallIndexers(s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings())
-	workspace.InstallIndexers(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+	)
+	apiexport.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports())
+	apiexportendpointslice.InstallIndexers(
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+	)
+	labelclusterrolebindings.InstallIndexers(
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	labelclusterroles.InstallIndexers(
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+	)
+	workspace.InstallIndexers(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
-	workspacemounts.InstallIndexers(s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces())
-
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+	)
+	workspacemounts.InstallIndexers(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+	)
 	extraannotationsync.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
-
-	// Replicationcontroller indexers
-	localKcpInformers := s.KcpSharedInformerFactory
-	globalKcpInformers := s.CacheKcpSharedInformerFactory
-	localKubeInformers := s.KubeSharedInformerFactory
-	globalKubeInformers := s.CacheKubeSharedInformerFactory
-
-	gvrs := replication.InstallIndexers(localKcpInformers,
-		globalKcpInformers, localKubeInformers,
-		globalKubeInformers)
-
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
 	initialization.InstallIndexers(
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
-	crdcleanup.InstallIndexers(s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings())
-	return gvrs
+	crdcleanup.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
+	return replication.InstallIndexers(
+		s.KcpSharedInformerFactory,
+		s.CacheKcpSharedInformerFactory,
+		s.KubeSharedInformerFactory,
+		s.CacheKubeSharedInformerFactory,
+	)
 }

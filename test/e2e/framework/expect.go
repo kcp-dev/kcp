@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -180,7 +180,7 @@ func (c *ExpectationController) ExpectBefore(ctx context.Context, expectation Ex
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("expected state not found: %w, %d errors encountered while processing %d events: %v", ctx.Err(), len(expectationErrors), processed, kerrors.NewAggregate(expectationErrors))
+			return fmt.Errorf("expected state not found: %w, %d errors encountered while processing %d events: %v", ctx.Err(), len(expectationErrors), processed, utilerrors.NewAggregate(expectationErrors))
 		case result := <-results:
 			processed++
 			if result.err != nil {
@@ -190,7 +190,7 @@ func (c *ExpectationController) ExpectBefore(ctx context.Context, expectation Ex
 				if result.err == nil {
 					return nil
 				}
-				return kerrors.NewAggregate(expectationErrors)
+				return utilerrors.NewAggregate(expectationErrors)
 			}
 		}
 	}

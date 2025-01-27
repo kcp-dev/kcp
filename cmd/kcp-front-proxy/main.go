@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 	utilflag "k8s.io/component-base/cli/flag"
@@ -66,7 +66,7 @@ routed based on paths.`,
 				return err
 			}
 			if errs := options.Validate(); errs != nil {
-				return errors.NewAggregate(errs)
+				return utilerrors.NewAggregate(errs)
 			}
 
 			if options.Proxy.ProfilerAddress != "" {

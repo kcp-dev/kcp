@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	endpointsopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/openapi"
@@ -82,7 +82,7 @@ func CreateAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGette
 		var schemaProps apiextensionsv1.JSONSchemaProps
 		errs := crdpuller.Convert(modelsByGKV[gvk], &schemaProps)
 		if len(errs) > 0 {
-			return nil, errors.NewAggregate(errs)
+			return nil, utilerrors.NewAggregate(errs)
 		}
 		group := def.GroupVersion.Group
 		if group == "" {

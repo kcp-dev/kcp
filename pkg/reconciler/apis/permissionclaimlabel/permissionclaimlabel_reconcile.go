@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
@@ -195,7 +195,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		if i > 10 {
 			i = 10
 		}
-		errsToDisplay := aggregateerrors.NewAggregate(unexpectedOrInvalidErrors[0:i])
+		errsToDisplay := utilerrors.NewAggregate(unexpectedOrInvalidErrors[0:i])
 
 		conditions.MarkFalse(
 			apiBinding,
@@ -224,7 +224,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		if i > 10 {
 			i = 10
 		}
-		errsToDisplay := aggregateerrors.NewAggregate(allErrs[0:i])
+		errsToDisplay := utilerrors.NewAggregate(allErrs[0:i])
 
 		conditions.MarkFalse(
 			apiBinding,

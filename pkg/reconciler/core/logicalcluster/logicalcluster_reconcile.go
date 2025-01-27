@@ -19,7 +19,7 @@ package logicalcluster
 import (
 	"context"
 
-	utilserrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
@@ -58,5 +58,5 @@ func (c *Controller) reconcile(ctx context.Context, logicalCluster *corev1alpha1
 		}
 	}
 
-	return requeue, utilserrors.NewAggregate(errs)
+	return requeue, utilerrors.NewAggregate(errs)
 }
