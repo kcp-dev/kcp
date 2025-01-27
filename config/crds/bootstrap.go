@@ -31,7 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -73,7 +73,7 @@ func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResour
 	for err := range bootstrapErrChan {
 		bootstrapErrors = append(bootstrapErrors, err)
 	}
-	if err := kerrors.NewAggregate(bootstrapErrors); err != nil {
+	if err := utilerrors.NewAggregate(bootstrapErrors); err != nil {
 		return fmt.Errorf("could not bootstrap CRDs: %w", err)
 	}
 	return nil

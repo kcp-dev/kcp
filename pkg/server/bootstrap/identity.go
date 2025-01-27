@@ -31,7 +31,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	errorsutil "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -194,7 +194,7 @@ func wildcardIdentitiesResolver(ids *identities,
 
 			logger.V(4).Info("APIExport has identity")
 		}
-		return errorsutil.NewAggregate(errs)
+		return utilerrors.NewAggregate(errs)
 	}
 }
 

@@ -21,7 +21,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -38,7 +38,7 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 			errs = append(errs, field.Invalid(field.NewPath("metadata", "name"), name, msg))
 		}
 
-		return nil, errors.NewAggregate(errs)
+		return nil, utilerrors.NewAggregate(errs)
 	}
 
 	apiResourceSchema := &APIResourceSchema{

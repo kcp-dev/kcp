@@ -30,7 +30,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -65,7 +65,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	cacheServerCompletedOptions, err := cacheServerOptions.Complete()
 	require.NoError(t, err)
 	if errs := cacheServerCompletedOptions.Validate(); len(errs) > 0 {
-		require.NoError(t, apimachineryerrors.NewAggregate(errs))
+		require.NoError(t, utilerrors.NewAggregate(errs))
 	}
 	cacheServerConfig, err := cacheserver.NewConfig(cacheServerCompletedOptions, nil)
 	require.NoError(t, err)

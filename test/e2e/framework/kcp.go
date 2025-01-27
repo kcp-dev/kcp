@@ -43,7 +43,7 @@ import (
 	gopkgyaml "gopkg.in/yaml.v3"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	apierrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -648,7 +648,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		}
 		if errs := completed.Validate(); len(errs) > 0 {
 			cleanup()
-			return apierrors.NewAggregate(errs)
+			return utilerrors.NewAggregate(errs)
 		}
 
 		config, err := server.NewConfig(ctx, completed.Server)

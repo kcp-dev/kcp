@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -114,7 +114,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 			errs = append(errs, err)
 		}
 	}
-	return apimachineryerrors.NewAggregate(errs)
+	return utilerrors.NewAggregate(errs)
 }
 
 // CreateResourceFromFS creates given resource file.
@@ -152,7 +152,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
 		}
 	}
-	return apimachineryerrors.NewAggregate(errs)
+	return utilerrors.NewAggregate(errs)
 }
 
 const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"

@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/component-base/cli"
@@ -119,7 +119,7 @@ func main() {
 			}
 
 			if errs := completedKcpOptions.Validate(); len(errs) > 0 {
-				return errors.NewAggregate(errs)
+				return utilerrors.NewAggregate(errs)
 			}
 
 			logger := klog.FromContext(cmd.Context())

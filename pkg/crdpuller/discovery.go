@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/client-go/discovery"
@@ -232,7 +232,7 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 				}
 				protoSchema.Accept(converter)
 				if len(*converter.errors) > 0 {
-					logger.Error(kerrors.NewAggregate(*converter.errors), "error during the OpenAPI schema import of resource")
+					logger.Error(utilerrors.NewAggregate(*converter.errors), "error during the OpenAPI schema import of resource")
 					continue
 				}
 			}
