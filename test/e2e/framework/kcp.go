@@ -641,7 +641,7 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 			return err
 		}
 
-		completed, err := serverOptions.Complete()
+		completed, err := serverOptions.Complete(ctx)
 		if err != nil {
 			cleanup()
 			return err
