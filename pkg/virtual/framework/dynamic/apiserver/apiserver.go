@@ -29,7 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
+	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/openapi"
+	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -177,7 +180,12 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 
 	s.GenericAPIServer.Handler.GoRestfulContainer.Add(discovery.NewLegacyRootAPIHandler(c.GenericConfig.DiscoveryAddresses, s.GenericAPIServer.Serializer, "/api").WebService())
 
-	openAPIHandler := newOpenAPIHandler(s.APISetRetriever, delegateHandler)
+	getOpenAPIDefinitions := openapi.GetOpenAPIDefinitionsWithoutDisabledFeatures(generatedopenapi.GetOpenAPIDefinitions)
+	namer := openapinamer.NewDefinitionNamer(scheme)
+	openapiv3Config := genericapiserver.DefaultOpenAPIV3Config(getOpenAPIDefinitions, namer)
+	openapiv3Config.Info.Title = "Kubernetes"
+
+	openAPIHandler := newOpenAPIHandler(s.APISetRetriever, s.GenericAPIServer.Handler.GoRestfulContainer, openapiv3Config, delegateHandler)
 
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", crdHandler)

@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/kube-openapi/pkg/spec3"
 
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -34,9 +33,6 @@ import (
 type APIDefinition interface {
 	// GetAPIResourceSchema returns the API schema this definition serves.
 	GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema
-
-	// GetOpenAPIV3Schema fetches OpenAPI V3 Schema
-	GetOpenAPIV3Spec() *spec3.OpenAPI
 
 	// GetClusterName provides the name of the logical cluster where the resource specification comes from.
 	GetClusterName() logicalcluster.Name

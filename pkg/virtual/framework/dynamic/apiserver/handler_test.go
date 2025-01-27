@@ -39,7 +39,6 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
-	"k8s.io/kube-openapi/pkg/spec3"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -59,7 +58,6 @@ type mockedAPIDefinition struct {
 	apiResourceSchema  *apisv1alpha1.APIResourceSchema
 	store              rest.Storage
 	subresourcesStores map[string]rest.Storage
-	openAPIV3Spec      *spec3.OpenAPI
 }
 
 var _ apidefinition.APIDefinition = (*mockedAPIDefinition)(nil)
@@ -72,9 +70,6 @@ func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
 }
 func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
 	return apiDef.store
-}
-func (apiDef *mockedAPIDefinition) GetOpenAPIV3Spec() *spec3.OpenAPI {
-	return apiDef.openAPIV3Spec
 }
 func (apiDef *mockedAPIDefinition) GetSubResourceStorage(subresource string) rest.Storage {
 	return apiDef.subresourcesStores[subresource]

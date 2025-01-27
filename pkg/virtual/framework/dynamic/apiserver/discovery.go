@@ -17,7 +17,6 @@ limitations under the License.
 package apiserver
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -331,87 +329,4 @@ func sortGroupDiscoveryByKubeAwareVersion(gd []metav1.GroupVersionForDiscovery) 
 	sort.Slice(gd, func(i, j int) bool {
 		return version.CompareKubeAwareVersionStrings(gd[i].Version, gd[j].Version) > 0
 	})
-}
-
-type openAPIHandler struct {
-	apiSetRetriever apidefinition.APIDefinitionSetGetter
-	delegate        http.Handler
-
-	openAPIV3Service *handler3.OpenAPIService
-}
-
-func newOpenAPIHandler(apiSetRetriever apidefinition.APIDefinitionSetGetter, delegate http.Handler) *openAPIHandler {
-	openAPIV3Service := handler3.NewOpenAPIService()
-
-	return &openAPIHandler{
-		apiSetRetriever: apiSetRetriever,
-		delegate:        delegate,
-
-		openAPIV3Service: openAPIV3Service,
-	}
-}
-
-func (h *openAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// handle /openapi 								-> do nothing
-	// handle /openapi/v2 							-> do nothing for now. TODO: Implement. Actually, let OpenAPIV2 die. Ref: https://github.com/kcp-dev/kcp/pull/3059#discussion_r1424317153
-	// handle /openapi/v3							-> discovery endpoint
-	// handle /openapi/v3/apis/<group>/<version> 	-> serve OpenAPIV3Schema for <group>/<version>
-
-	pathParts := splitPath(r.URL.Path)
-
-	// if request doesn't start with /openapi return
-	// this check is a safety measure
-	if len(pathParts) == 1 && pathParts[0] != "openapi" {
-		h.delegate.ServeHTTP(w, r)
-		return
-	}
-
-	if len(pathParts) == 1 && pathParts[0] == "openapi" {
-		return
-	}
-
-	if len(pathParts) == 2 && pathParts[1] == "v2" { // handle /openapi/v2
-		// TODO: Implement OpenAPI V2 handler. Actually, let OpenAPIV2 die. Ref: https://github.com/kcp-dev/kcp/pull/3059#discussion_r1424317153
-		return
-	} else if len(pathParts) == 2 && pathParts[1] == "v3" { // handle /openapi/v3
-		if err := h.fetchAndUpdate(r.Context(), ""); err != nil {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewInternalError(fmt.Errorf("unable to  set: %w", err)),
-				errorCodecs, schema.GroupVersion{},
-				w, r)
-		}
-
-		h.openAPIV3Service.HandleDiscovery(w, r)
-		return
-	} else if len(pathParts) == 5 && pathParts[1] == "v3" && pathParts[2] == "apis" {
-		requestedGroup := pathParts[3]
-		if err := h.fetchAndUpdate(r.Context(), requestedGroup); err != nil {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewInternalError(fmt.Errorf("unable to  set: %w", err)),
-				errorCodecs, schema.GroupVersion{},
-				w, r)
-		}
-
-		h.openAPIV3Service.HandleGroupVersion(w, r)
-	} else {
-		h.delegate.ServeHTTP(w, r)
-		return
-	}
-}
-
-func (h *openAPIHandler) fetchAndUpdate(ctx context.Context, group string) error {
-	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
-	apiSet, _, err := h.apiSetRetriever.GetAPIDefinitionSet(ctx, apiDomainKey)
-	if err != nil {
-		return err
-	}
-
-	for gvr, apiDefinition := range apiSet {
-		if group == "" || (group != "" && group == gvr.Group) {
-			spec := apiDefinition.GetOpenAPIV3Spec()
-			h.openAPIV3Service.UpdateGroupVersion(gvr.Group, spec)
-		}
-	}
-
-	return nil
 }
