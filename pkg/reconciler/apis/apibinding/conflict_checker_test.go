@@ -60,24 +60,6 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 		).
 		Build()
 
-	apiExports := map[string]*apisv1alpha1.APIExport{
-		"export0": {
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"export0-schema1"},
-			},
-		},
-		"export1": {
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"export1-schema1", "export1-schema2", "export1-schema3"},
-			},
-		},
-		"export2": {
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"export2-schema1", "export2-schema2", "export2-schema3"},
-			},
-		},
-	}
-
 	apiResourceSchemas := map[string]*apisv1alpha1.APIResourceSchema{
 		"export0-schema1": {ObjectMeta: metav1.ObjectMeta{UID: "e0-s1"}},
 		"export1-schema1": {ObjectMeta: metav1.ObjectMeta{UID: "e1-s1"}},
@@ -95,9 +77,6 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 				existingBinding1,
 				existingBinding2,
 			}, nil
-		},
-		func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExports[name], nil
 		},
 		func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return apiResourceSchemas[name], nil
@@ -276,7 +255,6 @@ func TestCRDs(t *testing.T) {
 				func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return nil, nil
 				},
-				func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) { return nil, nil },
 				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					return nil, nil
 				},

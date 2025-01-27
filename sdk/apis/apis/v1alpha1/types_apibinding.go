@@ -200,6 +200,10 @@ const (
 	// Once true, this can never be reset to false.
 	InitialBindingCompleted conditionsv1alpha1.ConditionType = "InitialBindingCompleted"
 
+	// LogicalClusterNotFoundReason is a reason for the InitialBindingCompleted condition that
+	// the LogicalCluster has not been found.
+	LogicalClusterNotFoundReason = "LogicalClusterNotFound"
+
 	// WaitingForEstablishedReason is a reason for the InitialBindingCompleted condition that the bound CRDs are not ready.
 	WaitingForEstablishedReason = "WaitingForEstablished"
 

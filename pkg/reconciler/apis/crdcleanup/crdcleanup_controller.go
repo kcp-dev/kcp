@@ -45,8 +45,7 @@ import (
 )
 
 const (
-	ControllerName                 = "kcp-crdcleanup"
-	DefaultIdentitySecretNamespace = "kcp-system"
+	ControllerName = "kcp-crdcleanup"
 
 	AgeThreshold time.Duration = time.Minute * 30
 )

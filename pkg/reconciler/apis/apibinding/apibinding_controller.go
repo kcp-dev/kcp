@@ -48,9 +48,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 )
 
@@ -70,6 +72,7 @@ func NewController(
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	globalAPIConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
@@ -145,6 +148,13 @@ func NewController(
 		},
 		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).List(labels.Everything())
+		},
+		getLogicalCluster: func(name logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().Cluster(name).Get(corev1alpha1.LogicalClusterName)
+		},
+		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+			_, err := kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(lc).Path()).Update(ctx, lc, metav1.UpdateOptions{})
+			return err
 		},
 		deletedCRDTracker: newLockedStringSet(),
 		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
@@ -223,6 +233,20 @@ func NewController(
 		},
 	}))
 
+	// LogicalCluster handlers
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueLogicalCluster(objOrTombstone[*corev1alpha1.LogicalCluster](obj), logger, "")
+		},
+		UpdateFunc: func(old, obj interface{}) {
+			was := old.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
+			is := obj.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
+			if was != is {
+				c.enqueueLogicalCluster(objOrTombstone[*corev1alpha1.LogicalCluster](obj), logger, "")
+			}
+		},
+	}))
+
 	// APIConversion handlers
 	_, _ = apiConversionInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -284,6 +308,9 @@ type controller struct {
 	createCRD func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs  func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
+
+	getLogicalCluster    func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	updateLogicalCluster func(context.Context, *corev1alpha1.LogicalCluster) error
 
 	deletedCRDTracker *lockedStringSet
 	commit            CommitFunc
@@ -350,6 +377,18 @@ func (c *controller) enqueueAPIResourceSchema(schema *apisv1alpha1.APIResourceSc
 
 	for _, export := range apiExports {
 		c.enqueueAPIExport(export, logging.WithObject(logger, schema), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
+	}
+}
+
+// enqueueLogicalCluster maps LogicalClusters to APIBindings for enqueuing.
+func (c *controller) enqueueLogicalCluster(lc *corev1alpha1.LogicalCluster, logger logr.Logger, logSuffix string) {
+	bindings, err := c.listAPIBindings(logicalcluster.From(lc))
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, binding := range bindings {
+		c.enqueueAPIBinding(binding, logging.WithObject(logger, binding), fmt.Sprintf(" because of LogicalCluster%s", logSuffix))
 	}
 }
 
