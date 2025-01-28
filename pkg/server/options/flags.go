@@ -79,6 +79,7 @@ var (
 		"requestheader-extra-headers-prefix",       // List of request header prefixes to inspect. X-Remote-Extra- is suggested.
 		"requestheader-group-headers",              // List of request headers to inspect for groups. X-Remote-Group is suggested.
 		"requestheader-username-headers",           // List of request headers to inspect for usernames. X-Remote-User is common.
+		"requestheader-uid-headers",                // List of request headers to inspect for UIDs. X-Remote-Uid is suggested. Requires the RemoteRequestHeaderUID feature to be enabled.
 		"token-auth-file",                          // If set, the file that will be used to secure the secure port of the API server via token authentication.
 
 		// Kubernetes ServiceAccount Authentication flags
@@ -89,6 +90,7 @@ var (
 		"service-account-lookup",                  // If true, validate ServiceAccount tokens exist in etcd as part of authentication.
 		"service-account-max-token-expiration",    // The maximum validity duration of a token created by the service account token issuer. If an otherwise valid TokenRequest with a validity duration larger than this value is requested, a token will be issued with a validity duration of this value.
 		"service-account-signing-key-file",        // Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.
+		"service-account-signing-endpoint",        // Path to socket where a external JWT signer is listening. This flag is mutually exclusive with --service-account-signing-key-file and --service-account-key-file. Requires enabling feature gate (ExternalServiceAccountTokenSigner)
 
 		// logs flags
 		"logging-format",      // Sets the log format. Permitted formats: "text", "json".
