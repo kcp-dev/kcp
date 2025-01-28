@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/pflag"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/version"
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
@@ -47,12 +48,12 @@ const (
 var DefaultFeatureGate = utilfeature.DefaultFeatureGate
 
 func init() {
-	utilruntime.Must(utilfeature.DefaultMutableFeatureGate.Add(defaultGenericControlPlaneFeatureGates))
+	utilruntime.Must(utilfeature.DefaultMutableFeatureGate.AddVersioned(defaultVersionedGenericControlPlaneFeatureGates))
 }
 
 func KnownFeatures() []string {
-	features := make([]string, 0, len(defaultGenericControlPlaneFeatureGates))
-	for k := range defaultGenericControlPlaneFeatureGates {
+	features := make([]string, 0, len(defaultVersionedGenericControlPlaneFeatureGates))
+	for k := range defaultVersionedGenericControlPlaneFeatureGates {
 		features = append(features, string(k))
 	}
 	return features
@@ -69,11 +70,30 @@ type kcpFeatureGate struct {
 	featuregate.MutableFeatureGate
 }
 
+func featureSpecAtEmulationVersion(v featuregate.VersionedSpecs, emulationVersion *version.Version) *featuregate.FeatureSpec {
+	i := len(v) - 1
+	for ; i >= 0; i-- {
+		if v[i].Version.GreaterThan(emulationVersion) {
+			continue
+		}
+		return &v[i]
+	}
+	return &featuregate.FeatureSpec{
+		Default:    false,
+		PreRelease: featuregate.PreAlpha,
+		Version:    version.MajorMinor(0, 0),
+	}
+}
+
 func (f *kcpFeatureGate) String() string {
 	pairs := []string{}
-	for k, v := range defaultGenericControlPlaneFeatureGates {
-		pairs = append(pairs, fmt.Sprintf("%s=%t", k, v.Default))
+	emulatedVersion := utilfeature.DefaultMutableFeatureGate.EmulationVersion()
+
+	for featureName, versionedSpecs := range defaultVersionedGenericControlPlaneFeatureGates {
+		spec := featureSpecAtEmulationVersion(versionedSpecs, emulatedVersion)
+		pairs = append(pairs, fmt.Sprintf("%s=%t", featureName, spec.Default))
 	}
+
 	sort.Strings(pairs)
 	return strings.Join(pairs, ",")
 }
@@ -84,14 +104,33 @@ func (f *kcpFeatureGate) Type() string {
 
 // defaultGenericControlPlaneFeatureGates consists of all known Kubernetes-specific feature keys
 // in the generic control plane code. To add a new feature, define a key for it above and add it
-// here. The features will be available throughout Kubernetes binaries.
-var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
-	WorkspaceMounts: {Default: false, PreRelease: featuregate.Alpha},
+// here. The Version field should be set to whatever is specified in
+// https://github.com/kubernetes/kubernetes/blob/master/pkg/features/versioned_kube_features.go.
+// For features that are kcp-specific, the Version should be set to whatever go.mod k8s.io
+// dependencies version we're currently using.
+var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.VersionedSpecs{
+	WorkspaceMounts: {
+		{Version: version.MustParse("1.28"), Default: false, PreRelease: featuregate.Alpha},
+	},
+
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-	genericfeatures.APIResponseCompression: {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.OpenAPIEnums:           {Default: true, PreRelease: featuregate.Beta},
 
-	logsapi.LoggingBetaOptions: {Default: true, PreRelease: featuregate.Beta},
-	logsapi.ContextualLogging:  {Default: true, PreRelease: featuregate.Alpha},
+	genericfeatures.APIResponseCompression: {
+		{Version: version.MustParse("1.8"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("1.16"), Default: true, PreRelease: featuregate.Beta},
+	},
+
+	genericfeatures.OpenAPIEnums: {
+		{Version: version.MustParse("1.23"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("1.24"), Default: true, PreRelease: featuregate.Beta},
+	},
+
+	logsapi.LoggingBetaOptions: {
+		{Version: version.MustParse("1.26"), Default: true, PreRelease: featuregate.Beta},
+	},
+
+	logsapi.ContextualLogging: {
+		{Version: version.MustParse("1.26"), Default: true, PreRelease: featuregate.Alpha},
+	},
 }
