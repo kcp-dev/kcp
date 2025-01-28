@@ -23,7 +23,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -68,7 +68,7 @@ func NewLogicalClusterDeletionMonitor(
 func (m *LogicalClusterDeletionMonitor) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (m *LogicalClusterDeletionMonitor) enqueue(obj interface{}) {
 }
 
 func (m *LogicalClusterDeletionMonitor) Start(stop <-chan struct{}) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer m.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.Background(), m.name)
@@ -107,7 +107,7 @@ func (m *LogicalClusterDeletionMonitor) processNextWorkItem() bool {
 
 	if err := m.process(key); err != nil {
 		//nolint:revive
-		runtime.HandleError(fmt.Errorf("LogicalClusterDeletionMonitor failed to sync %q, err: %w", key, err))
+		utilruntime.HandleError(fmt.Errorf("LogicalClusterDeletionMonitor failed to sync %q, err: %w", key, err))
 
 		m.queue.AddRateLimited(key)
 
@@ -123,7 +123,7 @@ func (m *LogicalClusterDeletionMonitor) processNextWorkItem() bool {
 func (m *LogicalClusterDeletionMonitor) process(key string) error {
 	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 

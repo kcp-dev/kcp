@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -87,12 +87,12 @@ func NewApiExportIdentityProviderController(
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
-				runtime.HandleError(err)
+				utilruntime.HandleError(err)
 				return false
 			}
 			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
-				runtime.HandleError(err)
+				utilruntime.HandleError(err)
 				return false
 			}
 			clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
@@ -109,12 +109,12 @@ func NewApiExportIdentityProviderController(
 		FilterFunc: func(obj interface{}) bool {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
-				runtime.HandleError(err)
+				utilruntime.HandleError(err)
 				return false
 			}
 			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
-				runtime.HandleError(err)
+				utilruntime.HandleError(err)
 				return false
 			}
 			clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
@@ -138,7 +138,7 @@ func NewApiExportIdentityProviderController(
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, _ int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -169,7 +169,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return true
 	}
 
-	runtime.HandleError(fmt.Errorf("%v failed with: %w", key, err))
+	utilruntime.HandleError(fmt.Errorf("%v failed with: %w", key, err))
 	c.queue.AddRateLimited(key)
 
 	return true

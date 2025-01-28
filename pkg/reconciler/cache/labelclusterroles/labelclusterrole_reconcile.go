@@ -23,7 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -60,7 +60,7 @@ func (r *reconciler) reconcile(ctx context.Context, cr *rbacv1.ClusterRole) (boo
 	if !replicate {
 		objs, err := r.getReferencingClusterRoleBindings(clusterName, cr.Name)
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			return false, nil // nothing we can do
 		}
 		for _, crb := range objs {

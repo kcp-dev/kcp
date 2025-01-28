@@ -25,7 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -133,7 +133,7 @@ type Controller struct {
 // Start the controller. It does not really do anything, but to keep the shape of a normal
 // controller, we keep it.
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer func() {
 		c.lock.Lock()
 		defer c.lock.Unlock()
@@ -156,7 +156,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 func (c *Controller) enqueueShard(ctx context.Context, obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -201,7 +201,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	shard, err := c.shardLister.Get(name)

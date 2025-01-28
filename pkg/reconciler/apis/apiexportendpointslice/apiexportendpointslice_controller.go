@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -181,7 +181,7 @@ type controller struct {
 func (c *controller) enqueueAPIExportEndpointSlice(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -197,7 +197,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	}
 	export, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		utilruntime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
 		return
 	}
 
@@ -206,7 +206,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
 		pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			return
 		}
 		keys.Insert(pathKeys...)
@@ -214,7 +214,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 
 	clusterKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	keys.Insert(clusterKeys...)
@@ -222,7 +222,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 	for _, key := range sets.List[string](keys) {
 		slice, exists, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			continue
 		} else if !exists {
 			continue
@@ -237,7 +237,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 func (c *controller) enqueueAllAPIExportEndpointSlices(shard interface{}) {
 	list, err := c.listAPIExportEndpointSlices()
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -245,7 +245,7 @@ func (c *controller) enqueueAllAPIExportEndpointSlices(shard interface{}) {
 	for i := range list {
 		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			continue
 		}
 
@@ -258,13 +258,13 @@ func (c *controller) enqueueAllAPIExportEndpointSlices(shard interface{}) {
 func (c *controller) enqueuePartition(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
 	slices, err := c.getAPIExportEndpointSlicesByPartition(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -277,7 +277,7 @@ func (c *controller) enqueuePartition(obj interface{}) {
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -314,7 +314,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -325,7 +325,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 func (c *controller) process(ctx context.Context, key string) error {
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	obj, err := c.getAPIExportEndpointSlice(clusterName, name)

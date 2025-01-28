@@ -30,7 +30,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -100,7 +100,7 @@ func NewController(
 func (c *controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
@@ -110,7 +110,7 @@ func (c *controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResou
 func (c *controller) enqueueCacheObject(obj interface{}, gvr schema.GroupVersionResource) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
@@ -119,7 +119,7 @@ func (c *controller) enqueueCacheObject(obj interface{}, gvr schema.GroupVersion
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, workers int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -153,7 +153,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return true
 	}
 
-	runtime.HandleError(fmt.Errorf("%v failed with: %w", grKey, err))
+	utilruntime.HandleError(fmt.Errorf("%v failed with: %w", grKey, err))
 	c.queue.AddRateLimited(grKey)
 
 	return true
@@ -162,13 +162,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 func IsNoSystemClusterName(obj interface{}) bool {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return false
 	}
 
 	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return false
 	}
 	if strings.HasPrefix(clusterName.String(), "system:") {

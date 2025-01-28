@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -147,7 +147,7 @@ type controller struct {
 func (c *controller) EnqueueClusterRoleBindings(clusterName logicalcluster.Name, values ...interface{}) {
 	clusterRoleBindings, err := c.clusterRoleBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (c *controller) EnqueueClusterRoleBindings(clusterName logicalcluster.Name,
 func (c *controller) enqueueClusterRoleBinding(obj interface{}, values ...interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -172,19 +172,19 @@ func (c *controller) enqueueClusterRoleBinding(obj interface{}, values ...interf
 func (c *controller) enqueueClusterRole(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
 	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
 	objs, err := c.clusterRoleBindingIndexer.ByIndex(labelclusterroles.ClusterRoleBindingByClusterRoleName, key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	for _, obj := range objs {
@@ -195,7 +195,7 @@ func (c *controller) enqueueClusterRole(obj interface{}) {
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
@@ -232,7 +232,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {
@@ -247,7 +247,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return false, nil
 	}
 

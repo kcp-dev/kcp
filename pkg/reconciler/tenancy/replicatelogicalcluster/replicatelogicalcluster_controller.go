@@ -23,7 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labellogicalcluster"
@@ -58,7 +58,7 @@ func NewController(
 			// If there are any WorkspaceTypes for this logical cluster, then the LogicalCluster object should be replicated.
 			keys, err := workspaceTypeIndexer.IndexKeys(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(logicalcluster.From(cluster)))
 			if err != nil {
-				runtime.HandleError(fmt.Errorf("failed to list WorkspaceTypes: %v", err))
+				utilruntime.HandleError(fmt.Errorf("failed to list WorkspaceTypes: %v", err))
 				return false
 			}
 			return len(keys) > 0
@@ -75,13 +75,13 @@ func NewController(
 
 		workspaceType, ok := obj.(*tenancyv1alpha1.WorkspaceType)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+			utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 			return
 		}
 
 		cluster, err := logicalClusterLister.Cluster(logicalcluster.From(workspaceType)).Get(corev1alpha1.LogicalClusterName)
 		if err != nil && !apierrors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("failed to get logical cluster: %v", err))
+			utilruntime.HandleError(fmt.Errorf("failed to get logical cluster: %v", err))
 			return
 		} else if apierrors.IsNotFound(err) {
 			return

@@ -26,7 +26,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -113,7 +113,7 @@ type controller struct {
 func (c *controller) enqueue(obj interface{}) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
@@ -122,7 +122,7 @@ func (c *controller) enqueue(obj interface{}) {
 }
 
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
@@ -160,7 +160,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	logger.V(4).Info("processing key")
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
