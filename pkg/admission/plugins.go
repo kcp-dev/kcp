@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle"
+	mutatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	validatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota"
 	mutatingwebhook "k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
@@ -91,6 +92,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
 	kubequota.PluginName,
+	mutatingadmissionpolicy.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -186,6 +188,7 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	certsubjectrestriction.PluginName,       // CertificateSubjectRestriction
 	defaultingressclass.PluginName,          // DefaultIngressClass
 	podsecurity.PluginName,                  // PodSecurity
+	mutatingadmissionpolicy.PluginName,      // MutatingAdmissionPolicy
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.
