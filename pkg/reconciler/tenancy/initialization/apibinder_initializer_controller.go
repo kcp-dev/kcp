@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -171,7 +171,7 @@ type transitiveTypeResolver interface {
 func (b *APIBinder) enqueueLogicalCluster(obj interface{}, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (b *APIBinder) enqueueLogicalCluster(obj interface{}, logger logr.Logger) {
 func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("expected APIBinding, got %T", obj))
+		utilruntime.HandleError(fmt.Errorf("expected APIBinding, got %T", obj))
 		return
 	}
 
@@ -210,7 +210,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 func (b *APIBinder) enqueueWorkspaceTypes(obj interface{}, logger logr.Logger) {
 	wt, ok := obj.(*tenancyv1alpha1.WorkspaceType)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a WorkspaceType, but is %T", obj))
+		utilruntime.HandleError(fmt.Errorf("obj is supposed to be a WorkspaceType, but is %T", obj))
 		return
 	}
 
@@ -220,7 +220,7 @@ func (b *APIBinder) enqueueWorkspaceTypes(obj interface{}, logger logr.Logger) {
 
 	list, err := b.listLogicalClusters()
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("error listing workspaces: %w", err))
+		utilruntime.HandleError(fmt.Errorf("error listing workspaces: %w", err))
 	}
 
 	for _, ws := range list {
@@ -235,7 +235,7 @@ func (b *APIBinder) startWorker(ctx context.Context) {
 }
 
 func (b *APIBinder) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer b.queue.ShutDown()
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
@@ -270,7 +270,7 @@ func (b *APIBinder) processNextWorkItem(ctx context.Context) bool {
 	defer b.queue.Done(key)
 
 	if err := b.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
 		b.queue.AddRateLimited(key)
 		return true
 	}

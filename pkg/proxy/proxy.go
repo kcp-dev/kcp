@@ -26,7 +26,7 @@ import (
 	"net/url"
 	"os"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
@@ -88,7 +88,7 @@ func newShardReverseProxy() *httputil.ReverseProxy {
 		shardURL := ShardURLFrom(req.Context())
 		if shardURL == nil {
 			// should not happen if wiring is correct
-			runtime.HandleError(fmt.Errorf("no shard URL found in request context"))
+			utilruntime.HandleError(fmt.Errorf("no shard URL found in request context"))
 			req.URL.Scheme = "https"
 			req.URL.Host = "notfound"
 			return

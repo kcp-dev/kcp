@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -151,7 +151,7 @@ type Controller struct {
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
@@ -160,7 +160,7 @@ func (c *Controller) enqueue(obj interface{}) {
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -173,7 +173,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	frontProxyConfig = rest.AddUserAgent(frontProxyConfig, ControllerName)
 	dynamicFrontProxyClient, err := kcpdynamic.NewForConfig(frontProxyConfig)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	c.dynamicFrontProxyClient = dynamicFrontProxyClient
@@ -225,7 +225,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	} else {
 		// rather than wait for a full resync, re-add the logical cluster to the queue to be processed
 		c.queue.AddRateLimited(key)
-		runtime.HandleError(fmt.Errorf("deletion of logical cluster %v failed: %w", key, err))
+		utilruntime.HandleError(fmt.Errorf("deletion of logical cluster %v failed: %w", key, err))
 	}
 
 	return true
@@ -235,7 +235,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	logicalCluster, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
@@ -244,7 +244,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if deleteErr != nil {
-		runtime.HandleError(fmt.Errorf("unable to retrieve logical cluster %v from store: %w", key, deleteErr))
+		utilruntime.HandleError(fmt.Errorf("unable to retrieve logical cluster %v from store: %w", key, deleteErr))
 		return deleteErr
 	}
 

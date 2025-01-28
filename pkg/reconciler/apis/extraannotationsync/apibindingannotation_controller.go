@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -92,10 +92,10 @@ func NewController(
 			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
-					runtime.HandleError(err)
+					utilruntime.HandleError(err)
 					continue
 				} else if !exists {
-					runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
+					utilruntime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
 					continue
 				}
 				ret = append(ret, binding.(*apisv1alpha1.APIBinding))
@@ -141,7 +141,7 @@ type controller struct {
 func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -157,13 +157,13 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 
 	export, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		utilruntime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
 		return
 	}
 
 	bindings, err := c.getAPIBindingsByAPIExport(export)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("error getting APIBindings for APIExport %s|%s: %w", logicalcluster.From(export), export.Name, err))
+		utilruntime.HandleError(fmt.Errorf("error getting APIBindings for APIExport %s|%s: %w", logicalcluster.From(export), export.Name, err))
 		return
 	}
 
@@ -175,7 +175,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -212,7 +212,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

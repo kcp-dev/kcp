@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 )
@@ -131,20 +131,20 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 
 	clusterName, ns, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 
 	localCopy, err := r.getLocalCopy(clusterName, ns, name)
 	if err != nil && !apierrors.IsNotFound(err) {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	localExists := !apierrors.IsNotFound(err)
 
 	globalCopy, err := r.getGlobalCopy(clusterName, ns, name)
 	if err != nil && !apierrors.IsNotFound(err) {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	globalExists := !apierrors.IsNotFound(err)

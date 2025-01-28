@@ -31,7 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -132,7 +132,7 @@ type Controller struct {
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
@@ -141,7 +141,7 @@ func (c *Controller) enqueue(obj interface{}) {
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -194,7 +194,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
 		c.queue.AddRateLimited(key)
-		runtime.HandleError(fmt.Errorf("deletion of apibinding %v failed: %w", key, err))
+		utilruntime.HandleError(fmt.Errorf("deletion of apibinding %v failed: %w", key, err))
 	}
 
 	return true
@@ -205,7 +205,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	startTime := time.Now()
 	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey is updated
@@ -220,7 +220,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if deleteErr != nil {
-		runtime.HandleError(fmt.Errorf("unable to retrieve apibinding %v from store: %w", key, deleteErr))
+		utilruntime.HandleError(fmt.Errorf("unable to retrieve apibinding %v from store: %w", key, deleteErr))
 		return deleteErr
 	}
 	logger = logging.WithObject(logger, apibinding)

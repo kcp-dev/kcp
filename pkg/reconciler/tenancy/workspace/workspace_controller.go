@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -139,7 +139,7 @@ type Controller struct {
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
@@ -151,12 +151,12 @@ func (c *Controller) enqueueShard(obj interface{}) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -164,13 +164,13 @@ func (c *Controller) enqueueShard(obj interface{}) {
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			return
 		}
 		for _, workspace := range workspaces {
 			key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
 			if err != nil {
-				runtime.HandleError(err)
+				utilruntime.HandleError(err)
 				return
 			}
 			logging.WithQueueKey(logger, key).V(3).Info("queueing unschedulable Workspace because of shard update", "shard", shard)
@@ -180,14 +180,14 @@ func (c *Controller) enqueueShard(obj interface{}) {
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	// create external client that goes through the front-proxy
 	externalConfig := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
 	kcpExternalClient, err := kcpclientset.NewForConfig(externalConfig)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 	c.kcpExternalClient = kcpExternalClient
@@ -226,7 +226,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {
@@ -241,7 +241,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return false, nil
 	}
 	workspace, err := c.workspaceLister.Cluster(parent).Get(name)

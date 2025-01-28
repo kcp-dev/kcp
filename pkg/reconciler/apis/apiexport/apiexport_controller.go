@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -200,7 +200,7 @@ type controller struct {
 func (c *controller) enqueueAPIExport(apiExport *apisv1alpha1.APIExport) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -212,7 +212,7 @@ func (c *controller) enqueueAPIExport(apiExport *apisv1alpha1.APIExport) {
 func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
 	list, err := c.listAPIExports()
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			continue
 		}
 
@@ -232,7 +232,7 @@ func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
 func (c *controller) enqueueSecret(secret *corev1.Secret) {
 	apiExports, err := c.listAPIExportsForSecret(secret)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -240,7 +240,7 @@ func (c *controller) enqueueSecret(secret *corev1.Secret) {
 	for _, apiExport := range apiExports {
 		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 		if err != nil {
-			runtime.HandleError(err)
+			utilruntime.HandleError(err)
 			return
 		}
 		logging.WithQueueKey(logger, key).V(3).Info("queueing APIExport via identity Secret")
@@ -250,7 +250,7 @@ func (c *controller) enqueueSecret(secret *corev1.Secret) {
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -287,7 +287,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -298,7 +298,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 func (c *controller) process(ctx context.Context, key string) error {
 	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return nil
 	}
 
