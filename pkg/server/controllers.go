@@ -963,6 +963,81 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	})
 }
 
+func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Config) error {
+	// Client used to create APIBindings within the initializing workspace
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, initialization.ControllerName)
+	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
+
+	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
+		vwURL := fmt.Sprintf("https://%s", s.GenericConfig.ExternalAddress)
+		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardVirtualWorkspaceCAFile is required")
+		}
+		if s.Options.Extra.ShardClientCertFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardClientCertFile is required")
+		}
+		if s.Options.Extra.ShardClientKeyFile == "" {
+			// TODO move verification up
+			return fmt.Errorf("s.Options.Extra.ShardClientKeyFile is required")
+		}
+		config.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
+		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
+		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
+		config.Host = fmt.Sprintf("%v%v", vwURL, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer))
+	}
+
+	initializingWorkspacesKcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	informerClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// This informer factory is created here because it is specifically against the initializing workspaces virtual
+	// workspace.
+	initializingWorkspacesKcpInformers := kcpinformers.NewSharedInformerFactoryWithOptions(
+		informerClient,
+		resyncPeriod,
+	)
+
+	c, err := initialization.NewAPIBinder(
+		initializingWorkspacesKcpClusterClient,
+		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: initialization.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			initializingWorkspacesKcpInformers.Start(ctx.Done())
+			initializingWorkspacesKcpInformers.WaitForCacheSync(ctx.Done())
+
+			c.Start(ctx, 2)
+		},
+	})
+}
+
 func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, crdcleanup.ControllerName)
@@ -1575,6 +1650,9 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	crdcleanup.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
+	initialization.InstallIndexers(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
 	return replication.InstallIndexers(
 		s.KcpSharedInformerFactory,
 		s.CacheKcpSharedInformerFactory,
