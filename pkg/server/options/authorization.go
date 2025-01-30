@@ -48,6 +48,10 @@ type Authorization struct {
 	// Webhook contains flags to enable an external HTTPS webhook to perform
 	// authorization against. Note that not all built-in options are supported by kcp.
 	Webhook *kubeoptions.BuiltInAuthorizationOptions
+
+	// AuthorizationSteps are the order of authorizers that allows to rearrange the order.
+	// The default are four authorizers in a union: AlwaysAllowPaths, AlwaysAllowGroups, RBAC and Webhook.
+	AuthorizationSteps []string
 }
 
 func NewAuthorization() *Authorization {
@@ -112,6 +116,10 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&s.AlwaysAllowPaths, "authorization-always-allow-paths", s.AlwaysAllowPaths,
 		"A list of HTTP paths to skip during authorization, i.e. these are authorized without "+
 			"contacting the 'core' kubernetes server.")
+
+	fs.StringSliceVar(&s.AuthorizationSteps, "authorization-steps", s.AuthorizationSteps,
+		"A list of authorizers that should be enabled,  allowing administrator rearrange the default order."+
+			" The default order is: AlwaysAllowPaths,AlwaysAllowGroups,RBAC,Webhook")
 
 	// Only surface selected, webhook-related CLI flags
 
