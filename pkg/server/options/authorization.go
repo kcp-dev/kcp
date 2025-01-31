@@ -18,10 +18,12 @@ package options
 
 import (
 	"context"
+	"fmt"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -50,17 +52,35 @@ type Authorization struct {
 	Webhook *kubeoptions.BuiltInAuthorizationOptions
 
 	// AuthorizationSteps are the order of authorizers that allows to rearrange the order.
-	// The default are four authorizers in a union: AlwaysAllowPaths, AlwaysAllowGroups, RBAC and Webhook.
+	// The default are four authorizers in a union: AlwaysAllowGroups, AlwaysAllowPaths, Webhook and RBAC.
 	AuthorizationSteps []string
+}
+
+const (
+	// stepAlwaysAllowGroups is the mode to authorize one of the configured always-allow groups, by default system:masters.
+	stepAlwaysAllowGroups string = "AlwaysAllowGroups"
+	// stepAlwaysAllowPaths is the mode to authorize one of the preconfigured paths that do not require authorization, like /healthz, /readyz and /livez.
+	stepAlwaysAllowPaths string = "AlwaysAllowPaths"
+	// stepWebhook is the mode to make an external webhook call to authorize.
+	stepWebhook string = "Webhook"
+	// stepRBAC is the mode to use Role Based Access Control to authorize.
+	stepRBAC string = "RBAC"
+)
+
+var defaultAuthorizationSteps = []string{stepAlwaysAllowGroups, stepAlwaysAllowPaths, stepWebhook, stepRBAC}
+
+func isValidAuthorizationStep(authzstep string) bool {
+	return sets.NewString(defaultAuthorizationSteps...).Has(authzstep)
 }
 
 func NewAuthorization() *Authorization {
 	return &Authorization{
 		// This allows the kubelet to always get health and readiness without causing an authorization check.
 		// This field can be cleared by callers if they don't want this behavior.
-		AlwaysAllowPaths:  []string{"/healthz", "/readyz", "/livez"},
-		AlwaysAllowGroups: []string{user.SystemPrivilegedGroup},
-		Webhook:           kubeoptions.NewBuiltInAuthorizationOptions(),
+		AlwaysAllowPaths:   []string{"/healthz", "/readyz", "/livez"},
+		AlwaysAllowGroups:  []string{user.SystemPrivilegedGroup},
+		Webhook:            kubeoptions.NewBuiltInAuthorizationOptions(),
+		AuthorizationSteps: defaultAuthorizationSteps,
 	}
 }
 
@@ -105,6 +125,14 @@ func (s *Authorization) Validate() []error {
 		}
 	}
 
+	if len(s.AuthorizationSteps) > 0 {
+		for _, step := range s.AuthorizationSteps {
+			if !isValidAuthorizationStep(step) {
+				allErrors = append(allErrors, fmt.Errorf("invalid authorization step: %q", step))
+			}
+		}
+	}
+
 	return allErrors
 }
 
@@ -118,8 +146,8 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 
 	fs.StringSliceVar(&s.AuthorizationSteps, "authorization-steps", s.AuthorizationSteps,
-		"A list of authorizers that should be enabled,  allowing administrator rearrange the default order."+
-			" The default order is: AlwaysAllowPaths,AlwaysAllowGroups,RBAC,Webhook")
+		"A list of authorizers that should be enabled, allowing administrator rearrange the default order."+
+			"The default order is: AlwaysAllowGroups, AlwaysAllowPaths, Webhook, RBAC")
 
 	// Only surface selected, webhook-related CLI flags
 
@@ -142,93 +170,98 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
-	// group authorizer
-	if len(s.AlwaysAllowGroups) > 0 {
-		privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
-		authorizers = append(authorizers, privGroups)
-	}
-
-	// path authorizer
-	if len(s.AlwaysAllowPaths) > 0 {
-		a, err := path.NewAuthorizer(s.AlwaysAllowPaths)
-		if err != nil {
-			return err
-		}
-		authorizers = append(authorizers, a)
-	}
-
-	// Re-use the authorizer from the generic control plane (this is only set for webhooks);
-	// make sure this is added *after* the alwaysAllow* authorizers, or else the webhook could prevent
-	// healthcheck endpoints from working.
-	// NB: Due to the inner workings of Kubernetes' webhook authorizer, this authorizer will actually
-	// always be a union of a privilegedGroupAuthorizer for system:masters and the webhook itself,
-	// ensuring the webhook isn't called for that privileged group.
-	if webhook := s.Webhook; webhook != nil && webhook.WebhookConfigFile != "" {
-		authorizationConfig, err := webhook.ToAuthorizationConfig(informerfactoryhack.Wrap(kubeInformers))
-		if err != nil {
-			return err
-		}
-
-		if config.EgressSelector != nil {
-			egressDialer, err := config.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
-			if err != nil {
-				return err
+	for _, step := range s.AuthorizationSteps {
+		switch step {
+		case stepAlwaysAllowGroups:
+			// group authorizer
+			if len(s.AlwaysAllowGroups) > 0 {
+				privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
+				authorizers = append(authorizers, privGroups)
 			}
-			authorizationConfig.CustomDial = egressDialer
-		}
+		case stepAlwaysAllowPaths:
+			// path authorizer
+			if len(s.AlwaysAllowPaths) > 0 {
+				a, err := path.NewAuthorizer(s.AlwaysAllowPaths)
+				if err != nil {
+					return err
+				}
+				authorizers = append(authorizers, a)
+			}
+		case stepRBAC:
+			// kcp authorizers, these are evaluated in reverse order
+			// TODO: link the markdown
 
-		authorizer, _, err := authorizationConfig.New(ctx, config.APIServerID)
-		if err != nil {
-			return err
-		}
-		authorizer = authz.WithWarrantsAndScopes(authorizer)
+			// bootstrap rules defined once for every workspace
+			bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
+			bootstrapAuth = authz.NewDecorator("05-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-		authorizers = append(authorizers, authorizer)
+			// resolves RBAC resources in the workspace
+			localAuth, localResolver := authz.NewLocalAuthorizer(kubeInformers)
+			localAuth = authz.NewDecorator("05-local", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
+			globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			chain := union.New(bootstrapAuth, localAuth, globalAuth)
+
+			// everything below - skipped for Deep SAR
+
+			// enforce maximal permission policy
+			chain = authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers)(chain)
+			chain = authz.NewDecorator("04-maxpermissionpolicy", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			// protect status updates to apiexport and apibinding
+			chain = authz.NewSystemCRDAuthorizer(chain)
+			chain = authz.NewDecorator("03-systemcrd", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
+			// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
+			// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
+			// mean nothing unless they also have `verb=access` on `/`
+			chain = authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(chain)
+			chain = authz.NewDecorator("02-content", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			// workspaces are annotated to list the groups required on users wishing to access the workspace -
+			// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
+			// by child workspaces; this gives administrators of an org control over which users can be given access
+			// to content in sub-workspaces
+			chain = authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister)(chain)
+			chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
+			authorizers = append(authorizers, chain)
+			config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
+		case stepWebhook:
+			// Re-use the authorizer from the generic control plane (this is only set for webhooks);
+			// make sure this is added *after* the alwaysAllow* authorizers, or else the webhook could prevent
+			// healthcheck endpoints from working.
+			// NB: Due to the inner workings of Kubernetes' webhook authorizer, this authorizer will actually
+			// always be a union of a privilegedGroupAuthorizer for system:masters and the webhook itself,
+			// ensuring the webhook isn't called for that privileged group.
+			if webhook := s.Webhook; webhook != nil && webhook.WebhookConfigFile != "" {
+				authorizationConfig, err := webhook.ToAuthorizationConfig(informerfactoryhack.Wrap(kubeInformers))
+				if err != nil {
+					return err
+				}
+
+				if config.EgressSelector != nil {
+					egressDialer, err := config.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
+					if err != nil {
+						return err
+					}
+					authorizationConfig.CustomDial = egressDialer
+				}
+
+				authorizer, _, err := authorizationConfig.New(ctx, config.APIServerID)
+				if err != nil {
+					return err
+				}
+				authorizer = authz.WithWarrantsAndScopes(authorizer)
+				authorizers = append(authorizers, authorizer)
+			}
+		default:
+			return fmt.Errorf("invalid authorization step: %q", step)
+		}
 	}
 
-	// kcp authorizers, these are evaluated in reverse order
-	// TODO: link the markdown
-
-	// bootstrap rules defined once for every workspace
-	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
-	bootstrapAuth = authz.NewDecorator("05-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	// resolves RBAC resources in the workspace
-	localAuth, localResolver := authz.NewLocalAuthorizer(kubeInformers)
-	localAuth = authz.NewDecorator("05-local", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
-	globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	chain := union.New(bootstrapAuth, localAuth, globalAuth)
-
-	// everything below - skipped for Deep SAR
-
-	// enforce maximal permission policy
-	chain = authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers)(chain)
-	chain = authz.NewDecorator("04-maxpermissionpolicy", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	// protect status updates to apiexport and apibinding
-	chain = authz.NewSystemCRDAuthorizer(chain)
-	chain = authz.NewDecorator("03-systemcrd", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
-	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
-	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
-	// mean nothing unless they also have `verb=access` on `/`
-	chain = authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(chain)
-	chain = authz.NewDecorator("02-content", chain).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	// workspaces are annotated to list the groups required on users wishing to access the workspace -
-	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
-	// by child workspaces; this gives administrators of an org control over which users can be given access
-	// to content in sub-workspaces
-	chain = authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister)(chain)
-	chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
-
-	authorizers = append(authorizers, chain)
-
-	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)
 	return nil
 }
