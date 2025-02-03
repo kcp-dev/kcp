@@ -51,26 +51,26 @@ type Authorization struct {
 	// authorization against. Note that not all built-in options are supported by kcp.
 	Webhook *kubeoptions.BuiltInAuthorizationOptions
 
-	// AuthorizationSteps are the order of authorizers that allows to rearrange the order.
+	// AuthorizationModes are the order of authorizers that allows to rearrange the order.
 	// The default are four authorizers in a union: AlwaysAllowGroups, AlwaysAllowPaths, Webhook and RBAC.
-	AuthorizationSteps []string
+	AuthorizationModes []string
 }
 
 const (
-	// stepAlwaysAllowGroups is the mode to authorize one of the configured always-allow groups, by default system:masters.
-	stepAlwaysAllowGroups string = "AlwaysAllowGroups"
+	// modeAlwaysAllowGroups is the mode to authorize one of the configured always-allow groups, by default system:masters.
+	modeAlwaysAllowGroups string = "AlwaysAllowGroups"
 	// stepAlwaysAllowPaths is the mode to authorize one of the preconfigured paths that do not require authorization, like /healthz, /readyz and /livez.
-	stepAlwaysAllowPaths string = "AlwaysAllowPaths"
-	// stepWebhook is the mode to make an external webhook call to authorize.
-	stepWebhook string = "Webhook"
-	// stepRBAC is the mode to use Role Based Access Control to authorize.
-	stepRBAC string = "RBAC"
+	modeAlwaysAllowPaths string = "AlwaysAllowPaths"
+	// modeWebhook is the mode to make an external webhook call to authorize.
+	modeWebhook string = "Webhook"
+	// modeRBAC is the mode to use Role Based Access Control to authorize.
+	modeRBAC string = "RBAC"
 )
 
-var defaultAuthorizationSteps = []string{stepAlwaysAllowGroups, stepAlwaysAllowPaths, stepWebhook, stepRBAC}
+var defaultAuthorizationModes = []string{modeAlwaysAllowGroups, modeAlwaysAllowPaths, modeWebhook, modeRBAC}
 
 func isValidAuthorizationStep(authzstep string) bool {
-	return sets.NewString(defaultAuthorizationSteps...).Has(authzstep)
+	return sets.NewString(defaultAuthorizationModes...).Has(authzstep)
 }
 
 func NewAuthorization() *Authorization {
@@ -80,7 +80,7 @@ func NewAuthorization() *Authorization {
 		AlwaysAllowPaths:   []string{"/healthz", "/readyz", "/livez"},
 		AlwaysAllowGroups:  []string{user.SystemPrivilegedGroup},
 		Webhook:            kubeoptions.NewBuiltInAuthorizationOptions(),
-		AuthorizationSteps: defaultAuthorizationSteps,
+		AuthorizationModes: defaultAuthorizationModes,
 	}
 }
 
@@ -125,8 +125,8 @@ func (s *Authorization) Validate() []error {
 		}
 	}
 
-	if len(s.AuthorizationSteps) > 0 {
-		for _, step := range s.AuthorizationSteps {
+	if len(s.AuthorizationModes) > 0 {
+		for _, step := range s.AuthorizationModes {
 			if !isValidAuthorizationStep(step) {
 				allErrors = append(allErrors, fmt.Errorf("invalid authorization step: %q", step))
 			}
@@ -145,7 +145,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 		"A list of HTTP paths to skip during authorization, i.e. these are authorized without "+
 			"contacting the 'core' kubernetes server.")
 
-	fs.StringSliceVar(&s.AuthorizationSteps, "authorization-steps", s.AuthorizationSteps,
+	fs.StringSliceVar(&s.AuthorizationModes, "authorization-modes", s.AuthorizationModes,
 		"A list of authorizers that should be enabled, allowing administrator rearrange the default order."+
 			"The default order is: AlwaysAllowGroups, AlwaysAllowPaths, Webhook, RBAC")
 
@@ -170,15 +170,15 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
-	for _, step := range s.AuthorizationSteps {
-		switch step {
-		case stepAlwaysAllowGroups:
+	for _, mode := range s.AuthorizationModes {
+		switch mode {
+		case modeAlwaysAllowGroups:
 			// group authorizer
 			if len(s.AlwaysAllowGroups) > 0 {
 				privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
 				authorizers = append(authorizers, privGroups)
 			}
-		case stepAlwaysAllowPaths:
+		case modeAlwaysAllowPaths:
 			// path authorizer
 			if len(s.AlwaysAllowPaths) > 0 {
 				a, err := path.NewAuthorizer(s.AlwaysAllowPaths)
@@ -187,7 +187,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 				}
 				authorizers = append(authorizers, a)
 			}
-		case stepRBAC:
+		case modeRBAC:
 			// kcp authorizers, these are evaluated in reverse order
 			// TODO: link the markdown
 
@@ -229,7 +229,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
 			authorizers = append(authorizers, chain)
 			config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
-		case stepWebhook:
+		case modeWebhook:
 			// Re-use the authorizer from the generic control plane (this is only set for webhooks);
 			// make sure this is added *after* the alwaysAllow* authorizers, or else the webhook could prevent
 			// healthcheck endpoints from working.
@@ -258,7 +258,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 				authorizers = append(authorizers, authorizer)
 			}
 		default:
-			return fmt.Errorf("invalid authorization step: %q", step)
+			return fmt.Errorf("invalid authorization mode: %q", mode)
 		}
 	}
 

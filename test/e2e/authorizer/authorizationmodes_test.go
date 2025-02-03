@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,19 +32,17 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestWebhook(t *testing.T) {
+func TestAuthorizationModes(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	// start a webhook that allows kcp to boot up
-	webhookStop := RunWebhook(ctx, t, "kubernetes:authz:allow")
-	t.Cleanup(webhookStop)
-
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(
+		"--authorization-modes",
+		"Webhook,AlwaysAllowPaths,AlwaysAllowGroups,RBAC",
 		"--authorization-webhook-config-file",
-		"webhook.kubeconfig",
+		"authmodes.kubeconfig",
 	))
 
 	// create clients
@@ -54,39 +52,48 @@ func TestWebhook(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err, "failed to construct client for server")
 
-	t.Log("Admin should be allowed to list Workspaces.")
+	// access to health endpoints should not be granted, as webhook is first
+	// in the order of authorizers and rejects the request
+	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
+	if rootShardCfg.NegotiatedSerializer == nil {
+		rootShardCfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+	// Ensure the request is unauthenticated, as Kubernetes' webhook authorizer is wrapped
+	// in a reloadable authorizer that also always injects a privilegedGroup authorizer
+	// that lets system:masters users in.
+	rootShardCfg.BearerToken = ""
+	restClient, err := rest.UnversionedRESTClientFor(rootShardCfg)
+	require.NoError(t, err)
+
+	t.Log("Verify that you are allowed to access AllowAllPaths endpoints.")
+	for _, endpoint := range []string{"/livez", "/readyz"} {
+		req := rest.NewRequest(restClient).RequestURI(endpoint)
+		t.Logf("%s should not be accessible.", req.URL().String())
+		_, err := req.Do(ctx).Raw()
+		require.NoError(t, err)
+	}
+
+	t.Log("Admin should be allowed now to list Workspaces.")
 	_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 
-	// stop the webhook and switch to a deny policy
-	webhookStop()
-
-	webhookStop = RunWebhook(ctx, t, "kubernetes:authz:deny")
+	// run the webhook with deny policy
+	webhookStop := RunWebhook(ctx, t, "kubernetes:authz:deny")
 	t.Cleanup(webhookStop)
+
+	t.Log("Admin should not be allowed now to list Workspaces.")
+	_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+	require.Error(t, err)
 
 	t.Log("Admin should not be allowed to list ConfigMaps.")
 	_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	// access to health endpoints should still be granted based on --always-allow-paths,
-	// even if the webhook rejects the request
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	if rootShardCfg.NegotiatedSerializer == nil {
-		rootShardCfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
-	}
-
-	// Ensure the request is unauthenticated, as Kubernetes' webhook authorizer is wrapped
-	// in a reloadable authorizer that also always injects a privilegedGroup authorizer
-	// that lets system:masters users in.
-	rootShardCfg.BearerToken = ""
-
-	restClient, err := rest.UnversionedRESTClientFor(rootShardCfg)
-	require.NoError(t, err)
-
+	t.Log("Verify that it is not allowed to access AllowAllPaths endpoints.")
 	for _, endpoint := range []string{"/livez", "/readyz"} {
 		req := rest.NewRequest(restClient).RequestURI(endpoint)
-		t.Logf("%s should still be accessible.", req.URL().String())
+		t.Logf("%s should not be accessible.", req.URL().String())
 		_, err := req.Do(ctx).Raw()
-		require.NoError(t, err)
+		require.Error(t, err)
 	}
 }
