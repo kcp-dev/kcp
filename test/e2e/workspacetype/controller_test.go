@@ -82,7 +82,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				t.Logf("Expect workspace to be of universal type, and no initializers")
 				workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(server.orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err, "failed to get workspace")
-				require.Equalf(t, workspace.Spec.Type, tenancyv1alpha1.WorkspaceTypeReference{
+				require.Equalf(t, workspace.Spec.Type, &tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "universal",
 					Path: "root",
 				}, "workspace type is not universal")
@@ -99,7 +99,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				workspace, err := server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root",
 						},
@@ -126,7 +126,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					// note: admission is informer based and hence would race with this create call
 					workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-						Spec: tenancyv1alpha1.WorkspaceSpec{Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Spec: tenancyv1alpha1.WorkspaceSpec{Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: tenancyv1alpha1.TypeName(wt.Name),
 							Path: logicalcluster.From(wt).String(),
 						}},
@@ -139,7 +139,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, "myapp", metav1.GetOptions{})
 				})
-				require.Equal(t, workspace.Spec.Type, tenancyv1alpha1.WorkspaceTypeReference{
+				require.Equal(t, workspace.Spec.Type, &tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "foo",
 					Path: logicalcluster.From(wt).String(),
 				})
@@ -220,7 +220,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					// note: admission is informer based and hence would race with this create call
 					workspace, err = user1KcpClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-						Spec: tenancyv1alpha1.WorkspaceSpec{Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Spec: tenancyv1alpha1.WorkspaceSpec{Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: tenancyv1alpha1.TypeName(wt.Name),
 							Path: logicalcluster.From(wt).String(),
 						}},
@@ -234,7 +234,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().Workspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type,
-					tenancyv1alpha1.WorkspaceTypeReference{
+					&tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "bar",
 						Path: logicalcluster.From(wt).String(),
 					})
@@ -279,7 +279,7 @@ func TestWorkspaceTypes(t *testing.T) {
 					workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec: tenancyv1alpha1.WorkspaceSpec{
-							Type: tenancyv1alpha1.WorkspaceTypeReference{
+							Type: &tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "foo",
 								Path: logicalcluster.From(wt).String(),
 							},

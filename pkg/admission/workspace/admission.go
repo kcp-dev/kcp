@@ -164,30 +164,45 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
-		if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
-			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
-		}
-		if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
-			return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
-		}
-		if old.Spec.URL != ws.Spec.URL && !isSystemPrivileged {
-			return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
-		}
-
-		if errs := validation.ValidateImmutableField(ws.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
-			return admission.NewForbidden(a, errs.ToAggregate())
-		}
-		if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
-			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
-		}
-
-		// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
-		if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-			if ws.Spec.Cluster == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", ws.Status.Phase))
+		if !old.Spec.IsMounted() {
+			if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
+				return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
 			}
-			if ws.Spec.URL == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", ws.Status.Phase))
+			if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
+				return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
+			}
+			if old.Spec.URL != ws.Spec.URL && !isSystemPrivileged {
+				return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
+			}
+
+			if errs := validation.ValidateImmutableField(ws.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
+				return admission.NewForbidden(a, errs.ToAggregate())
+			}
+			if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+				return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+			}
+			// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
+			// This applies only for non-mounted workspaces.
+			if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+				if ws.Spec.Cluster == "" {
+					return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", ws.Status.Phase))
+				}
+				if ws.Spec.URL == "" {
+					return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", ws.Status.Phase))
+				}
+			}
+		} else {
+			if old.Spec.Mount.Reference.Kind != ws.Spec.Mount.Reference.Kind {
+				return admission.NewForbidden(a, errors.New("spec.mount.kind is immutable"))
+			}
+			if old.Spec.Mount.Reference.Name != ws.Spec.Mount.Reference.Name {
+				return admission.NewForbidden(a, errors.New("spec.mount.name is immutable"))
+			}
+			if old.Spec.Mount.Reference.Namespace != ws.Spec.Mount.Reference.Namespace {
+				return admission.NewForbidden(a, errors.New("spec.mount.namespace is immutable"))
+			}
+			if old.Spec.Mount.Reference.APIVersion != ws.Spec.Mount.Reference.APIVersion {
+				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion is immutable"))
 			}
 		}
 	case admission.Create:

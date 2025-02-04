@@ -97,6 +97,37 @@ spec:
                       type: object
                   type: object
               type: object
+            mount:
+              description: Mount is a reference to a an object implementing a mounting
+                feature. It is used to orchestrate where the traffic, intended for
+                the workspace, is sent. If specified, logicalcluster will not be created
+                and the workspace will be mounted using reference mount object.
+              properties:
+                ref:
+                  description: Reference is an ObjectReference to the object that
+                    is mounted.
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the API group and version of the
+                        object.
+                      type: string
+                    kind:
+                      description: Kind is the kind of the object.
+                      type: string
+                    name:
+                      description: Name is the name of the object.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the object.
+                      type: string
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  type: object
+              required:
+              - ref
+              type: object
             type:
               description: |-
                 type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.
