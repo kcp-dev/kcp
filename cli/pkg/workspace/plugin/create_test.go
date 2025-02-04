@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 		markReady          bool
 
 		newWorkspaceName                 string
-		newWorkspaceType                 tenancyv1alpha1.WorkspaceTypeReference
+		newWorkspaceType                 *tenancyv1alpha1.WorkspaceTypeReference
 		useAfterCreation, ignoreExisting bool
 
 		expected *clientcmdapi.Config
@@ -145,7 +145,7 @@ func TestCreate(t *testing.T) {
 			},
 			existingWorkspaces: []string{"bar"},
 			newWorkspaceName:   "bar",
-			newWorkspaceType:   tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
+			newWorkspaceType:   &tenancyv1alpha1.WorkspaceTypeReference{Path: "root", Name: "universal"},
 			useAfterCreation:   true,
 			markReady:          true,
 			ignoreExisting:     true,
@@ -171,7 +171,7 @@ func TestCreate(t *testing.T) {
 			},
 			newWorkspaceName: "bar",
 			ignoreExisting:   true,
-			newWorkspaceType: tenancyv1alpha1.WorkspaceTypeReference{Name: "universal"},
+			newWorkspaceType: &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal"},
 			wantErr:          true,
 		},
 	}
@@ -197,7 +197,7 @@ func TestCreate(t *testing.T) {
 					},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
 						URL: fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
 						},
@@ -209,10 +209,9 @@ func TestCreate(t *testing.T) {
 			}
 			client := kcpfakeclient.NewSimpleClientset(objects...)
 
-			workspaceType := tt.newWorkspaceType //nolint:govet // TODO(sttts): fixing this above breaks the test
-			empty := tenancyv1alpha1.WorkspaceTypeReference{}
-			if workspaceType == empty {
-				workspaceType = tenancyv1alpha1.WorkspaceTypeReference{
+			workspaceType := tt.newWorkspaceType
+			if tt.newWorkspaceType == nil {
+				workspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "universal",
 					Path: "root",
 				}
