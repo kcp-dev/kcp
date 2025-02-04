@@ -19,7 +19,6 @@ package homeworkspaces
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -38,8 +37,10 @@ import (
 
 	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -52,6 +53,12 @@ import (
 //go:embed *.yaml
 var testFiles embed.FS
 
+// TestMountsMachinery is exercising the mounts api. In production we should be configurating front-proxy
+// with urls for routing requests to right backend, potentially virtual-workspaces using mappings file.
+// This is due to reason front-proxy will not route traffic to not-trusted urls.
+// To test this in the text, we will route traffic to another workspace. This kinda simulates mounts in
+// symbolic links fashion.
+
 func TestMountsMachinery(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -63,10 +70,19 @@ func TestMountsMachinery(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	// This will create structure as bellow for testing:
+	// └── root
+	//   └── e2e-workspace-n784f
+	//    ├── destination
+	//    └── source
+	//        └── mount
+	//
+	rootOrg, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
-	mountWorkspaceName := "mounts-machinery"
-	mountPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("%s", mountWorkspaceName))
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
+		kcptesting.WithName("source"))
+	_, destinationWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
+		kcptesting.WithName("destination"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -81,49 +97,44 @@ func TestMountsMachinery(t *testing.T) {
 	orgProviderKCPClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating cowboys provider kcp client")
 
-	t.Logf("Install a mount object APIResourceSchema into workspace %q", orgPath)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "apiresourceschema_kubecluster.yaml", testFiles)
+	t.Logf("Install a mount object APIResourceSchema into workspace %q", sourcePath)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(sourcePath).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourcePath), mapper, nil, "crd_kubecluster.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Waiting for CRD to be established")
 	name := "kubeclusters.contrib.kcp.io"
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := extensionsClusterClient.Cluster(orgPath).CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
+		crd, err := extensionsClusterClient.Cluster(sourcePath).CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		require.NoError(t, err)
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
 
-	t.Logf("Install a mount object into workspace %q", orgPath)
+	t.Logf("Install a mount object into workspace %q", sourcePath)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(orgPath).Discovery()))
-		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(orgPath), mapper, nil, "kubecluster_mounts.yaml", testFiles)
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(sourcePath).Discovery()))
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourcePath), mapper, nil, "kubecluster_mounts.yaml", testFiles)
 		return err == nil, fmt.Sprintf("%v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for mount object to be installed")
 
-	// At this point we have object backing the mount object. So lets add mount annotation to the workspace.
-	// But order should not matter.
-	t.Logf("Set a mount annotation onto workspace %q", orgPath)
-	mount := tenancyv1alpha1.Mount{
-		MountSpec: tenancyv1alpha1.MountSpec{
-			Reference: &tenancyv1alpha1.ObjectReference{
-				APIVersion: "contrib.kcp.io/v1alpha1",
-				Kind:       "KubeCluster",
-				Name:       "proxy-cluster", // must match name in kubecluster_mounts.yaml
+	mountWorkspaceName := "mount"
+	workspace := tenancyv1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mountWorkspaceName,
+		},
+		Spec: tenancyv1alpha1.WorkspaceSpec{
+			Mount: &tenancyv1alpha1.Mount{
+				Reference: tenancyv1alpha1.ObjectReference{
+					APIVersion: "contrib.kcp.io/v1alpha1",
+					Kind:       "KubeCluster",
+					Name:       "proxy-cluster",
+				},
 			},
 		},
 	}
-	annValue, err := json.Marshal(mount)
-	require.NoError(t, err)
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
-		require.NoError(t, err)
 
-		current.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = string(annValue)
-
-		_, err = kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Update(ctx, current, metav1.UpdateOptions{})
-		return err
-	})
+	t.Logf("Create a workspace %q", sourcePath)
+	_, err = kcpClusterClient.Cluster(sourcePath).TenancyV1alpha1().Workspaces().Create(ctx, &workspace, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Log("Updating the mount object to be ready")
@@ -133,10 +144,18 @@ func TestMountsMachinery(t *testing.T) {
 		Resource: "kubeclusters",
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		currentMount, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
+		destinationWorkspace, err := kcpClusterClient.Cluster(rootOrg).TenancyV1alpha1().Workspaces().Get(ctx, destinationWorkspaceObj.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+
+		if destinationWorkspace.Spec.URL == "" {
+			return fmt.Errorf("destination workspace %q is not ready", destinationWorkspaceObj.Name)
+		}
+
+		currentMount, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
 		require.NoError(t, err)
 
 		currentMount.Object["status"] = map[string]interface{}{
+			"URL": destinationWorkspaceObj.Spec.URL,
 			"conditions": []interface{}{
 				map[string]interface{}{
 					"lastTransitionTime": "2024-10-19T12:30:47Z",
@@ -149,35 +168,36 @@ func TestMountsMachinery(t *testing.T) {
 			"phase": "Ready",
 		}
 
-		_, err = dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
+		_, err = dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).UpdateStatus(ctx, currentMount, metav1.UpdateOptions{})
 		return err
 	})
 	require.NoError(t, err)
 
 	t.Log("Workspace should have WorkspaceMountReady and WorkspaceInitialized conditions, both true")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
+		current, err := kcpClusterClient.Cluster(sourcePath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 
-		initialized := conditions.IsTrue(current, tenancyv1alpha1.WorkspaceInitialized)
 		ready := conditions.IsTrue(current, tenancyv1alpha1.MountConditionReady)
-		return initialized && ready, yamlMarshal(t, current)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for WorkspaceMountReady and WorkspaceInitialized conditions to be true")
+		return ready, yamlMarshal(t, current)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for WorkspaceMountReady condition to be true")
+
+	cluster := logicalcluster.NewPath(sourcePath.String() + ":" + mountWorkspaceName)
 
 	t.Log("Workspace access should work")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(mountPath).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
+		_, err := kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
 		return err == nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to work")
 
 	t.Log("Set mount to not ready")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
+		current, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
 		require.NoError(t, err)
 		current.Object["status"].(map[string]interface{})["phase"] = "Connecting"
-		updated, err := dynamicClusterClient.Cluster(orgPath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		updated, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		t.Logf("Updated mount object: %v", yamlMarshal(t, updated))
 		return err
 	})
@@ -185,14 +205,14 @@ func TestMountsMachinery(t *testing.T) {
 
 	t.Log("Workspace phase should become unavailable")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		current, err := kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
+		current, err := kcpClusterClient.Cluster(sourcePath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		return current.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable, yamlMarshal(t, current)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to become unavailable")
 
 	t.Logf("Workspace access should eventually fail")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
+		_, err = kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
 		return err != nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to fail")
 }

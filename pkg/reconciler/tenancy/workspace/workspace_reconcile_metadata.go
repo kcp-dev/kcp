@@ -32,6 +32,9 @@ type metaDataReconciler struct {
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "metadata")
+	if workspace.Spec.IsMounted() {
+		return reconcileStatusContinue, nil
+	}
 
 	changed := false
 	expected := string(workspace.Status.Phase)

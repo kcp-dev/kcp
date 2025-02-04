@@ -32,6 +32,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -118,6 +119,10 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
+	if ws.Spec.Mount != nil {
+		return nil
+	}
+
 	if !o.WaitForReady() {
 		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 	}
@@ -132,8 +137,8 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	}
 
 	// if the user has not provided any type, use the default from the parent workspace
-	empty := tenancyv1alpha1.WorkspaceTypeReference{}
-	if ws.Spec.Type == empty {
+	// We default to workspaceType only if not mount.
+	if ws.Spec.Type == nil || (ws.Spec.Type != nil && ws.Spec.Type.Name == "") {
 		typeAnnotation, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1alpha1.LogicalClusterTypeAnnotationKey))
@@ -149,7 +154,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		if parentWt.Spec.DefaultChildWorkspaceType == nil {
 			return admission.NewForbidden(a, errors.New("spec.defaultChildWorkspaceType of workspace type %s:%s must be set"))
 		}
-		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
+		ws.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{
 			Path: parentWt.Spec.DefaultChildWorkspaceType.Path,
 			Name: parentWt.Spec.DefaultChildWorkspaceType.Name,
 		}
@@ -231,6 +236,10 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 	}
 
+	if ws.Spec.Mount != nil {
+		return nil
+	}
+
 	switch a.GetOperation() {
 	case admission.Update:
 		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace") {
@@ -245,7 +254,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
-		if old.Spec.Type != ws.Spec.Type {
+		if !ptr.Equal[tenancyv1alpha1.WorkspaceTypeReference](old.Spec.Type, ws.Spec.Type) {
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 	case admission.Create:

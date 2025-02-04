@@ -257,27 +257,18 @@ func indexWorkspaceByMountObject(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
 	}
 
-	v, ok := ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
-	if !ok {
-		return nil, nil
-	}
-
-	mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(v)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse mount annotation: %w", err)
-	}
-	if mount.MountSpec.Reference == nil {
+	if ws.Spec.Mount == nil {
 		return nil, nil
 	}
 
 	key := workspaceMountsReferenceKey{
 		ClusterName: logicalcluster.From(ws).String(),
 		// TODO(sttts): do proper REST mapping
-		Resource:  strings.ToLower(mount.MountSpec.Reference.Kind) + "s",
-		Name:      mount.MountSpec.Reference.Name,
-		Namespace: mount.MountSpec.Reference.Namespace,
+		Resource:  strings.ToLower(ws.Spec.Mount.Reference.Kind) + "s",
+		Name:      ws.Spec.Mount.Reference.Name,
+		Namespace: ws.Spec.Mount.Reference.Namespace,
 	}
-	cs := strings.SplitN(mount.MountSpec.Reference.APIVersion, "/", 2)
+	cs := strings.SplitN(ws.Spec.Mount.Reference.APIVersion, "/", 2)
 	if len(cs) == 2 {
 		key.Group = cs[0]
 	}
