@@ -45,7 +45,7 @@ type reconciler interface {
 // workspace replated operations. For now it has single reconciler that updates the status of the
 // workspace based on the mount status.
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspace) (bool, error) {
-	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Path, ref *tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
+	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
 		// TODO(sttts): do proper REST mapping.
 		resource := strings.ToLower(ref.Kind) + "s"
 		gvr := schema.GroupVersionResource{Resource: resource}
