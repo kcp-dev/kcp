@@ -59,7 +59,7 @@ type Authorization struct {
 const (
 	// modeAlwaysAllowGroups is the mode to authorize one of the configured always-allow groups, by default system:masters.
 	modeAlwaysAllowGroups string = "AlwaysAllowGroups"
-	// stepAlwaysAllowPaths is the mode to authorize one of the preconfigured paths that do not require authorization, like /healthz, /readyz and /livez.
+	// modeAlwaysAllowPaths is the mode to authorize one of the preconfigured paths that do not require authorization, like /healthz, /readyz and /livez.
 	modeAlwaysAllowPaths string = "AlwaysAllowPaths"
 	// modeWebhook is the mode to make an external webhook call to authorize.
 	modeWebhook string = "Webhook"
@@ -69,8 +69,8 @@ const (
 
 var defaultAuthorizationModes = []string{modeAlwaysAllowGroups, modeAlwaysAllowPaths, modeWebhook, modeRBAC}
 
-func isValidAuthorizationStep(authzstep string) bool {
-	return sets.NewString(defaultAuthorizationModes...).Has(authzstep)
+func isValidAuthorizationMode(authzmode string) bool {
+	return sets.NewString(defaultAuthorizationModes...).Has(authzmode)
 }
 
 func NewAuthorization() *Authorization {
@@ -126,9 +126,9 @@ func (s *Authorization) Validate() []error {
 	}
 
 	if len(s.AuthorizationModes) > 0 {
-		for _, step := range s.AuthorizationModes {
-			if !isValidAuthorizationStep(step) {
-				allErrors = append(allErrors, fmt.Errorf("invalid authorization step: %q", step))
+		for _, mode := range s.AuthorizationModes {
+			if !isValidAuthorizationMode(mode) {
+				allErrors = append(allErrors, fmt.Errorf("invalid authorization mode: %q", mode))
 			}
 		}
 	}
