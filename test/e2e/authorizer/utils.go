@@ -18,7 +18,6 @@ package authorizer
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"testing"
 	"time"
@@ -28,7 +27,7 @@ func RunWebhook(ctx context.Context, t *testing.T, response string) context.Canc
 	args := []string{
 		"--tls",
 		"--response", response,
-		"--pki-directory", fmt.Sprintf(".%s", t.Name()),
+		"--pki-directory", "webhook-httest-pki",
 	}
 
 	t.Logf("Starting webhook with %s policy...", response)

@@ -42,7 +42,7 @@ func TestAuthorizationModes(t *testing.T) {
 		"--authorization-modes",
 		"Webhook,AlwaysAllowPaths,AlwaysAllowGroups,RBAC",
 		"--authorization-webhook-config-file",
-		"authmodes.kubeconfig",
+		"webhook.kubeconfig",
 	))
 
 	// create clients
