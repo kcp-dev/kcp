@@ -1,4 +1,4 @@
-/*
+/* /*
 Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,12 +37,15 @@ func TestAuthorizationModes(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
+	// start a webhook that allows kcp to boot up
+	webhookStop := RunWebhook(ctx, t, "8081", "kubernetes:authz:allow")
+	t.Cleanup(webhookStop)
 
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(
 		"--authorization-modes",
 		"Webhook,AlwaysAllowPaths,AlwaysAllowGroups,RBAC",
 		"--authorization-webhook-config-file",
-		"webhook.kubeconfig",
+		"authmodes.kubeconfig",
 	))
 
 	// create clients
@@ -78,7 +81,7 @@ func TestAuthorizationModes(t *testing.T) {
 	require.NoError(t, err)
 
 	// run the webhook with deny policy
-	webhookStop := RunWebhook(ctx, t, "kubernetes:authz:deny")
+	webhookStop = RunWebhook(ctx, t, "8081", "kubernetes:authz:deny")
 	t.Cleanup(webhookStop)
 
 	t.Log("Admin should not be allowed now to list Workspaces.")

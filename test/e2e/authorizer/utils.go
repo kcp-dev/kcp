@@ -18,30 +18,54 @@ package authorizer
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func RunWebhook(ctx context.Context, t *testing.T, response string) context.CancelFunc {
-	args := []string{
-		"--tls",
-		"--response", response,
-		"--pki-directory", "webhook-httest-pki",
-	}
-
+func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {
 	t.Logf("Starting webhook with %s policy...", response)
 
 	ctx, cancel := context.WithCancel(ctx)
+	pkiDir := fmt.Sprintf(".%s", t.Name())
+	args := []string{
+		"--tls",
+		"--response", response,
+		"--pki-directory", pkiDir,
+		"--listen", fmt.Sprintf("localhost:%s", port),
+	}
 
 	cmd := exec.CommandContext(ctx, "httest", args...)
 	if err := cmd.Start(); err != nil {
 		cancel()
 		t.Fatalf("Failed to start webhook: %v", err)
 	}
-
 	// give httest a moment to boot up
 	time.Sleep(2 * time.Second)
+
+	framework.Eventually(t, func() (bool, string) {
+		caCertPath := fmt.Sprintf("%s/ca.crt", pkiDir)
+		if _, err := os.Stat(caCertPath); os.IsNotExist(err) {
+			return false, "ca.crt file does not exist"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	address := fmt.Sprintf("localhost:%s", port)
+	framework.Eventually(t, func() (bool, string) {
+		conn, err := net.DialTimeout("tcp", address, time.Second)
+		if err != nil {
+			return false, fmt.Sprintf("Webhook is not serving on %s: %v", address, err)
+		}
+		_ = conn.Close()
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*200)
 
 	return func() {
 		t.Log("Stopping webhook...")
