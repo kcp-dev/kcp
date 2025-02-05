@@ -34,12 +34,13 @@ import (
 
 func TestWebhook(t *testing.T) {
 	framework.Suite(t, "control-plane")
+	webhookPort := "8080"
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
 	// start a webhook that allows kcp to boot up
-	webhookStop := RunWebhook(ctx, t, "8080", "kubernetes:authz:allow")
+	webhookStop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
 	t.Cleanup(webhookStop)
 
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(
@@ -60,7 +61,7 @@ func TestWebhook(t *testing.T) {
 
 	// stop the webhook and switch to a deny policy
 	webhookStop()
-	webhookStop = RunWebhook(ctx, t, "8080", "kubernetes:authz:deny")
+	webhookStop = RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
 	t.Cleanup(webhookStop)
 
 	t.Log("Admin should not be allowed to list ConfigMaps.")

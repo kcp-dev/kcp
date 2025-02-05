@@ -32,6 +32,7 @@ import (
 
 func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {
 	t.Logf("Starting webhook with %s policy...", response)
+	address := fmt.Sprintf("localhost:%s", port)
 
 	ctx, cancel := context.WithCancel(ctx)
 	pkiDir := fmt.Sprintf(".%s", t.Name())
@@ -39,7 +40,7 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		"--tls",
 		"--response", response,
 		"--pki-directory", pkiDir,
-		"--listen", fmt.Sprintf("localhost:%s", port),
+		"--listen", address,
 	}
 
 	cmd := exec.CommandContext(ctx, "httest", args...)
@@ -47,8 +48,6 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		cancel()
 		t.Fatalf("Failed to start webhook: %v", err)
 	}
-	// give httest a moment to boot up
-	time.Sleep(2 * time.Second)
 
 	framework.Eventually(t, func() (bool, string) {
 		caCertPath := fmt.Sprintf("%s/ca.crt", pkiDir)
@@ -58,7 +57,6 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	address := fmt.Sprintf("localhost:%s", port)
 	framework.Eventually(t, func() (bool, string) {
 		conn, err := net.DialTimeout("tcp", address, time.Second)
 		if err != nil {

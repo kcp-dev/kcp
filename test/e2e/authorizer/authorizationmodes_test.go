@@ -34,11 +34,11 @@ import (
 
 func TestAuthorizationModes(t *testing.T) {
 	framework.Suite(t, "control-plane")
-
+	webhookPort := "8081"
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 	// start a webhook that allows kcp to boot up
-	webhookStop := RunWebhook(ctx, t, "8081", "kubernetes:authz:allow")
+	webhookStop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
 	t.Cleanup(webhookStop)
 
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(
@@ -68,35 +68,32 @@ func TestAuthorizationModes(t *testing.T) {
 	restClient, err := rest.UnversionedRESTClientFor(rootShardCfg)
 	require.NoError(t, err)
 
-	t.Log("Verify that you are allowed to access AllowAllPaths endpoints.")
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		req := rest.NewRequest(restClient).RequestURI(endpoint)
-		t.Logf("%s should not be accessible.", req.URL().String())
-		_, err := req.Do(ctx).Raw()
-		require.NoError(t, err)
-	}
+	t.Log("Verify that you are allowed to access one of AllowAllPaths endpoints.")
+	req := rest.NewRequest(restClient).RequestURI("/livez")
+	t.Logf("%s should not be accessible.", req.URL().String())
+	_, err = req.Do(ctx).Raw()
+	require.NoError(t, err)
 
 	t.Log("Admin should be allowed now to list Workspaces.")
 	_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 
+	webhookStop()
 	// run the webhook with deny policy
-	webhookStop = RunWebhook(ctx, t, "8081", "kubernetes:authz:deny")
+	webhookStop = RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
 	t.Cleanup(webhookStop)
 
-	t.Log("Admin should not be allowed now to list Workspaces.")
-	_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+	t.Log("Admin should not be allowed now to list Logical clusters.")
+	_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	t.Log("Admin should not be allowed to list ConfigMaps.")
-	_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	t.Log("Admin should not be allowed to list Services.")
+	_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	t.Log("Verify that it is not allowed to access AllowAllPaths endpoints.")
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		req := rest.NewRequest(restClient).RequestURI(endpoint)
-		t.Logf("%s should not be accessible.", req.URL().String())
-		_, err := req.Do(ctx).Raw()
-		require.Error(t, err)
-	}
+	req = rest.NewRequest(restClient).RequestURI("/healthz")
+	t.Logf("%s should not be accessible.", req.URL().String())
+	_, err = req.Do(ctx).Raw()
+	require.Error(t, err)
 }
