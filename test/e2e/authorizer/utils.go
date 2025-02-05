@@ -25,8 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {
