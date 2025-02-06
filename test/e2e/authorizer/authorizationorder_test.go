@@ -32,7 +32,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestAuthorizationModes(t *testing.T) {
+func TestAuthorizationOrder(t *testing.T) {
 	framework.Suite(t, "control-plane")
 	webhookPort := "8081"
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -42,10 +42,10 @@ func TestAuthorizationModes(t *testing.T) {
 	t.Cleanup(webhookStop)
 
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(
-		"--authorization-modes",
+		"--authorization-order",
 		"Webhook,AlwaysAllowPaths,AlwaysAllowGroups,RBAC",
 		"--authorization-webhook-config-file",
-		"authmodes.kubeconfig",
+		"authzorder.kubeconfig",
 	))
 
 	// create clients
