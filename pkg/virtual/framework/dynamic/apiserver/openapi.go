@@ -17,10 +17,15 @@ limitations under the License.
 package apiserver
 
 import (
+	"bytes"
+	"crypto/sha512"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/go-logr/logr"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
@@ -30,40 +35,45 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/server/mux"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
+	"k8s.io/utils/lru"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-/*
-*
-openAPIHandler implements the OpenAPI v3 handler for virtual workspaces.
+const (
+	// DefaultServiceCacheSize is the default size of the OpenAPI service cache.
+	DefaultServiceCacheSize = 50
+)
 
-This handler generates the OpenAPI v3 spec by:
-
-  - Creating specs based on webservices registered with the virtual workspace API server. These are only /api, /apis,
-    and /version, without any subroute (e.g. /apis/<group>)
-  - Creating a webservice for every /apis/<group> route available by utilizing the API discovery, then generating
-    OpenAPI v3 specs from these webservices
-  - Converting every APIDefinition into a CustomResourceDefinition and generating OpenAPI v3 specs for
-    /apis/<group>/<version> from these CRDs using the kube-openapi library
-
-This is different to the regular API servers, which are generating the OpenAPI v3 spec by purely using the webservices.
-This is not an option here because the virtual workspace API server has only three webservices registered
-(/api, /apis, and /version, without any subroute).
-*/
+// openAPIHandler implements the OpenAPI v3 handler for virtual workspaces.
+//
+// This handler generates the OpenAPI v3 spec by:
+//
+//   - Creating specs based on webservices registered with the virtual workspace API server. These are only /api, /apis
+//     and /version, without any subroute (e.g. /apis/<group>)
+//   - Creating a webservice for every /apis/<group> route available by utilizing the API discovery, then generating
+//     OpenAPI v3 specs from these webservices
+//   - Converting every APIDefinition into a CustomResourceDefinition and generating OpenAPI v3 specs for
+//     /apis/<group>/<version> from these CRDs using the kube-openapi library
+//
+// This is different to the regular API servers, which are generating the OpenAPI v3 spec by purely using the
+// webservices. This is not an option here because the virtual workspace API server has only three webservices
+// registered (/api, /apis, and /version, without any subroute).
 type openAPIHandler struct {
 	apiSetRetriever    apidefinition.APIDefinitionSetGetter
 	goRestfulContainer *restful.Container
 	openapiv3Config    *common.OpenAPIV3Config
 	delegate           http.Handler
 
+	services         *lru.Cache
 	openAPIV3Service *handler3.OpenAPIService
 }
 
@@ -71,6 +81,7 @@ func newOpenAPIHandler(
 	apiSetRetriever apidefinition.APIDefinitionSetGetter,
 	goRestfulContainer *restful.Container,
 	openapiv3Config *common.OpenAPIV3Config,
+	serviceCacheSize int,
 	delegate http.Handler) *openAPIHandler {
 	openAPIV3Service := handler3.NewOpenAPIService()
 
@@ -80,12 +91,14 @@ func newOpenAPIHandler(
 		openapiv3Config:    openapiv3Config,
 		delegate:           delegate,
 
+		services:         lru.New(serviceCacheSize),
 		openAPIV3Service: openAPIV3Service,
 	}
 }
 
 func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
+	log := klog.FromContext(ctx).WithValues("path", req.URL.Path)
 	apiDomainKey := dyncamiccontext.APIDomainKeyFrom(ctx)
 
 	// Get all available APIDefinitions for this Virtual Workspace
@@ -102,90 +115,108 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO(xmudrii): Add ordering here.
-	// TODO(xmudrii): Add caching here.
-
-	// Collect routes registered in the virtual workspace API server: /api, /apis, and /version.
-	// Subroutes (e.g. /apis/<group> and /apis/<group>/<version>) are not included and are handled separately below.
-	webservices := make(map[string][]*restful.WebService)
-	for _, t := range o.goRestfulContainer.RegisteredWebServices() {
-		// Strip the "/" prefix from the name
-		gvPath := t.RootPath()[1:]
-		webservices[gvPath] = []*restful.WebService{t}
-	}
-
-	// Create web services for /apis/<group>
-	versionsForDiscoveryMap := make(map[schema.GroupVersion][]metav1.GroupVersionForDiscovery)
-	for gvr := range apiSet {
-		if gvr.Group == "" {
-			continue
-		}
-		gv := schema.GroupVersion{
-			Group:   gvr.Group,
-			Version: gvr.Version,
-		}
-
-		if versionsForDiscoveryMap[gv] == nil {
-			versionsForDiscoveryMap[gv] = []metav1.GroupVersionForDiscovery{}
-		}
-
-		versionsForDiscoveryMap[gv] = append(versionsForDiscoveryMap[gv], metav1.GroupVersionForDiscovery{
-			GroupVersion: gvr.GroupVersion().String(),
-			Version:      gvr.Version,
-		})
-	}
-	for gv := range versionsForDiscoveryMap {
-		apiGroup := metav1.APIGroup{
-			Name:     gv.Group,
-			Versions: versionsForDiscoveryMap[gv],
-			// the preferred versions for a group is the first item in
-			// apiVersionsForDiscovery after it put in the right ordered
-			PreferredVersion: versionsForDiscoveryMap[gv][0],
-		}
-
-		groupPath := "apis/" + gv.Group
-		webservices[groupPath] = append(webservices[groupPath], discovery.NewAPIGroupHandler(codecs, apiGroup).WebService())
-	}
-
-	// Build OpenAPI v3 spec for /apis/<group> webservices
-	routeSpecs := make(map[string][]*spec3.OpenAPI)
-	for groupPath, ws := range webservices {
-		spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), o.openapiv3Config)
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-		routeSpecs[groupPath] = []*spec3.OpenAPI{spec}
-	}
-
-	// Build OpenAPI v3 specs for /apis/<group>/<version>, i.e. build OpenAPI v3 specs for each APIDefinition
-	resourceSpecs := make([]map[string][]*spec3.OpenAPI, 0, len(apiSet))
-	for _, apiDefinition := range apiSet {
-		specs, err := apiResourceSchemaToSpec(apiDefinition.GetAPIResourceSchema())
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-		resourceSpecs = append(resourceSpecs, specs)
-	}
-
-	// Create a new OpenAPI service
-	m := mux.NewPathRecorderMux("virtual-workspace-openapi-v3")
-	service := handler3.NewOpenAPIService()
-	err = service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)
+	// Get the OpenAPI service from cache or create a new one
+	key, err := apiConfigurationKey(apiSet)
 	if err != nil {
 		responsewriters.InternalError(w, req, err)
 		return
 	}
+	log = log.WithValues("key", key)
+	entry, ok := o.services.Get(key)
+	if !ok {
+		log.V(7).Info("Generating OpenAPI v3 specs")
 
-	// Add all OpenAPI v3 specs to the OpenAPI service
-	err = addSpecs(service, routeSpecs, resourceSpecs)
-	if err != nil {
-		responsewriters.InternalError(w, req, err)
-		return
+		// Collect routes registered in the virtual workspace API server: /api, /apis, and /version.
+		// Subroutes (e.g. /apis/<group> and /apis/<group>/<version>) are not included and are handled separately below.
+		webservices := make(map[string][]*restful.WebService)
+		for _, t := range o.goRestfulContainer.RegisteredWebServices() {
+			// Strip the "/" prefix from the name
+			gvPath := t.RootPath()[1:]
+			webservices[gvPath] = []*restful.WebService{t}
+		}
+
+		// Create web services for /apis/<group>
+		versionsForDiscoveryMap := make(map[schema.GroupVersion][]metav1.GroupVersionForDiscovery)
+		for gvr := range apiSet {
+			if gvr.Group == "" {
+				continue
+			}
+			gv := schema.GroupVersion{
+				Group:   gvr.Group,
+				Version: gvr.Version,
+			}
+
+			if versionsForDiscoveryMap[gv] == nil {
+				versionsForDiscoveryMap[gv] = []metav1.GroupVersionForDiscovery{}
+			}
+
+			versionsForDiscoveryMap[gv] = append(versionsForDiscoveryMap[gv], metav1.GroupVersionForDiscovery{
+				GroupVersion: gvr.GroupVersion().String(),
+				Version:      gvr.Version,
+			})
+		}
+		for gv := range versionsForDiscoveryMap {
+			apiGroup := metav1.APIGroup{
+				Name:     gv.Group,
+				Versions: versionsForDiscoveryMap[gv],
+				// the preferred versions for a group is the first item in
+				// apiVersionsForDiscovery after it put in the right ordered
+				PreferredVersion: versionsForDiscoveryMap[gv][0],
+			}
+
+			groupPath := "apis/" + gv.Group
+			webservices[groupPath] = append(webservices[groupPath], discovery.NewAPIGroupHandler(codecs, apiGroup).WebService())
+		}
+
+		// Build OpenAPI v3 spec for /apis/<group> webservices
+		routeSpecs := make(map[string][]*spec3.OpenAPI)
+		for groupPath, ws := range webservices {
+			spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), o.openapiv3Config)
+			if err != nil {
+				responsewriters.InternalError(w, req, err)
+				return
+			}
+			routeSpecs[groupPath] = []*spec3.OpenAPI{spec}
+		}
+
+		// Build OpenAPI v3 specs for /apis/<group>/<version>, i.e. build OpenAPI v3 specs for each APIDefinition
+		resourceSpecs := make([]map[string][]*spec3.OpenAPI, 0, len(apiSet))
+		for _, apiDefinition := range apiSet {
+			specs, err := apiResourceSchemaToSpec(apiDefinition.GetAPIResourceSchema())
+			if err != nil {
+				responsewriters.InternalError(w, req, err)
+				return
+			}
+			resourceSpecs = append(resourceSpecs, specs)
+		}
+
+		// Create a new OpenAPI service
+		log.V(7).Info("Creating new OpenAPI v3 service")
+		// log.V(7).Info("Reusing OpenAPI v3 service from cache")
+		m := mux.NewPathRecorderMux("virtual-workspace-openapi-v3")
+		service := handler3.NewOpenAPIService()
+		err = service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)
+		if err != nil {
+			responsewriters.InternalError(w, req, err)
+			return
+		}
+
+		// Add all OpenAPI v3 specs to the OpenAPI service
+		err = addSpecs(service, routeSpecs, resourceSpecs, log)
+		if err != nil {
+			responsewriters.InternalError(w, req, err)
+			return
+		}
+
+		// Save the service in the cache
+		o.services.Add(key, m)
+		entry = m
+	} else {
+		log.V(7).Info("Reusing OpenAPI v3 service from cache")
 	}
 
-	m.ServeHTTP(w, req)
+	service := entry.(http.Handler)
+	service.ServeHTTP(w, req)
 }
 
 func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) (map[string][]*spec3.OpenAPI, error) {
@@ -237,7 +268,7 @@ func groupVersionToOpenAPIV3Path(gv schema.GroupVersion) string {
 	return "apis/" + gv.Group + "/" + gv.Version
 }
 
-func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.OpenAPI, apiDefSpecs []map[string][]*spec3.OpenAPI) error {
+func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.OpenAPI, apiDefSpecs []map[string][]*spec3.OpenAPI, log logr.Logger) error {
 	byGroupVersionSpecs := make(map[string][]*spec3.OpenAPI)
 
 	for groupPath, spec := range routeSpecs {
@@ -252,6 +283,8 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 
 	// lazily merge spec and add to service
 	for gvPath, specs := range byGroupVersionSpecs {
+		log.V(6).Info("Merging OpenAPI v3 specs", "gvPath", gvPath)
+
 		gvSpec, err := builder.MergeSpecsV3(specs...)
 		if err != nil {
 			return fmt.Errorf("failed to merge specs: %v", err)
@@ -261,4 +294,38 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 	}
 
 	return nil
+}
+
+func apiConfigurationKey(apiDefs apidefinition.APIDefinitionSet) (string, error) {
+	var buf bytes.Buffer
+
+	keys := make([]schema.GroupVersionResource, 0, len(apiDefs))
+	for k := range apiDefs {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].String() < keys[j].String()
+	})
+
+	firstAPIDef := true
+	for _, k := range keys {
+		apiDefSchema := apiDefs[k].GetAPIResourceSchema()
+		bs, err := json.Marshal(apiDefSchema.Spec)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal APIDefinition spec: %w", err)
+		}
+
+		if !firstAPIDef {
+			buf.WriteRune(';')
+		}
+
+		buf.WriteString(apiDefSchema.Name)
+		buf.WriteRune(':')
+		buf.WriteString(fmt.Sprintf("%X", sha512.Sum512(bs)))
+
+		firstAPIDef = false
+	}
+
+	return buf.String(), nil
 }

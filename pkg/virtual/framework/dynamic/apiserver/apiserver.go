@@ -180,18 +180,21 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 
 	s.GenericAPIServer.Handler.GoRestfulContainer.Add(discovery.NewLegacyRootAPIHandler(c.GenericConfig.DiscoveryAddresses, s.GenericAPIServer.Serializer, "/api").WebService())
 
-	getOpenAPIDefinitions := openapi.GetOpenAPIDefinitionsWithoutDisabledFeatures(generatedopenapi.GetOpenAPIDefinitions)
-	namer := openapinamer.NewDefinitionNamer(scheme)
-	openapiv3Config := genericapiserver.DefaultOpenAPIV3Config(getOpenAPIDefinitions, namer)
-	openapiv3Config.Info.Title = "Kubernetes"
+	if !c.GenericConfig.SkipOpenAPIInstallation {
+		getOpenAPIDefinitions := openapi.GetOpenAPIDefinitionsWithoutDisabledFeatures(generatedopenapi.GetOpenAPIDefinitions)
+		namer := openapinamer.NewDefinitionNamer(scheme)
+		openapiv3Config := genericapiserver.DefaultOpenAPIV3Config(getOpenAPIDefinitions, namer)
+		openapiv3Config.Info.Title = "Kubernetes"
 
-	openAPIHandler := newOpenAPIHandler(s.APISetRetriever, s.GenericAPIServer.Handler.GoRestfulContainer, openapiv3Config, delegateHandler)
+		openAPIHandler := newOpenAPIHandler(s.APISetRetriever, s.GenericAPIServer.Handler.GoRestfulContainer, openapiv3Config, DefaultServiceCacheSize, delegateHandler)
+
+		s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/openapi", openAPIHandler)
+		s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/openapi/", openAPIHandler)
+	}
 
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/api/v1", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/api/v1/", crdHandler)
-	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/openapi", openAPIHandler)
-	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/openapi/", openAPIHandler)
 	return s, nil
 }
