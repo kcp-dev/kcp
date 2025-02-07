@@ -3315,13 +3315,13 @@
 <p>They are related in the following way:</p>
 <pre class="mermaid"><code>graph TD
     start(Request):::state --&gt; main_alt[/one of\]:::or
-    main_alt --&gt; aapa[Always Allow Paths Auth]
     main_alt --&gt; aaga[Always Allow Groups Auth]
+    main_alt --&gt; aapa[Always Allow Paths Auth]
     main_alt --&gt; wa[Webhook Auth]
     main_alt --&gt; rga[Required Groups Auth]
 
-    aapa --&gt; decision(Decision):::state
-    aaga --&gt; decision
+    aaga --&gt; decision(Decision):::state
+    aapa --&gt; decision
     wa --&gt; decision
 
     subgraph "RBAC"
@@ -3553,46 +3553,46 @@ a lot of influence over the authorization in kcp.</p>
 <div class="highlight"><pre><span></span><code>The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
 </code></pre></div>
 <h3 id="scopes">Scopes</h3>
-<p>Scopes are a way to limit the access of a user to a specific logical cluster. 
-Scopes are (optionally) attached to the user identity by setting the 
+<p>Scopes are a way to limit the access of a user to a specific logical cluster.
+Scopes are (optionally) attached to the user identity by setting the
 <code>authentication.kcp.io/scopes: cluster:&lt;logical-cluster&gt;,...</code> extra field. The
 scope is then checked by the authorizers. For example:</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">groups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;group1&quot;</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">extra</span><span class="p">:</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span><span class="w"> </span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1</span>
 </code></pre></div>
-This user will only be allowed to access resources in <code>logical-cluster-1</code>, 
-falling back to be considered as user <code>system:anonymous</code> with group 
+This user will only be allowed to access resources in <code>logical-cluster-1</code>,
+falling back to be considered as user <code>system:anonymous</code> with group
 <code>system:authenticated</code> in all other logical clusters.</p>
 <p>Each extra field can contain multiple scopes, separated by a comma:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">groups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;group1&quot;</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">extra</span><span class="p">:</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span><span class="w"> </span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1,cluster:logical-cluster-2</span>
 </code></pre></div>
-This user is allowed to operate in both <code>logical-cluster-1</code> and 
-<code>logical-cluster-2</code>, falling back to be considered as user <code>system:anonymous</code> 
+This user is allowed to operate in both <code>logical-cluster-1</code> and
+<code>logical-cluster-2</code>, falling back to be considered as user <code>system:anonymous</code>
 with group <code>system:authenticated</code> in all other logical clusters.</p>
-<p>If multiple <code>authentication.kcp.io/scopes</code> values are set, the intersection is 
+<p>If multiple <code>authentication.kcp.io/scopes</code> values are set, the intersection is
 taken:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">groups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;group1&quot;</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">extra</span><span class="p">:</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span><span class="w"> </span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">authentication.kcp.io/scopes</span><span class="p">:</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1,cluster:logical-cluster-2</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-2,cluster:logical-cluster-3</span>
 </code></pre></div>
 This user is only allowed to operate in <code>logical-cluster-2</code>, falling back to be
-considered as user <code>system:anonymous</code> with group <code>system:authenticated</code> in all 
+considered as user <code>system:anonymous</code> with group <code>system:authenticated</code> in all
 other logical clusters.</p>
-<p>The intersection can be empty, in which case it falls back in every logical 
+<p>The intersection can be empty, in which case it falls back in every logical
 cluster.</p>
-<p>When impersonating a user in a logical cluster, the resulting user identity is 
+<p>When impersonating a user in a logical cluster, the resulting user identity is
 scoped to the logical cluster the impersonation is happening in.</p>
-<p>A scope mismatch does not invalidate the warrants (see next section) of a user. </p>
+<p>A scope mismatch does not invalidate the warrants (see next section) of a user.</p>
 <h3 id="warrants">Warrants</h3>
 <p>Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
 A warrant is attached by adding a <code>authorization.kcp.io/warrant</code> extra field to the user identity
@@ -3611,9 +3611,9 @@ if the primary users is not allowed. For example:</p>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">      </span><span class="no">}</span>
 <a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="no">}</span>
 </code></pre></div>
-<p>This warrant allows <code>user1</code> to act under the permissions of <code>user2</code> in 
+<p>This warrant allows <code>user1</code> to act under the permissions of <code>user2</code> in
 <code>logical-cluster-1</code> if <code>user1</code> is not allowed to act as <code>user2</code> in the first place.</p>
-<p>Note that a warrant only allow to act under the permissions of the warrant user, 
+<p>Note that a warrant only allow to act under the permissions of the warrant user,
 but not to act as the warrant user itself. E.g. in auditing or admission control,
 the primary user is still the one that is acting.</p>
 <p>Warrants can be nested, i.e. a warrant can contain another warrant.</p>
