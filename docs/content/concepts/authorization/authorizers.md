@@ -290,6 +290,7 @@ By default, the authorizers are evaluated in the following order:
 The order in which authorizers are evaluated can be configured. This allows administrators to customize the authorization flow.
 It can be done by setting `--authorization-order` flag in the kcp server. This flag accepts a comma-separated list of authorizer names, which will be evaluated in the specified order.
 
+Here is an example on how to enable the Webhook to be the first one in the authorizers chain:
 ```sh
 --authorization-order=Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC
 ```

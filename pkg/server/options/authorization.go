@@ -147,7 +147,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringSliceVar(&s.AuthorizationOrder, "authorization-order", s.AuthorizationOrder,
 		"A list of authorizers that should be enabled, allowing administrator rearrange the default order."+
-			"The default order is: AlwaysAllowGroups, AlwaysAllowPaths,RBAC, Webhook")
+			"The default order is: AlwaysAllowGroups,AlwaysAllowPaths,RBAC,Webhook")
 
 	// Only surface selected, webhook-related CLI flags
 
