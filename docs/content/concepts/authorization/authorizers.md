@@ -17,13 +17,13 @@ They are related in the following way:
 ``` mermaid
 graph TD
     start(Request):::state --> main_alt[/one of\]:::or
-    main_alt --> aapa[Always Allow Paths Auth]
     main_alt --> aaga[Always Allow Groups Auth]
+    main_alt --> aapa[Always Allow Paths Auth]
     main_alt --> wa[Webhook Auth]
     main_alt --> rga[Required Groups Auth]
 
-    aapa --> decision(Decision):::state
-    aaga --> decision
+    aaga --> decision(Decision):::state
+    aapa --> decision
     wa --> decision
 
     subgraph "RBAC"
@@ -281,8 +281,8 @@ The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (co
 
 ### Scopes
 
-Scopes are a way to limit the access of a user to a specific logical cluster. 
-Scopes are (optionally) attached to the user identity by setting the 
+Scopes are a way to limit the access of a user to a specific logical cluster.
+Scopes are (optionally) attached to the user identity by setting the
 `authentication.kcp.io/scopes: cluster:<logical-cluster>,...` extra field. The
 scope is then checked by the authorizers. For example:
 
@@ -290,11 +290,11 @@ scope is then checked by the authorizers. For example:
 user: user1
 groups: ["group1"]
 extra:
-  authentication.kcp.io/scopes: 
+  authentication.kcp.io/scopes:
   - cluster:logical-cluster-1
 ```
-This user will only be allowed to access resources in `logical-cluster-1`, 
-falling back to be considered as user `system:anonymous` with group 
+This user will only be allowed to access resources in `logical-cluster-1`,
+falling back to be considered as user `system:anonymous` with group
 `system:authenticated` in all other logical clusters.
 
 Each extra field can contain multiple scopes, separated by a comma:
@@ -302,34 +302,34 @@ Each extra field can contain multiple scopes, separated by a comma:
 user: user1
 groups: ["group1"]
 extra:
-  authentication.kcp.io/scopes: 
+  authentication.kcp.io/scopes:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
 ```
-This user is allowed to operate in both `logical-cluster-1` and 
-`logical-cluster-2`, falling back to be considered as user `system:anonymous` 
+This user is allowed to operate in both `logical-cluster-1` and
+`logical-cluster-2`, falling back to be considered as user `system:anonymous`
 with group `system:authenticated` in all other logical clusters.
 
-If multiple `authentication.kcp.io/scopes` values are set, the intersection is 
+If multiple `authentication.kcp.io/scopes` values are set, the intersection is
 taken:
 ```yaml
 user: user1
 groups: ["group1"]
 extra:
-  authentication.kcp.io/scopes: 
+  authentication.kcp.io/scopes:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
   - cluster:logical-cluster-2,cluster:logical-cluster-3
 ```
 This user is only allowed to operate in `logical-cluster-2`, falling back to be
-considered as user `system:anonymous` with group `system:authenticated` in all 
+considered as user `system:anonymous` with group `system:authenticated` in all
 other logical clusters.
 
-The intersection can be empty, in which case it falls back in every logical 
+The intersection can be empty, in which case it falls back in every logical
 cluster.
 
-When impersonating a user in a logical cluster, the resulting user identity is 
+When impersonating a user in a logical cluster, the resulting user identity is
 scoped to the logical cluster the impersonation is happening in.
 
-A scope mismatch does not invalidate the warrants (see next section) of a user. 
+A scope mismatch does not invalidate the warrants (see next section) of a user.
 
 ### Warrants
 
@@ -353,10 +353,10 @@ extra:
     }
 ```
 
-This warrant allows `user1` to act under the permissions of `user2` in 
+This warrant allows `user1` to act under the permissions of `user2` in
 `logical-cluster-1` if `user1` is not allowed to act as `user2` in the first place.
 
-Note that a warrant only allow to act under the permissions of the warrant user, 
+Note that a warrant only allow to act under the permissions of the warrant user,
 but not to act as the warrant user itself. E.g. in auditing or admission control,
 the primary user is still the one that is acting.
 
