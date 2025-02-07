@@ -52,7 +52,7 @@ type Authorization struct {
 	Webhook *kubeoptions.BuiltInAuthorizationOptions
 
 	// AuthorizationOrder is the list of authorizers that allows to rearrange the default order.
-	// The default is four authorizers in a union: AlwaysAllowGroups, AlwaysAllowPaths, Webhook and RBAC.
+	// The default is four authorizers in a union: AlwaysAllowGroups, AlwaysAllowPaths, RBAC and Webhook.
 	AuthorizationOrder []string
 }
 
@@ -67,7 +67,7 @@ const (
 	authorizerRBAC string = "RBAC"
 )
 
-var defaultAuthorizers = []string{authorizerAlwaysAllowGroups, authorizerAlwaysAllowPaths, authorizerWebhook, authorizerRBAC}
+var defaultAuthorizers = []string{authorizerAlwaysAllowGroups, authorizerAlwaysAllowPaths, authorizerRBAC, authorizerWebhook}
 
 func isValidAuthorizer(authorizer string) bool {
 	return sets.NewString(defaultAuthorizers...).Has(authorizer)
@@ -147,7 +147,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringSliceVar(&s.AuthorizationOrder, "authorization-order", s.AuthorizationOrder,
 		"A list of authorizers that should be enabled, allowing administrator rearrange the default order."+
-			"The default order is: AlwaysAllowGroups, AlwaysAllowPaths, Webhook, RBAC")
+			"The default order is: AlwaysAllowGroups, AlwaysAllowPaths,RBAC, Webhook")
 
 	// Only surface selected, webhook-related CLI flags
 
