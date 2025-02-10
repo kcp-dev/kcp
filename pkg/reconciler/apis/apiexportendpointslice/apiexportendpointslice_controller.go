@@ -19,14 +19,15 @@ package apiexportendpointslice
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,12 +42,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
-	apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
-	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	topologyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/topology/v1alpha1"
 )
 
@@ -57,9 +56,8 @@ const (
 // NewController returns a new controller for APIExportEndpointSlices.
 // Shards and APIExports are read from the cache server.
 func NewController(
-	apiExportEndpointSliceClusterInformer apisinformers.APIExportEndpointSliceClusterInformer,
-	globalShardClusterInformer corev1alpha1informers.ShardClusterInformer,
-	globalAPIExportClusterInformer apisinformers.APIExportClusterInformer,
+	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
+	globalAPIExportClusterInformer apisv1alpha1informers.APIExportClusterInformer,
 	partitionClusterInformer topologyinformers.PartitionClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
@@ -73,11 +71,8 @@ func NewController(
 		listAPIExportEndpointSlices: func() ([]*apisv1alpha1.APIExportEndpointSlice, error) {
 			return apiExportEndpointSliceClusterInformer.Lister().List(labels.Everything())
 		},
-		listShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
-			return globalShardClusterInformer.Lister().List(selector)
-		},
-		getAPIExportEndpointSlice: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
-			return apiExportEndpointSliceClusterInformer.Lister().Cluster(clusterName).Get(name)
+		getAPIExportEndpointSlice: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
+			return indexers.ByPathAndName[*apisv1alpha1.APIExportEndpointSlice](apisv1alpha1.Resource("apiexportendpointslices"), apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), path, name)
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
@@ -104,50 +99,38 @@ func NewController(
 		commit:                                committer.NewCommitter[*APIExportEndpointSlice, Patcher, *APIExportEndpointSliceSpec, *APIExportEndpointSliceStatus](kcpClusterClient.ApisV1alpha1().APIExportEndpointSlices()),
 	}
 
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
 	_, _ = apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(obj)
+			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(newObj)
+			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(obj)
+			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 	})
 
 	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(obj)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(obj)
-		},
-	}))
-
-	_, _ = globalShardClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueAllAPIExportEndpointSlices(obj)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			if filterShardEvent(oldObj, newObj) {
-				c.enqueueAllAPIExportEndpointSlices(newObj)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueAllAPIExportEndpointSlices(obj)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger)
 		},
 	}))
 
 	_, _ = partitionClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueuePartition(obj)
+			c.enqueuePartition(objOrTombstone[*topologyv1alpha1.Partition](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueuePartition(newObj)
+			c.enqueuePartition(objOrTombstone[*topologyv1alpha1.Partition](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueuePartition(obj)
+			c.enqueuePartition(objOrTombstone[*topologyv1alpha1.Partition](obj), logger)
 		},
 	}))
 
@@ -166,45 +149,34 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
-	listShards                            func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 	listAPIExportEndpointSlices           func() ([]*apisv1alpha1.APIExportEndpointSlice, error)
-	getAPIExportEndpointSlice             func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
+	getAPIExportEndpointSlice             func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
 	getAPIExport                          func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getPartition                          func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 	getAPIExportEndpointSlicesByPartition func(key string) ([]*apisv1alpha1.APIExportEndpointSlice, error)
 
-	apiExportEndpointSliceClusterInformer apisinformers.APIExportEndpointSliceClusterInformer
+	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer
 	commit                                CommitFunc
 }
 
 // enqueueAPIExportEndpointSlice enqueues an APIExportEndpointSlice.
-func (c *controller) enqueueAPIExportEndpointSlice(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueAPIExportEndpointSlice(slice *apisv1alpha1.APIExportEndpointSlice, logger logr.Logger, logSuffix string) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(slice)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing APIExportEndpointSlice")
+	logger.V(4).Info(fmt.Sprintf("queueing APIExportEndpointSlice%s", logSuffix))
 	c.queue.Add(key)
 }
 
 // enqueueAPIExportEndpointSlicesForAPIExport enqueues APIExportEndpointSlices referencing a specific APIExport.
-func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{}) {
-	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		obj = d.Obj
-	}
-	export, ok := obj.(*apisv1alpha1.APIExport)
-	if !ok {
-		utilruntime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
-		return
-	}
-
+func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(export *apisv1alpha1.APIExport, logger logr.Logger) {
 	// binding keys by full path
 	keys := sets.New[string]()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
-		pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
+		pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, path.Join(export.Name).String())
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -212,7 +184,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 		keys.Insert(pathKeys...)
 	}
 
-	clusterKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexAPIExportEndpointSliceByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+	clusterKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -227,35 +199,12 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(obj interface{})
 		} else if !exists {
 			continue
 		}
-		logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*apisv1alpha1.APIExport))
-		logging.WithQueueKey(logger, key).V(4).Info("queuing APIExportEndpointSlices because of referenced APIExport")
-		c.enqueueAPIExportEndpointSlice(slice)
-	}
-}
-
-// enqueueAllAPIExportEndpointSlices enqueues all APIExportEndpointSlices.
-func (c *controller) enqueueAllAPIExportEndpointSlices(shard interface{}) {
-	list, err := c.listAPIExportEndpointSlices()
-	if err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), shard.(*corev1alpha1.Shard))
-	for i := range list {
-		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(list[i])
-		if err != nil {
-			utilruntime.HandleError(err)
-			continue
-		}
-
-		logging.WithQueueKey(logger, key).V(4).Info("queuing APIExportEndpointSlice because Shard changed")
-		c.queue.Add(key)
+		c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of referenced APIExport")
 	}
 }
 
 // enqueuePartition maps a Partition to APIExportEndpointSlices for enqueuing.
-func (c *controller) enqueuePartition(obj interface{}) {
+func (c *controller) enqueuePartition(obj *topologyv1alpha1.Partition, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -268,10 +217,8 @@ func (c *controller) enqueuePartition(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*topologyv1alpha1.Partition))
-	logging.WithQueueKey(logger, key).V(4).Info("queuing APIExportEndpointSlices because Partition changed")
 	for _, slice := range slices {
-		c.enqueueAPIExportEndpointSlice(slice)
+		c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of Partition change")
 	}
 }
 
@@ -328,7 +275,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		utilruntime.HandleError(err)
 		return nil
 	}
-	obj, err := c.getAPIExportEndpointSlice(clusterName, name)
+	obj, err := c.getAPIExportEndpointSlice(clusterName.Path(), name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -353,6 +300,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}
@@ -360,36 +308,36 @@ func (c *controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-// filterShardEvent returns true if the event passes the filter and needs to be processed false otherwise.
-func filterShardEvent(oldObj, newObj interface{}) bool {
-	oldShard, ok := oldObj.(*corev1alpha1.Shard)
-	if !ok {
-		return false
-	}
-	newShard, ok := newObj.(*corev1alpha1.Shard)
-	if !ok {
-		return false
-	}
-	if oldShard.Spec.VirtualWorkspaceURL != newShard.Spec.VirtualWorkspaceURL {
-		return true
-	}
-	if !reflect.DeepEqual(oldShard.Labels, newShard.Labels) {
-		return true
-	}
-	return false
-}
-
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(globalAPIExportClusterInformer apisinformers.APIExportClusterInformer, apiExportEndpointSliceClusterInformer apisinformers.APIExportEndpointSliceClusterInformer) {
+func InstallIndexers(
+	globalAPIExportClusterInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
+) {
 	indexers.AddIfNotPresentOrDie(globalAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
-
 	indexers.AddIfNotPresentOrDie(apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
-		indexAPIExportEndpointSliceByAPIExport: indexAPIExportEndpointSliceByAPIExportFunc,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
-
+	indexers.AddIfNotPresentOrDie(apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.APIExportEndpointSliceByAPIExport: indexers.IndexAPIExportEndpointSliceByAPIExport,
+	})
 	indexers.AddIfNotPresentOrDie(apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexAPIExportEndpointSlicesByPartition: indexAPIExportEndpointSlicesByPartitionFunc,
 	})
+}
+
+func objOrTombstone[T runtime.Object](obj any) T {
+	if t, ok := obj.(T); ok {
+		return t
+	}
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		if t, ok := tombstone.Obj.(T); ok {
+			return t
+		}
+
+		panic(fmt.Errorf("tombstone %T is not a %T", tombstone, new(T)))
+	}
+
+	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
 }

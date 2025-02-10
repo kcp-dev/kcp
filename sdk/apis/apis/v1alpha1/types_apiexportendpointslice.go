@@ -73,10 +73,19 @@ type APIExportEndpointSliceStatus struct {
 	// conditions is a list of conditions that apply to the APIExportEndpointSlice.
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
+	// endpoints contains all the URLs of the APIExport service.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=url
+	APIExportEndpoints []APIExportEndpoint `json:"endpoints"`
+
 	// +optional
 
-	// endpoints contains all the URLs of the APIExport service.
-	APIExportEndpoints []APIExportEndpoint `json:"endpoints,omitempty"`
+	// shardSelector is the selector used to filter the shards. It is used to filter the shards
+	// when determining partition scope when deriving the endpoints. This is set by owning shard,
+	// and is used by follower shards to determine if its inscope or not.
+	ShardSelector string `json:"shardSelector,omitempty"`
 }
 
 // Using a struct provides an extension point
@@ -106,6 +115,8 @@ const (
 	// PartitionValid is a condition for APIExportEndpointSlice that reflects the validity of the referenced Partition.
 	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
 
+	// EndpointURLsReady is a condition for APIExportEndpointSlice that reflects the readiness of the URLs.
+	// DEPRECATED: This condition is deprecated and will be removed in a future release.
 	APIExportEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
 
 	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of APIExportEndpointSlice that the

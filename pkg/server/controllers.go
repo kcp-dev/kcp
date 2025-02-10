@@ -63,6 +63,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointslice"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointsliceurls"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
@@ -1266,7 +1267,7 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 	})
 }
 
-func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installAPIExportEndpointSliceController(_ context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, apiexportendpointslice.ControllerName)
 
@@ -1278,7 +1279,6 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 	c, err := apiexportendpointslice.NewController(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
 		// Shards and APIExports get retrieved from cache server
-		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
 		kcpClusterClient,
@@ -1291,10 +1291,49 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		Name: apiexportendpointslice.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
+				return s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installAPIExportEndpointSliceURLsController(_ context.Context, _ *rest.Config) error {
+	config := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	config = rest.AddUserAgent(config, apiexportendpointsliceurls.ControllerName)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apiexportendpointsliceurls.NewController(
+		s.Options.Extra.ShardName,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		// Shards and APIExports get retrieved from cache server
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		kcpClusterClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiexportendpointsliceurls.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -1550,6 +1589,11 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	apiexportendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+	)
+	apiexportendpointsliceurls.InstallIndexers(
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	labelclusterrolebindings.InstallIndexers(
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
