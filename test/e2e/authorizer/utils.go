@@ -35,7 +35,7 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 	address := fmt.Sprintf("localhost:%s", port)
 
 	ctx, cancel := context.WithCancel(ctx)
-	pkiDir := fmt.Sprintf(".%s", t.Name())
+	pkiDir := fmt.Sprintf("testdata/.%s", t.Name())
 	args := []string{
 		"--tls",
 		"--response", response,
