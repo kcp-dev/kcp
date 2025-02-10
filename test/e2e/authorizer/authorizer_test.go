@@ -49,7 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-//go:embed *.yaml
+//go:embed testdata/*.yaml
 var embeddedResources embed.FS
 
 func TestAuthorizer(t *testing.T) {
@@ -78,8 +78,8 @@ func TestAuthorizer(t *testing.T) {
 	_, org2Workspace1 := framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
 	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
 
-	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
-	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
+	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "testdata/workspace1-resources.yaml")
+	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "testdata/workspace1-resources.yaml")
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3", "user-4", "user-5"}, nil, false)
 

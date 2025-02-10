@@ -13,18 +13,17 @@ In kcp, a request has four different ways of being admitted:
 * It can be permitted by an external HTTPS webhook backend.
 
 They are related in the following way:
-
 ``` mermaid
 graph TD
     start(Request):::state --> main_alt[/one of\]:::or
     main_alt --> aaga[Always Allow Groups Auth]
     main_alt --> aapa[Always Allow Paths Auth]
-    main_alt --> wa[Webhook Auth]
     main_alt --> rga[Required Groups Auth]
+    main_alt --> wa[Webhook Auth]
+
 
     aaga --> decision(Decision):::state
     aapa --> decision
-    wa --> decision
 
     subgraph "RBAC"
     rga --> wca[Workspace Content Auth]
@@ -40,6 +39,7 @@ graph TD
     lpa --> decision
     gpa --> decision
     bpa --> decision
+    wa --> decision
 
     classDef state color:#F77
     classDef or fill:none,stroke:none
@@ -276,8 +276,24 @@ The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (co
 }
 ```
 
-
     The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
+
+### Authorizer Order
+
+By default, the authorizers are evaluated in the following order:
+
+1. **Always Allow Groups Authorizer** (`AlwaysAllowGroups`)
+2. **Always Allow Paths Authorizer** (`AlwaysAllowPaths`)
+3. **RBAC Chain** (`RBAC`)
+4. **Webhook Authorizer** (`Webhook`)
+
+The order in which authorizers are evaluated can be configured. This allows administrators to customize the authorization flow.
+It can be done by setting `--authorization-order` flag in the kcp server. This flag accepts a comma-separated list of authorizer names, which will be evaluated in the specified order.
+
+Here is an example on how to enable the Webhook to be the first one in the authorizers chain:
+```sh
+--authorization-order=Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC
+```
 
 ### Scopes
 
