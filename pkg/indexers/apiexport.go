@@ -17,6 +17,8 @@ limitations under the License.
 package indexers
 
 import (
+	"fmt"
+
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -33,6 +35,8 @@ const (
 	// APIExportByClaimedIdentities is the indexer name for retrieving APIExports that have a permission claim for a
 	// particular identity hash.
 	APIExportByClaimedIdentities = "APIExportByClaimedIdentities"
+	// APIExportEndpointSliceByAPIExport is the indexer name for retrieving APIExportEndpointSlices by their APIExport's Reference Path and Name.
+	APIExportEndpointSliceByAPIExport = "APIExportEndpointSliceByAPIExport"
 )
 
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
@@ -71,4 +75,24 @@ func IndexAPIExportByClaimedIdentities(obj interface{}) ([]string, error) {
 		claimedIdentities.Insert(claim.IdentityHash)
 	}
 	return sets.List[string](claimedIdentities), nil
+}
+
+// IndexAPIExportEndpointSliceByAPIExportFunc indexes the APIExportEndpointSlice by their APIExport's Reference Path and Name.
+func IndexAPIExportEndpointSliceByAPIExport(obj interface{}) ([]string, error) {
+	apiExportEndpointSlice, ok := obj.(*apisv1alpha1.APIExportEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExportEndpointSlice", obj)
+	}
+
+	var result []string
+	pathRemote := logicalcluster.NewPath(apiExportEndpointSlice.Spec.APIExport.Path)
+	if !pathRemote.Empty() {
+		result = append(result, pathRemote.Join(apiExportEndpointSlice.Spec.APIExport.Name).String())
+	}
+	pathLocal := logicalcluster.From(apiExportEndpointSlice).Path()
+	if !pathLocal.Empty() {
+		result = append(result, pathLocal.Join(apiExportEndpointSlice.Spec.APIExport.Name).String())
+	}
+
+	return result, nil
 }
