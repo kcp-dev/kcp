@@ -132,6 +132,16 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	log = log.WithValues("key", key)
 
+	m, err := o.handleOpenAPIRequest(apiSet, key, log)
+	if err != nil {
+		responsewriters.InternalError(w, req, err)
+		return
+	}
+
+	m.ServeHTTP(w, req)
+}
+
+func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinitionSet, key string, log logr.Logger) (http.Handler, error) {
 	// We want to make sure we don't generate OpenAPI v3 spec if not necessary because it's an expensive operation.
 	// Putting the generated OpenAPI v3 service in a cache using the configuration key generated above solves this in
 	// the most of cases.
@@ -154,8 +164,7 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		item = entry.(*openAPIServiceItem)
 		<-item.done
 		if item.err == nil {
-			item.service.ServeHTTP(w, req)
-			return
+			return item.service, nil
 		}
 	}
 
@@ -165,6 +174,10 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	o.services.Add(key, item)
 	_ = o.servicesLock.UnlockKey(key) // error is always nil
+
+	defer func() {
+		close(item.done)
+	}()
 
 	// If we got here, we have nothing in cache or cache is invalid, so we just generate everything again and serve it.
 	log.V(7).Info("Generating OpenAPI v3 specs")
@@ -217,10 +230,7 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), o.openapiv3Config)
 		if err != nil {
 			item.err = err
-			close(item.done)
-
-			responsewriters.InternalError(w, req, err)
-			return
+			return nil, err
 		}
 		routeSpecs[groupPath] = []*spec3.OpenAPI{spec}
 	}
@@ -231,10 +241,7 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		specs, err := apiResourceSchemaToSpec(apiDefinition.GetAPIResourceSchema())
 		if err != nil {
 			item.err = err
-			close(item.done)
-
-			responsewriters.InternalError(w, req, err)
-			return
+			return nil, err
 		}
 		resourceSpecs = append(resourceSpecs, specs)
 	}
@@ -244,29 +251,21 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// log.V(7).Info("Reusing OpenAPI v3 service from cache")
 	m := mux.NewPathRecorderMux("virtual-workspace-openapi-v3")
 	service := handler3.NewOpenAPIService()
-	err = service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)
+	err := service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)
 	if err != nil {
 		item.err = err
-		close(item.done)
-
-		responsewriters.InternalError(w, req, err)
-		return
+		return nil, err
 	}
 
 	// Add all OpenAPI v3 specs to the OpenAPI service
 	err = addSpecs(service, routeSpecs, resourceSpecs, log)
 	if err != nil {
 		item.err = err
-		close(item.done)
-
-		responsewriters.InternalError(w, req, err)
-		return
+		return nil, err
 	}
 
-	// Save the service in the cache
 	item.service = m
-	close(item.done)
-	item.service.ServeHTTP(w, req)
+	return item.service, nil
 }
 
 func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) (map[string][]*spec3.OpenAPI, error) {
