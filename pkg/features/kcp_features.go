@@ -133,4 +133,8 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	logsapi.ContextualLogging: {
 		{Version: version.MustParse("1.26"), Default: true, PreRelease: featuregate.Alpha},
 	},
+
+	genericfeatures.MutatingAdmissionPolicy: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
 }
