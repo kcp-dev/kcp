@@ -150,23 +150,21 @@ func (o *openAPIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// If we found the struct, and the channel is closed, and the spec was generated successfully, serve the already
 	// generated spec, otherwise regenerate it.
 	if ok {
+		_ = o.servicesLock.UnlockKey(key) // error is always nil
 		item = entry.(*openAPIServiceItem)
-		if item != nil {
-			_, ok := <-item.done
-			if !ok && item.err == nil {
-				o.servicesLock.UnlockKey(key)
-				item.service.ServeHTTP(w, req)
-				return
-			}
+		<-item.done
+		if item.err == nil {
+			item.service.ServeHTTP(w, req)
+			return
 		}
-
 	}
 
+	doneCh := make(chan struct{})
 	item = &openAPIServiceItem{
-		done: make(chan struct{}, 1),
+		done: doneCh,
 	}
 	o.services.Add(key, item)
-	o.servicesLock.UnlockKey(key)
+	_ = o.servicesLock.UnlockKey(key) // error is always nil
 
 	// If we got here, we have nothing in cache or cache is invalid, so we just generate everything again and serve it.
 	log.V(7).Info("Generating OpenAPI v3 specs")
