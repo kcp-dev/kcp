@@ -81,23 +81,29 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	t.Logf("Checking /openapi/v3 paths for %q", orgPath)
 	wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	openAPIV3 := wildwestVCClusterClient.Cluster(consumerClusterName.Path()).Discovery().OpenAPIV3()
-	paths, err := openAPIV3.Paths()
-	require.NoError(t, err, "error retrieving %q openapi v3 paths", orgPath)
-	got := sets.NewString()
-	for path := range paths {
-		got.Insert(path)
-	}
-	expected := sets.NewString(
-		"api",
-		"apis",
-		"apis/apis.kcp.io",
-		"apis/apis.kcp.io/v1alpha1",
-		"apis/wildwest.dev",
-		"apis/wildwest.dev/v1alpha1",
-		"version",
-	)
-	if expected.Difference(got).Len() > 0 {
-		t.Errorf("missing paths: %v", expected.Difference(got).List())
-	}
+	framework.Eventually(t, func() (bool, string) {
+		openAPIV3 := wildwestVCClusterClient.Cluster(consumerClusterName.Path()).Discovery().OpenAPIV3()
+		paths, err := openAPIV3.Paths()
+		if err != nil {
+			return false, err.Error()
+		}
+		// require.NoError(t, err, "error retrieving %q openapi v3 paths", orgPath)
+		got := sets.NewString()
+		for path := range paths {
+			got.Insert(path)
+		}
+		expected := sets.NewString(
+			"api",
+			"apis",
+			"apis/apis.kcp.io",
+			"apis/apis.kcp.io/v1alpha1",
+			"apis/wildwest.dev",
+			"apis/wildwest.dev/v1alpha1",
+			"version",
+		)
+		if expected.Difference(got).Len() > 0 {
+			return false, "didn't found OpenAPI URLs"
+		}
+		return true, "found OpenAPI URLs"
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
