@@ -1,0 +1,21 @@
+apiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration
+jwt:
+- issuer:
+    url: https://127.0.0.1:5556/dex
+    certificateAuthority: |
+      -----BEGIN CERTIFICATE-----
+      enter your certificate here
+      -----END CERTIFICATE-----
+    audiences:
+      - kcp-dev
+    audienceMatchPolicy: MatchAny
+  claimMappings:
+    username:
+      claim: "email"
+      prefix: ""
+    groups:
+      claim: "groups"
+      prefix: ""
+  claimValidationRules: []
+  userValidationRules: []
