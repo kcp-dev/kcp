@@ -132,11 +132,6 @@ func NewOptions(rootDir string) *Options {
 	// turn on the watch cache
 	o.GenericControlPlane.Etcd.EnableWatchCache = true
 
-	// Turn on admissionregistration for validating admission policy
-	if err := o.GenericControlPlane.APIEnablement.RuntimeConfig.Set("admissionregistration.k8s.io/v1alpha1=true"); err != nil {
-		panic(fmt.Errorf("error setting APIEnablement: %w", err))
-	}
-
 	return o
 }
 

@@ -92,18 +92,19 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "core", Version: "v1"}: {},
 
 		// These are alpha/beta versions that are not preferred (they all have v1)
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1"}: {},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1"}:         {},
-		{Group: "authentication.k8s.io", Version: "v1beta1"}:        {},
-		{Group: "authorization.k8s.io", Version: "v1beta1"}:         {},
-		{Group: "certificates.k8s.io", Version: "v1alpha1"}:         {},
-		{Group: "certificates.k8s.io", Version: "v1beta1"}:          {},
-		{Group: "coordination.k8s.io", Version: "v1beta1"}:          {},
-		{Group: "coordination.k8s.io", Version: "v1alpha1"}:         {},
-		{Group: "coordination.k8s.io", Version: "v1alpha2"}:         {},
-		{Group: "events.k8s.io", Version: "v1beta1"}:                {},
-		{Group: "rbac.authorization.k8s.io", Version: "v1alpha1"}:   {},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1"}:    {},
+		{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}: {},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1"}:  {},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1"}:          {},
+		{Group: "authentication.k8s.io", Version: "v1beta1"}:         {},
+		{Group: "authorization.k8s.io", Version: "v1beta1"}:          {},
+		{Group: "certificates.k8s.io", Version: "v1alpha1"}:          {},
+		{Group: "certificates.k8s.io", Version: "v1beta1"}:           {},
+		{Group: "coordination.k8s.io", Version: "v1beta1"}:           {},
+		{Group: "coordination.k8s.io", Version: "v1alpha1"}:          {},
+		{Group: "coordination.k8s.io", Version: "v1alpha2"}:          {},
+		{Group: "events.k8s.io", Version: "v1beta1"}:                 {},
+		{Group: "rbac.authorization.k8s.io", Version: "v1alpha1"}:    {},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1"}:     {},
 	}
 
 	allKnownTypes := kcpscheme.Scheme.AllKnownTypes()
