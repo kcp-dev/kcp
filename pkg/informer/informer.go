@@ -887,14 +887,6 @@ var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = 
 	gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(
 		apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration",
 	),
-	gvrFor("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicies"): withGVRPartialMetadata(
-		// TODO(gman0): remove once we stop serving admissionregistration.k8s.io/v1alpha1 by default, in our v1.33 rebase.
-		apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicy", "validatingadmissionpolicy",
-	),
-	gvrFor("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicybindings"): withGVRPartialMetadata(
-		// TODO(gman0): remove once we stop serving admissionregistration.k8s.io/v1alpha1 by default, in our v1.33 rebase.
-		apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicyBinding", "validatingadmissionpolicybinding",
-	),
 	gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"): withGVRPartialMetadata(
 		apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition",
 	),

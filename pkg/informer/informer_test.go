@@ -85,6 +85,11 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SubjectAccessReview"}:      {},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: "ConversionReview"}:         {},
 		{Group: "core.kcp.io", Version: "v1alpha1", Kind: "Shard"}:                       {},
+
+		// TODO(gman0): remove VAP in v1alpha1 when we do v1.33 rebase,
+		// as its v1alpha1 code will be removed by then (see k/k#129207).
+		{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Kind: "ValidatingAdmissionPolicy"}:        {},
+		{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Kind: "ValidatingAdmissionPolicyBinding"}: {},
 	}
 
 	gvsToIgnore := map[schema.GroupVersion]struct{}{
