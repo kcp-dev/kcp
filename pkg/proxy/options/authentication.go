@@ -86,7 +86,12 @@ func (c *Authentication) serviceAccountAuthEnabled() bool {
 	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
 }
 
-func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
+func (c *Authentication) ApplyTo(
+	ctx context.Context,
+	authenticationInfo *genericapiserver.AuthenticationInfo,
+	servingInfo *genericapiserver.SecureServingInfo,
+	loopbackClientConfig *rest.Config,
+) error {
 	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
 	// can reduce the dependencies pulled in from auth methods which aren't enabled
 	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
@@ -108,7 +113,7 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 			authenticationInfo.APIAudiences = c.BuiltInOptions.ServiceAccounts.Issuers
 		}
 
-		config := rest.CopyConfig(rootShardConfig)
+		config := rest.CopyConfig(loopbackClientConfig)
 		tokenGetterClient, err := kcpkubernetesclientset.NewForConfig(config)
 		if err != nil {
 			return fmt.Errorf("failed to create client for ServiceAccountTokenGetter: %w", err)
