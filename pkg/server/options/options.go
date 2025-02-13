@@ -131,6 +131,11 @@ func NewOptions(rootDir string) *Options {
 	// turn on the watch cache
 	o.GenericControlPlane.Etcd.EnableWatchCache = true
 
+	// TODO(gman0): remove this admissionregistration.k8s.io/v1alpha1 override once
+	// we reach Kubernetes v1.33. VAP will be removed from that API version then:
+	// https://github.com/kubernetes/kubernetes/pull/129207
+	// ValidatingAdmissionPolicy is GA, in admissionregistration.k8s.io/v1.
+	//
 	// Turn on admissionregistration for validating admission policy
 	if err := o.GenericControlPlane.APIEnablement.RuntimeConfig.Set("admissionregistration.k8s.io/v1alpha1=true"); err != nil {
 		panic(fmt.Errorf("error setting APIEnablement: %w", err))
