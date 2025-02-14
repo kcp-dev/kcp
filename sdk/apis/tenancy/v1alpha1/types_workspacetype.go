@@ -116,6 +116,12 @@ type WorkspaceTypeSpec struct {
 	//
 	// +optional
 	DefaultAPIBindings []APIExportReference `json:"defaultAPIBindings,omitempty"`
+
+	// Mount is the mount configuration for the workspace type. Single type can have only one mount kind.
+	// If set, the workspace will be backed by a mount.
+	//
+	// +optional
+	Mount *metav1.TypeMeta `json:"mount,omitempty"`
 }
 
 // APIExportReference provides the fields necessary to resolve an APIExport.
