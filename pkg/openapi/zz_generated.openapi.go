@@ -776,6 +776,14 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 						},
 					},
 					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"url",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "endpoints contains all the URLs of the APIExport service.",
 							Type:        []string{"array"},
@@ -787,6 +795,13 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 									},
 								},
 							},
+						},
+					},
+					"shardSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shardSelector is the selector used to filter the shards. It is used to filter the shards when determining partition scope when deriving the endpoints. This is set by owning shard, and is used by follower shards to determine if its inscope or not.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

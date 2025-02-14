@@ -314,6 +314,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installAPIExportEndpointSliceURLsController(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
