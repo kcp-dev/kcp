@@ -105,7 +105,7 @@ func TestAdmit(t *testing.T) {
 					Name: "test",
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -126,7 +126,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -147,7 +147,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},
@@ -168,7 +168,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},
@@ -189,7 +189,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},
@@ -210,7 +210,7 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},
@@ -334,7 +334,7 @@ func TestValidate(t *testing.T) {
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -346,7 +346,7 @@ func TestValidate(t *testing.T) {
 						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root:org",
 						},
@@ -365,7 +365,7 @@ func TestValidate(t *testing.T) {
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -378,7 +378,7 @@ func TestValidate(t *testing.T) {
 					},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
 						Cluster: "somewhere",
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
@@ -399,7 +399,7 @@ func TestValidate(t *testing.T) {
 				Spec: tenancyv1alpha1.WorkspaceSpec{
 					Cluster: "somewhere",
 					URL:     "https://kcp.bigcorp.com/clusters/org:test",
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -415,7 +415,7 @@ func TestValidate(t *testing.T) {
 						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
@@ -439,7 +439,7 @@ func TestValidate(t *testing.T) {
 				Spec: tenancyv1alpha1.WorkspaceSpec{
 					Cluster: "somewhere",
 					URL:     "https://kcp.bigcorp.com/clusters/org:test",
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -463,7 +463,7 @@ func TestValidate(t *testing.T) {
 				Spec: tenancyv1alpha1.WorkspaceSpec{
 					Cluster: "somewhere",
 					URL:     "https://kcp.bigcorp.com/clusters/org:test",
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -488,7 +488,7 @@ func TestValidate(t *testing.T) {
 				Spec: tenancyv1alpha1.WorkspaceSpec{
 					Cluster: "somewhere",
 					URL:     "https://kcp.bigcorp.com/clusters/org:test",
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -506,7 +506,7 @@ func TestValidate(t *testing.T) {
 					Spec: tenancyv1alpha1.WorkspaceSpec{
 						Cluster: "somewhere",
 						URL:     "https://kcp.otherbigcorp.com/clusters/org:test",
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
@@ -530,7 +530,7 @@ func TestValidate(t *testing.T) {
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
 					Cluster: "somewhere",
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -546,7 +546,7 @@ func TestValidate(t *testing.T) {
 						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: tenancyv1alpha1.WorkspaceTypeReference{
+						Type: &tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
@@ -593,7 +593,7 @@ func TestValidate(t *testing.T) {
 					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
@@ -621,7 +621,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},
@@ -651,7 +651,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
-					Type: tenancyv1alpha1.WorkspaceTypeReference{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
 					},

@@ -117,7 +117,7 @@ const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 // +kubebuilder:resource:scope=Cluster,categories=kcp,shortName=ws
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="Region",type=string,JSONPath=`.metadata.labels['region']`,description="The region this workspace is in"
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.io/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Workspace struct {
@@ -134,6 +134,7 @@ type Workspace struct {
 // WorkspaceSpec holds the desired state of the Workspace.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster cannot be unset"
+// +kubebuilder:validation:XValidation:rule="!(has(self.mount) && has(self.type))",message="spec.mount and spec.type cannot both be set"
 type WorkspaceSpec struct {
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
@@ -149,7 +150,7 @@ type WorkspaceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
 	// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
 	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
-	Type WorkspaceTypeReference `json:"type,omitempty"`
+	Type *WorkspaceTypeReference `json:"type,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
@@ -174,6 +175,50 @@ type WorkspaceSpec struct {
 	//
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
+
+	// Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate
+	// where the traffic, intended for the workspace, is sent.
+	// If specified, logicalcluster will not be created and the workspace will be mounted
+	// using reference mount object.
+	//
+	// +optional
+	Mount *Mount `json:"mount,omitempty"`
+}
+
+func (in *WorkspaceSpec) IsMounted() bool {
+	return in.Mount != nil
+}
+
+// Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate
+// where the traffic, intended for the workspace, is sent.
+type Mount struct {
+	// Reference is an ObjectReference to the object that is mounted.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.apiVersion) == has(self.apiVersion)",message="apiVersion is immutable"
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.kind) == has(self.kind)",message="kind is immutable"
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.name) == has(self.name)",message="name is immutable"
+	Reference ObjectReference `json:"ref"`
+}
+
+type ObjectReference struct {
+	// APIVersion is the API group and version of the object.
+	//
+	// +required
+	APIVersion string `json:"apiVersion"`
+	// Kind is the kind of the object.
+	//
+	// +required
+	Kind string `json:"kind"`
+	// Name is the name of the object.
+	//
+	// +required
+	Name string `json:"name"`
+	// Namespace is the namespace of the object.
+	//
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type WorkspaceLocation struct {
