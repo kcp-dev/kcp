@@ -478,7 +478,7 @@ func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.Works
 
 		qualifiedChild := canonicalPathFrom(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name)))
 
-		if !allOfTheFormerExistInTheLater(parentAliases, childAlias.Spec.LimitAllowedParents.Types) {
+		if !anyOfTheFormerExistInTheLater(parentAliases, childAlias.Spec.LimitAllowedParents.Types) {
 			allowedSet := sets.New[string]()
 			for _, allowedParent := range childAlias.Spec.LimitAllowedParents.Types {
 				allowedSet.Insert(logicalcluster.NewPath(allowedParent.Path).Join(string(allowedParent.Name)).String())
@@ -519,7 +519,7 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 
 		qualifiedParent := canonicalPathFrom(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name)))
 
-		if !allOfTheFormerExistInTheLater(childAliases, parentAlias.Spec.LimitAllowedChildren.Types) {
+		if !anyOfTheFormerExistInTheLater(childAliases, parentAlias.Spec.LimitAllowedChildren.Types) {
 			allowedSet := sets.New[string]()
 			for _, allowedChild := range parentAlias.Spec.LimitAllowedChildren.Types {
 				allowedSet.Insert(logicalcluster.NewPath(allowedChild.Path).Join(string(allowedChild.Name)).String())
@@ -544,7 +544,10 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 	return utilerrors.NewAggregate(errs)
 }
 
-func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceType, allowedTypes []tenancyv1alpha1.WorkspaceTypeReference) bool {
+// anyOfTheFormerExistInTheLater checks if any of the objectAliases matches any of the allowedTypes.
+// This implements additive workspace type extension, where a type gains the capabilities of types
+// it extends while keeping its own.
+func anyOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceType, allowedTypes []tenancyv1alpha1.WorkspaceTypeReference) bool {
 	allowedAliasSet := sets.New[string]()
 	for _, allowed := range allowedTypes {
 		qualified := logicalcluster.NewPath(allowed.Path).Join(tenancyv1alpha1.ObjectName(allowed.Name)).String()
