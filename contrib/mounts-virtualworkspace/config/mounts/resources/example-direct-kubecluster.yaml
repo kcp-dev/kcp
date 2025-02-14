@@ -1,0 +1,9 @@
+---
+apiVersion: mounts.contrib.kcp.io/v1alpha1
+kind: KubeCluster
+metadata:
+  name: proxy-cluster-direct
+spec:
+  secretRef:
+    name: kind-kubeconfig
+    namespace: default

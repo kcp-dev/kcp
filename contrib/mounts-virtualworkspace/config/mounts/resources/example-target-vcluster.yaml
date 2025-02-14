@@ -1,0 +1,9 @@
+---
+apiVersion: targets.contrib.kcp.io/v1alpha1
+kind: TargetVCluster
+metadata:
+  name: proxy-cluster
+spec:
+  secretRef:
+    name: kind-kubeconfig
+    namespace: default
