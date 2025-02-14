@@ -274,7 +274,6 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 			},
 		),
 		work: func(ctx context.Context) {
-			//nolint:errcheck
 			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 		},
 	}
@@ -297,10 +296,14 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
 	go func() {
 		// Make sure the GC monitors are synced at least once
-		//nolint:errcheck
 		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 
-		go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
+		// Initial sync timeout is set to 30s - as it was hardcoded in
+		// e8b1d7dc24713db99808028e0d02bacf6d48e01f in k/k. Should it timeout,
+		// the GC will continue running regardless, expecting the monitors to be
+		// synced eventually. In any case, the ResyncMonitors call above should
+		// have done that anyway.
+		go garbageCollector.Run(ctx, c.workersPerLogicalCluster, time.Second*30)
 	}()
 
 	return nil

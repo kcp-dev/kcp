@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	applyconfigurationwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 )
 
@@ -39,36 +39,37 @@ type CowboysGetter interface {
 
 // CowboyInterface has methods to work with Cowboy resources.
 type CowboyInterface interface {
-	Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.CreateOptions) (*v1alpha1.Cowboy, error)
-	Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (*v1alpha1.Cowboy, error)
+	Create(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts v1.CreateOptions) (*wildwestv1alpha1.Cowboy, error)
+	Update(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts v1.UpdateOptions) (*wildwestv1alpha1.Cowboy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (*v1alpha1.Cowboy, error)
+	UpdateStatus(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts v1.UpdateOptions) (*wildwestv1alpha1.Cowboy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Cowboy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.CowboyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*wildwestv1alpha1.Cowboy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*wildwestv1alpha1.CowboyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error)
-	Apply(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *wildwestv1alpha1.Cowboy, err error)
+	Apply(ctx context.Context, cowboy *applyconfigurationwildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *wildwestv1alpha1.Cowboy, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, cowboy *wildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Cowboy, err error)
+	ApplyStatus(ctx context.Context, cowboy *applyconfigurationwildwestv1alpha1.CowboyApplyConfiguration, opts v1.ApplyOptions) (result *wildwestv1alpha1.Cowboy, err error)
 	CowboyExpansion
 }
 
 // cowboys implements CowboyInterface
 type cowboys struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration]
+	*gentype.ClientWithListAndApply[*wildwestv1alpha1.Cowboy, *wildwestv1alpha1.CowboyList, *applyconfigurationwildwestv1alpha1.CowboyApplyConfiguration]
 }
 
 // newCowboys returns a Cowboys
 func newCowboys(c *WildwestV1alpha1Client, namespace string) *cowboys {
 	return &cowboys{
-		gentype.NewClientWithListAndApply[*v1alpha1.Cowboy, *v1alpha1.CowboyList, *wildwestv1alpha1.CowboyApplyConfiguration](
+		gentype.NewClientWithListAndApply[*wildwestv1alpha1.Cowboy, *wildwestv1alpha1.CowboyList, *applyconfigurationwildwestv1alpha1.CowboyApplyConfiguration](
 			"cowboys",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.Cowboy { return &v1alpha1.Cowboy{} },
-			func() *v1alpha1.CowboyList { return &v1alpha1.CowboyList{} }),
+			func() *wildwestv1alpha1.Cowboy { return &wildwestv1alpha1.Cowboy{} },
+			func() *wildwestv1alpha1.CowboyList { return &wildwestv1alpha1.CowboyList{} },
+		),
 	}
 }
