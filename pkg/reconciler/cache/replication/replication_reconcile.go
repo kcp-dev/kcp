@@ -184,11 +184,11 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 	}
 
 	// update global copy and compare
-	metaChanged, err := ensureMeta(globalCopy, localCopy)
+	metaChanged, metaReason, err := ensureMeta(globalCopy, localCopy)
 	if err != nil {
 		return err
 	}
-	remainingChanged, err := ensureRemaining(globalCopy, localCopy)
+	remainingChanged, remainingReason, err := ensureRemaining(globalCopy, localCopy)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,14 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName()).Info("Updating object in global cache")
+	reason := metaReason
+	if metaChanged && remainingChanged {
+		reason = fmt.Sprintf("%s; %s", metaReason, remainingReason)
+	} else if remainingChanged {
+		reason = remainingReason
+	}
+
+	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName(), "reason", reason).Info("Updating object in global cache")
 	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
 	return err
 }
