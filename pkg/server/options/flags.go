@@ -59,6 +59,7 @@ var (
 		// authentication flags
 		"anonymous-auth",                           // Enables anonymous requests to the secure port of the API server. Requests that are not rejected by another authentication method are treated as anonymous requests. Anonymous requests have a username of system:anonymous, and a group name of system:unauthenticated.
 		"api-audiences",                            // Identifiers of the API. The service account token authenticator will validate that tokens used against the API are bound to at least one of these audiences. If the --service-account-issuer flag is configured and this flag is not, this field defaults to a single element list containing the issuer URL.
+		"authentication-config",                    // File with Authentication Configuration to configure the JWT Token authenticator. Note: This feature is in Alpha since v1.29.--feature-gate=StructuredAuthenticationConfiguration=true needs to be set for enabling this feature.This feature is mutually exclusive with the oidc-* flags.
 		"authentication-token-webhook-cache-ttl",   // The duration to cache responses from the webhook token authenticator.
 		"authentication-token-webhook-config-file", // File with webhook configuration for token authentication in kubeconfig format. The API server will query the remote service to determine authentication for bearer tokens.
 		"authentication-token-webhook-version",     // The API version of the authentication.k8s.io TokenReview to send to and expect from the webhook
@@ -200,9 +201,5 @@ var (
 		// logs flags
 		"log-text-info-buffer-size", // [Alpha] In text format with split output streams, the info messages can be buffered for a while to increase performance. The default value of zero bytes disables buffering. The size can be specified as number of bytes (512), multiples of 1000 (1K), multiples of 1024 (2Ki), or powers of those (3M, 4G, 5Mi, 6Gi). Enable the LoggingAlphaOptions feature gate to use this.
 		"log-text-split-stream",     // [Alpha] In text format, write error messages to stderr and info messages to stdout. The default is to write a single stream to stdout. Enable the LoggingAlphaOptions feature gate to use this.
-
-		// authentication flags
-		// TODO(embik): look at enabling this feature.
-		"authentication-config", // File with Authentication Configuration to configure the JWT Token authenticator. Note: This feature is in Alpha since v1.29.--feature-gate=StructuredAuthenticationConfiguration=true needs to be set for enabling this feature.This feature is mutually exclusive with the oidc-* flags.
 	)
 )

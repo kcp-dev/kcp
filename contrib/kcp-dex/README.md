@@ -25,7 +25,9 @@ GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
 
 ### KCP
 
-Start kcp with oidc enabled:
+Start kcp with oidc enabled, you can either use the OIDC flags or structured authentication configuration from a file. Example configuration is shown in `auth-config.yaml`.
+
+## OIDC Flags
 
 ```bash
 go run ./cmd/kcp start \
@@ -33,6 +35,41 @@ go run ./cmd/kcp start \
 --oidc-client-id=kcp-dev \
 --oidc-groups-claim=groups \
 --oidc-ca-file=127.0.0.1.pem
+```
+
+## Structured Authentication Config
+
+```bash
+CA_CERT=$(openssl x509 -in 127.0.0.1.pem | sed 's/^/      /')
+```
+```bash
+cat << EOF_AuthConfig > auth-config.yaml
+apiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration
+jwt:
+- issuer:
+    url: https://127.0.0.1:5556/dex
+    certificateAuthority: |
+$CA_CERT
+    audiences:
+      - kcp-dev
+    audienceMatchPolicy: MatchAny
+  claimMappings:
+    username:
+      claim: "email"
+      prefix: ""
+    groups:
+      claim: "groups"
+      prefix: ""
+  claimValidationRules: []
+  userValidationRules: []
+EOF_AuthConfig
+```
+
+Start a kcp server:
+
+```bash
+./bin/kcp start --authentication-config auth-config.yaml
 ```
 
 ### Login
