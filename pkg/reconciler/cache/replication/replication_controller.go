@@ -209,7 +209,6 @@ func InstallIndexers(
 			Local:  localKcpInformers.Apis().V1alpha1().APIExportEndpointSlices().Informer(),
 			Global: globalKcpInformers.Apis().V1alpha1().APIExportEndpointSlices().Informer(),
 		},
-
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"): {
 			Kind:   "APIResourceSchema",
 			Local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),

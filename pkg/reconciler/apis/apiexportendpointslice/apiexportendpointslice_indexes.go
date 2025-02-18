@@ -26,23 +26,8 @@ import (
 )
 
 const (
-	indexAPIExportEndpointSliceByAPIExport  = "indexAPIExportEndpointSliceByAPIExport"
 	indexAPIExportEndpointSlicesByPartition = "indexAPIExportEndpointSlicesByPartition"
 )
-
-// indexAPIExportEndpointSliceByAPIExportFunc indexes the APIExportEndpointSlice by their APIExport's Reference Path and Name.
-func indexAPIExportEndpointSliceByAPIExportFunc(obj interface{}) ([]string, error) {
-	apiExportEndpointSlice, ok := obj.(*apisv1alpha1.APIExportEndpointSlice)
-	if !ok {
-		return []string{}, fmt.Errorf("obj %T is not an APIExportEndpointSlice", obj)
-	}
-
-	path := logicalcluster.NewPath(apiExportEndpointSlice.Spec.APIExport.Path)
-	if path.Empty() {
-		path = logicalcluster.From(apiExportEndpointSlice).Path()
-	}
-	return []string{path.Join(apiExportEndpointSlice.Spec.APIExport.Name).String()}, nil
-}
 
 // indexAPIExportEndpointSlicesByPartitionFunc is an index function that maps a Partition to the key for its
 // spec.partition.

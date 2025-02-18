@@ -148,6 +148,15 @@ spec:
                   - url
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - url
+                x-kubernetes-list-type: map
+              shardSelector:
+                description: |-
+                  shardSelector is the selector used to filter the shards. It is used to filter the shards
+                  when determining partition scope when deriving the endpoints. This is set by owning shard,
+                  and is used by follower shards to determine if its inscope or not.
+                type: string
             type: object
         type: object
     served: true
