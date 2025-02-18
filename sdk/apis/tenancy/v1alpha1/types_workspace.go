@@ -151,11 +151,18 @@ type WorkspaceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
 	Type WorkspaceTypeReference `json:"type,omitempty"`
 
+	// MountName is the name of the mount that this workspace is mounted under.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.name) || !has(self.name) || self.name == oldSelf.name",message="name is immutable"
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.namespace) || !has(self.namespace) || self.namespace == oldSelf.namespace",message="namespace is immutable"
+	Mount *metav1.ObjectMeta `json:"mount,omitempty"`
+
 	// location constraints where this workspace can be scheduled to.
 	//
 	// If the no location is specified, an arbitrary location is chosen.
 	//
-	// +optional
+	// +optionalz``
 	Location *WorkspaceLocation `json:"location,omitempty"`
 
 	// cluster is the name of the logical cluster this workspace is stored under.
