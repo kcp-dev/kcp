@@ -55,6 +55,8 @@ func (r WorkspaceTypeReference) String() string {
 const (
 	// ExperimentalWorkspaceOwnerAnnotationKey is the annotation key used to indicate the owner of the workspace.
 	ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.io/owner"
+	// ExperimentalDefaultAPIBindingLifecycleAnnotationKey is used to configure the maintenance mode of the defaultAPIBindings
+	ExperimentalDefaultAPIBindingLifecycleAnnotationKey string = "experimental.tenancy.kcp.io/default-api-binding-lifecycle"
 	// ExperimentalWorkspaceMountAnnotationKey is the annotation key used to indicate the mounts of the workspace.
 	ExperimentalWorkspaceMountAnnotationKey string = "experimental.tenancy.kcp.io/mount"
 )
@@ -150,6 +152,15 @@ type WorkspaceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
 	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
 	Type WorkspaceTypeReference `json:"type,omitempty"`
+
+	// Configure the lifecycle behaviour of defaultAPIBindings declared on the workspace type.
+	//
+	// TODO(blut): where should the Enum be maintained?
+	// TODO(blut): should be defaultApiBindingLifecycle :(
+	//
+	// +optional
+	// +kubebuilder:validation:Enum:InitializeOnly,Maintain
+	DefaultAPIBindingLifecycle string `json:"defaultAPIBindingLifecycle,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
