@@ -19,16 +19,16 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
 // with apply.
 type WorkspaceStatusApplyConfiguration struct {
-	Phase        *v1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
-	Conditions   *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
-	Initializers []v1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
+	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
 // WorkspaceStatusApplyConfiguration constructs a declarative configuration of the WorkspaceStatus type for use with
@@ -40,7 +40,7 @@ func WorkspaceStatus() *WorkspaceStatusApplyConfiguration {
 // WithPhase sets the Phase field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Phase field is set to the value of the last call.
-func (b *WorkspaceStatusApplyConfiguration) WithPhase(value v1alpha1.LogicalClusterPhaseType) *WorkspaceStatusApplyConfiguration {
+func (b *WorkspaceStatusApplyConfiguration) WithPhase(value corev1alpha1.LogicalClusterPhaseType) *WorkspaceStatusApplyConfiguration {
 	b.Phase = &value
 	return b
 }
@@ -56,7 +56,7 @@ func (b *WorkspaceStatusApplyConfiguration) WithConditions(value conditionsv1alp
 // WithInitializers adds the given value to the Initializers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Initializers field.
-func (b *WorkspaceStatusApplyConfiguration) WithInitializers(values ...v1alpha1.LogicalClusterInitializer) *WorkspaceStatusApplyConfiguration {
+func (b *WorkspaceStatusApplyConfiguration) WithInitializers(values ...corev1alpha1.LogicalClusterInitializer) *WorkspaceStatusApplyConfiguration {
 	for i := range values {
 		b.Initializers = append(b.Initializers, values[i])
 	}

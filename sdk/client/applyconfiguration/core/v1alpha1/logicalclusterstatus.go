@@ -19,17 +19,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // LogicalClusterStatusApplyConfiguration represents a declarative configuration of the LogicalClusterStatus type for use
 // with apply.
 type LogicalClusterStatusApplyConfiguration struct {
-	URL          *string                              `json:"URL,omitempty"`
-	Phase        *v1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
-	Conditions   *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
-	Initializers []v1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+	URL          *string                                  `json:"URL,omitempty"`
+	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
+	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
 // LogicalClusterStatusApplyConfiguration constructs a declarative configuration of the LogicalClusterStatus type for use with
@@ -49,7 +49,7 @@ func (b *LogicalClusterStatusApplyConfiguration) WithURL(value string) *LogicalC
 // WithPhase sets the Phase field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Phase field is set to the value of the last call.
-func (b *LogicalClusterStatusApplyConfiguration) WithPhase(value v1alpha1.LogicalClusterPhaseType) *LogicalClusterStatusApplyConfiguration {
+func (b *LogicalClusterStatusApplyConfiguration) WithPhase(value corev1alpha1.LogicalClusterPhaseType) *LogicalClusterStatusApplyConfiguration {
 	b.Phase = &value
 	return b
 }
@@ -65,7 +65,7 @@ func (b *LogicalClusterStatusApplyConfiguration) WithConditions(value conditions
 // WithInitializers adds the given value to the Initializers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Initializers field.
-func (b *LogicalClusterStatusApplyConfiguration) WithInitializers(values ...v1alpha1.LogicalClusterInitializer) *LogicalClusterStatusApplyConfiguration {
+func (b *LogicalClusterStatusApplyConfiguration) WithInitializers(values ...corev1alpha1.LogicalClusterInitializer) *LogicalClusterStatusApplyConfiguration {
 	for i := range values {
 		b.Initializers = append(b.Initializers, values[i])
 	}

@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -39,36 +39,37 @@ type WorkspaceTypesGetter interface {
 
 // WorkspaceTypeInterface has methods to work with WorkspaceType resources.
 type WorkspaceTypeInterface interface {
-	Create(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.CreateOptions) (*v1alpha1.WorkspaceType, error)
-	Update(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (*v1alpha1.WorkspaceType, error)
+	Create(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceType, opts v1.CreateOptions) (*tenancyv1alpha1.WorkspaceType, error)
+	Update(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceType, opts v1.UpdateOptions) (*tenancyv1alpha1.WorkspaceType, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, workspaceType *v1alpha1.WorkspaceType, opts v1.UpdateOptions) (*v1alpha1.WorkspaceType, error)
+	UpdateStatus(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceType, opts v1.UpdateOptions) (*tenancyv1alpha1.WorkspaceType, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.WorkspaceType, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.WorkspaceTypeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*tenancyv1alpha1.WorkspaceType, error)
+	List(ctx context.Context, opts v1.ListOptions) (*tenancyv1alpha1.WorkspaceTypeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.WorkspaceType, err error)
-	Apply(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.WorkspaceType, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *tenancyv1alpha1.WorkspaceType, err error)
+	Apply(ctx context.Context, workspaceType *applyconfigurationtenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *tenancyv1alpha1.WorkspaceType, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, workspaceType *tenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.WorkspaceType, err error)
+	ApplyStatus(ctx context.Context, workspaceType *applyconfigurationtenancyv1alpha1.WorkspaceTypeApplyConfiguration, opts v1.ApplyOptions) (result *tenancyv1alpha1.WorkspaceType, err error)
 	WorkspaceTypeExpansion
 }
 
 // workspaceTypes implements WorkspaceTypeInterface
 type workspaceTypes struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.WorkspaceType, *v1alpha1.WorkspaceTypeList, *tenancyv1alpha1.WorkspaceTypeApplyConfiguration]
+	*gentype.ClientWithListAndApply[*tenancyv1alpha1.WorkspaceType, *tenancyv1alpha1.WorkspaceTypeList, *applyconfigurationtenancyv1alpha1.WorkspaceTypeApplyConfiguration]
 }
 
 // newWorkspaceTypes returns a WorkspaceTypes
 func newWorkspaceTypes(c *TenancyV1alpha1Client) *workspaceTypes {
 	return &workspaceTypes{
-		gentype.NewClientWithListAndApply[*v1alpha1.WorkspaceType, *v1alpha1.WorkspaceTypeList, *tenancyv1alpha1.WorkspaceTypeApplyConfiguration](
+		gentype.NewClientWithListAndApply[*tenancyv1alpha1.WorkspaceType, *tenancyv1alpha1.WorkspaceTypeList, *applyconfigurationtenancyv1alpha1.WorkspaceTypeApplyConfiguration](
 			"workspacetypes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.WorkspaceType { return &v1alpha1.WorkspaceType{} },
-			func() *v1alpha1.WorkspaceTypeList { return &v1alpha1.WorkspaceTypeList{} }),
+			func() *tenancyv1alpha1.WorkspaceType { return &tenancyv1alpha1.WorkspaceType{} },
+			func() *tenancyv1alpha1.WorkspaceTypeList { return &tenancyv1alpha1.WorkspaceTypeList{} },
+		),
 	}
 }

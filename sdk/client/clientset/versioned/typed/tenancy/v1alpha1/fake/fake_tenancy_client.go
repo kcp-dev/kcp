@@ -30,11 +30,11 @@ type FakeTenancyV1alpha1 struct {
 }
 
 func (c *FakeTenancyV1alpha1) Workspaces() v1alpha1.WorkspaceInterface {
-	return &FakeWorkspaces{c}
+	return newFakeWorkspaces(c)
 }
 
 func (c *FakeTenancyV1alpha1) WorkspaceTypes() v1alpha1.WorkspaceTypeInterface {
-	return &FakeWorkspaceTypes{c}
+	return newFakeWorkspaceTypes(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
