@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-logr/logr"
@@ -55,7 +56,7 @@ const (
 )
 
 type openAPIServiceItem struct {
-	done    chan struct{}
+	done    <-chan struct{}
 	err     error
 	service http.Handler
 }
@@ -164,6 +165,7 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 		item = entry.(*openAPIServiceItem)
 		<-item.done
 		if item.err == nil {
+			log.V(7).Info("Reusing OpenAPI v3 service from cache")
 			return item.service, nil
 		}
 	}
@@ -175,8 +177,13 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 	o.services.Add(key, item)
 	_ = o.servicesLock.UnlockKey(key) // error is always nil
 
+	start := time.Now()
 	defer func() {
-		close(item.done)
+		close(doneCh)
+		elapsed := time.Since(start)
+		if elapsed > time.Second {
+			log.Info("slow openapi v3 aggregation", "duration", elapsed)
+		}
 	}()
 
 	// If we got here, we have nothing in cache or cache is invalid, so we just generate everything again and serve it.
@@ -248,7 +255,6 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 
 	// Create a new OpenAPI service
 	log.V(7).Info("Creating new OpenAPI v3 service")
-	// log.V(7).Info("Reusing OpenAPI v3 service from cache")
 	m := mux.NewPathRecorderMux("virtual-workspace-openapi-v3")
 	service := handler3.NewOpenAPIService()
 	err := service.RegisterOpenAPIV3VersionedService("/openapi/v3", m)

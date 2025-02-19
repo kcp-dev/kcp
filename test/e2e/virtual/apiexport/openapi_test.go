@@ -87,7 +87,6 @@ func TestAPIExportOpenAPI(t *testing.T) {
 		if err != nil {
 			return false, err.Error()
 		}
-		// require.NoError(t, err, "error retrieving %q openapi v3 paths", orgPath)
 		got := sets.NewString()
 		for path := range paths {
 			got.Insert(path)
@@ -102,7 +101,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 			"version",
 		)
 		if expected.Difference(got).Len() > 0 {
-			return false, "didn't found OpenAPI URLs"
+			return false, fmt.Sprintf("expected %d OpenAPI URLs, got %d", expected.Len(), got.Len())
 		}
 		return true, "found OpenAPI URLs"
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
