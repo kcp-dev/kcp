@@ -7,8 +7,8 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
-	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20240817110845-a9eb9752bfeb
-	github.com/kcp-dev/client-go v0.0.0-20240903163341-318c14d7636e
+	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250223115924-431177b024f3
+	github.com/kcp-dev/client-go v0.0.0-20250223133118-3dea338dc267
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/muesli/reflow v0.3.0
 	github.com/onsi/gomega v1.33.1
@@ -16,12 +16,12 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.31.0
-	k8s.io/apiextensions-apiserver v0.31.0
-	k8s.io/apimachinery v0.31.0
-	k8s.io/apiserver v0.31.0
-	k8s.io/client-go v0.31.0
-	k8s.io/component-base v0.31.0
+	k8s.io/api v0.31.6
+	k8s.io/apiextensions-apiserver v0.31.6
+	k8s.io/apimachinery v0.31.6
+	k8s.io/apiserver v0.31.6
+	k8s.io/client-go v0.31.6
+	k8s.io/component-base v0.31.6
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
