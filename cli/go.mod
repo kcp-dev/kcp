@@ -4,18 +4,18 @@ go 1.22.0
 
 require (
 	github.com/google/go-cmp v0.6.0
-	github.com/kcp-dev/client-go v0.0.0-20240903163341-318c14d7636e
+	github.com/kcp-dev/client-go v0.0.0-20250223133118-3dea338dc267
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stretchr/testify v1.9.0
 	github.com/xlab/treeprint v1.2.0
-	k8s.io/apiextensions-apiserver v0.31.0
-	k8s.io/apimachinery v0.31.0
+	k8s.io/apiextensions-apiserver v0.31.6
+	k8s.io/apimachinery v0.31.6
 	k8s.io/cli-runtime v0.31.0
-	k8s.io/client-go v0.31.0
-	k8s.io/component-base v0.31.0
+	k8s.io/client-go v0.31.6
+	k8s.io/component-base v0.31.6
 	k8s.io/klog/v2 v2.130.1
 )
 
@@ -44,7 +44,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20240817110845-a9eb9752bfeb // indirect
+	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250223115924-431177b024f3 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
@@ -73,7 +73,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.31.0 // indirect
+	k8s.io/api v0.31.6 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
