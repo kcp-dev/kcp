@@ -164,6 +164,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
+		// Not a mountpoint - validate the spec fields
 		if !old.Spec.IsMounted() {
 			if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
 				return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
@@ -192,6 +193,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 				}
 			}
 		} else {
+			// Mounted - validate the mount fields
 			if old.Spec.Mount.Reference.Kind != ws.Spec.Mount.Reference.Kind {
 				return admission.NewForbidden(a, errors.New("spec.mount.kind is immutable"))
 			}
@@ -236,6 +238,18 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			expected := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]
 			if ws.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
 				return admission.NewForbidden(a, fmt.Errorf("missing required groups annotation %s=%s", authorization.RequiredGroupsAnnotationKey, expected))
+			}
+		}
+
+		if ws.Spec.IsMounted() {
+			if ws.Spec.Mount.Reference.Kind == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.kind must be set"))
+			}
+			if ws.Spec.Mount.Reference.Name == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.name must be set"))
+			}
+			if ws.Spec.Mount.Reference.APIVersion == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion must be set"))
 			}
 		}
 	}
