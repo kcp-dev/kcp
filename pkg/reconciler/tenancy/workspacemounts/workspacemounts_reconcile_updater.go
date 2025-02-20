@@ -18,6 +18,7 @@ package workspacemounts
 
 import (
 	"context"
+	"fmt"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,6 +30,9 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // workspaceStatusUpdater updates the status of the workspace based on the mount status.
@@ -80,16 +84,9 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 
 		return reconcileStatusContinue, nil //nolint:nilerr // we ignore the error intentionally. Not helpful.
 	}
-
-	// url might not be there if the mount is not ready
-	statusURL, _, _ := unstructured.NestedString(obj.Object, "status", "URL")
-
-	// Only Spec or Status can be updated, not both.
-	if workspace.Spec.URL != statusURL {
-		workspace.Spec.URL = statusURL
-		return reconcileStatusContinue, nil
+	if err := fillWorkspaceSpec(obj, workspace); err != nil {
+		return reconcileStatusStopAndRequeue, err
 	}
-
 	// Inject condition into the workspace.
 	// This is a loose coupling, we are not interested in the rest of the status.
 	switch tenancyv1alpha1.MountPhaseType(statusPhase) {
@@ -108,4 +105,34 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 	}
 
 	return reconcileStatusContinue, nil
+}
+
+func fillWorkspaceSpec(obj *unstructured.Unstructured, workspace *tenancyv1alpha1.Workspace) error {
+	// url might not be there if the mount is not ready
+	statusURL, found, err := unstructured.NestedString(obj.Object, "status", "URL")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
+	}
+	workspace.Spec.URL = statusURL
+
+	clusterName, _, _ := unstructured.NestedString(obj.Object, "status", "cluster")
+	workspace.Spec.Cluster = clusterName
+
+	wsTypeName, found, err := unstructured.NestedString(obj.Object, "status", "type", "name")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.type.name, found %v, err: %w", found, err)
+	}
+
+	if workspace.Spec.Type == nil {
+		workspace.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{}
+	}
+	workspace.Spec.Type.Name = tenancyv1alpha1.WorkspaceTypeName(wsTypeName)
+
+	wsTypePath, found, err := unstructured.NestedString(obj.Object, "status", "type", "path")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.type.path, found %v, err: %w", found, err)
+	}
+	workspace.Spec.Type.Path = wsTypePath
+
+	return nil
 }
