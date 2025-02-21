@@ -9,14 +9,14 @@ kcp implements the same authentication mechanisms as Kubernetes, allowing the us
 
 ## Examples
 
-For detailed instructions on running kcp with specific authentication plugin, please refer to the subpage:
+For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:
 - [OIDC]
 
 ## KCP Front Proxy Authentication
 
-The kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name and Organizations to backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.
+kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.
 
-There are enabled four authentication strategies in union.
+Four authentication strategies are enabled in union.
 
 * Client certificate
 * Token file
@@ -44,24 +44,24 @@ flowchart
 
 ### Groups Filter
 
-kcp Front Proxy drops or passes specific system groups before forwarding requests.
-These can be passed by setting `--authentication-pass-on-groups` and `--authentication-drop-groups` flags. They accept a comma-separated list of group names.
+kcp-front-proxy drops or passes specific system groups before forwarding requests.
+These can be passed by setting `--authentication-pass-on-groups` and `--authentication-drop-groups` flags. They accept a comma-separated list of group names. Groups specified via drop-groups take precedence over ones specified via pass-on.
 
-By default, proxy is configured to drop `system:masters` and `system:kcp:logical-cluster-admin`.
-This ensures that highly privileged users, do not receive elevated access when passing through the proxy.
+By default, kcp-front-proxy is configured to drop `system:masters` and `system:kcp:logical-cluster-admin`.
+This ensures that highly privileged users do not receive elevated access when passing through the proxy.
 
 ## KCP Server Admin Authentication
 
-Admin Authenticator sets up user roles and groups and generates authentication tokens. The authentication process relies on Kubernetes authenticated group authenticator.
+Admin Authenticator sets up user roles and groups and generates authentication tokens and `admin.kubeconfig` file. The authentication process relies on Kubernetes authenticated group authenticator.
 To enable admin authentication in the kcp server, you need run it in the development mode with the `--batteries-included=admin` flag set.
-This setting is currently enabled by default.
+This setting is currently enabled by default when running the `kcp` binary, but is disabled in the Helm chart.
 
 ### Users and Groups
 
 | **User Name**   | **Role**                                                                                                                           | **Groups**                           |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
-| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks.                                           | system:masters, system:authenticated |
-| **kcp-admin**   | Member of the system:kcp:workspace:admin and system:kcp:workspace:access groups. This user is subject to kcp authorization checks. | system:kcp:workspace:admin           |
+| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks.                                           | system:masters|
+| **kcp-admin**   | Member of the system:kcp:admin group. This user is subject to kcp authorization checks. | system:kcp:admin           |
 | **user**        | Regular non-admin user who is not a part of any predefined groups.                                                                 | None                                 |
 
 ### Generated Kubeconfig Contexts
