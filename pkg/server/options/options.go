@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -130,6 +131,11 @@ func NewOptions(rootDir string) *Options {
 	// turn on the watch cache
 	o.GenericControlPlane.Etcd.EnableWatchCache = true
 
+	// TODO(gman0): remove this admissionregistration.k8s.io/v1alpha1 override once
+	// we reach Kubernetes v1.33. VAP will be removed from that API version then:
+	// https://github.com/kubernetes/kubernetes/pull/129207
+	// ValidatingAdmissionPolicy is GA, in admissionregistration.k8s.io/v1.
+	//
 	// Turn on admissionregistration for validating admission policy
 	if err := o.GenericControlPlane.APIEnablement.RuntimeConfig.Set("admissionregistration.k8s.io/v1alpha1=true"); err != nil {
 		panic(fmt.Errorf("error setting APIEnablement: %w", err))
@@ -241,7 +247,7 @@ func (o *CompletedOptions) Validate() []error {
 	return errs
 }
 
-func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
+func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptions, error) {
 	if servers := o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
 		o.EmbeddedEtcd.Enabled = true
 	}
@@ -312,10 +318,13 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericOptions, err := o.GenericControlPlane.Complete(nil, nil)
+	genericControlPlaneFss := cliflag.NamedFlagSets{}
+	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, genericControlPlaneFss, nil, nil)
 	if err != nil {
 		return nil, err
 	}
+
+	o.GenericControlPlane.AddFlags(&genericControlPlaneFss)
 
 	if o.Extra.ExperimentalBindFreePort {
 		// Override Required here. It influences o.GenericControlPlane.Validate to pass without a set port,

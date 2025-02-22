@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
@@ -39,36 +39,37 @@ type APIBindingsGetter interface {
 
 // APIBindingInterface has methods to work with APIBinding resources.
 type APIBindingInterface interface {
-	Create(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.CreateOptions) (*v1alpha1.APIBinding, error)
-	Update(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (*v1alpha1.APIBinding, error)
+	Create(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts v1.CreateOptions) (*apisv1alpha1.APIBinding, error)
+	Update(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts v1.UpdateOptions) (*apisv1alpha1.APIBinding, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (*v1alpha1.APIBinding, error)
+	UpdateStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBinding, opts v1.UpdateOptions) (*apisv1alpha1.APIBinding, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.APIBinding, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIBindingList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*apisv1alpha1.APIBinding, error)
+	List(ctx context.Context, opts v1.ListOptions) (*apisv1alpha1.APIBindingList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error)
-	Apply(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *apisv1alpha1.APIBinding, err error)
+	Apply(ctx context.Context, aPIBinding *applyconfigurationapisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIBinding, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, aPIBinding *apisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIBinding, err error)
+	ApplyStatus(ctx context.Context, aPIBinding *applyconfigurationapisv1alpha1.APIBindingApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIBinding, err error)
 	APIBindingExpansion
 }
 
 // aPIBindings implements APIBindingInterface
 type aPIBindings struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.APIBinding, *v1alpha1.APIBindingList, *apisv1alpha1.APIBindingApplyConfiguration]
+	*gentype.ClientWithListAndApply[*apisv1alpha1.APIBinding, *apisv1alpha1.APIBindingList, *applyconfigurationapisv1alpha1.APIBindingApplyConfiguration]
 }
 
 // newAPIBindings returns a APIBindings
 func newAPIBindings(c *ApisV1alpha1Client) *aPIBindings {
 	return &aPIBindings{
-		gentype.NewClientWithListAndApply[*v1alpha1.APIBinding, *v1alpha1.APIBindingList, *apisv1alpha1.APIBindingApplyConfiguration](
+		gentype.NewClientWithListAndApply[*apisv1alpha1.APIBinding, *apisv1alpha1.APIBindingList, *applyconfigurationapisv1alpha1.APIBindingApplyConfiguration](
 			"apibindings",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.APIBinding { return &v1alpha1.APIBinding{} },
-			func() *v1alpha1.APIBindingList { return &v1alpha1.APIBindingList{} }),
+			func() *apisv1alpha1.APIBinding { return &apisv1alpha1.APIBinding{} },
+			func() *apisv1alpha1.APIBindingList { return &apisv1alpha1.APIBindingList{} },
+		),
 	}
 }

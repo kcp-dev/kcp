@@ -48,11 +48,17 @@ spec:
                 description: NamespaceCondition contains details about state of namespace.
                 properties:
                   lastTransitionTime:
+                    description: Last time the condition transitioned from one status
+                      to another.
                     format: date-time
                     type: string
                   message:
+                    description: Human-readable message indicating details about last
+                      transition.
                     type: string
                   reason:
+                    description: Unique, one-word, CamelCase reason for the condition's
+                      last transition.
                     type: string
                   status:
                     description: Status of the condition, one of True, False, Unknown.

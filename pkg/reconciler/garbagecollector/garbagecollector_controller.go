@@ -300,7 +300,12 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		//nolint:errcheck
 		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 
-		go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
+		// Initial sync timeout is set to 30s - as it was hardcoded in
+		// e8b1d7dc24713db99808028e0d02bacf6d48e01f in k/k. Should it timeout,
+		// the GC will continue running regardless, expecting the monitors to be
+		// synced eventually. In any case, the ResyncMonitors call above should
+		// have done that anyway.
+		go garbageCollector.Run(ctx, c.workersPerLogicalCluster, time.Second*30)
 	}()
 
 	return nil

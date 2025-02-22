@@ -48,7 +48,7 @@ func WorkspaceType(name string) *WorkspaceTypeApplyConfiguration {
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithKind(value string) *WorkspaceTypeApplyConfiguration {
-	b.Kind = &value
+	b.TypeMetaApplyConfiguration.Kind = &value
 	return b
 }
 
@@ -56,7 +56,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithKind(value string) *WorkspaceTypeA
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithAPIVersion(value string) *WorkspaceTypeApplyConfiguration {
-	b.APIVersion = &value
+	b.TypeMetaApplyConfiguration.APIVersion = &value
 	return b
 }
 
@@ -65,7 +65,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithAPIVersion(value string) *Workspac
 // If called multiple times, the Name field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithName(value string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Name = &value
+	b.ObjectMetaApplyConfiguration.Name = &value
 	return b
 }
 
@@ -74,7 +74,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithName(value string) *WorkspaceTypeA
 // If called multiple times, the GenerateName field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithGenerateName(value string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.GenerateName = &value
+	b.ObjectMetaApplyConfiguration.GenerateName = &value
 	return b
 }
 
@@ -83,7 +83,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithGenerateName(value string) *Worksp
 // If called multiple times, the Namespace field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithNamespace(value string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Namespace = &value
+	b.ObjectMetaApplyConfiguration.Namespace = &value
 	return b
 }
 
@@ -92,7 +92,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithNamespace(value string) *Workspace
 // If called multiple times, the UID field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithUID(value types.UID) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.UID = &value
+	b.ObjectMetaApplyConfiguration.UID = &value
 	return b
 }
 
@@ -101,7 +101,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithUID(value types.UID) *WorkspaceTyp
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithResourceVersion(value string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.ResourceVersion = &value
+	b.ObjectMetaApplyConfiguration.ResourceVersion = &value
 	return b
 }
 
@@ -110,7 +110,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithResourceVersion(value string) *Wor
 // If called multiple times, the Generation field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithGeneration(value int64) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.Generation = &value
+	b.ObjectMetaApplyConfiguration.Generation = &value
 	return b
 }
 
@@ -119,7 +119,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithGeneration(value int64) *Workspace
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithCreationTimestamp(value metav1.Time) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.CreationTimestamp = &value
+	b.ObjectMetaApplyConfiguration.CreationTimestamp = &value
 	return b
 }
 
@@ -128,7 +128,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithCreationTimestamp(value metav1.Tim
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.DeletionTimestamp = &value
+	b.ObjectMetaApplyConfiguration.DeletionTimestamp = &value
 	return b
 }
 
@@ -137,7 +137,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithDeletionTimestamp(value metav1.Tim
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
 func (b *WorkspaceTypeApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	b.DeletionGracePeriodSeconds = &value
+	b.ObjectMetaApplyConfiguration.DeletionGracePeriodSeconds = &value
 	return b
 }
 
@@ -147,11 +147,11 @@ func (b *WorkspaceTypeApplyConfiguration) WithDeletionGracePeriodSeconds(value i
 // overwriting an existing map entries in Labels field with the same key.
 func (b *WorkspaceTypeApplyConfiguration) WithLabels(entries map[string]string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	if b.Labels == nil && len(entries) > 0 {
-		b.Labels = make(map[string]string, len(entries))
+	if b.ObjectMetaApplyConfiguration.Labels == nil && len(entries) > 0 {
+		b.ObjectMetaApplyConfiguration.Labels = make(map[string]string, len(entries))
 	}
 	for k, v := range entries {
-		b.Labels[k] = v
+		b.ObjectMetaApplyConfiguration.Labels[k] = v
 	}
 	return b
 }
@@ -162,11 +162,11 @@ func (b *WorkspaceTypeApplyConfiguration) WithLabels(entries map[string]string) 
 // overwriting an existing map entries in Annotations field with the same key.
 func (b *WorkspaceTypeApplyConfiguration) WithAnnotations(entries map[string]string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
-	if b.Annotations == nil && len(entries) > 0 {
-		b.Annotations = make(map[string]string, len(entries))
+	if b.ObjectMetaApplyConfiguration.Annotations == nil && len(entries) > 0 {
+		b.ObjectMetaApplyConfiguration.Annotations = make(map[string]string, len(entries))
 	}
 	for k, v := range entries {
-		b.Annotations[k] = v
+		b.ObjectMetaApplyConfiguration.Annotations[k] = v
 	}
 	return b
 }
@@ -180,7 +180,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithOwnerReferences(values ...*v1.Owne
 		if values[i] == nil {
 			panic("nil value passed to WithOwnerReferences")
 		}
-		b.OwnerReferences = append(b.OwnerReferences, *values[i])
+		b.ObjectMetaApplyConfiguration.OwnerReferences = append(b.ObjectMetaApplyConfiguration.OwnerReferences, *values[i])
 	}
 	return b
 }
@@ -191,7 +191,7 @@ func (b *WorkspaceTypeApplyConfiguration) WithOwnerReferences(values ...*v1.Owne
 func (b *WorkspaceTypeApplyConfiguration) WithFinalizers(values ...string) *WorkspaceTypeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
-		b.Finalizers = append(b.Finalizers, values[i])
+		b.ObjectMetaApplyConfiguration.Finalizers = append(b.ObjectMetaApplyConfiguration.Finalizers, values[i])
 	}
 	return b
 }
@@ -221,5 +221,5 @@ func (b *WorkspaceTypeApplyConfiguration) WithStatus(value *WorkspaceTypeStatusA
 // GetName retrieves the value of the Name field in the declarative configuration.
 func (b *WorkspaceTypeApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
-	return b.Name
+	return b.ObjectMetaApplyConfiguration.Name
 }
