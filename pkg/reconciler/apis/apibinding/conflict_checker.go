@@ -37,7 +37,6 @@ func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
@@ -50,14 +49,12 @@ type conflictChecker struct {
 // newConflictChecker creates a CRD conflict checker for the given cluster.
 func newConflictChecker(clusterName logicalcluster.Name,
 	listAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error),
-	getAPIExportByPath func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error),
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error),
 	getCRD func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error),
 	listCRDs func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error),
 ) (*conflictChecker, error) {
 	ncc := &conflictChecker{
 		listAPIBindings:      listAPIBindings,
-		getAPIExportByPath:   getAPIExportByPath,
 		getAPIResourceSchema: getAPIResourceSchema,
 		getCRD:               getCRD,
 		listCRDs:             listCRDs,
@@ -71,35 +68,8 @@ func newConflictChecker(clusterName logicalcluster.Name,
 		return nil, err
 	}
 	for _, b := range bindings {
-		if b.Spec.Reference.Export == nil {
-			// this should not happen because of validation.
-			return nil, fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(b), b.Name)
-		}
-		path := logicalcluster.NewPath(b.Spec.Reference.Export.Path)
-		if path.Empty() {
-			path = logicalcluster.From(b).Path()
-		}
-		apiExport, err := ncc.getAPIExportByPath(path, b.Spec.Reference.Export.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		boundSchemaUIDs := sets.New[string]()
-		for _, boundResource := range b.Status.BoundResources {
-			boundSchemaUIDs.Insert(boundResource.Schema.UID)
-		}
-
-		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-			schema, err := ncc.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
-			if err != nil {
-				return nil, err
-			}
-
-			if !boundSchemaUIDs.Has(string(schema.UID)) {
-				continue
-			}
-
-			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, string(schema.UID))
+		for _, br := range b.Status.BoundResources {
+			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, br.Schema.UID)
 			if err != nil {
 				return nil, err
 			}
@@ -121,6 +91,8 @@ func newConflictChecker(clusterName logicalcluster.Name,
 	return ncc, nil
 }
 
+// Check checks if the given schema from the given APIBinding conflicts with any
+// CRD or any other APIBinding.
 func (ncc *conflictChecker) Check(binding *apisv1alpha1.APIBinding, s *apisv1alpha1.APIResourceSchema) error {
 	for _, crd := range ncc.crds {
 		if other, found := ncc.crdToBinding[crd.Name]; found && other.Name == binding.Name {

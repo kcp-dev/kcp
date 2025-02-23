@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -31,8 +32,10 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -140,10 +143,10 @@ type bindingReconciler struct {
 func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
-	// Check for valid reference
+	// Check for valid APIExport reference
 	workspaceRef := apiBinding.Spec.Reference.Export
 	if workspaceRef == nil {
-		// this should not happen because of OpenAPI
+		// this should not happen because of validation.
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
@@ -153,8 +156,6 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		)
 		return reconcileStatusContinue, nil
 	}
-
-	// Get APIExport
 	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiBinding).Path()
@@ -185,7 +186,6 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		)
 		return reconcileStatusContinue, err
 	}
-
 	logger = logging.WithObject(logger, apiExport)
 
 	// Record the export's permission claims
@@ -209,19 +209,11 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	// The full path is unreliable for this purpose.
 	apiBinding.Status.APIExportClusterName = logicalcluster.From(apiExport).String()
 
-	var needToWaitForRequeueWhenEstablished []string
-
-	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIExportByPath, r.getAPIResourceSchema, r.getCRD, r.listCRDs)
-	if err != nil {
-		return reconcileStatusContinue, err
-	}
-
-	// Process all APIResourceSchemas
+	// Collect the schemas.
+	schemas := make(map[string]*apisv1alpha1.APIResourceSchema)
+	grs := sets.New[schema.GroupResource]()
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		bindingClusterName := logicalcluster.From(apiBinding)
-
-		// Get the schema
-		schema, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
+		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
 		if err != nil {
 			logger.Error(err, "error binding")
 
@@ -230,7 +222,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				apisv1alpha1.APIExportValid,
 				apisv1alpha1.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"Invalid APIExport. Please contact the APIExport owner to resolve",
+				"Invalid APIExport. Please contact the APIExport owner to resolve: APIResourceSchema %q not found", schemaName,
 			)
 
 			if apierrors.IsNotFound(err) {
@@ -239,9 +231,57 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, err
 		}
-		logger := logging.WithObject(logger, schema)
+		schemas[schemaName] = sch
+		grs = grs.Insert(schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural})
+	}
 
-		if err := checker.Check(apiBinding, schema); err != nil {
+	crds, err := r.listCRDs(logicalcluster.From(apiBinding))
+	if err != nil {
+		return reconcileStatusContinue, err
+	}
+
+	var skipped map[schema.GroupResource]Lock
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Look up LogicalCluster which acts as our lock to avoid having multiple bindings
+		// and/or CRDs owning the same resource.
+		lc, err := r.getLogicalCluster(logicalcluster.From(apiBinding))
+		if err != nil {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.BindingUpToDate,
+				apisv1alpha1.LogicalClusterNotFoundReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Unable to bind APIs: %v",
+				err,
+			)
+
+			// Only change InitialBindingCompleted if it's false.
+			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.InitialBindingCompleted,
+					apisv1alpha1.LogicalClusterNotFoundReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Unable to bind APIs: %v",
+					err,
+				)
+			}
+
+			// wait until it shows up. Bindings don't work without.
+			return err
+		}
+
+		// Lock resources before going any further. Not being able to lock all resources is NOT an error.
+		// It will be reflected in the BindingUpToDate and InitialBindingCompleted conditions.
+		// TODO(sttts): removed schemas never get unlocked. We need a distinguishable way
+		//              for intentional removal of schemas, versus movement of schemas
+		//              to another APIExport.
+		lc, _, skipped, err = WithLockedResources(crds, time.Now(), lc, grs.UnsortedList(), ExpirableLock{
+			Lock: Lock{Name: apiBinding.Name},
+		})
+		if err != nil {
+			logger.Error(err, "error locking resources", "skipped", skipped)
+
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.BindingUpToDate,
@@ -251,7 +291,62 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				err,
 			)
 
-			// Only change InitialBindingCompleted if it's false
+			// Only change InitialBindingCompleted if it's false.
+			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha1.InitialBindingCompleted,
+					apisv1alpha1.NamingConflictsReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Unable to bind APIs: %v",
+					err,
+				)
+			}
+
+			return err
+		}
+
+		if err := r.updateLogicalCluster(ctx, lc); err != nil {
+			return err
+		}
+
+		if len(skipped) > 0 {
+			logger.V(4).Info("skipped resources", "resources", skipped)
+		}
+
+		return nil
+	}); err != nil {
+		logger.Error(err, "error updating LogicalCluster")
+		return reconcileStatusContinue, err
+	}
+
+	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIResourceSchema, r.getCRD, r.listCRDs)
+	if err != nil {
+		return reconcileStatusContinue, err
+	}
+	var needToWaitForRequeueWhenEstablished []string
+	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+		sch := schemas[schemaName]
+		logger := logging.WithObject(logger, sch)
+
+		if _, ok := skipped[schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural}]; ok {
+			// This resource was skipped because it's already locked by another binding.
+			continue
+		}
+
+		// A resource will be served if the group resource is locked by this binding AND there are no
+		// naming conflicts with other bindings or CRDs. The former is critical, the latter is advisory.
+		if err := checker.Check(apiBinding, sch); err != nil {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.BindingUpToDate,
+				apisv1alpha1.NamingConflictsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Unable to bind APIs: %v",
+				err,
+			)
+
+			// Only change InitialBindingCompleted if it's false.
 			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 				conditions.MarkFalse(
 					apiBinding,
@@ -266,7 +361,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// If there are multiple versions, the conversion strategy must be defined in the APIResourceSchema
-		if len(schema.Spec.Versions) > 1 && schema.Spec.Conversion == nil {
+		if len(sch.Spec.Versions) > 1 && sch.Spec.Conversion == nil {
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha1.APIExportValid,
@@ -278,7 +373,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			return reconcileStatusContinue, fmt.Errorf(
 				"conversion strategy not specified %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
 				apiExportPath, schemaName,
-				bindingClusterName, apiBinding.Name,
+				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
 				apiExportPath, schemaName,
 				err,
@@ -286,7 +381,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// Try to get the bound CRD
-		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(schema))
+		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(sch))
 		if err != nil && !apierrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				apiBinding,
@@ -298,8 +393,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				SystemBoundCRDsClusterName, boundCRDName(schema),
-				bindingClusterName, apiBinding.Name,
+				SystemBoundCRDsClusterName, boundCRDName(sch),
+				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
 				apiExportPath, schemaName,
 				err,
@@ -319,7 +414,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			}
 		} else {
 			// Need to create bound CRD
-			crd, err := generateCRD(schema)
+			crd, err := generateCRD(sch)
 			if err != nil {
 				logger.Error(err, "error generating CRD")
 
@@ -347,7 +442,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			// Create bound CRD
 			logger.V(2).Info("creating CRD")
 			if _, err := r.createCRD(ctx, SystemBoundCRDsClusterName.Path(), crd); err != nil {
-				schemaClusterName := logicalcluster.From(schema)
+				schemaClusterName := logicalcluster.From(sch)
 				if apierrors.IsInvalid(err) {
 					status := apierrors.APIStatus(nil)
 					// The error is guaranteed to implement APIStatus here
@@ -411,7 +506,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		for _, b := range apiBinding.Status.BoundResources {
-			if b.Group == schema.Spec.Group && b.Resource == schema.Spec.Names.Plural {
+			if b.Group == sch.Spec.Group && b.Resource == sch.Spec.Names.Plural {
 				storageVersions.Insert(b.StorageVersions...)
 				break
 			}
@@ -422,11 +517,11 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 		// Upsert the BoundAPIResource for this APIResourceSchema
 		newBoundResource := apisv1alpha1.BoundAPIResource{
-			Group:    schema.Spec.Group,
-			Resource: schema.Spec.Names.Plural,
+			Group:    sch.Spec.Group,
+			Resource: sch.Spec.Names.Plural,
 			Schema: apisv1alpha1.BoundAPIResourceSchema{
-				Name:         schema.Name,
-				UID:          string(schema.UID),
+				Name:         sch.Name,
+				UID:          string(sch.UID),
 				IdentityHash: apiExport.Status.IdentityHash,
 			},
 			StorageVersions: sortedStorageVersions,
@@ -434,7 +529,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 		found := false
 		for i, r := range apiBinding.Status.BoundResources {
-			if r.Group == schema.Spec.Group && r.Resource == schema.Spec.Names.Plural {
+			if r.Group == sch.Spec.Group && r.Resource == sch.Spec.Names.Plural {
 				apiBinding.Status.BoundResources[i] = newBoundResource
 				found = true
 				break
@@ -468,6 +563,25 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				conditionsv1alpha1.ConditionSeverityInfo,
 				"Waiting for API(s) to be established: %s",
 				strings.Join(needToWaitForRequeueWhenEstablished, ", "),
+			)
+		}
+	} else if len(skipped) > 0 {
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.BindingUpToDate,
+			apisv1alpha1.NamingConflictsReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Unable to bind APIs because they are bound by other APIBindings or CRDs: %v", skipped,
+		)
+
+		// Only change InitialBindingCompleted if it's false
+		if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+			conditions.MarkFalse(
+				apiBinding,
+				apisv1alpha1.InitialBindingCompleted,
+				apisv1alpha1.NamingConflictsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Unable to bind APIs because they are bound by other APIBindings or CRDs: %v", skipped,
 			)
 		}
 	} else {
