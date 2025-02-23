@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
+	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -67,12 +68,16 @@ type crdNoOverlappingGVRAdmission struct {
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&crdNoOverlappingGVRAdmission{})
 var _ = admission.InitializationValidator(&crdNoOverlappingGVRAdmission{})
+var _ = initializers.WantsKcpInformers(&crdNoOverlappingGVRAdmission{})
+var _ = initializers.WantsKcpClusterClient(&crdNoOverlappingGVRAdmission{})
 
+// SetKcpInformers sets the informer for kcp resources. It's part of WantsKcpInformers.
 func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	p.SetReadyFunc(local.Apis().V1alpha1().APIBindings().Informer().HasSynced)
 	p.logicalclusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 }
 
+// SetKcpClusterClient sets the client for kcp resources. It's part of WantsKcpClusterClient.
 func (p *crdNoOverlappingGVRAdmission) SetKcpClusterClient(c kcpclientset.ClusterInterface) {
 	p.updateLogicalCluster = func(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster, opts metav1.UpdateOptions) (*corev1alpha1.LogicalCluster, error) {
 		return c.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(logicalCluster).Path()).Update(ctx, logicalCluster, opts)
