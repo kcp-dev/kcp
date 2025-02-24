@@ -50,6 +50,9 @@ type CreateWorkspaceOptions struct {
 	Name string
 	// Type is the type of the workspace to create.
 	Type string
+	// TODO(blut): consider a bool var instead
+	// EnableDefaultAPIBinding of the workspace to create.
+	EnableDefaultAPIBindingLifecycle bool
 	// EnterAfterCreate enters the newly created workspace if true.
 	EnterAfterCreate bool
 	// IgnoreExisting ignores errors if the workspace already exists.
@@ -106,6 +109,7 @@ func (o *CreateWorkspaceOptions) Validate() error {
 func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 	cmd.Flags().StringVar(&o.Type, "type", o.Type, "A workspace type. The default type depends on where this child workspace is created.")
+	cmd.Flags().BoolVar(&o.EnableDefaultAPIBindingLifecycle, "enable-defaultapibinding-lifecycle", o.EnableDefaultAPIBindingLifecycle, "Toggle if the created workspace should maintain defaultAPIBindings from the ")
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
 	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
 	cmd.Flags().StringVar(&o.LocationSelector, "location-selector", o.LocationSelector, "A label selector to select the scheduling location of the created workspace.")
@@ -161,6 +165,10 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		ws.Spec.Location = &tenancyv1alpha1.WorkspaceLocation{
 			Selector: selector,
 		}
+	}
+
+	if o.EnableDefaultAPIBindingLifecycle {
+		ws.Spec.DefaultAPIBindingLifecycle = "Maintain"
 	}
 
 	preExisting := false
