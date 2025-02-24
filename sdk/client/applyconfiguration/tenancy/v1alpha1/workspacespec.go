@@ -25,6 +25,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	Location *WorkspaceLocationApplyConfiguration      `json:"location,omitempty"`
 	Cluster  *string                                   `json:"cluster,omitempty"`
 	URL      *string                                   `json:"URL,omitempty"`
+	Mount    *MountApplyConfiguration                  `json:"mount,omitempty"`
 }
 
 // WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with
@@ -62,5 +63,13 @@ func (b *WorkspaceSpecApplyConfiguration) WithCluster(value string) *WorkspaceSp
 // If called multiple times, the URL field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithURL(value string) *WorkspaceSpecApplyConfiguration {
 	b.URL = &value
+	return b
+}
+
+// WithMount sets the Mount field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Mount field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithMount(value *MountApplyConfiguration) *WorkspaceSpecApplyConfiguration {
+	b.Mount = value
 	return b
 }
