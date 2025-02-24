@@ -35,7 +35,7 @@ COPY cli/go.sum cli/go.sum
 USER 0
 
 # Install kubectl.
-RUN wget "https://dl.k8s.io/release/$(go list -m -json k8s.io/kubernetes | jq -r .Version)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" -O bin/kubectl && chmod +x bin/kubectl
+RUN wget "https://dl.k8s.io/release/$(go list -m -json k8s.io/kubernetes | jq -r .Version | sed 's/^v0/v1/')/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" -O bin/kubectl && chmod +x bin/kubectl
 
 # Cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
