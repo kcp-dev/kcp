@@ -1741,6 +1741,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail" class="md-nav__link">
     <span class="md-ellipsis">
       Goal: The majority of applications and teams should have workflows where cluster is a detail
@@ -3119,6 +3128,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail" class="md-nav__link">
     <span class="md-ellipsis">
       Goal: The majority of applications and teams should have workflows where cluster is a detail
@@ -3245,6 +3263,7 @@
 
 
 <h1 id="transparent-multi-cluster">Transparent multi-cluster</h1>
+<h2 id="note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project">NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.</h2>
 <p>A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.</p>
 <p>A key area of investigation for <code>kcp</code> is exploring transparency of workloads to clusters. Aspirationally we want Kube workloads to be resilient to the operational characteristics of the underlying infrastructure and clusters orthogonally to the workload, by isolating the user from knowing of the details of the infrastructure. If workload APIs are more consistently "node-less" and "cluster-agnostic" that opens up ways to drive workload consistency across a large swathe of the compute landscape.</p>
 <h2 id="goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail">Goal: The majority of applications and teams should have workflows where cluster is a detail</h2>
