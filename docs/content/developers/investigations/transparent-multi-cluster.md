@@ -5,6 +5,8 @@ description: >
 
 # Transparent multi-cluster
 
+## NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. 
+
 A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.
 
 A key area of investigation for `kcp` is exploring transparency of workloads to clusters. Aspirationally we want Kube workloads to be resilient to the operational characteristics of the underlying infrastructure and clusters orthogonally to the workload, by isolating the user from knowing of the details of the infrastructure. If workload APIs are more consistently "node-less" and "cluster-agnostic" that opens up ways to drive workload consistency across a large swathe of the compute landscape.
