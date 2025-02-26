@@ -11,7 +11,6 @@ You can install the plugins from the current repo:
 
 ```sh
 $ make install
-go install ./cmd/...
 ```
 
 or use [krew](https://krew.sigs.k8s.io/):
