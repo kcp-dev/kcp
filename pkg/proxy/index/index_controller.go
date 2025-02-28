@@ -91,7 +91,7 @@ func NewController(
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			shard := obj.(*corev1alpha1.Shard)
-			oldShard := obj.(*corev1alpha1.Shard)
+			oldShard := old.(*corev1alpha1.Shard)
 			if oldShard.Spec.BaseURL == shard.Spec.BaseURL {
 				return
 			}
