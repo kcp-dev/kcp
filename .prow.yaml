@@ -37,9 +37,9 @@ presubmits:
               cpu: 1
 
   - name: pull-kcp-lint
-    always_run: true
     decorate: true
     clone_uri: "https://github.com/kcp-dev/kcp"
+    skip_if_only_changed: "(docs)"
     labels:
       preset-goproxy: "true"
     spec:
@@ -54,9 +54,9 @@ presubmits:
               cpu: 2
 
   - name: pull-kcp-build-image
-    always_run: true
     decorate: true
     clone_uri: "https://github.com/kcp-dev/kcp"
+    skip_if_only_changed: "(docs)"
     labels:
       preset-goproxy: "true"
     spec:
@@ -76,9 +76,9 @@ presubmits:
               cpu: 1
 
   - name: pull-kcp-test-unit
-    always_run: true
     decorate: true
     clone_uri: "https://github.com/kcp-dev/kcp"
+    skip_if_only_changed: "(docs)"
     labels:
       preset-goproxy: "true"
     spec:
