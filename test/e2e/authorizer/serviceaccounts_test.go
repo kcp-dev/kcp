@@ -183,7 +183,7 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("Access another workspace in the same org", func(t *testing.T) {
-				t.Log("Create workspace with the same name ")
+				t.Log("Create workspace with the same name")
 				otherPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
@@ -236,10 +236,7 @@ func TestServiceAccounts(t *testing.T) {
 				t.Log("Accessing other workspace with the (there foreign) service account should eventually work because it is authenticated")
 				framework.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false, err.Error()
-					}
-					return true, ""
+					return err == nil, fmt.Sprintf("err = %v", err)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Log("Taking away the authenticated access to the other workspace, restricting to only service accounts")
