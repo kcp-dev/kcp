@@ -56,6 +56,7 @@ import (
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/dynamicrestmapper"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -1592,6 +1593,38 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 			c.Start(ctx, 2)
 		},
 	})
+}
+
+func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, dynamicrestmapper.ControllerName)
+
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := dynamicrestmapper.NewController(ctx, s.DynRESTMapper, crdClusterClient,
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())
+	if err != nil {
+		return err
+	}
+
+	if err := s.registerController(&controllerWrapper{
+		Name: dynamicrestmapper.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) WaitForSync(stop <-chan struct{}) error {
