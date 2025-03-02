@@ -25,6 +25,7 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 type shardStub struct {
@@ -246,16 +247,23 @@ func TestLookup(t *testing.T) {
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {newWorkspace("org", "root", "one")},
-				"beta": {newWorkspaceWithAnnotation("rh", "one", "two", map[string]string{
-					"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
-				})},
+				"beta": {
+					withURL(
+						withPhase(
+							newWorkspaceWithMount("mount", "one", "", tenancyv1alpha1.ObjectReference{
+								Kind:       "KubeCluster",
+								Name:       "prod-cluster",
+								APIVersion: "proxy.kcp.dev/v1alpha1",
+							}),
+							"Ready"),
+						"https://kcp.dev.local/services/custom-url/proxy")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
 				"root": {newLogicalCluster("root")},
 				"beta": {newLogicalCluster("one")},
 				"gama": {newLogicalCluster("two")},
 			},
-			targetPath:      logicalcluster.NewPath("one:rh"),
+			targetPath:      logicalcluster.NewPath("one:mount"),
 			expectFound:     true,
 			expectedCluster: "",
 			expectedShard:   "",
@@ -279,9 +287,11 @@ func TestLookup(t *testing.T) {
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {newWorkspace("org", "root", "one")},
-				"beta": {withPhase(newWorkspaceWithAnnotation("rh", "one", "two", map[string]string{
-					"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
-				}), corev1alpha1.LogicalClusterPhaseUnavailable)},
+				"beta": {withURL(withPhase(newWorkspaceWithMount("rh", "one", "", tenancyv1alpha1.ObjectReference{
+					Kind:       "KubeCluster",
+					Name:       "prod-cluster",
+					APIVersion: "proxy.kcp.dev/v1alpha1",
+				}), corev1alpha1.LogicalClusterPhaseUnavailable), "https://kcp.dev.local/services/custom-url/proxy")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
 				"root": {newLogicalCluster("root")},
@@ -290,6 +300,7 @@ func TestLookup(t *testing.T) {
 			},
 			targetPath:      logicalcluster.NewPath("one:rh"),
 			expectFound:     true,
+			expectedError:   503,
 			expectedCluster: "",
 			expectedShard:   "",
 			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
@@ -498,13 +509,6 @@ func TestUpsertWorkspace(t *testing.T) {
 	target.UpsertWorkspace("root", newWorkspace("org", "root", "44"))
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "44", "", true)
-
-	// Upsert workspace with changed mount annotation
-	target.UpsertWorkspace("root", newWorkspaceWithAnnotation("org", "root", "44", map[string]string{
-		"experimental.tenancy.kcp.io/mount": `{"spec":{"ref":{"kind":"KubeCluster","name":"prod-cluster","apiVersion":"proxy.kcp.dev/v1alpha1"}},"status":{"phase":"Ready","url":"https://kcp.dev.local/services/custom-url/proxy"}}`,
-	}))
-	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "https://kcp.dev.local/services/custom-url/proxy", true)
 }
 
 func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, cluster logicalcluster.Name, url string, found bool, expectedShard string, expectedCluster logicalcluster.Name, expectedURL string, expectToFind bool) {
@@ -532,16 +536,24 @@ func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Works
 	}
 }
 
-func newWorkspaceWithAnnotation(name, cluster, scheduledCluster string, annotations map[string]string) *tenancyv1alpha1.Workspace {
+func newWorkspaceWithMount(name, cluster, scheduledCluster string, ref tenancyv1alpha1.ObjectReference) *tenancyv1alpha1.Workspace {
 	ws := newWorkspace(name, cluster, scheduledCluster)
-	for k, v := range annotations {
-		ws.Annotations[k] = v
-	}
+	ws.Spec.Mount = &tenancyv1alpha1.Mount{Reference: ref}
+	return ws
+}
+
+func WithCondition(ws *tenancyv1alpha1.Workspace, condition conditionsv1alpha1.Condition) *tenancyv1alpha1.Workspace {
+	ws.Status.Conditions = []conditionsv1alpha1.Condition{condition}
 	return ws
 }
 
 func withPhase(ws *tenancyv1alpha1.Workspace, phase corev1alpha1.LogicalClusterPhaseType) *tenancyv1alpha1.Workspace {
 	ws.Status.Phase = phase
+	return ws
+}
+
+func withURL(ws *tenancyv1alpha1.Workspace, url string) *tenancyv1alpha1.Workspace {
+	ws.Spec.URL = url
 	return ws
 }
 
