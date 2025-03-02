@@ -1,0 +1,10 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  creationTimestamp: null
+  name: mounts.contrib.kcp.io
+spec:
+  latestResourceSchemas:
+  - v241031-8967b5418.kubeclusters.mounts.contrib.kcp.io
+  - v241101-d11f156a5.vclusters.mounts.contrib.kcp.io
+status: {}
