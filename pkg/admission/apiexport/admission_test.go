@@ -30,16 +30,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func createAttr(name string, obj runtime.Object, kind, resource string) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		nil,
-		apisv1alpha1.Kind(kind).WithVersion("v1alpha1"),
+		apisv1alpha2.Kind(kind).WithVersion("v1alpha2"),
 		"",
 		name,
-		apisv1alpha1.Resource(resource).WithVersion("v1alpha1"),
+		apisv1alpha2.Resource(resource).WithVersion("v1alpha2"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -52,10 +53,10 @@ func updateAttr(name string, obj runtime.Object, kind, resource string) admissio
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(obj),
-		apisv1alpha1.Kind(kind).WithVersion("v1alpha1"),
+		apisv1alpha2.Kind(kind).WithVersion("v1alpha2"),
 		"",
 		name,
-		apisv1alpha1.Resource(resource).WithVersion("v1alpha1"),
+		apisv1alpha2.Resource(resource).WithVersion("v1alpha2"),
 		"",
 		admission.Update,
 		&metav1.UpdateOptions{},
@@ -72,7 +73,7 @@ func TestAdmission(t *testing.T) {
 		resource    string
 		hasIdentity bool
 		isBuiltIn   bool
-		modifyPCs   func([]apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim
+		modifyPCs   func([]apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim
 		want        error
 	}{
 		"NotAPIExportKind": {
@@ -107,9 +108,9 @@ func TestAdmission(t *testing.T) {
 			resource:    "apiexports",
 			isBuiltIn:   false,
 			hasIdentity: true,
-			modifyPCs: func(pcs []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
-				pcs = append(pcs, apisv1alpha1.PermissionClaim{
-					GroupResource: apisv1alpha1.GroupResource{
+			modifyPCs: func(pcs []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
+				pcs = append(pcs, apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{
 						Group:    "imnot",
 						Resource: "builtin",
 					},
@@ -149,9 +150,9 @@ func TestAdmission(t *testing.T) {
 			resource:    "apiexports",
 			isBuiltIn:   false,
 			hasIdentity: true,
-			modifyPCs: func(pcs []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
-				pcs = append(pcs, apisv1alpha1.PermissionClaim{
-					GroupResource: apisv1alpha1.GroupResource{
+			modifyPCs: func(pcs []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
+				pcs = append(pcs, apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{
 						Group:    "imnot",
 						Resource: "builtin",
 					},
@@ -182,21 +183,21 @@ func TestAdmission(t *testing.T) {
 		"ValidNoPermissionClaims": {
 			kind:     "APIExport",
 			resource: "apiexports",
-			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
-				return []apisv1alpha1.PermissionClaim{}
+			modifyPCs: func(pc []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
+				return []apisv1alpha2.PermissionClaim{}
 			},
 		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			ae := &apisv1alpha1.APIExport{
+			ae := &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cool-something",
 				},
-				Spec: apisv1alpha1.APIExportSpec{
-					PermissionClaims: []apisv1alpha1.PermissionClaim{
+				Spec: apisv1alpha2.APIExportSpec{
+					PermissionClaims: []apisv1alpha2.PermissionClaim{
 						{
-							GroupResource: apisv1alpha1.GroupResource{
+							GroupResource: apisv1alpha2.GroupResource{
 								Group:    "some",
 								Resource: "somethings",
 							},

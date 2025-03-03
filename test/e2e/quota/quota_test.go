@@ -40,6 +40,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -147,18 +148,18 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "error creating APIResourceSchema")
 
 			t.Logf("Creating APIExport")
-			servicesAPIExport := &apisv1alpha1.APIExport{
+			servicesAPIExport := &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "services",
 				},
-				Spec: apisv1alpha1.APIExportSpec{
+				Spec: apisv1alpha2.APIExportSpec{
 					LatestResourceSchemas: []string{
 						servicesAPIResourceSchema.Name,
 					},
 				},
 			}
 
-			_, err = kcpClusterClient.Cluster(apiProviderPath).ApisV1alpha1().APIExports().Create(ctx, servicesAPIExport, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(apiProviderPath).ApisV1alpha2().APIExports().Create(ctx, servicesAPIExport, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating APIExport")
 
 			t.Logf("Create a binding in the user workspace")

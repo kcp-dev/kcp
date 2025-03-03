@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -56,8 +57,8 @@ func Register(plugins *admission.Plugins) {
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
-			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.apiExportIndexer, p.cacheAPIExportIndexer, path, name)
+			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), p.apiExportIndexer, p.cacheAPIExportIndexer, path, name)
 			}
 
 			return p, nil
@@ -67,7 +68,7 @@ func Register(plugins *admission.Plugins) {
 type apiBindingAdmission struct {
 	*admission.Handler
 
-	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
 	apiExportIndexer      cache.Indexer
 	cacheAPIExportIndexer cache.Indexer
@@ -296,13 +297,13 @@ func (o *apiBindingAdmission) SetDeepSARClient(client kcpkubernetesclientset.Clu
 }
 
 func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	apiExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
-	cacheAPIExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
+	apiExportsReady := local.Apis().V1alpha2().APIExports().Informer().HasSynced
+	cacheAPIExportsReady := local.Apis().V1alpha2().APIExports().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return apiExportsReady() && cacheAPIExportsReady()
 	})
-	o.apiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-	o.cacheAPIExportIndexer = global.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	o.apiExportIndexer = local.Apis().V1alpha2().APIExports().Informer().GetIndexer()
+	o.cacheAPIExportIndexer = global.Apis().V1alpha2().APIExports().Informer().GetIndexer()
 
 	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,

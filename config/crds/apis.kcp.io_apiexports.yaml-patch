@@ -5,3 +5,11 @@
 - op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
   value: ""
+
+- op: add
+  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/maximalPermissionPolicy/oneOf
+  value:
+  - required: ["local"]
+- op: add
+  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
+  value: ""
