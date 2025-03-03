@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/client"
 )
 
@@ -40,14 +40,14 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 			wantErr: true,
 		},
 		"valid APIExport": {
-			obj: &apisv1alpha1.APIExport{
+			obj: &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:default",
 					},
 					Name: "foo",
 				},
-				Spec: apisv1alpha1.APIExportSpec{
+				Spec: apisv1alpha2.APIExportSpec{
 					LatestResourceSchemas: []string{"schema1", "some-other-schema"},
 				},
 			},

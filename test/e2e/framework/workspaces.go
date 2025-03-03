@@ -36,7 +36,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/server"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -287,7 +287,7 @@ func VirtualWorkspaceURLOrDie(t *testing.T, kcpClusterClient kcpclientset.Cluste
 	return url
 }
 
-func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
+func ExportVirtualWorkspaceURLs(export *apisv1alpha2.APIExport) []string {
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet

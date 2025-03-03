@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -199,10 +200,10 @@ func InstallIndexers(
 	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory) map[schema.GroupVersionResource]ReplicatedGVR {
 	gvrs := map[schema.GroupVersionResource]ReplicatedGVR{
-		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"): {
+		apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"): {
 			Kind:   "APIExport",
-			Local:  localKcpInformers.Apis().V1alpha1().APIExports().Informer(),
-			Global: globalKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+			Local:  localKcpInformers.Apis().V1alpha2().APIExports().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha2().APIExports().Informer(),
 		},
 		apisv1alpha1.SchemeGroupVersion.WithResource("apiexportendpointslices"): {
 			Kind:   "APIExportEndpointSlice",

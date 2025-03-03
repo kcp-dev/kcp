@@ -35,6 +35,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/cheat"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -70,7 +71,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	exportedClaims := sets.New[string]()
 	for _, claim := range apiExport.Spec.PermissionClaims {
-		exportedClaims.Insert(setKeyForClaim(claim))
+		exportedClaims.Insert(setKeyForClaim(cheat.ConvertPermissionClaim2To1(claim)))
 	}
 
 	acceptedClaims := sets.New[string]()

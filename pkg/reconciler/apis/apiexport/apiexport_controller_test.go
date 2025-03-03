@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -206,7 +207,7 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 
-			apiExport := &apisv1alpha1.APIExport{
+			apiExport := &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:ws",
@@ -216,7 +217,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.secretRefSet {
-				apiExport.Spec.Identity = &apisv1alpha1.Identity{
+				apiExport.Spec.Identity = &apisv1alpha2.Identity{
 					SecretRef: &corev1.SecretReference{
 						Namespace: "somens",
 						Name:      "somename",

@@ -43,6 +43,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -83,15 +84,15 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
+		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(sourcePath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)
@@ -230,15 +231,15 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
+		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClients.Cluster(sourcePath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)

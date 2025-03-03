@@ -130,7 +130,7 @@ spec:
 	t.Logf("Waiting for 'api-manager' APIExport virtual workspace URL")
 	serviceProviderVirtualWorkspaceConfig := rest.CopyConfig(serviceProviderUser)
 	framework.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha1().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
+		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha2().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}

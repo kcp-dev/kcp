@@ -38,6 +38,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -222,7 +223,7 @@ func TestReconcileBinding(t *testing.T) {
 		},
 		"APIExport not found": {
 			apiBinding:        binding.Build(),
-			getAPIExportError: apierrors.NewNotFound(apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
+			getAPIExportError: apierrors.NewNotFound(apisv1alpha2.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export"),
 			wantAPIExportValid: wantAPIExportValid{
 				notFound: true,
 			},
@@ -499,7 +500,7 @@ func TestReconcileBinding(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			createCRDCalled := false
 
-			apiExports := map[string]*apisv1alpha1.APIExport{
+			apiExports := map[string]*apisv1alpha2.APIExport{
 				"some-export": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -507,10 +508,10 @@ func TestReconcileBinding(t *testing.T) {
 						},
 						Name: "some-export",
 					},
-					Spec: apisv1alpha1.APIExportSpec{
+					Spec: apisv1alpha2.APIExportSpec{
 						LatestResourceSchemas: []string{"today.widgets.kcp.io"},
 					},
-					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash1"},
+					Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash1"},
 				},
 				"conflict": {
 					ObjectMeta: metav1.ObjectMeta{
@@ -519,10 +520,10 @@ func TestReconcileBinding(t *testing.T) {
 						},
 						Name: "conflict",
 					},
-					Spec: apisv1alpha1.APIExportSpec{
+					Spec: apisv1alpha2.APIExportSpec{
 						LatestResourceSchemas: []string{"another.widgets.kcp.io"},
 					},
-					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash2"},
+					Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash2"},
 				},
 				"invalid-schema": {
 					ObjectMeta: metav1.ObjectMeta{
@@ -531,10 +532,10 @@ func TestReconcileBinding(t *testing.T) {
 						},
 						Name: "invalid-schema",
 					},
-					Spec: apisv1alpha1.APIExportSpec{
+					Spec: apisv1alpha2.APIExportSpec{
 						LatestResourceSchemas: []string{"invalid.schema.io"},
 					},
-					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash3"},
+					Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash3"},
 				},
 				"no-identity-hash": {
 					ObjectMeta: metav1.ObjectMeta{
@@ -543,7 +544,7 @@ func TestReconcileBinding(t *testing.T) {
 						},
 						Name: "some-export",
 					},
-					Spec: apisv1alpha1.APIExportSpec{
+					Spec: apisv1alpha2.APIExportSpec{
 						LatestResourceSchemas: []string{"today.widgets.kcp.io"},
 					},
 				},
@@ -575,7 +576,7 @@ func TestReconcileBinding(t *testing.T) {
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
-				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					require.Equal(t, "org:some-workspace", path.String())
 					return apiExports[name], tc.getAPIExportError
 				},

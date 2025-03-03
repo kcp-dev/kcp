@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/cheat"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -166,7 +167,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				exportClaim := apiExport.Spec.PermissionClaims[i]
 
 				acceptedClaim := apisv1alpha1.AcceptablePermissionClaim{
-					PermissionClaim: exportClaim,
+					PermissionClaim: cheat.ConvertPermissionClaim2To1(exportClaim),
 					State:           apisv1alpha1.ClaimAccepted,
 				}
 
