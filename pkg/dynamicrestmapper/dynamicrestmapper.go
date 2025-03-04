@@ -19,12 +19,13 @@ package dynamicrestmapper
 import (
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-type mapping struct {
+type mapperState struct {
 	defaultGroupVersions []schema.GroupVersion
 
 	resourceToKind       map[schema.GroupVersionResource]schema.GroupVersionKind
@@ -34,8 +35,8 @@ type mapping struct {
 	pluralToSingular     map[schema.GroupVersionResource]schema.GroupVersionResource
 }
 
-func newMapping() *mapping {
-	return &mapping{
+func newMapperState() *mapperState {
+	return &mapperState{
 		resourceToKind:       make(map[schema.GroupVersionResource]schema.GroupVersionKind),
 		kindToPluralResource: make(map[schema.GroupVersionKind]schema.GroupVersionResource),
 		kindToScope:          make(map[schema.GroupVersionKind]meta.RESTScope),
@@ -44,7 +45,7 @@ func newMapping() *mapping {
 	}
 }
 
-func (m *mapping) add(kind schema.GroupVersionKind, singular, plural schema.GroupVersionResource, scope meta.RESTScope) {
+func (m *mapperState) add(kind schema.GroupVersionKind, singular, plural schema.GroupVersionResource, scope meta.RESTScope) {
 	m.singularToPlural[singular] = plural
 	m.pluralToSingular[plural] = singular
 
@@ -55,7 +56,7 @@ func (m *mapping) add(kind schema.GroupVersionKind, singular, plural schema.Grou
 	m.kindToScope[kind] = scope
 }
 
-func (m *mapping) remove(kind schema.GroupVersionKind) {
+func (m *mapperState) remove(kind schema.GroupVersionKind) {
 	singular := m.kindToPluralResource[kind]
 	plural := m.singularToPlural[singular]
 
@@ -66,7 +67,7 @@ func (m *mapping) remove(kind schema.GroupVersionKind) {
 	delete(m.resourceToKind, plural)
 }
 
-func (m *mapping) empty() bool {
+func (m *mapperState) empty() bool {
 	return len(m.resourceToKind) == 0 &&
 		len(m.kindToPluralResource) == 0 &&
 		len(m.kindToScope) == 0 &&
@@ -76,21 +77,21 @@ func (m *mapping) empty() bool {
 
 type DynamicRESTMapper struct {
 	lock             sync.RWMutex
-	clusterToMapping map[logicalcluster.Name]*mapping
+	clusterToMapping map[logicalcluster.Name]*mapperState
 }
 
 func NewDynamicRESTMapper(defaultGroupVersions []schema.GroupVersion) *DynamicRESTMapper {
 	return &DynamicRESTMapper{
-		clusterToMapping: make(map[logicalcluster.Name]*mapping),
+		clusterToMapping: make(map[logicalcluster.Name]*mapperState),
 	}
 }
 
 // Creates and inserts a new instance of mapping into DynamicRESTMapper's clusterToMapping map.
 // The caller is responsible for locking the DynamicRESTMapper.lock mutex.
-func (d *DynamicRESTMapper) getOrCreateMappingForCluster(clusterName logicalcluster.Name) *mapping {
+func (d *DynamicRESTMapper) getOrCreateMappingForCluster(clusterName logicalcluster.Name) *mapperState {
 	mappingForCluster, mappingFound := d.clusterToMapping[clusterName]
 	if !mappingFound {
-		mappingForCluster = newMapping()
+		mappingForCluster = newMapperState()
 		d.clusterToMapping[clusterName] = mappingForCluster
 	}
 
@@ -132,11 +133,6 @@ func (d *DynamicRESTMapper) remove(clusterName logicalcluster.Name, gvk schema.G
 	}
 }
 
-func (d *DynamicRESTMapper) For(clusterName logicalcluster.Name) (meta.RESTMapper, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	mappingForCluster := d.getOrCreateMappingForCluster(clusterName)
-
-	return newRESTMapperView(&d.lock, mappingForCluster), nil
+func (d *DynamicRESTMapper) ForCluster(clusterName logicalcluster.Name) (meta.RESTMapper, error) {
+	return newForCluster(clusterName, d), nil
 }

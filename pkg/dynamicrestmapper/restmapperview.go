@@ -20,27 +20,28 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-type RESTMapperView struct {
-	lock *sync.RWMutex
-	m    *mapping
+type ForCluster struct {
+	clusterName logicalcluster.Name
+	m           *DynamicRESTMapper
 }
 
-func newRESTMapperView(dynMapperLock *sync.RWMutex, m *mapping) *RESTMapperView {
-	return &RESTMapperView{
-		lock: dynMapperLock,
-		m:    m,
+func newForCluster(clusterName logicalcluster.Name, m *DynamicRESTMapper) *ForCluster {
+	return &ForCluster{
+		clusterName: clusterName,
+		m:           m,
 	}
 }
 
 // KindFor takes a partial resource and returns the single match.  Returns an error if there are multiple matches
-func (v *RESTMapperView) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+func (v *ForCluster) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	kinds, err := v.KindsFor(resource)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
@@ -91,7 +92,7 @@ func (o kindByPreferredGroupVersion) Less(i, j int) bool {
 }
 
 // KindsFor takes a partial resource and returns the list of potential kinds in priority order
-func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.GroupVersionKind, error) {
+func (v *ForCluster) KindsFor(input schema.GroupVersionResource) ([]schema.GroupVersionKind, error) {
 	resource := coerceResourceForMatching(input)
 
 	hasResource := len(resource.Resource) > 0
@@ -102,14 +103,19 @@ func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.G
 		return nil, fmt.Errorf("a resource must be present, got: %v", resource)
 	}
 
-	v.lock.RLock()
-	defer v.lock.RUnlock()
+	v.m.lock.RLock()
+	defer v.m.lock.RUnlock()
+
+	ms, ok := v.m.clusterToMapping[v.clusterName]
+	if !ok {
+		return nil, &meta.NoResourceMatchError{PartialResource: input}
+	}
 
 	ret := []schema.GroupVersionKind{}
 	switch {
 	// fully qualified.  Find the exact match
 	case hasGroup && hasVersion:
-		kind, exists := v.m.resourceToKind[resource]
+		kind, exists := ms.resourceToKind[resource]
 		if exists {
 			ret = append(ret, kind)
 		}
@@ -117,7 +123,7 @@ func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.G
 	case hasGroup:
 		foundExactMatch := false
 		requestedGroupResource := resource.GroupResource()
-		for currResource, currKind := range v.m.resourceToKind {
+		for currResource, currKind := range ms.resourceToKind {
 			if currResource.GroupResource() == requestedGroupResource {
 				foundExactMatch = true
 				ret = append(ret, currKind)
@@ -127,7 +133,7 @@ func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.G
 		// if you didn't find an exact match, match on group prefixing. This allows storageclass.storage to match
 		// storageclass.storage.k8s.io
 		if !foundExactMatch {
-			for currResource, currKind := range v.m.resourceToKind {
+			for currResource, currKind := range ms.resourceToKind {
 				if !strings.HasPrefix(currResource.Group, requestedGroupResource.Group) {
 					continue
 				}
@@ -139,14 +145,14 @@ func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.G
 		}
 
 	case hasVersion:
-		for currResource, currKind := range v.m.resourceToKind {
+		for currResource, currKind := range ms.resourceToKind {
 			if currResource.Version == resource.Version && currResource.Resource == resource.Resource {
 				ret = append(ret, currKind)
 			}
 		}
 
 	default:
-		for currResource, currKind := range v.m.resourceToKind {
+		for currResource, currKind := range ms.resourceToKind {
 			if currResource.Resource == resource.Resource {
 				ret = append(ret, currKind)
 			}
@@ -157,12 +163,12 @@ func (v *RESTMapperView) KindsFor(input schema.GroupVersionResource) ([]schema.G
 		return nil, &meta.NoResourceMatchError{PartialResource: input}
 	}
 
-	sort.Sort(kindByPreferredGroupVersion{ret, v.m.defaultGroupVersions})
+	sort.Sort(kindByPreferredGroupVersion{ret, ms.defaultGroupVersions})
 	return ret, nil
 }
 
 // ResourceFor takes a partial resource and returns the single match.  Returns an error if there are multiple matches
-func (v *RESTMapperView) ResourceFor(resource schema.GroupVersionResource) (schema.GroupVersionResource, error) {
+func (v *ForCluster) ResourceFor(resource schema.GroupVersionResource) (schema.GroupVersionResource, error) {
 	resources, err := v.ResourcesFor(resource)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
@@ -222,7 +228,7 @@ func (o resourceByPreferredGroupVersion) Less(i, j int) bool {
 }
 
 // ResourcesFor takes a partial resource and returns the list of potential resource in priority order
-func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
+func (v *ForCluster) ResourcesFor(input schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
 	resource := coerceResourceForMatching(input)
 
 	hasResource := len(resource.Resource) > 0
@@ -233,14 +239,19 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		return nil, fmt.Errorf("a resource must be present, got: %v", resource)
 	}
 
-	v.lock.RLock()
-	defer v.lock.RUnlock()
+	v.m.lock.RLock()
+	defer v.m.lock.RUnlock()
+
+	ms, ok := v.m.clusterToMapping[v.clusterName]
+	if !ok {
+		return nil, &meta.NoResourceMatchError{PartialResource: input}
+	}
 
 	ret := []schema.GroupVersionResource{}
 	switch {
 	case hasGroup && hasVersion:
 		// fully qualified.  Find the exact match
-		for plural, singular := range v.m.pluralToSingular {
+		for plural, singular := range ms.pluralToSingular {
 			if singular == resource {
 				ret = append(ret, plural)
 				break
@@ -255,7 +266,7 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		// given a group, prefer an exact match.  If you don't find one, resort to a prefix match on group
 		foundExactMatch := false
 		requestedGroupResource := resource.GroupResource()
-		for plural, singular := range v.m.pluralToSingular {
+		for plural, singular := range ms.pluralToSingular {
 			if singular.GroupResource() == requestedGroupResource {
 				foundExactMatch = true
 				ret = append(ret, plural)
@@ -269,7 +280,7 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		// if you didn't find an exact match, match on group prefixing. This allows storageclass.storage to match
 		// storageclass.storage.k8s.io
 		if !foundExactMatch {
-			for plural, singular := range v.m.pluralToSingular {
+			for plural, singular := range ms.pluralToSingular {
 				if !strings.HasPrefix(plural.Group, requestedGroupResource.Group) {
 					continue
 				}
@@ -284,7 +295,7 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		}
 
 	case hasVersion:
-		for plural, singular := range v.m.pluralToSingular {
+		for plural, singular := range ms.pluralToSingular {
 			if singular.Version == resource.Version && singular.Resource == resource.Resource {
 				ret = append(ret, plural)
 			}
@@ -294,7 +305,7 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		}
 
 	default:
-		for plural, singular := range v.m.pluralToSingular {
+		for plural, singular := range ms.pluralToSingular {
 			if singular.Resource == resource.Resource {
 				ret = append(ret, plural)
 			}
@@ -308,12 +319,12 @@ func (v *RESTMapperView) ResourcesFor(input schema.GroupVersionResource) ([]sche
 		return nil, &meta.NoResourceMatchError{PartialResource: resource}
 	}
 
-	sort.Sort(resourceByPreferredGroupVersion{ret, v.m.defaultGroupVersions})
+	sort.Sort(resourceByPreferredGroupVersion{ret, ms.defaultGroupVersions})
 	return ret, nil
 }
 
 // RESTMapping identifies a preferred resource mapping for the provided group kind.
-func (v *RESTMapperView) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
+func (v *ForCluster) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	mappings, err := v.RESTMappings(gk, versions...)
 	if err != nil {
 		return nil, err
@@ -330,13 +341,18 @@ func (v *RESTMapperView) RESTMapping(gk schema.GroupKind, versions ...string) (*
 // RESTMappings returns all resource mappings for the provided group kind if no
 // version search is provided. Otherwise identifies a preferred resource mapping for
 // the provided version(s).
-func (v *RESTMapperView) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
+func (v *ForCluster) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
 	mappings := make([]*meta.RESTMapping, 0)
 	potentialGVK := make([]schema.GroupVersionKind, 0)
 	hadVersion := false
 
-	v.lock.RLock()
-	defer v.lock.RUnlock()
+	v.m.lock.RLock()
+	defer v.m.lock.RUnlock()
+
+	ms, ok := v.m.clusterToMapping[v.clusterName]
+	if !ok {
+		return nil, &meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: gk.Group, Resource: gk.Kind}}
+	}
 
 	// Pick an appropriate version
 	for _, version := range versions {
@@ -345,14 +361,14 @@ func (v *RESTMapperView) RESTMappings(gk schema.GroupKind, versions ...string) (
 		}
 		currGVK := gk.WithVersion(version)
 		hadVersion = true
-		if _, ok := v.m.kindToPluralResource[currGVK]; ok {
+		if _, ok := ms.kindToPluralResource[currGVK]; ok {
 			potentialGVK = append(potentialGVK, currGVK)
 			break
 		}
 	}
 	// Use the default preferred versions
 	if !hadVersion && len(potentialGVK) == 0 {
-		for _, gv := range v.m.defaultGroupVersions {
+		for _, gv := range ms.defaultGroupVersions {
 			if gv.Group != gk.Group {
 				continue
 			}
@@ -366,13 +382,13 @@ func (v *RESTMapperView) RESTMappings(gk schema.GroupKind, versions ...string) (
 
 	for _, gvk := range potentialGVK {
 		//Ensure we have a REST mapping
-		res, ok := v.m.kindToPluralResource[gvk]
+		res, ok := ms.kindToPluralResource[gvk]
 		if !ok {
 			continue
 		}
 
 		// Ensure we have a REST scope
-		scope, ok := v.m.kindToScope[gvk]
+		scope, ok := ms.kindToScope[gvk]
 		if !ok {
 			return nil, fmt.Errorf("the provided version %q and kind %q cannot be mapped to a supported scope", gvk.GroupVersion(), gvk.Kind)
 		}
@@ -390,19 +406,24 @@ func (v *RESTMapperView) RESTMappings(gk schema.GroupKind, versions ...string) (
 	return mappings, nil
 }
 
-func (v *RESTMapperView) ResourceSingularizer(resourceType string) (string, error) {
+func (v *ForCluster) ResourceSingularizer(resourceType string) (string, error) {
 	partialResource := schema.GroupVersionResource{Resource: resourceType}
 	resources, err := v.ResourcesFor(partialResource)
 	if err != nil {
 		return resourceType, err
 	}
 
-	v.lock.RLock()
-	defer v.lock.RUnlock()
+	v.m.lock.RLock()
+	defer v.m.lock.RUnlock()
+
+	ms, ok := v.m.clusterToMapping[v.clusterName]
+	if !ok {
+		return resourceType, fmt.Errorf("no singular of resource %v has been defined", resourceType)
+	}
 
 	singular := schema.GroupVersionResource{}
 	for _, curr := range resources {
-		currSingular, ok := v.m.pluralToSingular[curr]
+		currSingular, ok := ms.pluralToSingular[curr]
 		if !ok {
 			continue
 		}

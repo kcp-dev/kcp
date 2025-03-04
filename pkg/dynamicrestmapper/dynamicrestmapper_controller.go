@@ -190,7 +190,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return nil
@@ -201,10 +201,10 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	if !gvkrKey.Deleted {
 		logger.V(4).Info("adding mapping", "kind", gvkrKey.Gvkr.groupVersionKind())
-		c.state.add(gvkrKey.Gvkr, meta.RESTScopeRoot)
+		c.state.add(clusterName, gvkrKey.Gvkr, meta.RESTScopeRoot)
 	} else {
 		logger.V(4).Info("removing mapping", "kind", gvkrKey.Gvkr.groupVersionKind())
-		c.state.remove(gvkrKey.Gvkr.groupVersionKind())
+		c.state.remove(clusterName, gvkrKey.Gvkr.groupVersionKind())
 	}
 
 	return nil
