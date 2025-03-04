@@ -22,7 +22,7 @@ Before you begin, ensure you have the following installed:
 
 #### Set Up Dex
 
-Dex is an OpenID Connect (OIDC) provider used for authentication in Kubernetes and other platforms. Here’s how to configure and run it locally
+Dex is an OpenID Connect (OIDC) provider used for authentication in Kubernetes and other platforms. Here is how to configure and run it locally
 *Important: We use a fork to allow local group support that Kubernetes relies on: [dexidp/dex#1080](https://github.com/dexidp/dex/issues/1080)*
 
 ```bash
@@ -31,40 +31,95 @@ cd dex
 make build
 ```
 
-The binary will be available at `bin/dex`.
+The compiled Dex binary will be available at `bin/dex`.
 
 #### Generate Certificates for Dex
+
+To continue with this tutorial, we need to generate self-signed certificates for authentication requests.
+`genkey` tool can be used to create them for localhost.
 
 ```bash
 GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
 ./bin/genkey 127.0.0.1
 ```
 
-#### Run Dex
+#### Configure Dex
+
+Dex requires a configuration file to define authentication parameters. Create a `dex-config.yaml` file with the following content:
 
 ```bash
-./bin/dex serve ../contrib/kcp-dex/kcp-config.yaml
+issuer: https://127.0.0.1:5556/dex
+web:
+  https: 127.0.0.1:5556
+  tlsCert: ../127.0.0.1.pem
+  tlsKey: ../127.0.0.1.pem
+storage:
+  type: sqlite3
+  config:
+    file: examples/dex.db
+staticClients:
+  - id: kcp-dev
+    public: true
+    redirectURIs:
+    - http://localhost:8000
+    name: 'KCP App'
+    secret: <generate a secret for the static client here>
+
+# Let dex keep a list of passwords which can be used to login to dex.
+enablePasswordDB: true
+
+# A static list of passwords to login the end user. By identifying here, dex
+# won't look in its underlying storage for passwords.
+#
+# If this option isn't chosen users may be added through the gRPC API.
+staticPasswords:
+- email: "admin"
+  hash: <bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)>
+  username: "admin"
+  userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+  groups: ["system:kcp:admin", "system:admin"]
 ```
 
-### Start kcp with OIDC Enabled
+#### Run Dex
+
+Start Dex with the required configuration:
+
+```bash
+./bin/dex serve ../contrib/kcp-dex/dex-config.yaml
+```
+
+### Run kcp with OIDC Enabled
 
 You can configure kcp authentication using OIDC flags or a structured authentication configuration file.
 
 #### Using OIDC Flags
 
+To start kcp with OIDC authentication enabled, run:
+
 ```bash
-go run ./cmd/kcp start \
+kcp start \
 --oidc-issuer-url=https://127.0.0.1:5556/dex \
 --oidc-client-id=kcp-dev \
 --oidc-groups-claim=groups \
 --oidc-ca-file=127.0.0.1.pem
 ```
+- `--oidc-issuer-url` URL of the provider that allows the API server to discover public signing keys.
+
+- `--oidc-client-id` A client id that all tokens must be issued for.
+
+- `--oidc-groups-claim` JWT claim to use as the user's group.
+
+- `--oidc-ca-file` The path to the certificate for the CA that signed your identity provider's web certificate.
 
 #### Using Structured Authentication Configuration
+
+Alternatively, create an authentication configuration file for kcp
 
 ```bash
 CA_CERT=$(openssl x509 -in 127.0.0.1.pem | sed 's/^/      /')
 ```
+
+This extracts the CA certificate and formats it properly for AuthenticationConfiguration yaml file.
 
 Create `auth-config.yaml`:
 
@@ -92,32 +147,46 @@ $CA_CERT
 EOF_AuthConfig
 ```
 
-Start kcp:
+This command starts kcp with the specified authentication configuration.
 
 ```bash
-./bin/kcp start --authentication-config auth-config.yaml
+kcp start --authentication-config auth-config.yaml
 ```
 
 ### Configure OIDC Login with Kubectl
 
-Install OIDC Login plugin for kubectl:
+To allow kubectl to authenticate via OIDC, install the required plugin:
 
 ```bash
 kubectl krew install oidc-login
 ```
 
-#### Test OIDC Login
+#### Verify OIDC Login
+
+Verify the login process by running
 
 ```bash
 kubectl oidc-login get-token \
 --oidc-issuer-url=https://127.0.0.1:5556/dex \
 --oidc-client-id=kcp-dev \
---oidc-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
+--oidc-client-secret=<client-secret> \
 --insecure-skip-tls-verify \
 --oidc-extra-scope=groups,email
 ```
 
+- `--oidc-issuer-url` specifies Dex server endpoint.
+
+- `--oidc-client-id` is the client ID used during authentication.
+
+- `--oidc-client-secret` authenticates the client, specify the one you have provided in the dex-config file.
+
+- `--oidc-extra-scope` requests additional claims.
+
+You will be redirected to the Dex to provide your static admin user and password that was configured in the dex-config.yaml file.
+
 #### Configure Context for OIDC User
+
+To use the OIDC-authenticated user in kubectl, update the kubeconfig
 
 ```bash
 export KUBECONFIG=.kcp/admin.kubeconfig
@@ -129,7 +198,7 @@ kubectl config set-credentials oidc \
   --exec-arg=get-token \
   --exec-arg=--oidc-issuer-url=https://127.0.0.1:5556/dex  \
   --exec-arg=--oidc-client-id=kcp-dev \
-  --exec-arg=--oidc-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg== \
+  --exec-arg=--oidc-client-secret=<client-secret> \
   --exec-arg=--oidc-extra-scope=groups \
   --exec-arg=--oidc-extra-scope=email \
   --exec-arg=--insecure-skip-tls-verify
@@ -137,9 +206,15 @@ kubectl config set-credentials oidc \
 kubectl config set-context --current --user=oidc
 ```
 
-### Test OIDC Authentication
+- This command configures the Kubernetes context to use OIDC authentication.
+
+- The `oidc-login` plugin retrieves authentication tokens dynamically.
+
+### Verify OIDC Authentication in kcp
+
+To confirm the setup, try to first fetch workspaces and then create a new one
 
 ```bash
 kubectl get ws
-kubectl create workspace bob
+kubectl create workspace test-oidc
 ```
