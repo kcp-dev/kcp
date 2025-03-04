@@ -20,13 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
-
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
-
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +30,15 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 )
 
 const (
@@ -46,8 +48,12 @@ const (
 func NewController(
 	ctx context.Context,
 	state *DynamicRESTMapper,
-	crdClusterClient *kcpapiextensionsclientset.ClusterClientset,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -58,10 +64,19 @@ func NewController(
 
 	c := &Controller{
 		queue: queue,
-
-		crdInformer: crdInformer,
-
 		state: state,
+
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](
+				apisv1alpha1.Resource("apiexports"),
+				apiExportInformer.Informer().GetIndexer(),
+				globalAPIExportInformer.Informer().GetIndexer(),
+				path,
+				name,
+			)
+		},
+
+		getAPIResourceSchema: informer.NewScopedGetterWithFallback(apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
 	}
 
 	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -76,6 +91,18 @@ func NewController(
 		},
 	})
 
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIBinding(obj.(*apisv1alpha1.APIBinding), false)
+		},
+		DeleteFunc: func(obj interface{}) {
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = tombstone.Obj
+			}
+			c.enqueueAPIBinding(obj.(*apisv1alpha1.APIBinding), true)
+		},
+	})
+
 	return c, nil
 }
 
@@ -84,12 +111,11 @@ func NewController(
 // updates the workspace index, which maps logical clusters to shard URLs.
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
-
-	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer
-
-	lock sync.RWMutex
-
 	state *DynamicRESTMapper
+
+	getAPIExportByPath func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
 type gvkrKey struct {
@@ -135,6 +161,56 @@ func (c *Controller) enqueueCRD(crd *apiextensionsv1.CustomResourceDefinition, d
 		}
 		logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), encodedGvkKey).V(4).Info("queueing CRD")
 		c.queue.Add(encodedGvkKey)
+	}
+}
+
+func (c *Controller) enqueueAPIBinding(apiBinding *apisv1alpha1.APIBinding, deleted bool) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiBinding)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if apiExportPath.Empty() {
+		apiExportPath = logicalcluster.From(apiBinding).Path()
+	}
+
+	apiExport, err := c.getAPIExportByPath(apiExportPath, apiBinding.Spec.Reference.Export.Name)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+		sch, err := c.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
+		if err != nil {
+			fmt.Printf("\n\n!!! X key=%s,apiExportPath=%s,logicalcluster.From(apiExport)=%s\n\n", key, apiExportPath, logicalcluster.From(apiExport))
+			utilruntime.HandleError(err)
+			return
+		}
+
+		for _, schVersion := range sch.Spec.Versions {
+			encodedGvkKey, err := encodeGvkrKey(
+				gvkrKey{
+					Gvkr: gvkr{
+						Group:            sch.Spec.Group,
+						Version:          schVersion.Name,
+						Kind:             sch.Spec.Names.Kind,
+						ResourcePlural:   sch.Spec.Names.Plural,
+						ResourceSingular: sch.Spec.Names.Singular,
+					},
+					Key:     key,
+					Deleted: deleted,
+				},
+			)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("%q controller failed encode APIResourceSchema object with key %q, err: %w", ControllerName, key, err))
+			}
+			logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), encodedGvkKey).V(4).
+				Info("queueing APIResourceSchema because of APIBinding")
+			c.queue.Add(encodedGvkKey)
+		}
 	}
 }
 

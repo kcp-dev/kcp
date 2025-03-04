@@ -1599,13 +1599,14 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Conf
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, dynamicrestmapper.ControllerName)
 
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	c, err := dynamicrestmapper.NewController(ctx, s.DynRESTMapper, crdClusterClient,
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())
+	c, err := dynamicrestmapper.NewController(ctx, s.DynRESTMapper,
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+	)
 	if err != nil {
 		return err
 	}
@@ -1614,7 +1615,15 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Conf
 		Name: dynamicrestmapper.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					// APIExport
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced() &&
+					// APIResourceSchema
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					// APIBinding
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
