@@ -13,3 +13,16 @@
 - op: add
   path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
   value: ""
+
+- op: add
+  path: /spec/conversion
+  value:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          namespace: system
+          name: webhook-service
+          path: /convert
+      conversionReviewVersions:
+        - v1alpha1

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/cheat"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -100,8 +101,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 		}
 
 		// internal APIs have no identity and a fixed schema.
-		if apiexportbuiltin.IsBuiltInAPI(pc.GroupResource) {
-			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(pc.GroupResource)
+		if apiexportbuiltin.IsBuiltInAPI(cheat.ConvertGroupResource2To1(pc.GroupResource)) {
+			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(cheat.ConvertGroupResource2To1(pc.GroupResource))
 			if err != nil {
 				return err
 			}
@@ -111,7 +112,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
-			claims[gr] = pc
+			claims[gr] = cheat.ConvertPermissionClaim2To1(pc)
 			continue
 		}
 		if pc.Group == apis.GroupName {
@@ -126,7 +127,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			apiResourceSchemas[gr] = apisSchema
-			claims[gr] = pc
+			claims[gr] = cheat.ConvertPermissionClaim2To1(pc)
 			continue
 		}
 		if pc.IdentityHash == "" {
@@ -176,7 +177,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				logger.V(4).Info("got a match!")
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
-				claims[gr] = pc
+				claims[gr] = cheat.ConvertPermissionClaim2To1(pc)
 			}
 		}
 	}

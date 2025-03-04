@@ -5,6 +5,16 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.16.5
   name: apiexports.apis.kcp.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: webhook-service
+          namespace: system
+          path: /convert
+      conversionReviewVersions:
+      - v1alpha1
   group: apis.kcp.io
   names:
     categories:

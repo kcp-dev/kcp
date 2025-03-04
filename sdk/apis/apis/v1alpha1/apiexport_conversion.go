@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package,register
-// +groupName=apis.kcp.io
-// +k8s:conversion-gen=github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1
-// +k8s:openapi-gen=true
-package v1alpha2
+package v1alpha1
+
+func (*APIExport) Hub() {}

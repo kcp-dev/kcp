@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 
+	"github.com/kcp-dev/kcp/pkg/cheat"
 	builtinapiexport "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -81,7 +82,7 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 	}
 
 	for i, pc := range ae.Spec.PermissionClaims {
-		if pc.IdentityHash == "" && !e.isBuiltIn(pc.GroupResource) && pc.Group != apis.GroupName {
+		if pc.IdentityHash == "" && !e.isBuiltIn(cheat.ConvertGroupResource2To1(pc.GroupResource)) && pc.Group != apis.GroupName {
 			return admission.NewForbidden(a,
 				field.Invalid(
 					field.NewPath("spec").

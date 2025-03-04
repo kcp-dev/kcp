@@ -54,6 +54,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/pkg/cheat"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
@@ -459,7 +460,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
 				{
-					PermissionClaim: export1.Spec.PermissionClaims[0],
+					PermissionClaim: cheat.ConvertPermissionClaim2To1(export1.Spec.PermissionClaims[0]),
 					State:           apisv1alpha1.ClaimAccepted,
 				},
 			},
@@ -735,10 +736,10 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 			if claim.Group == "" && claim.Resource == "configmaps" {
 				continue
 			}
-			newClaims = append(newClaims, claim)
+			newClaims = append(newClaims, cheat.ConvertPermissionClaim2To1(claim))
 		}
 		updatedExport := apiExport.DeepCopy()
-		updatedExport.Spec.PermissionClaims = newClaims
+		updatedExport.Spec.PermissionClaims = cheat.ConvertPermissionClaims1To2(newClaims)
 
 		oldJSON := toJSON(t, apiExport)
 		newJSON := toJSON(t, updatedExport)
@@ -1003,7 +1004,7 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 		},
 		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
-			PermissionClaims:      claims,
+			PermissionClaims:      cheat.ConvertPermissionClaims1To2(claims),
 		},
 	}
 	_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
