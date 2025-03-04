@@ -34,14 +34,15 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
-func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {
 	identity := apiExport.Spec.Identity
 	if identity == nil {
-		identity = &apisv1alpha1.Identity{}
+		identity = &apisv1alpha2.Identity{}
 	}
 
 	clusterName := logicalcluster.From(apiExport)
@@ -155,7 +156,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	return c.createSecret(ctx, clusterName, secret)
 }
 
-func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha2.APIExport) error {
 	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err
@@ -179,7 +180,7 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 	return nil
 }
 
-func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {
 	logger := klog.FromContext(ctx)
 	shards, err := c.listShards()
 	if err != nil {
@@ -220,7 +221,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 
 	for _, u := range sets.List[string](desiredURLs) {
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha1.VirtualWorkspace{
+		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha2.VirtualWorkspace{
 			URL: u,
 		})
 	}

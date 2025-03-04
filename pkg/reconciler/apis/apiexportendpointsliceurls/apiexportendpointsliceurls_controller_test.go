@@ -30,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -81,8 +82,8 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					return &apisv1alpha1.APIExport{
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-export",
 						},
@@ -118,7 +119,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			endpointsReconciler: &endpointsReconciler{
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					return nil, errors.New("lost in space")
 				},
 			},
@@ -144,8 +145,8 @@ func TestReconcile(t *testing.T) {
 			},
 			endpointsReconciler: &endpointsReconciler{
 				shardName: "shard2",
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					return &apisv1alpha1.APIExport{}, nil
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{}, nil
 				},
 				getMyShard: func() (*corev1alpha1.Shard, error) {
 					return &corev1alpha1.Shard{
@@ -182,8 +183,8 @@ func TestReconcile(t *testing.T) {
 			},
 			endpointsReconciler: &endpointsReconciler{
 				shardName: "shard1",
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					return &apisv1alpha1.APIExport{}, nil
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{}, nil
 				},
 				getMyShard: func() (*corev1alpha1.Shard, error) {
 					return &corev1alpha1.Shard{
@@ -195,7 +196,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 					return nil, nil
 				},
 				patchAPIExportEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error {
@@ -231,8 +232,8 @@ func TestReconcile(t *testing.T) {
 			},
 			endpointsReconciler: &endpointsReconciler{
 				shardName: "shard1",
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					return &apisv1alpha1.APIExport{}, nil
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{}, nil
 				},
 				getMyShard: func() (*corev1alpha1.Shard, error) {
 					return &corev1alpha1.Shard{
@@ -244,7 +245,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 					return nil, nil
 				},
 				patchAPIExportEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error {
@@ -275,8 +276,8 @@ func TestReconcile(t *testing.T) {
 			},
 			endpointsReconciler: &endpointsReconciler{
 				shardName: "shard1",
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-					return &apisv1alpha1.APIExport{
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-export",
 						},
@@ -292,7 +293,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 					return []*apisv1alpha1.APIBinding{
 						{
 							ObjectMeta: metav1.ObjectMeta{

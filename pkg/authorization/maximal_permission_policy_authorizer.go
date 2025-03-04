@@ -36,6 +36,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -60,11 +61,11 @@ func NewMaximalPermissionPolicyAuthorizer(
 	globalKubeInformers.Rbac().V1().ClusterRoles().Lister()
 	globalKubeInformers.Rbac().V1().ClusterRoleBindings().Lister()
 
-	indexers.AddIfNotPresentOrDie(kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(kcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	indexers.AddIfNotPresentOrDie(globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -73,8 +74,8 @@ func NewMaximalPermissionPolicyAuthorizer(
 			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 				return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 			},
-			getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), path, name)
+			getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), kcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), path, name)
 			},
 			newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
 				return rbac.New(
@@ -106,7 +107,7 @@ func NewMaximalPermissionPolicyAuthorizer(
 
 type MaximalPermissionPolicyAuthorizer struct {
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport   func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
 	newAuthorizer func(clusterName logicalcluster.Name) authorizer.Authorizer
 

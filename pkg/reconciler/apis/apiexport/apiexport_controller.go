@@ -41,11 +41,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
@@ -58,7 +58,7 @@ const (
 // NewController returns a new controller for APIExports.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
@@ -75,18 +75,18 @@ func NewController(
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
 
-		listAPIExports: func() ([]*apisv1alpha1.APIExport, error) {
+		listAPIExports: func() ([]*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().List(labels.Everything())
 		},
-		listAPIExportsForSecret: func(secret *corev1.Secret) ([]*apisv1alpha1.APIExport, error) {
+		listAPIExportsForSecret: func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error) {
 			secretKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(secret)
 			if err != nil {
 				return nil, err
 			}
 
-			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), indexers.APIExportBySecret, secretKey)
+			return indexers.ByIndex[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), indexers.APIExportBySecret, secretKey)
 		},
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
@@ -122,18 +122,18 @@ func NewController(
 			return globalShardInformer.Lister().List(labels.Everything())
 		},
 
-		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
+		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports()),
 	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
+			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport))
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExport(newObj.(*apisv1alpha1.APIExport))
+			c.enqueueAPIExport(newObj.(*apisv1alpha2.APIExport))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport))
+			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport))
 		},
 	})
 
@@ -165,10 +165,10 @@ func NewController(
 	return c, nil
 }
 
-type APIExport = apisv1alpha1.APIExport
-type APIExportSpec = apisv1alpha1.APIExportSpec
-type APIExportStatus = apisv1alpha1.APIExportStatus
-type Patcher = apisv1alpha1client.APIExportInterface
+type APIExport = apisv1alpha2.APIExport
+type APIExportSpec = apisv1alpha2.APIExportSpec
+type APIExportStatus = apisv1alpha2.APIExportStatus
+type Patcher = apisv1alpha2client.APIExportInterface
 type Resource = committer.Resource[*APIExportSpec, *APIExportStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
@@ -179,9 +179,9 @@ type controller struct {
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
-	listAPIExports          func() ([]*apisv1alpha1.APIExport, error)
-	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha1.APIExport, error)
-	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	listAPIExports          func() ([]*apisv1alpha2.APIExport, error)
+	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error)
+	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace) error
@@ -197,7 +197,7 @@ type controller struct {
 }
 
 // enqueueAPIExport enqueues an APIExport.
-func (c *controller) enqueueAPIExport(apiExport *apisv1alpha1.APIExport) {
+func (c *controller) enqueueAPIExport(apiExport *apisv1alpha2.APIExport) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -335,7 +335,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisv1alpha1informers.APIExportClusterInformer) {
+func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer) {
 	indexers.AddIfNotPresentOrDie(
 		apiExportInformer.Informer().GetIndexer(),
 		cache.Indexers{

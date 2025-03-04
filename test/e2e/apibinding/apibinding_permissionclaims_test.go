@@ -37,6 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -69,10 +70,10 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
-	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	require.NoError(t, err)
 	identityHash := sheriffExport.Status.IdentityHash
 
@@ -120,31 +121,31 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, framework.Is(apisv1alpha1.PermissionClaimsApplied), "unable to see claims applied")
 }
 
-func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
-	return []apisv1alpha1.PermissionClaim{
+func makePermissionClaims(identityHash string) []apisv1alpha2.PermissionClaim {
+	return []apisv1alpha2.PermissionClaim{
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			All:           true,
 			IdentityHash:  identityHash,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
+			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
+			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
 			All:           true,
 		},
 	}
@@ -162,16 +163,16 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
+		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			PermissionClaims:      makePermissionClaims(identityHash),
 		},
 	}
-	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 

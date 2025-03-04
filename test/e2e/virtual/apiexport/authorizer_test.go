@@ -50,6 +50,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -106,11 +107,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				},
 			},
 		},
-		&apisv1alpha1.APIExport{
+		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
-			Spec: apisv1alpha1.APIExportSpec{
+			Spec: apisv1alpha2.APIExportSpec{
 				LatestResourceSchemas:   []string{"today.sheriffs.wild.wild.west"},
-				MaximalPermissionPolicy: &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}},
+				MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
 			},
 		},
 
@@ -131,10 +132,10 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	serviceProvider1AdminClient, err := kcpclientset.NewForConfig(serviceProvider1Admin)
 	require.NoError(t, err)
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		return serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
 
-	sheriffExport, err := serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	sheriffExport, err := serviceProvider1AdminClient.Cluster(serviceProvider1Path).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	require.NoError(t, err)
 	sherriffsIdentityHash := sheriffExport.Status.IdentityHash
 	t.Logf("Found identity hash: %v", sherriffsIdentityHash)
@@ -152,18 +153,18 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				},
 			},
 		},
-		&apisv1alpha1.APIExport{
+		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "today-cowboys"},
-			Spec: apisv1alpha1.APIExportSpec{
+			Spec: apisv1alpha2.APIExportSpec{
 				LatestResourceSchemas:   []string{"today.cowboys.wildwest.dev"},
-				MaximalPermissionPolicy: &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}},
-				PermissionClaims: []apisv1alpha1.PermissionClaim{
+				MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
+				PermissionClaims: []apisv1alpha2.PermissionClaim{
 					{
-						GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+						GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 						All:           true,
 					},
 					{
-						GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+						GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 						IdentityHash:  sherriffsIdentityHash,
 						All:           true,
 					},
@@ -373,7 +374,7 @@ metadata:
 	serviceProvider2AdminClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
 	framework.Eventually(t, func() (bool, string) {
-		apiExport, err := serviceProvider2AdminClient.Cluster(serviceProvider2Path).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExport, err := serviceProvider2AdminClient.Cluster(serviceProvider2Path).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
 		serviceProvider2AdminApiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, tenantWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
@@ -444,7 +445,7 @@ metadata:
 	shadowVWClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
 	framework.Eventually(t, func() (bool, string) {
-		apiExport, err := shadowVWClient.Cluster(serviceProvider2Path).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExport, err := shadowVWClient.Cluster(serviceProvider2Path).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
 		shadowVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, tenantShadowCRDWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
@@ -584,31 +585,31 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 
 	t.Logf("Get the root tenancy APIExport's identity hash")
 	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
+		return kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
 	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
 
-	tenancyAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
+	tenancyAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(ctx, "tenancy.kcp.io", metav1.GetOptions{})
 	require.NoError(t, err)
 	identityHash := tenancyAPIExport.Status.IdentityHash
 	require.NotNil(t, identityHash)
 
 	t.Logf("Create an APIExport for APIResourceSchema in service provider %q", servicePath)
-	apiExport := &apisv1alpha1.APIExport{
+	apiExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
+		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
-			PermissionClaims: []apisv1alpha1.PermissionClaim{
+			PermissionClaims: []apisv1alpha2.PermissionClaim{
 				{
-					GroupResource: apisv1alpha1.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
+					GroupResource: apisv1alpha2.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
 					IdentityHash:  identityHash,
 					All:           true,
 				},
 			},
 		},
 	}
-	apiExport, err = serviceKcpClient.Cluster(servicePath).ApisV1alpha1().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
+	apiExport, err = serviceKcpClient.Cluster(servicePath).ApisV1alpha2().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Grant user to be able to bind service API export from workspace %q", servicePath)
@@ -700,7 +701,7 @@ func vwURL(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, path lo
 
 	var vwURL string
 	framework.Eventually(t, func() (bool, string) {
-		export, err := kcpClusterClient.Cluster(path).ApisV1alpha1().APIExports().Get(ctx, export, metav1.GetOptions{})
+		export, err := kcpClusterClient.Cluster(path).ApisV1alpha2().APIExports().Get(ctx, export, metav1.GetOptions{})
 		require.NoError(t, err)
 		urls := framework.ExportVirtualWorkspaceURLs(export)
 		var found bool
