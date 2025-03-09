@@ -52,6 +52,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
@@ -71,6 +72,7 @@ type Server struct {
 	Apis           *controlplaneapiserver.Server
 	MiniAggregator *miniaggregator.MiniAggregatorServer
 	virtual        *virtualrootapiserver.Server
+	DynRESTMapper  *dynamicrestmapper.DynamicRESTMapper
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -178,6 +180,8 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		}
 	}
 
+	s.DynRESTMapper = dynamicrestmapper.NewDynamicRESTMapper(nil)
+
 	return s, nil
 }
 
@@ -191,6 +195,7 @@ func (s *Server) uninstallControllers() {
 /* Registering all controllers and informers before starting informers. */
 func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
+
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err
 	}
@@ -344,6 +349,10 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
 			return err
 		}
+	}
+
+	if err := s.installDynamicRESTMapper(ctx, controllerConfig); err != nil {
+		return nil
 	}
 
 	return nil
