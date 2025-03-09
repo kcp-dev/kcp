@@ -43,6 +43,7 @@ import (
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 // StartStandaloneCacheServer runs the cache server as a separate process
@@ -50,15 +51,15 @@ import (
 func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir string) string {
 	t.Helper()
 
-	cacheServerPortStr, err := framework.GetFreePort(t)
+	cacheServerPortStr, err := frameworkserver.GetFreePort(t)
 	require.NoError(t, err)
 	cacheServerPort, err := strconv.Atoi(cacheServerPortStr)
 	require.NoError(t, err)
 	cacheServerOptions := cacheopitons.NewOptions(path.Join(dataDir, "cache"))
 	cacheServerOptions.SecureServing.BindPort = cacheServerPort
-	cacheServerEmbeddedEtcdClientPort, err := framework.GetFreePort(t)
+	cacheServerEmbeddedEtcdClientPort, err := frameworkserver.GetFreePort(t)
 	require.NoError(t, err)
-	cacheServerEmbeddedEtcdPeerPort, err := framework.GetFreePort(t)
+	cacheServerEmbeddedEtcdPeerPort, err := frameworkserver.GetFreePort(t)
 	require.NoError(t, err)
 	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
 	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort

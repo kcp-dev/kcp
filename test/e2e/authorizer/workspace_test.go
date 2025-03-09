@@ -35,6 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaces(t *testing.T) {
@@ -44,7 +45,7 @@ func TestWorkspaces(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 
 	type runningServer struct {
-		framework.RunningServer
+		frameworkserver.RunningServer
 		orgClusterName    logicalcluster.Path
 		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 		kcpClusterClient  kcpclientset.ClusterInterface

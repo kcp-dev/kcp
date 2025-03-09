@@ -29,15 +29,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/kcp/test/e2e/framework/env"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 // KcpCliPluginCommand returns the cli args to run the workspace plugin directly or
 // via go run (depending on whether NO_GORUN is set).
 func KcpCliPluginCommand() []string {
-	if NoGoRunEnvSet() {
+	if env.NoGoRunEnvSet() {
 		return []string{"kubectl", "kcp"}
 	} else {
-		cmdPath := filepath.Join(RepositoryDir(), "cmd", "kubectl-kcp")
+		cmdPath := filepath.Join(frameworkhelpers.RepositoryDir(), "cmd", "kubectl-kcp")
 		return []string{"go", "run", cmdPath}
 	}
 }

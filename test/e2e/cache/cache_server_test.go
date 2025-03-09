@@ -38,6 +38,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 	cache2e "github.com/kcp-dev/kcp/test/e2e/reconciler/cache"
 )
 
@@ -368,7 +369,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	_, dataDir, err := framework.ScratchDirs(t)
+	_, dataDir, err := frameworkserver.ScratchDirs(t)
 	require.NoError(t, err)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

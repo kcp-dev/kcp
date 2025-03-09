@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 //go:embed *.yaml
@@ -93,7 +94,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	}
 
 	// setup command
-	commandLine := append(framework.StartKcpCommand(s.name), framework.TestServerArgs()...)
+	commandLine := append(frameworkserver.StartKcpCommand(s.name), framework.TestServerArgs()...)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
 		"--audit-log-maxsize", "1024",
@@ -291,7 +292,7 @@ func ScrapeMetrics(ctx context.Context, s *Shard, workDir string) error {
 		return err
 	}
 
-	return framework.ScrapeMetrics(ctx, config, promUrl, workDir, s.name, filepath.Join(s.runtimeDir, "apiserver.crt"), map[string]string{
+	return frameworkserver.ScrapeMetrics(ctx, config, promUrl, workDir, s.name, filepath.Join(s.runtimeDir, "apiserver.crt"), map[string]string{
 		"server": s.name,
 	})
 }

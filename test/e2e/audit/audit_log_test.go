@@ -31,20 +31,21 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestAuditLogs(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	artifactDir, dataDir, err := framework.ScratchDirs(t)
+	artifactDir, dataDir, err := frameworkserver.ScratchDirs(t)
 	require.NoError(t, err)
 
 	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(
+		frameworkserver.WithCustomArguments(
 			"--audit-policy-file", "./policy.yaml",
 		),
-		framework.WithScratchDirectories(artifactDir, dataDir),
+		frameworkserver.WithScratchDirectories(artifactDir, dataDir),
 	)
 
 	cfg := server.BaseConfig(t)

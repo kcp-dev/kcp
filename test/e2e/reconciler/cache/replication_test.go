@@ -50,16 +50,18 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 type testScenario struct {
 	name string
-	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface)
+	work func(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface)
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIResourceSchema object.
-func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResource(
 		ctx,
@@ -108,7 +110,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 }
 
 // replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object.
-func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResourceNegative(
 		ctx,
@@ -160,7 +162,7 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateAPIExportScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResource(ctx,
 		t,
@@ -180,7 +182,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 }
 
 // replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object.
-func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResourceNegative(
 		ctx,
@@ -204,7 +206,7 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 
 // replicateShardScenario tests if a Shard is propagated to the cache server.
 // The test exercises creation, modification and removal of the Shard object.
-func replicateShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateShardScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResource(ctx,
 		t,
@@ -225,7 +227,7 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 }
 
 // replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object.
-func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResourceNegative(
 		ctx,
@@ -252,7 +254,7 @@ func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server fr
 
 // replicateWorkspaceTypeScenario tests if a WorkspaceType is propagated to the cache server.
 // The test exercises creation, modification and removal of the Shard object.
-func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResource(ctx,
 		t,
@@ -273,7 +275,7 @@ func replicateWorkspaceTypeScenario(ctx context.Context, t *testing.T, server fr
 }
 
 // replicateWorkspaceTypeNegativeScenario checks if modified or even deleted cached WorkspaceType will be reconciled to match the original object.
-func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
 	t.Helper()
 	replicateResourceNegative(
 		ctx,
@@ -309,7 +311,7 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 //	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
 //	)
 func replicateResource(ctx context.Context, t *testing.T,
-	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
+	server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
 	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
 	kind string, /*kind for the given resource*/
 	gvr schema.GroupVersionResource, /*gvr for the given resource*/
@@ -362,7 +364,7 @@ func replicateResource(ctx context.Context, t *testing.T,
 //	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
 //	)
 func replicateResourceNegative(ctx context.Context, t *testing.T,
-	server framework.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
+	server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
 	clusterName logicalcluster.Name, /*cluster for hosting the provided resource, can be empty*/
 	kind string, /*kind for the given resource*/
 	gvr schema.GroupVersionResource, /*gvr for the given resource*/
@@ -450,7 +452,7 @@ func TestReplicationDisruptive(t *testing.T) {
 
 			tokenAuthFile := framework.WriteTokenAuthFile(t)
 			server := framework.PrivateKcpServer(t,
-				framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
+				frameworkserver.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
 
@@ -474,7 +476,7 @@ type replicateResourceScenario struct {
 	gvr  schema.GroupVersionResource
 	kind string
 
-	server                       framework.RunningServer
+	server                       frameworkserver.RunningServer
 	kcpShardClusterDynamicClient kcpdynamic.ClusterInterface
 	cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface
 }
@@ -727,7 +729,7 @@ func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kc
 	}
 
 	// assume multi-shard env created by the sharded-test-server
-	cacheServerKubeConfigPath := filepath.Join(framework.RepositoryDir(), ".kcp-cache", "cache.kubeconfig")
+	cacheServerKubeConfigPath := filepath.Join(frameworkhelpers.RepositoryDir(), ".kcp-cache", "cache.kubeconfig")
 	cacheServerKubeConfig, err := framework.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
 	require.NoError(t, err)
 	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()

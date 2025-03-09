@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +42,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 const (
@@ -197,7 +199,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
+func NewWorkspaceFixture(t *testing.T, server frameworkserver.RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -208,12 +210,12 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, parent logicalclust
 	return parent.Join(ws.Name), ws
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
+func NewOrganizationFixture(t *testing.T, server frameworkserver.RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 	return NewWorkspaceFixture(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
 }
 
-func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server RunningServer, options ...O) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
+func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server frameworkserver.RunningServer, options ...O) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	rootConfig := server.RootShardSystemMasterBaseConfig(t)
@@ -295,4 +297,8 @@ func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
 		urls = append(urls, vw.URL)
 	}
 	return urls
+}
+
+func preserveTestResources() bool {
+	return os.Getenv("PRESERVE") != ""
 }

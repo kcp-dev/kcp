@@ -36,7 +36,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func startCacheServer(ctx context.Context, logDirPath, workingDir string, syntheticDelay time.Duration) (<-chan error, string, error) {
@@ -52,7 +52,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	)
 	cacheWorkingDir := filepath.Join(workingDir, ".kcp-cache")
 	cachePort := 8012
-	commandLine := framework.Command("cache-server", "cache")
+	commandLine := frameworkserver.Command("cache-server", "cache")
 	commandLine = append(
 		commandLine,
 		fmt.Sprintf("--root-directory=%s", cacheWorkingDir),

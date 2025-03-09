@@ -35,6 +35,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaceController(t *testing.T) {
@@ -42,7 +43,7 @@ func TestWorkspaceController(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	type runningServer struct {
-		framework.RunningServer
+		frameworkserver.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
 	}
 	var testCases = []struct {
