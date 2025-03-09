@@ -41,7 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func startFrontProxy(
@@ -131,7 +131,7 @@ func startFrontProxy(
 	}
 
 	// run front-proxy command
-	commandLine := append(framework.Command("kcp-front-proxy", "front-proxy"),
+	commandLine := append(frameworkserver.Command("kcp-front-proxy", "front-proxy"),
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
 		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),
@@ -248,7 +248,7 @@ func scrapeMetrics(ctx context.Context, cfg *rest.Config, workDir string) error 
 	if !set || promUrl == "" {
 		return nil
 	}
-	return framework.ScrapeMetrics(ctx, cfg, promUrl, workDir, "kcp-front-proxy", filepath.Join(workDir, ".kcp-front-proxy/apiserver.crt"), map[string]string{
+	return frameworkserver.ScrapeMetrics(ctx, cfg, promUrl, workDir, "kcp-front-proxy", filepath.Join(workDir, ".kcp-front-proxy/apiserver.crt"), map[string]string{
 		"server": "kcp-front-proxy",
 	})
 }

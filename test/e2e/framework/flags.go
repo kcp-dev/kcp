@@ -19,20 +19,14 @@ package framework
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"path/filepath"
 	"strings"
-	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/stretchr/testify/require"
-
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func init() {
@@ -58,7 +52,7 @@ func (c *testConfig) KCPKubeconfig() string {
 	}
 
 	if c.useDefaultKCPServer {
-		return filepath.Join(RepositoryDir(), ".kcp", "admin.kubeconfig")
+		return filepath.Join(frameworkhelpers.RepositoryDir(), ".kcp", "admin.kubeconfig")
 	}
 	return c.kcpKubeconfig
 }
@@ -86,21 +80,4 @@ func registerFlags(c *testConfig) {
 	flag.Var(cliflag.NewMapStringString(&c.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 	flag.StringVar(&c.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
-}
-
-// WriteLogicalClusterConfig creates a logical cluster config for the given config and
-// cluster name and writes it to the test's artifact path. Useful for configuring the
-// workspace plugin with --kubeconfig.
-func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Path) (clientcmd.ClientConfig, string) {
-	t.Helper()
-
-	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
-	artifactDir, _, err := ScratchDirs(t)
-	require.NoError(t, err)
-	pathSafeClusterName := strings.ReplaceAll(clusterName.String(), ":", "_")
-	kubeconfigPath := filepath.Join(artifactDir, fmt.Sprintf("%s.kubeconfig", pathSafeClusterName))
-	err = clientcmd.WriteToFile(logicalRawConfig, kubeconfigPath)
-	require.NoError(t, err)
-	logicalConfig := clientcmd.NewNonInteractiveClientConfig(logicalRawConfig, logicalRawConfig.CurrentContext, &clientcmd.ConfigOverrides{}, nil)
-	return logicalConfig, kubeconfigPath
 }

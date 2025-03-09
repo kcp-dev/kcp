@@ -48,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestAPIBindingMutatingWebhook(t *testing.T) {
@@ -141,7 +142,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			},
 			Deserializer: deserializer,
 		}
-		port, err := framework.GetFreePort(t)
+		port, err := frameworkserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
 		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
@@ -288,7 +289,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			},
 			Deserializer: deserializer,
 		}
-		port, err := framework.GetFreePort(t)
+		port, err := frameworkserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
 		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)

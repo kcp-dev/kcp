@@ -17,27 +17,13 @@ limitations under the License.
 package framework
 
 import (
-	"bytes"
 	"context"
-	cryptorand "crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"embed"
-	"encoding/pem"
 	"fmt"
-	"io"
-	"math/big"
 	"math/rand"
-	"net"
 	"os"
 	"path"
-	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -48,22 +34,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/cert"
-	"sigs.k8s.io/yaml"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 //go:embed *.csv
@@ -101,245 +82,7 @@ func WriteEmbedFile(t *testing.T, source string) string {
 	return targetPath
 }
 
-// Persistent mapping of test name to base temp dir used to ensure
-// artifact paths have a common root across servers for a given test.
-var (
-	baseTempDirs     = map[string]string{}
-	baseTempDirsLock = sync.Mutex{}
-)
-
-// ensureBaseTempDir returns the name of a base temp dir for the
-// current test, creating it if needed.
-func ensureBaseTempDir(t *testing.T) (string, error) {
-	t.Helper()
-
-	baseTempDirsLock.Lock()
-	defer baseTempDirsLock.Unlock()
-	name := t.Name()
-	if _, ok := baseTempDirs[name]; !ok {
-		var baseDir string
-		if dir, set := os.LookupEnv("ARTIFACT_DIR"); set {
-			baseDir = dir
-		} else {
-			baseDir = t.TempDir()
-		}
-		baseDir = filepath.Join(baseDir, strings.NewReplacer("\\", "_", ":", "_").Replace(t.Name()))
-		if err := os.MkdirAll(baseDir, 0755); err != nil {
-			return "", fmt.Errorf("could not create base dir: %w", err)
-		}
-		baseTempDir, err := os.MkdirTemp(baseDir, "")
-		if err != nil {
-			return "", fmt.Errorf("could not create base temp dir: %w", err)
-		}
-		baseTempDirs[name] = baseTempDir
-		t.Logf("Saving test artifacts for test %q under %q.", name, baseTempDir)
-
-		// Remove the path from the cache after test completion to
-		// ensure subsequent invocations of the test (e.g. due to
-		// -count=<val> for val > 1) don't reuse the same path.
-		t.Cleanup(func() {
-			baseTempDirsLock.Lock()
-			defer baseTempDirsLock.Unlock()
-			delete(baseTempDirs, name)
-		})
-	}
-	return baseTempDirs[name], nil
-}
-
-// CreateTempDirForTest creates the named directory with a unique base
-// path derived from the name of the current test.
-func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
-	t.Helper()
-	baseTempDir, err := ensureBaseTempDir(t)
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(baseTempDir, dirName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("could not create subdir: %w", err)
-	}
-	return dir, nil
-}
-
-// ScratchDirs determines where artifacts and data should live for a test server.
-// The passed subDir is appended to the artifact directory and should be unique
-// to the test.
-func ScratchDirs(t *testing.T) (string, string, error) {
-	t.Helper()
-
-	artifactDir, err := CreateTempDirForTest(t, toTestDir(t.Name()))
-	if err != nil {
-		return "", "", err
-	}
-	return artifactDir, t.TempDir(), nil
-}
-
-// toTestDir converts a test name into a Unix-compatible directory name.
-func toTestDir(testName string) string {
-	// Insert a dash before uppercase letters in the middle of the string
-	reg := regexp.MustCompile(`([a-z0-9])([A-Z])`)
-	safeName := reg.ReplaceAllString(testName, "${1}-${2}")
-
-	// Replace any remaining non-alphanumeric characters (except dashes and underscores) with underscores
-	reg = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
-	safeName = reg.ReplaceAllString(safeName, "_")
-
-	// Remove any leading or trailing underscores or dashes
-	safeName = strings.Trim(safeName, "_-")
-
-	// Convert to lowercase (optional, depending on your preference)
-	safeName = strings.ToLower(safeName)
-
-	return safeName
-}
-
-func (c *kcpServer) CADirectory() string {
-	return c.dataDir
-}
-
-func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
-	t.Helper()
-	artifact(t, c, producer)
-}
-
-// artifact registers the data-producing function to run and dump the YAML-formatted output
-// to the artifact directory for the test before the kcp process is terminated.
-func artifact(t *testing.T, server RunningServer, producer func() (runtime.Object, error)) {
-	t.Helper()
-
-	subDir := filepath.Join("artifacts", "kcp", server.Name())
-	artifactDir, err := CreateTempDirForTest(t, subDir)
-	require.NoError(t, err, "could not create artifacts dir")
-	// Using t.Cleanup ensures that artifact collection is local to
-	// the test requesting retention regardless of server's scope.
-	t.Cleanup(func() {
-		data, err := producer()
-		require.NoError(t, err, "error fetching artifact")
-
-		accessor, ok := data.(metav1.Object)
-		require.True(t, ok, "artifact has no object meta: %#v", data)
-
-		dir := path.Join(artifactDir, logicalcluster.From(accessor).String())
-		dir = strings.ReplaceAll(dir, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
-		if accessor.GetNamespace() != "" {
-			dir = path.Join(dir, accessor.GetNamespace())
-		}
-		err = os.MkdirAll(dir, 0755)
-		require.NoError(t, err, "could not create dir")
-
-		gvks, _, err := kubernetesscheme.Scheme.ObjectKinds(data)
-		if err != nil {
-			gvks, _, err = kcpscheme.Scheme.ObjectKinds(data)
-		}
-		require.NoError(t, err, "error finding gvk for artifact")
-		require.NotEmpty(t, gvks, "found no gvk for artifact: %T", data)
-		gvk := gvks[0]
-		data.GetObjectKind().SetGroupVersionKind(gvk)
-
-		group := gvk.Group
-		if group == "" {
-			group = "core"
-		}
-
-		gvkForFilename := fmt.Sprintf("%s_%s", group, gvk.Kind)
-
-		file := path.Join(dir, fmt.Sprintf("%s-%s.yaml", gvkForFilename, accessor.GetName()))
-		file = strings.ReplaceAll(file, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
-
-		bs, err := yaml.Marshal(data)
-		require.NoError(t, err, "error marshalling artifact")
-
-		err = os.WriteFile(file, bs, 0644)
-		require.NoError(t, err, "error writing artifact")
-	})
-}
-
-// GetFreePort asks the kernel for a free open port that is ready to use.
-func GetFreePort(t *testing.T) (string, error) {
-	t.Helper()
-
-	for {
-		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-		if err != nil {
-			return "", fmt.Errorf("could not resolve free port: %w", err)
-		}
-
-		l, err := net.ListenTCP("tcp", addr)
-		if err != nil {
-			return "", fmt.Errorf("could not listen on free port: %w", err)
-		}
-		// This defer is in a loop, although it should only be retried a fixed number of times, and return.
-		defer func(c io.Closer) { //nolint:gocritic
-			if err := c.Close(); err != nil {
-				t.Errorf("could not close listener: %v", err)
-			}
-		}(l)
-		port := strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
-		// Tests run in -parallel will run in separate processes, so we must use the file-system
-		// for sharing state and locking across them to coordinate who gets which port. Without
-		// some mechanism for sharing state, the following race is possible:
-		// - process A calls net.ListenTCP() to resolve a new port
-		// - process A calls l.Close() to close the listener to allow accessory to use it
-		// - process B calls net.ListenTCP() and resolves the same port
-		// - process A attempts to use the port, fails as it is in use
-		// Therefore, holding the listener open is our kernel-based lock for this process, and while
-		// we hold it open we must record our intent to disk.
-		lockDir := filepath.Join(os.TempDir(), "kcp-e2e-ports")
-		if err := os.MkdirAll(lockDir, 0755); err != nil {
-			return "", fmt.Errorf("could not create port lockfile dir: %w", err)
-		}
-		lockFile := filepath.Join(lockDir, port)
-		if _, err := os.Stat(lockFile); os.IsNotExist(err) {
-			// we've never seen this before, we can use it
-			f, err := os.Create(lockFile)
-			if err != nil {
-				return "", fmt.Errorf("could not record port lockfile: %w", err)
-			}
-			if err := f.Close(); err != nil {
-				return "", fmt.Errorf("could not close port lockfile: %w", err)
-			}
-			// the lifecycle of an accessory (and thereby its ports) is the test lifecycle
-			t.Cleanup(func() {
-				if err := os.Remove(lockFile); err != nil {
-					t.Errorf("failed to remove port lockfile: %v", err)
-				}
-			})
-			return port, nil
-		} else if err != nil {
-			return "", fmt.Errorf("could not access port lockfile: %w", err)
-		}
-		t.Logf("found a previously-seen port, retrying: %s", port)
-	}
-}
-
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
-
-// LogicalClusterRawConfig returns the raw cluster config of the given config.
-func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Path, contextName string) clientcmdapi.Config {
-	var (
-		contextClusterName  = rawConfig.Contexts[contextName].Cluster
-		contextAuthInfoName = rawConfig.Contexts[contextName].AuthInfo
-		configCluster       = *rawConfig.Clusters[contextClusterName] // shallow copy
-	)
-
-	configCluster.Server += logicalClusterName.RequestPath()
-
-	return clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			contextName: &configCluster,
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			contextName: {
-				Cluster:  contextName,
-				AuthInfo: contextAuthInfoName,
-			},
-		},
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			contextAuthInfoName: rawConfig.AuthInfos[contextAuthInfoName],
-		},
-		CurrentContext: contextName,
-	}
-}
 
 // Eventually asserts that given condition will be met in waitFor time, periodically checking target function
 // each tick. In addition to require.Eventually, this function t.Logs the reason string value returned by the condition
@@ -446,59 +189,6 @@ func EventuallyCondition(t *testing.T, getter func() (conditions.Getter, error),
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, msgAndArgs...)
 }
 
-// ClientCAUserConfig returns a config based on a dynamically created client certificate.
-// The returned client CA is signed by "test/e2e/framework/client-ca.crt".
-func ClientCAUserConfig(t *testing.T, cfg *rest.Config, clientCAConfigDirectory, username string, groups ...string) *rest.Config {
-	t.Helper()
-	caBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.crt"))
-	require.NoError(t, err, "error reading CA file")
-	caKeyBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.key"))
-	require.NoError(t, err, "error reading CA key")
-	caCerts, err := cert.ParseCertsPEM(caBytes)
-	require.NoError(t, err, "error parsing CA certs")
-	caKeys, err := tls.X509KeyPair(caBytes, caKeyBytes)
-	require.NoError(t, err, "error parsing CA keys")
-	clientPublicKey, clientPrivateKey, err := newRSAKeyPair()
-	require.NoError(t, err, "error creating client keys")
-	currentTime := time.Now()
-	clientCert := &x509.Certificate{
-		Subject: pkix.Name{
-			CommonName:   username,
-			Organization: groups,
-		},
-
-		SignatureAlgorithm: x509.SHA256WithRSA,
-
-		NotBefore:    currentTime.Add(-1 * time.Second),
-		NotAfter:     currentTime.Add(time.Hour * 2),
-		SerialNumber: big.NewInt(1),
-
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-	}
-	signedClientCertBytes, err := x509.CreateCertificate(cryptorand.Reader, clientCert, caCerts[0], clientPublicKey, caKeys.PrivateKey)
-	require.NoError(t, err, "error creating client certificate")
-	clientCertPEM := new(bytes.Buffer)
-	require.NoError(t, pem.Encode(clientCertPEM, &pem.Block{Type: "CERTIFICATE", Bytes: signedClientCertBytes}), "error encoding client cert")
-	clientKeyPEM := new(bytes.Buffer)
-	require.NoError(t, pem.Encode(clientKeyPEM, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientPrivateKey)}), "error encoding client private key")
-
-	cfgCopy := rest.CopyConfig(cfg)
-	cfgCopy.CertData = clientCertPEM.Bytes()
-	cfgCopy.KeyData = clientKeyPEM.Bytes()
-	cfgCopy.BearerToken = ""
-	return cfgCopy
-}
-
-func newRSAKeyPair() (*rsa.PublicKey, *rsa.PrivateKey, error) {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 2048)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &privateKey.PublicKey, privateKey, nil
-}
-
 // StaticTokenUserConfig returns a user config based on static user tokens defined in "test/e2e/framework/auth-tokens.csv".
 // The token being used is "[username]-token".
 func StaticTokenUserConfig(username string, cfg *rest.Config) *rest.Config {
@@ -544,4 +234,25 @@ func CreateResources(ctx context.Context, fs embed.FS, upstreamConfig *rest.Conf
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
 	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.New[string](), fs, transformers...)
+}
+
+// LoadKubeConfig loads a kubeconfig from disk. This method is
+// intended to be common between fixture for servers whose lifecycle
+// is test-managed and fixture for servers whose lifecycle is managed
+// separately from a test run.
+func LoadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+	fs, err := os.Stat(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	if fs.Size() == 0 {
+		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+	}
+
+	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
 }

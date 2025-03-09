@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaceDeletion(t *testing.T) {
@@ -46,7 +47,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	type runningServer struct {
-		framework.RunningServer
+		frameworkserver.RunningServer
 		kcpClusterClient  kcpclientset.ClusterInterface
 		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	}

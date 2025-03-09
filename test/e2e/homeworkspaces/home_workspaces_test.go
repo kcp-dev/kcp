@@ -30,6 +30,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestUserHomeWorkspaces(t *testing.T) {
@@ -39,7 +40,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	serverArgs := framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)
 	serverArgs = append(serverArgs, "--home-workspaces-home-creator-groups=team-1")
-	server := framework.PrivateKcpServer(t, framework.WithCustomArguments(serverArgs...))
+	server := framework.PrivateKcpServer(t, frameworkserver.WithCustomArguments(serverArgs...))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
