@@ -20,44 +20,41 @@ set -o pipefail
 set -o xtrace
 
 if [[ -z "${CONTROLLER_GEN:-}" ]]; then
-    echo "You must either set CONTROLLER_GEN to the path to controller-gen or invoke via make"
-    exit 1
+  echo "You must either set CONTROLLER_GEN to the path to controller-gen or invoke via make"
+  exit 1
 fi
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 # Update generated CRD YAML
 (
-    cd "${REPO_ROOT}/sdk/apis"
-    "../../${CONTROLLER_GEN}" \
-        crd \
-        rbac:roleName=manager-role \
-        webhook \
-        paths="./..." \
-        output:crd:artifacts:config="${REPO_ROOT}"/config/crds
+  cd "${REPO_ROOT}/sdk/apis"
+  "../../${CONTROLLER_GEN}" \
+    crd \
+    rbac:roleName=manager-role \
+    webhook \
+    paths="./..." \
+    output:crd:artifacts:config="${REPO_ROOT}"/config/crds
 )
 
 for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do
-    if [ -f "${CRD}-patch" ]; then
-        echo "Applying ${CRD}"
-        ${YAML_PATCH} -o "${CRD}-patch" < "${CRD}" > "${CRD}.patched"
-        mv "${CRD}.patched" "${CRD}"
-    fi
+  if [ -f "${CRD}-patch" ]; then
+    echo "Applying ${CRD}"
+    ${YAML_PATCH} -o "${CRD}-patch" < "${CRD}" > "${CRD}.patched"
+    mv "${CRD}.patched" "${CRD}"
+  fi
 done
 
-(
-  ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0
-)
-
+${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0
 
 # Tests CRDs
 
 (
-    cd "${REPO_ROOT}/test/e2e/fixtures/wildwest/apis"
-    "${REPO_ROOT}/${CONTROLLER_GEN}" \
-        crd \
-        rbac:roleName=manager-role \
-        webhook \
-        paths="./..." \
-        output:crd:artifacts:config="${REPO_ROOT}"/test/e2e/fixtures/wildwest/
+  cd "${REPO_ROOT}/test/e2e/fixtures/wildwest/apis"
+  "${REPO_ROOT}/${CONTROLLER_GEN}" \
+    crd \
+    rbac:roleName=manager-role \
+    webhook \
+    paths="./..." \
+    output:crd:artifacts:config="${REPO_ROOT}"/test/e2e/fixtures/wildwest/
 )

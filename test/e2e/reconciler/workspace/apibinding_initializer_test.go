@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -70,15 +70,15 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create today-cowboys APIExport")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
+		Spec: apisv1alpha2.APIExportSpec{
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
-			PermissionClaims: []apisv1alpha1.PermissionClaim{
+			PermissionClaims: []apisv1alpha2.PermissionClaim{
 				{
-					GroupResource: apisv1alpha1.GroupResource{
+					GroupResource: apisv1alpha2.GroupResource{
 						Resource: "configmaps",
 					},
 					All: true,
@@ -86,7 +86,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			},
 		},
 	}
-	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	universalPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("universal"))

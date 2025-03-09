@@ -312,7 +312,10 @@ func (o *Options) Complete(rootDir string) (*CompletedOptions, error) {
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericOptions, err := o.GenericControlPlane.Complete(nil, nil)
+	// for the internal conversion webhook server, include 127.0.0.1
+	additionalIPs := []net.IP{net.ParseIP("127.0.0.1")}
+
+	completedGenericOptions, err := o.GenericControlPlane.Complete(nil, additionalIPs)
 	if err != nil {
 		return nil, err
 	}

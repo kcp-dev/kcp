@@ -45,6 +45,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -171,12 +172,12 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 		cacheKcpClusterDynamicClient,
 		"",
 		"APIExport",
-		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-		&apisv1alpha1.APIExport{
+		apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("wild.wild.west")},
 		},
-		&apisv1alpha1.APIExport{
-			Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}},
+		&apisv1alpha2.APIExport{
+			Spec: apisv1alpha2.APIExportSpec{LatestResourceSchemas: []string{"foo.bar"}},
 		},
 	)
 }
@@ -192,14 +193,14 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 		cacheKcpClusterDynamicClient,
 		"",
 		"APIExport",
-		apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-		&apisv1alpha1.APIExport{
+		apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: withPseudoRandomSuffix("mangodb"),
 			},
 		},
-		&apisv1alpha1.APIExport{
-			Spec: apisv1alpha1.APIExportSpec{LatestResourceSchemas: []string{"foo"}},
+		&apisv1alpha2.APIExport{
+			Spec: apisv1alpha2.APIExportSpec{LatestResourceSchemas: []string{"foo"}},
 		},
 	)
 }
@@ -306,9 +307,9 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 //	  ...
 //	  "root:org:rh", // clusterName
 //	  "APIExports", // kind
-//	  apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), // gvr
-//	  &apisv1alpha1.APIExport{...}, // the resource
-//	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
+//	  apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"), // gvr
+//	  &apisv1alpha2.APIExport{...}, // the resource
+//	  &apisv1alpha2.APIExport{Spec: apisv1alpha2.APIExportSpec{...}}, // the resource with its spec modified
 //	)
 func replicateResource(ctx context.Context, t *testing.T,
 	server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
@@ -359,9 +360,9 @@ func replicateResource(ctx context.Context, t *testing.T,
 //	  "root:org:rh", // clusterName
 //	  "my-awesome-resource" // resName
 //	  "APIExports", // kind
-//	  apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"), // gvr
-//	  &apisv1alpha1.APIExport{...}, // the resource
-//	  &apisv1alpha1.APIExport{Spec: apisv1alpha1.APIExportSpec{...}}, // the resource with its spec modified
+//	  apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"), // gvr
+//	  &apisv1alpha2.APIExport{...}, // the resource
+//	  &apisv1alpha2.APIExport{Spec: apisv1alpha2.APIExportSpec{...}}, // the resource with its spec modified
 //	)
 func replicateResourceNegative(ctx context.Context, t *testing.T,
 	server frameworkserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface,
