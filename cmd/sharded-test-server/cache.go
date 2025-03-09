@@ -76,6 +76,14 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 		return nil, "", err
 	}
 
+	logger := klog.FromContext(ctx)
+	defer func() {
+		err = logFile.Close()
+		if err != nil {
+			logger.Error(err, "failed to close the log file")
+		}
+	}()
+
 	writer := helpers.NewHeadWriter(logFile, out)
 	cmd.Stdout = writer
 	cmd.Stdin = os.Stdin
@@ -91,7 +99,6 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	}()
 
 	// wait for readiness
-	logger := klog.FromContext(ctx)
 	logger.Info("waiting for the cache server to be up")
 	cacheKubeconfigPath := filepath.Join(cacheWorkingDir, "cache.kubeconfig")
 	for {
