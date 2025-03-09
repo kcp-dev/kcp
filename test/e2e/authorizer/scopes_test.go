@@ -36,6 +36,7 @@ import (
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestSubjectAccessReview(t *testing.T) {
@@ -198,7 +199,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 
 	t.Log("Wait until the cluster role binding is effective, i.e. the foreign use can access too")
 	require.NoError(t, err)
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		req := &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: "default"}}
 		_, err := foreignClusterClient.Cluster(wsPath).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, req, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("%v", err)

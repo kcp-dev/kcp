@@ -52,6 +52,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
@@ -175,7 +176,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		wtName := workspacetypes[name].Name
-		framework.EventuallyReady(t, func() (conditions.Getter, error) {
+		frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 		}, "could not wait for readiness on WorkspaceType %s|%s", wsPath.String(), wtName)
 	}
@@ -285,7 +286,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			_, err := adminVwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()
