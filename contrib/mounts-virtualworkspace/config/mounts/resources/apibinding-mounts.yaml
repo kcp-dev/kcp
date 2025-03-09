@@ -1,0 +1,9 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  name: mounts.contrib.kcp.io
+spec:
+  reference:
+    export:
+      name: mounts.contrib.kcp.io
+      path: root:providers:mounts
