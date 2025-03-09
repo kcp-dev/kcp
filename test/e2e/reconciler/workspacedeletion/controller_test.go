@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -81,12 +82,12 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to create workspace")
 
 				t.Logf("Workspace should be scheduled")
-				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+				frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
+				}, frameworkhelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
 
 				t.Logf("Should have finalizer added in workspace")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace")
 
@@ -98,7 +99,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Wait until the %q workspace is ready", workspace.Name)
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace")
 					if actual, expected := workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
@@ -110,7 +111,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				workspaceCluster := orgPath.Join(workspace.Name)
 
 				t.Logf("Wait for default namespace to be created")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					_, err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 					if err != nil {
 						return false, err.Error()
@@ -152,9 +153,9 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 				t.Logf("The workspace condition should be updated since there is resource in the workspace pending finalization.")
-				framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+				frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, framework.IsNot(tenancyv1alpha1.WorkspaceContentDeleted))
+				}, frameworkhelpers.IsNot(tenancyv1alpha1.WorkspaceContentDeleted))
 
 				t.Logf("Clean finalizer to remove the configmap")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -236,7 +237,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to delete workspace %s", orgPath)
 
 				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the sub-workspace is deleted.
 					if apierrors.IsNotFound(err) {
@@ -248,7 +249,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure namespace %q in the org workspace is deleted", ns.Name)
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(orgPath).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
@@ -260,7 +261,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure workspace in the org workspace is deleted")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(orgPath).List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {

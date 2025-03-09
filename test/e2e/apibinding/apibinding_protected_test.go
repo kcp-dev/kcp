@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestProtectedAPI(t *testing.T) {
@@ -95,18 +96,18 @@ func TestProtectedAPI(t *testing.T) {
 		},
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create APIBinding")
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerPath)
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.InitialBindingCompleted))
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	}, frameworkhelpers.Is(apisv1alpha1.InitialBindingCompleted))
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.BindingUpToDate))
+	}, frameworkhelpers.Is(apisv1alpha1.BindingUpToDate))
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerPath)
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)

@@ -42,7 +42,7 @@ import (
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -88,7 +88,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	}()
 
 	cacheServerCertificatePath := path.Join(dataDir, "cache", "apiserver.crt")
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		if _, err = os.Stat(cacheServerCertificatePath); os.IsNotExist(err) {
 			return false, "Failed to read the cache server's certificate, the file hasn't been created"
 		}

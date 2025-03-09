@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -114,7 +115,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				wtName := wt.Name
-				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -203,7 +204,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Bar to be usable in typesource workspace %q", typeSourcePath)
 				wtName := wt.Name
-				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(typeSourcePath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -265,7 +266,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				wtName := wt.Name
-				framework.EventuallyReady(t, func() (conditions.Getter, error) {
+				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -292,7 +293,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be stuck in initializing phase")
-				framework.Eventually(t, func() (success bool, reason string) {
+				frameworkhelpers.Eventually(t, func() (success bool, reason string) {
 					workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						return false, err.Error()

@@ -592,7 +592,7 @@ func (b *replicateResourceScenario) UpdateSpecCachedResource(ctx context.Context
 func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Context, t *testing.T) {
 	t.Helper()
 	require.NoError(t, b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Delete(ctx, b.resourceName, metav1.DeleteOptions{}))
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err := b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return true, ""
@@ -631,7 +631,7 @@ func (b *replicateResourceScenario) changeMetadataFor(originalResource *unstruct
 
 func (b *replicateResourceScenario) resourceUpdateHelper(ctx context.Context, t *testing.T, resourceGetter func(ctx context.Context) (*unstructured.Unstructured, error), resourceUpdater func(*unstructured.Unstructured) error) {
 	t.Helper()
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		resource, err := resourceGetter(ctx)
 		if err != nil {
 			return false, err.Error()
@@ -651,7 +651,7 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 	t.Helper()
 	cluster := b.cluster.Path()
 	t.Logf("Get %s %s/%s from the root shard and the cache server for comparison", b.gvr, cluster, b.resourceName)
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		originalResource, err := b.kcpShardClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(ctx, b.resourceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -730,7 +730,7 @@ func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kc
 
 	// assume multi-shard env created by the sharded-test-server
 	cacheServerKubeConfigPath := filepath.Join(frameworkhelpers.RepositoryDir(), ".kcp-cache", "cache.kubeconfig")
-	cacheServerKubeConfig, err := framework.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
+	cacheServerKubeConfig, err := frameworkhelpers.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
 	require.NoError(t, err)
 	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()
 	require.NoError(t, err)

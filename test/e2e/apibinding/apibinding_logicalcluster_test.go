@@ -37,6 +37,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 // Test that service provider can access logical cluster object from within the
@@ -87,9 +88,9 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	require.NoError(t, err, "failed to create api export")
 
 	t.Logf("validate that the permission claim's conditions true")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+	}, frameworkhelpers.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
 	apiBinding := apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -117,15 +118,15 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 		},
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
 	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+	}, frameworkhelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
 
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -135,7 +136,7 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 
 	gvr := corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters")
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		items := []unstructured.Unstructured{}
 
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
@@ -218,9 +219,9 @@ func TestAPIBindingCRDs(t *testing.T) {
 	require.NoError(t, err, "failed to create api export")
 
 	t.Logf("validate that the permission claim's conditions true")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+	}, frameworkhelpers.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
 	apiBinding := apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -248,15 +249,15 @@ func TestAPIBindingCRDs(t *testing.T) {
 		},
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
 	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+	}, frameworkhelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
 
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -266,7 +267,7 @@ func TestAPIBindingCRDs(t *testing.T) {
 
 	gvr := apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		items := []unstructured.Unstructured{}
 
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet

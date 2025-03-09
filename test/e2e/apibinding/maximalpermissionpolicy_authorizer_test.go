@@ -44,6 +44,7 @@ import (
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
@@ -82,7 +83,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Logf("Creating a WorkspaceType as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
-				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = userKcpClusterClient.Cluster(orgPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
@@ -110,7 +111,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Logf("Creating a APIExport as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
-				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
@@ -195,7 +196,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		}
 
 		// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			_, err = user3KcpClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
@@ -236,7 +237,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderPath {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
-			framework.Eventually(t, func() (bool, string) {
+			frameworkhelpers.Eventually(t, func() (bool, string) {
 				_, err = cowboyclient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
 				if err == nil {
 					return false, "error"

@@ -54,6 +54,7 @@ import (
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
@@ -113,7 +114,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 		},
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -128,7 +129,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
 		expected := "APIExport reference must not be changed"
 		if strings.Contains(err.Error(), expected) {
@@ -228,7 +229,7 @@ func TestAPIBinding(t *testing.T) {
 			},
 		}
 
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -315,15 +316,15 @@ func TestAPIBinding(t *testing.T) {
 			},
 		}
 
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", provider2Path, providerPath)
-		framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+		frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 			return kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys2", metav1.GetOptions{})
-		}, framework.IsNot(apisv1alpha1.InitialBindingCompleted).WithReason(apisv1alpha1.NamingConflictsReason), "expected naming conflict")
+		}, frameworkhelpers.IsNot(apisv1alpha1.InitialBindingCompleted).WithReason(apisv1alpha1.NamingConflictsReason), "expected naming conflict")
 	}
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
@@ -336,7 +337,7 @@ func TestAPIBinding(t *testing.T) {
 		}
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			e, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
 				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)

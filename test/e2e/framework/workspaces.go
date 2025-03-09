@@ -42,6 +42,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -152,7 +153,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.
 	var ws *tenancyv1alpha1.Workspace
-	Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		var err error
 		ws, err = createClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
@@ -174,7 +175,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 		require.NoErrorf(t, err, "failed to delete workspace %s", wsName)
 	})
 
-	Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		var err error
 		ws, err = clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
@@ -185,7 +186,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 		return true, ""
 	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
-	Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		if _, err := clusterClient.Cluster(logicalcluster.NewPath(ws.Spec.Cluster)).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{}); err != nil {
 			return false, fmt.Sprintf("failed to get LogicalCluster %s by cluster name %s: %v", parent.Join(ws.Name), ws.Spec.Cluster, err)
 		}
