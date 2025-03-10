@@ -107,8 +107,8 @@ for dir in "${DIRS[@]}"; do
     echo "Verifying ${dir}"
 
     if ! git diff --quiet HEAD -- go.mod go.sum; then
-      echo "go module files are out of date"
-      git diff HEAD -- go.mod go.sum
+      git --no-pager diff HEAD -- go.mod go.sum
+      echo "Error: go.mod and/or go.sum in ${dir} files have been modified, inspect and commit them before continuing" 1>&2
       exit 1
     fi
 
