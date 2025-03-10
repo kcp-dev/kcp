@@ -43,6 +43,7 @@ import (
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
@@ -248,7 +249,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 
 func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 	t.Helper()
-	framework.Eventually(t, func() (success bool, reason string) {
+	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
 		if err := fn(); err != nil {
 			return false, err.Error()
 		}

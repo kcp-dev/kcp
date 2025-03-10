@@ -37,6 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestServiceAccounts(t *testing.T) {
@@ -234,7 +235,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create cluster role binding")
 
 				t.Log("Accessing other workspace with the (there foreign) service account should eventually work because it is authenticated")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 					if err != nil {
 						return false, err.Error()
@@ -261,7 +262,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to update cluster role binding")
 
 				t.Log("The foreign service account should not be able to access the other workspace anymore eventually")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 					if err == nil {
 						return false, "access should not be allowed. Keeping trying."
@@ -328,7 +329,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create role")
 
 				t.Log("Verifying if service account is allowed to delegate")
-				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("implicit-escalating-clusterrole-%d", i),
@@ -385,7 +386,7 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err, "failed to create role")
 
 				t.Log("Verifying if service account is allowed to escalate")
-				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("explicit-escalating-clusterrole-%d", i),

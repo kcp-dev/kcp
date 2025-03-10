@@ -35,6 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -105,14 +106,14 @@ func TestWorkspaces(t *testing.T) {
 				require.Equal(t, workspace1.Name, list.Items[0].Name)
 
 				t.Logf("Workspace will become ready")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 					return workspace1.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace1 phase: %s", workspace1.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace1 never became ready")
 
 				t.Logf("User1 is admin of workspace1 and can list and create sub-workspaces")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
 					_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)
@@ -132,7 +133,7 @@ func TestWorkspaces(t *testing.T) {
 
 				t.Logf("User2 can be given access to workspace1")
 				permitAccessToWorkspace(t, ctx, server.kubeClusterClient, server.orgClusterName.Join("workspace1"), false, "team-2-access", "team-2", "workspace1")
-				framework.Eventually(t, func() (bool, string) {
+				frameworkhelpers.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
 					_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)

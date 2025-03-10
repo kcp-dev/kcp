@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {
@@ -49,7 +49,7 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		t.Fatalf("Failed to start webhook: %v", err)
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		caCertPath := fmt.Sprintf("%s/ca.crt", pkiDir)
 		if _, err := os.Stat(caCertPath); os.IsNotExist(err) {
 			return false, "ca.crt file does not exist"
@@ -57,7 +57,7 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		conn, err := net.DialTimeout("tcp", address, time.Second)
 		if err != nil {
 			return false, fmt.Sprintf("Webhook is not serving on %s: %v", address, err)

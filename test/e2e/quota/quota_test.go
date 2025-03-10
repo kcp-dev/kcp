@@ -46,6 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
@@ -85,7 +86,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 		require.NoError(t, err, "error creating ws quota")
 
 		t.Logf("Waiting for ws quota to show used configmaps (kube-root-ca.crt)")
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			ws1Quota, err = kubeClusterClient.Cluster(wsPath).CoreV1().ResourceQuotas("default").Get(ctx, "quota", metav1.GetOptions{})
 			require.NoError(t, err, "Error getting ws quota %s|default/quota: %v", wsPath, err)
 
@@ -94,7 +95,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 1 used configmaps")
 
 		t.Logf("Make sure quota is enforcing limits")
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a configmap")
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
 			if _, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{}); err != nil {
@@ -176,18 +177,18 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				},
 			}
 
-			framework.Eventually(t, func() (bool, string) {
+			frameworkhelpers.Eventually(t, func() (bool, string) {
 				_, err := kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for binding to be ready")
-			framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+			frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-			}, framework.Is(apisv1alpha1.InitialBindingCompleted))
+			}, frameworkhelpers.Is(apisv1alpha1.InitialBindingCompleted))
 
 			t.Logf("Wait for being able to list Services in the user workspace")
-			framework.Eventually(t, func() (bool, string) {
+			frameworkhelpers.Eventually(t, func() (bool, string) {
 				_, err := kubeClusterClient.Cluster(userPath).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("Failed to list Services: %v", err)
@@ -211,7 +212,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "error creating quota")
 
 			t.Logf("Waiting for quota to show 0 used Services")
-			framework.Eventually(t, func() (bool, string) {
+			frameworkhelpers.Eventually(t, func() (bool, string) {
 				quota, err = kubeClusterClient.Cluster(userPath).CoreV1().ResourceQuotas("default").Get(ctx, "quota", metav1.GetOptions{})
 				require.NoError(t, err, "Error getting ws quota %s|default/quota: %v", userPath, err)
 
@@ -220,7 +221,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 0 used Services")
 
 			t.Logf("Make sure quota is enforcing limits")
-			framework.Eventually(t, func() (bool, string) {
+			frameworkhelpers.Eventually(t, func() (bool, string) {
 				t.Logf("Trying to create a service")
 				service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
 				_, err = kubeClusterClient.Cluster(userPath).CoreV1().Services("default").Create(ctx, service, metav1.CreateOptions{})
@@ -293,7 +294,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 		require.NoError(t, err, "error creating ws %d quota", wsIndex)
 
 		t.Logf("Waiting for ws %d quota to show usage", wsIndex)
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas("default").Get(ctx, quotaName, metav1.GetOptions{})
 			require.NoError(t, err, "error getting ws %d quota %s|default/quota: %v", wsIndex, ws, err)
 
@@ -308,7 +309,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 		t.Logf("Make sure quota is enforcing limits")
 		i := 0
 		sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a sheriff")
 			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
@@ -344,7 +345,7 @@ func TestClusterScopedQuota(t *testing.T) {
 
 		const adminNamespace = "admin"
 		t.Logf("Creating %q namespace %q", wsPath, adminNamespace)
-		framework.Eventually(t, func() (success bool, reason string) {
+		frameworkhelpers.Eventually(t, func() (success bool, reason string) {
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: adminNamespace,
@@ -382,7 +383,7 @@ func TestClusterScopedQuota(t *testing.T) {
 		require.NoError(t, err, "error creating quota in %q", wsPath)
 
 		t.Logf("Waiting for %q quota to show usage", wsPath)
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			quota, err = kubeClusterClient.Cluster(wsPath).CoreV1().ResourceQuotas(adminNamespace).Get(ctx, quotaName, metav1.GetOptions{})
 			require.NoError(t, err, "Error getting %q quota: %v", wsPath, err)
 
@@ -407,7 +408,7 @@ func TestClusterScopedQuota(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used configmaps and 1 used workspace")
 
 		t.Logf("Make sure quota is enforcing configmap limits for %q", wsPath)
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a configmap in %q", wsPath)
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
 			_, err = kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{})
@@ -418,7 +419,7 @@ func TestClusterScopedQuota(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", wsPath)
 
 		t.Logf("Make sure quota is enforcing workspace limits for %q", wsPath)
-		framework.Eventually(t, func() (bool, string) {
+		frameworkhelpers.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a workspace in %q", wsPath)
 			childWS := &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{

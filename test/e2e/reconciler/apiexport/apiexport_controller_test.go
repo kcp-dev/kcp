@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
@@ -74,9 +75,9 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	require.NoError(t, err, "error creating APIExport")
 
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
-	}, framework.IsNot(apisv1alpha1.APIExportIdentityValid).WithReason(apisv1alpha1.IdentityVerificationFailedReason))
+	}, frameworkhelpers.IsNot(apisv1alpha1.APIExportIdentityValid).WithReason(apisv1alpha1.IdentityVerificationFailedReason))
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -93,9 +94,9 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	require.NoError(t, err, "error creating secret")
 
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.APIExportIdentityValid))
+	}, frameworkhelpers.Is(apisv1alpha1.APIExportIdentityValid))
 
 	export, err := apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
 	require.NoError(t, err)

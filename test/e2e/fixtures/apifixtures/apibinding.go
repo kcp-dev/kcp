@@ -30,7 +30,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 // BindToExport creates an APIBinding in bindingClusterName that points at apiExportName in exportClusterName. It waits
@@ -59,7 +59,7 @@ func BindToExport(
 		},
 	}
 
-	framework.Eventually(t, func() (bool, string) {
+	frameworkhelpers.Eventually(t, func() (bool, string) {
 		t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
 		_, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err != nil {
@@ -68,7 +68,7 @@ func BindToExport(
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	framework.EventuallyCondition(t, func() (conditions.Getter, error) {
+	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-	}, framework.Is(apisv1alpha1.InitialBindingCompleted))
+	}, frameworkhelpers.Is(apisv1alpha1.InitialBindingCompleted))
 }

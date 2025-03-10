@@ -35,6 +35,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
@@ -76,9 +77,9 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
+				}, frameworkhelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
 			},
 		},
 		{
@@ -106,9 +107,9 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
-				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, framework.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
+				}, frameworkhelpers.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
 				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
@@ -127,9 +128,9 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
-				framework.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, framework.Is(tenancyv1alpha1.WorkspaceScheduled))
+				}, frameworkhelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
 
 				workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err)
