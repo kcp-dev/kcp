@@ -85,7 +85,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				if err := os.WriteFile(name.String()+".yaml", yamlBytes, os.ModePerm); err != nil {
+				if err := os.WriteFile(name.String()+".yaml", yamlBytes, 0644); err != nil {
 					return err
 				}
 			}
