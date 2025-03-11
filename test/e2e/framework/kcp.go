@@ -137,7 +137,7 @@ func SharedKcpServer(t *testing.T) frameworkserver.RunningServer {
 		ClientCADir: clientCADir,
 		DataDir:     dataDir,
 	})
-	return f.Servers[serverName]
+	return f[serverName]
 }
 
 func createClientCA(t *testing.T) (string, string) {

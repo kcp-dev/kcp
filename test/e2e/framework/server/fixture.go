@@ -62,19 +62,15 @@ var RunInProcessFunc func(t *testing.T, dataDir string, args []string) error
 // Fixture manages the lifecycle of a set of kcp servers.
 //
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
-type Fixture struct {
-	Servers map[string]RunningServer
-}
+type Fixture = map[string]RunningServer
 
 // NewFixture returns a new kcp server fixture.
-func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
+func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 	t.Helper()
-
-	f := &Fixture{}
 
 	// Initialize servers from the provided configuration
 	servers := make([]*kcpServer, 0, len(cfgs))
-	f.Servers = make(map[string]RunningServer, len(cfgs))
+	ret := make(Fixture, len(cfgs))
 	for _, cfg := range cfgs {
 		if len(cfg.ArtifactDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing ArtifactDir", cfg.Name))
@@ -86,7 +82,7 @@ func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
 		require.NoError(t, err)
 
 		servers = append(servers, srv)
-		f.Servers[srv.name] = srv
+		ret[srv.name] = srv
 	}
 
 	// Launch kcp servers and ensure they are ready before starting the test
@@ -137,7 +133,7 @@ func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
-	return f
+	return ret
 }
 
 // kcpServer exposes a kcp invocation to a test and
