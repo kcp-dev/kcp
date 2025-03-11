@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
@@ -69,8 +70,14 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	logger = logging.WithObject(logger, apiExport)
 
 	exportedClaims := sets.New[string]()
-	for _, claim := range apiExport.Spec.PermissionClaims {
-		exportedClaims.Insert(setKeyForClaim(claim))
+	for _, v2Claim := range apiExport.Spec.PermissionClaims {
+		v1Claim := apisv1alpha1.PermissionClaim{}
+		err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&v2Claim, &v1Claim, nil)
+		if err != nil {
+			return fmt.Errorf("failed to convert PermissionClaim: %w", err)
+		}
+
+		exportedClaims.Insert(setKeyForClaim(v1Claim))
 	}
 
 	acceptedClaims := sets.New[string]()

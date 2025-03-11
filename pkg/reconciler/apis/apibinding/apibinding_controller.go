@@ -48,11 +48,13 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 )
@@ -70,11 +72,11 @@ func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	globalAPIConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
@@ -92,7 +94,7 @@ func NewController(
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		listAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 			// binding keys by full path
 			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -126,15 +128,15 @@ func NewController(
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
-		getAPIExportsBySchema: func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
+		getAPIExportsBySchema: func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
 			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(schema)
 			if err != nil {
 				return nil, err
 			}
-			return indexers.ByIndexWithFallback[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
+			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
 		},
 
 		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
@@ -200,14 +202,14 @@ func NewController(
 
 	// APIExport handlers
 	_, _ = apiExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
 	}))
 	_, _ = globalAPIExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger, "") },
 	}))
 
 	// APIResourceSchema handlers
@@ -296,11 +298,11 @@ type controller struct {
 	kcpClusterClient kcpclientset.ClusterInterface
 
 	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	listAPIBindingsByAPIExport func(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindingsByAPIExport func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 
-	getAPIExportByPath    func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
-	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error)
+	getAPIExportByPath    func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error)
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
@@ -330,7 +332,7 @@ func (c *controller) enqueueAPIBinding(apiBinding *apisv1alpha1.APIBinding, logg
 }
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
-func (c *controller) enqueueAPIExport(export *apisv1alpha1.APIExport, logger logr.Logger, logSuffix string) {
+func (c *controller) enqueueAPIExport(export *apisv1alpha2.APIExport, logger logr.Logger, logSuffix string) {
 	bindings, err := c.listAPIBindingsByAPIExport(export)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -501,8 +503,8 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
-	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) {
 	// APIBinding indexers
 	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
