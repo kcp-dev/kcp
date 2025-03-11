@@ -38,7 +38,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
 // NewSheriffsCRDWithSchemaDescription returns a minimal sheriffs CRD in the API group specified with the description
@@ -193,7 +193,7 @@ func CreateSheriff(
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 
 	// CRDs are asynchronously served because they are informer based.
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": group + "/v1",

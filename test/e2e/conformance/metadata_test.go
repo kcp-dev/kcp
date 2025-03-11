@@ -33,6 +33,7 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -45,7 +46,7 @@ func TestMetadataMutations(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

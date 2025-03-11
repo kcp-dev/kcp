@@ -36,15 +36,16 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestSubjectAccessReview(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 	wsPath, ws := framework.NewOrganizationFixture(t, server)
 
@@ -167,7 +168,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 	wsPath, ws := framework.NewOrganizationFixture(t, server)
 
@@ -200,7 +201,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 
 	t.Log("Wait until the cluster role binding is effective, i.e. the foreign use can access too")
 	require.NoError(t, err)
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		req := &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: "default"}}
 		_, err := foreignClusterClient.Cluster(wsPath).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, req, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("%v", err)

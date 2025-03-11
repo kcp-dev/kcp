@@ -47,8 +47,9 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 //go:embed testdata/*.yaml
@@ -61,7 +62,7 @@ func TestAuthorizer(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
@@ -228,7 +229,7 @@ func TestAuthorizer(t *testing.T) {
 			_, err = shardKubeClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("kcp-authorizer-test-namespace-%d", rand.Uint32()),
@@ -266,7 +267,7 @@ func TestAuthorizer(t *testing.T) {
 			t.Logf("ask with deep SAR that user-1 hypothetically could list configmaps in %q if it had access", org2.Join("workspace1"))
 			deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
 			require.NoError(t, err)
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				resp, err = deepSARClient.Cluster(logicalcluster.NewPath(org2Workspace1.Spec.Cluster)).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("failed to create SAR: %v", err)
@@ -359,7 +360,7 @@ func TestAuthorizer(t *testing.T) {
 			_, err = kubeClusterClient.Cluster(ws).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				review, err := user5KubeClusterClient.Cluster(ws).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("failed to create SelfSubjectRulesReview: %v", err)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package framework
 
 import (
 	"context"
@@ -25,13 +25,15 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/component-base/cli/flag"
 
+	"github.com/kcp-dev/embeddedetcd"
+
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
-	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/server"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
 func init() {
-	RunInProcessFunc = func(t *testing.T, rootDir string, args []string) error {
+	kcptestingserver.RunInProcessFunc = func(t *testing.T, rootDir string, args []string) (<-chan struct{}, error) {
 		ctx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
@@ -43,44 +45,46 @@ func init() {
 			all.AddFlagSet(fs)
 		}
 		if err := all.Parse(args); err != nil {
-			return err
+			return nil, err
 		}
 
 		completed, err := serverOptions.Complete()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if errs := completed.Validate(); len(errs) > 0 {
-			return utilerrors.NewAggregate(errs)
+			return nil, utilerrors.NewAggregate(errs)
 		}
 
 		config, err := server.NewConfig(ctx, completed.Server)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		completedConfig, err := config.Complete()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// the etcd server must be up before NewServer because storage decorators access it right away
 		if completedConfig.EmbeddedEtcd.Config != nil {
 			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
+		stopCh := make(chan struct{})
 		s, err := server.NewServer(completedConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		go func() {
+			defer close(stopCh)
 			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
 				t.Errorf("`kcp` failed: %v", err)
 			}
 		}()
 
-		return nil
+		return stopCh, nil
 	}
 }

@@ -30,6 +30,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -40,7 +41,7 @@ func TestCustomResourceCreation(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

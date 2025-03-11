@@ -51,13 +51,16 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
-	"github.com/kcp-dev/kcp/test/e2e/framework/env"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	"github.com/kcp-dev/kcp/sdk/testing/env"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
+
+// kcpBinariesDirEnvDir can be set to find kcp binaries for testing.
+const kcpBinariesDirEnvDir = "KCP_BINARIES_DIR"
 
 // RunInProcessFunc instantiates the kcp server in process for easier debugging.
 // It is here to decouple the rest of the code from kcp core dependencies.
-var RunInProcessFunc func(t *testing.T, dataDir string, args []string) error
+var RunInProcessFunc func(t *testing.T, dataDir string, args []string) (<-chan struct{}, error)
 
 // Fixture manages the lifecycle of a set of kcp servers.
 //
@@ -123,10 +126,12 @@ func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 	}
 
 	t.Cleanup(func() {
+		t.Logf("Stopping kcp servers...")
 		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 		defer cancel()
 
 		for _, s := range servers {
+			t.Log("Gathering metrics for kcp server", s.name)
 			gatherMetrics(ctx, t, s, s.artifactDir)
 		}
 	})
@@ -192,6 +197,7 @@ func newKcpServer(t *testing.T, cfg Config, artifactDir, dataDir, clientCADir st
 			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
 			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 			"--audit-log-path", filepath.Join(artifactDir, "kcp.audit"),
+			"--v=4",
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
@@ -229,15 +235,28 @@ func StartKcpCommand(identity string) []string {
 // via `go run`).
 func Command(executableName, identity string) []string {
 	if env.RunDelveEnvSet() {
-		cmdPath := filepath.Join(frameworkhelpers.RepositoryDir(), "cmd", executableName)
+		cmdPath := filepath.Join(kcptestinghelpers.RepositoryDir(), "cmd", executableName)
 		return []string{"dlv", "debug", "--api-version=2", "--headless", fmt.Sprintf("--listen=unix:dlv-%s.sock", identity), cmdPath, "--"}
 	}
-	if env.NoGoRunEnvSet() {
-		cmdPath := filepath.Join(frameworkhelpers.RepositoryBinDir(), executableName)
-		return []string{cmdPath}
+
+	// are we inside of the kcp repository?
+	repo := kcptestinghelpers.RepositoryDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
 	}
-	cmdPath := filepath.Join(frameworkhelpers.RepositoryDir(), "cmd", executableName)
-	return []string{"go", "run", cmdPath}
+	inKcp := strings.HasPrefix(wd, repo+"/")
+
+	binary := executableName
+	if binDir := os.Getenv(kcpBinariesDirEnvDir); binDir == "" && inKcp {
+		binary = filepath.Join(kcptestinghelpers.RepositoryBinDir(), executableName)
+	}
+
+	if env.NoGoRunEnvSet() || !inKcp {
+		return []string{binary}
+	}
+
+	return []string{"go", "run", filepath.Join(repo, "cmd", executableName)}
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -283,10 +302,15 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		if c.dataDir != "" {
 			rootDir = c.dataDir
 		}
-		if err := RunInProcessFunc(c.t, rootDir, c.args); err != nil {
+		stopCh, err := RunInProcessFunc(c.t, rootDir, c.args)
+		if err != nil {
 			cleanup()
 			return err
 		}
+		go func() {
+			defer cleanup()
+			<-stopCh
+		}()
 		return nil
 	}
 

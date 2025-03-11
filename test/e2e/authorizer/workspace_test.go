@@ -35,19 +35,20 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaces(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	type runningServer struct {
-		frameworkserver.RunningServer
+		kcptestingserver.RunningServer
 		orgClusterName    logicalcluster.Path
 		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 		kcpClusterClient  kcpclientset.ClusterInterface
@@ -107,14 +108,14 @@ func TestWorkspaces(t *testing.T) {
 				require.Equal(t, workspace1.Name, list.Items[0].Name)
 
 				t.Logf("Workspace will become ready")
-				frameworkhelpers.Eventually(t, func() (bool, string) {
+				kcptestinghelpers.Eventually(t, func() (bool, string) {
 					workspace1, err = user1Client.Cluster(server.orgClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 					return workspace1.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace1 phase: %s", workspace1.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace1 never became ready")
 
 				t.Logf("User1 is admin of workspace1 and can list and create sub-workspaces")
-				frameworkhelpers.Eventually(t, func() (bool, string) {
+				kcptestinghelpers.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
 					_, err = user1Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)
@@ -134,7 +135,7 @@ func TestWorkspaces(t *testing.T) {
 
 				t.Logf("User2 can be given access to workspace1")
 				permitAccessToWorkspace(t, ctx, server.kubeClusterClient, server.orgClusterName.Join("workspace1"), false, "team-2-access", "team-2", "workspace1")
-				frameworkhelpers.Eventually(t, func() (bool, string) {
+				kcptestinghelpers.Eventually(t, func() (bool, string) {
 					// Bindings are async. better wait.
 					_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 					return err == nil, fmt.Sprintf("list of sub-workspaces: %v", err)

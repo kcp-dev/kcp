@@ -49,18 +49,19 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -95,7 +96,7 @@ func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 	err = kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Delete(ctx, owner.Name, metav1.DeleteOptions{})
 
 	t.Logf("Waiting for the owned configmap to be garbage collected")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err = kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Get(ctx, owned.Name, metav1.GetOptions{})
 		return apierrors.IsNotFound(err), fmt.Sprintf("configmap not garbage collected: %s", owned.Name)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmap to be garbage collected")
@@ -105,7 +106,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -173,21 +174,21 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "error creating kcp cluster client")
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for the binding to be ready")
-			frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+			kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
-			}, frameworkhelpers.Is(apisv1alpha1.InitialBindingCompleted))
+			}, kcptestinghelpers.Is(apisv1alpha1.InitialBindingCompleted))
 
 			wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 			require.NoError(t, err, "failed to construct wildwest cluster client for server")
 
 			t.Logf("Wait for being able to list cowboys in the user workspace")
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err := wildwestClusterClient.Cluster(userPath).WildwestV1alpha1().Cowboys("").
 					List(c, metav1.ListOptions{})
 				if err != nil {
@@ -242,14 +243,14 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 				Delete(ctx, owner.Name, metav1.DeleteOptions{})
 
 			t.Logf("Waiting for the owned configmap to be garbage collected")
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = kubeClusterClient.Cluster(userPath).CoreV1().ConfigMaps("default").
 					Get(ctx, ownedConfigMap.Name, metav1.GetOptions{})
 				return apierrors.IsNotFound(err), fmt.Sprintf("configmap not garbage collected: %s", ownedConfigMap.Name)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmap to be garbage collected")
 
 			t.Logf("Waiting for the owned cowboy to be garbage collected")
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = wildwestClusterClient.Cluster(userPath).WildwestV1alpha1().Cowboys("default").
 					Get(ctx, ownedCowboy.Name, metav1.GetOptions{})
 				return apierrors.IsNotFound(err), fmt.Sprintf("cowboy not garbage collected: %s", ownedConfigMap.Name)
@@ -262,7 +263,7 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -332,7 +333,7 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	}
 
 	t.Logf("Waiting for the owned configmaps to be garbage collected")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err1 := kubeClusterClient.Cluster(ws1Path).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
 		_, err2 := kubeClusterClient.Cluster(ws2Path).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "configmaps not garbage collected"
@@ -343,7 +344,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -431,7 +432,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv1.GetName(), wsPath)
 
 	t.Logf("Waiting for the owned sheriffs to be garbage collected")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err1 := dynamicClusterClient.Cluster(wsPath).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
 		_, err2 := dynamicClusterClient.Cluster(wsPath).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
@@ -498,7 +499,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv2.GetName(), wsPath)
 
 	t.Logf("Waiting for the owned sheriffs to be garbage collected")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err1 := dynamicClusterClient.Cluster(wsPath).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
 		_, err2 := dynamicClusterClient.Cluster(wsPath).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
@@ -509,7 +510,7 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -576,7 +577,7 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	require.NoError(t, err, "Error deleting owner clustered in %s", wsPath)
 
 	t.Logf("Waiting for the owned clustered to be garbage collected")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := dynamicClusterClient.Cluster(wsPath).Resource(gvr).
 			Get(ctx, "owner", metav1.GetOptions{})
 		return apierrors.IsNotFound(err), "owned clustered not garbage collected"

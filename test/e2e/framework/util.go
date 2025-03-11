@@ -17,54 +17,15 @@ limitations under the License.
 package framework
 
 import (
-	"embed"
 	"math/rand"
-	"os"
-	"path"
 	"strings"
 	"testing"
 
 	"github.com/martinlindhe/base36"
-	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 )
-
-//go:embed *.csv
-//go:embed *.yaml
-var fs embed.FS
-
-// WriteTokenAuthFile writes the embedded token file to the current
-// test's data dir.
-//
-// Persistent servers can target the file in the source tree with
-// `--token-auth-file` and test-managed servers can target a file
-// written to a temp path. This avoids requiring a test to know the
-// location of the token file.
-//
-// TODO(marun) Is there a way to avoid embedding by determining the
-// path to the file during test execution?
-func WriteTokenAuthFile(t *testing.T) string {
-	t.Helper()
-	return WriteEmbedFile(t, "auth-tokens.csv")
-}
-
-func WriteEmbedFile(t *testing.T, source string) string {
-	t.Helper()
-	data, err := fs.ReadFile(source)
-	require.NoErrorf(t, err, "error reading embed file: %q", source)
-
-	targetPath := path.Join(t.TempDir(), source)
-	targetFile, err := os.Create(targetPath)
-	require.NoErrorf(t, err, "failed to create target file: %q", targetPath)
-	defer targetFile.Close()
-
-	_, err = targetFile.Write(data)
-	require.NoError(t, err, "error writing target file: %q", targetPath)
-
-	return targetPath
-}
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
@@ -74,6 +35,7 @@ func StaticTokenUserConfig(username string, cfg *rest.Config) *rest.Config {
 	return ConfigWithToken(username+"-token", cfg)
 }
 
+// ConfigWithToken returns a copy of the given rest.Config with the given token set.
 func ConfigWithToken(token string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
 	cfgCopy.CertData = nil

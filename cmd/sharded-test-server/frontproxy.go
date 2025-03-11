@@ -38,10 +38,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
+	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 func startFrontProxy(
@@ -131,7 +131,7 @@ func startFrontProxy(
 	}
 
 	// run front-proxy command
-	commandLine := append(frameworkserver.Command("kcp-front-proxy", "front-proxy"),
+	commandLine := append(kcptestingserver.Command("kcp-front-proxy", "front-proxy"),
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
 		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),
@@ -248,7 +248,7 @@ func scrapeMetrics(ctx context.Context, cfg *rest.Config, workDir string) error 
 	if !set || promUrl == "" {
 		return nil
 	}
-	return frameworkserver.ScrapeMetrics(ctx, cfg, promUrl, workDir, "kcp-front-proxy", filepath.Join(workDir, ".kcp-front-proxy/apiserver.crt"), map[string]string{
+	return kcptestingserver.ScrapeMetrics(ctx, cfg, promUrl, workDir, "kcp-front-proxy", filepath.Join(workDir, ".kcp-front-proxy/apiserver.crt"), map[string]string{
 		"server": "kcp-front-proxy",
 	})
 }

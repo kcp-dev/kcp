@@ -29,6 +29,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -36,7 +37,7 @@ func TestOpenAPIv3(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	cfg := server.BaseConfig(t)
 

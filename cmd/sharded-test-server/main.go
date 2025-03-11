@@ -36,11 +36,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 
-	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 func main() {

@@ -40,18 +40,19 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -70,9 +71,9 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-	}, frameworkhelpers.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+	}, kcptestinghelpers.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
 	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	require.NoError(t, err)
@@ -89,13 +90,13 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 	// validate the invalid claims condition occurs
 	t.Logf("validate that the permission claim's conditions are false and invalid claims is the reason")
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-	}, frameworkhelpers.IsNot(apisv1alpha1.PermissionClaimsValid).WithReason(apisv1alpha1.InvalidPermissionClaimsReason), "unable to see invalid identity hash")
+	}, kcptestinghelpers.IsNot(apisv1alpha1.PermissionClaimsValid).WithReason(apisv1alpha1.InvalidPermissionClaimsReason), "unable to see invalid identity hash")
 
 	t.Logf("update to correct hash")
 	// have to use eventually because controllers may be modifying the APIBinding
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		binding.Spec.PermissionClaims = getAcceptedPermissionClaims(identityHash)
@@ -107,9 +108,9 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
 
 	t.Logf("Validate that the permission claims are valid")
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-	}, frameworkhelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+	}, kcptestinghelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
 	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 	require.NoError(t, err)
 	if !reflect.DeepEqual(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims) {
@@ -117,9 +118,9 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}
 
 	t.Logf("Validate that the permission claims were all applied")
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-	}, frameworkhelpers.Is(apisv1alpha1.PermissionClaimsApplied), "unable to see claims applied")
+	}, kcptestinghelpers.Is(apisv1alpha1.PermissionClaimsApplied), "unable to see claims applied")
 }
 
 func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
@@ -243,7 +244,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 		},
 	}
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)

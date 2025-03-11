@@ -39,19 +39,20 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
@@ -111,7 +112,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	clusterConfig := server.BaseConfig(t)
@@ -163,7 +164,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	clusterConfig := server.BaseConfig(t)
@@ -250,7 +251,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 
 func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 	t.Helper()
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		if err := fn(); err != nil {
 			return false, err.Error()
 		}

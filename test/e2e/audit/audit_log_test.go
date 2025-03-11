@@ -31,38 +31,43 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestAuditLogs(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	artifactDir, dataDir, err := frameworkserver.ScratchDirs(t)
+	artifactDir, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err)
 
-	server := framework.PrivateKcpServer(t,
-		frameworkserver.WithCustomArguments(
+	server := kcptesting.PrivateKcpServer(t,
+		kcptestingserver.WithCustomArguments(
 			"--audit-policy-file", "./policy.yaml",
 		),
-		frameworkserver.WithScratchDirectories(artifactDir, dataDir),
+		kcptestingserver.WithScratchDirectories(artifactDir, dataDir),
 	)
 
 	cfg := server.BaseConfig(t)
 
+	t.Log("Creating org workspace")
 	wsPath, ws := framework.NewOrganizationFixture(t, server)
 	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
+	t.Log("Listing configmaps")
 	ctx := context.Background()
 	_, err = workspaceKubeClient.Cluster(wsPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
 	auditLogPath := filepath.Join(artifactDir, "kcp/main/kcp.audit")
+	t.Logf("Reading audit log at %s", auditLogPath)
 	data, err := os.ReadFile(auditLogPath)
 	require.NoError(t, err, "Error reading auditfile")
 
+	t.Log("Parsing audit log")
 	lines := strings.Split(string(data), "\n")
 	var requestAuditEvent, responseAuditEvent audit.Event
 	err = json.Unmarshal([]byte(lines[0]), &requestAuditEvent)
@@ -70,6 +75,7 @@ func TestAuditLogs(t *testing.T) {
 	err = json.Unmarshal([]byte(lines[1]), &responseAuditEvent)
 	require.NoError(t, err, "Error parsing JSON data")
 
+	t.Log("Verifying workspace annotation on audit events")
 	workspaceNameSent := ws.Spec.Cluster
 	require.Equal(t, workspaceNameSent, requestAuditEvent.Annotations["tenancy.kcp.io/workspace"])
 	require.Equal(t, workspaceNameSent, responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
@@ -81,6 +87,7 @@ func TestAuditLogs(t *testing.T) {
 		"request.auth.kcp.io/04-maxpermissionpolicy",
 		"request.auth.kcp.io/05-bootstrap",
 	} {
+		t.Logf("Verifying authorization annotations on audit events: %s", annotation)
 		if _, ok := responseAuditEvent.Annotations[annotation+"-decision"]; !ok {
 			t.Errorf("expected annotation %v-decision but got none", annotation)
 		}

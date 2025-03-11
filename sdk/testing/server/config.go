@@ -49,3 +49,11 @@ func WithCustomArguments(args ...string) Option {
 		return cfg
 	}
 }
+
+// WithClientCADir sets the client CA directory for a given kcp configuration.
+func WithClientCADir(clientCADir string) Option {
+	return func(cfg *Config) *Config {
+		cfg.ClientCADir = clientCADir
+		return cfg
+	}
+}

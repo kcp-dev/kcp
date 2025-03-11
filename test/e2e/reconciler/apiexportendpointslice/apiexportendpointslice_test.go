@@ -43,8 +43,9 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 //go:embed *.yaml
@@ -54,7 +55,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	// Create Organization and Workspaces
 	orgPath, _ := framework.NewOrganizationFixture(t, server)
@@ -114,7 +115,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 
 	var sliceName string
 	t.Logf("Retrying to create the APIExportEndpointSlice after the APIExport has been created")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		created, err := sliceClient.Cluster(partitionClusterPath).Create(ctx, slice, metav1.CreateOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -123,7 +124,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected APIExportEndpointSlice creation to succeed")
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 
@@ -144,7 +145,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	})
 	require.NoError(t, err, "error updating APIExportEndpointSlice")
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsFalse(slice, apisv1alpha1.PartitionValid) && conditions.GetReason(slice, apisv1alpha1.PartitionValid) == apisv1alpha1.PartitionInvalidReferenceReason {
@@ -159,7 +160,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	_, err = partitionClient.Cluster(partitionClusterPath).Create(ctx, partition, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating Partition")
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		slice, err = kcpClusterClient.Cluster(partitionClusterPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, sliceName, metav1.GetOptions{})
 		require.NoError(t, err)
 		if conditions.IsTrue(slice, apisv1alpha1.PartitionValid) {
@@ -178,7 +179,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
@@ -257,7 +258,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -298,7 +299,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		require.NoError(t, err)
 
 		// Partition should be created
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			partitions, err := kcpClusterClient.Cluster(providerPath).TopologyV1alpha1().Partitions().List(ctx, metav1.ListOptions{})
 			if err == nil && len(partitions.Items) == 1 {
 				partition = &partitions.Items[0]
@@ -328,7 +329,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		require.NoError(t, err)
 
 		// we should have 1 APIExportEndpointSlice with 1 APIExportEndpoint as we bound only once.
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			slice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "shared-cowboys", metav1.GetOptions{})
 			if len(slice.Status.APIExportEndpoints) == 1 {
 				return true, ""
@@ -364,7 +365,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, time.Millisecond*500)
@@ -373,7 +374,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 
 	t.Logf("Check that APIExportEndpointSlices has 2 virtual workspaces")
 	{
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp cluster client for server")
 
@@ -390,7 +391,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Delete(ctx, "cowboys", metav1.DeleteOptions{})
 			return err == nil, fmt.Sprintf("Error deleting APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*500)
@@ -398,7 +399,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 
 	t.Logf("Check that APIExportEndpointSlices has 1 virtual workspaces")
 	{
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp cluster client for server")
 

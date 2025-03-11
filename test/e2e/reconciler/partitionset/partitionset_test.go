@@ -36,15 +36,16 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestPartitionSet(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
@@ -77,7 +78,7 @@ func TestPartitionSet(t *testing.T) {
 	}
 	partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Create(ctx, partitionSet, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating partitionSet")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionSetValid) && conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) {
@@ -113,7 +114,7 @@ func TestPartitionSet(t *testing.T) {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard1a.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
 	}()
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
@@ -121,7 +122,7 @@ func TestPartitionSet(t *testing.T) {
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the partition count to be 1")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 1 {
@@ -153,7 +154,7 @@ func TestPartitionSet(t *testing.T) {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard2.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
 	}()
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(2) {
@@ -161,7 +162,7 @@ func TestPartitionSet(t *testing.T) {
 		}
 		return false, fmt.Sprintf("expected 2 partitions, but got %d", partitionSet.Status.Count)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the partitions to be ready and their count to be 2")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 2 {
@@ -180,7 +181,7 @@ func TestPartitionSet(t *testing.T) {
 	}
 	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard2, metav1.UpdateOptions{})
 	require.NoError(t, err, "error updating shard")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
@@ -188,7 +189,7 @@ func TestPartitionSet(t *testing.T) {
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the partition count to become 1")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 1 {
@@ -218,7 +219,7 @@ func TestPartitionSet(t *testing.T) {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard3.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
 	}()
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(2) {
@@ -226,7 +227,7 @@ func TestPartitionSet(t *testing.T) {
 		}
 		return false, fmt.Sprintf("expected 2 partitions, but got %d", partitionSet.Status.Count)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the partition count to become 2")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 2 {
@@ -242,7 +243,7 @@ func TestPartitionSet(t *testing.T) {
 	}
 	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard3, metav1.UpdateOptions{})
 	require.NoError(t, err, "error updating shard")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
 		if conditions.IsTrue(partitionSet, topologyv1alpha1.PartitionsReady) && partitionSet.Status.Count == uint(1) {
@@ -250,7 +251,7 @@ func TestPartitionSet(t *testing.T) {
 		}
 		return false, fmt.Sprintf("expected 1 partition, but got %d", partitionSet.Status.Count)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the partition count to become 1")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 1 {
@@ -264,7 +265,7 @@ func TestPartitionSetAdmission(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
@@ -383,7 +384,7 @@ func TestPartitionSetAdmission(t *testing.T) {
 		require.NoError(t, err, "error deleting shard")
 	}()
 	var partitions *topologyv1alpha1.PartitionList
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error retrieving partitions")
 		if len(partitions.Items) == 1 {

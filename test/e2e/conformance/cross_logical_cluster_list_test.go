@@ -48,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -56,7 +57,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -127,7 +128,7 @@ func bootstrapCRD(
 func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -275,7 +276,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

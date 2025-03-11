@@ -52,15 +52,16 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	source := framework.SharedKcpServer(t)
+	source := kcptesting.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
 	rootShardCfg.Host += "/services/initializingworkspaces/whatever"
 
@@ -97,7 +98,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	source := framework.SharedKcpServer(t)
+	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := framework.NewWorkspaceFixture(t, source, core.RootCluster.Path())
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -177,7 +178,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		wtName := workspacetypes[name].Name
-		frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
+		kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 		}, "could not wait for readiness on WorkspaceType %s|%s", wsPath.String(), wtName)
 	}
@@ -287,7 +288,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err := adminVwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()

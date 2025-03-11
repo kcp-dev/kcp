@@ -33,15 +33,16 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestBinding(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -86,7 +87,7 @@ spec: {}
 `))
 
 	t.Logf("Binding to 'api-manager' APIExport succeeds because service-provider user is admin in 'service-provider' workspace")
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
@@ -110,7 +111,7 @@ spec:
 	}, wait.ForeverTestTimeout, 1000*time.Millisecond, "waiting on binding 'api-manager' export")
 
 	t.Logf("Binding directly to 'restricted-service' APIExport should be forbidden")
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
@@ -131,7 +132,7 @@ spec:
 
 	t.Logf("Waiting for 'api-manager' APIExport virtual workspace URL")
 	serviceProviderVirtualWorkspaceConfig := rest.CopyConfig(serviceProviderUser)
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha1().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
@@ -144,7 +145,7 @@ spec:
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace is forbidden")
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err = apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
@@ -193,7 +194,7 @@ roleRef:
 `))
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace succeeds, proving that the service provider identity is used through the APIExport virtual workspace")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		err := apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIBinding
