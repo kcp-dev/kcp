@@ -86,6 +86,7 @@ archives:
 - id: apigen
   builds:
   - apigen
+  name_template: "apigen_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-kcp-plugin
   builds:
   - kubectl-kcp
