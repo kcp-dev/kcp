@@ -5,3 +5,23 @@
 - op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
   value: ""
+
+- op: add
+  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/maximalPermissionPolicy/oneOf
+  value:
+  - required: ["local"]
+- op: add
+  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
+  value: ""
+- op: add
+  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/resourceSchemas/items/properties/storage/oneOf
+  value:
+    - required: ["crd"]
+    - required: ["virtual"]
+
+# conversion for core resources does not happen via webhooks, but is short-circuited to the
+# schema's Convert functions directly, but the CRD still needs to define a conversion.
+- op: add
+  path: /spec/conversion
+  value:
+    strategy: None

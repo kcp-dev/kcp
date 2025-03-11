@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
@@ -42,6 +43,7 @@ type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
 	Discovery() discovery.DiscoveryInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
+	ApisV1alpha2() apisv1alpha2.ApisV1alpha2ClusterInterface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface
@@ -52,6 +54,7 @@ type ClusterClientset struct {
 	*discovery.DiscoveryClient
 	clientCache kcpclient.Cache[*client.Clientset]
 	apisV1alpha1 *apisv1alpha1.ApisV1alpha1ClusterClient
+	apisV1alpha2 *apisv1alpha2.ApisV1alpha2ClusterClient
 	coreV1alpha1 *corev1alpha1.CoreV1alpha1ClusterClient
 	tenancyV1alpha1 *tenancyv1alpha1.TenancyV1alpha1ClusterClient
 	topologyV1alpha1 *topologyv1alpha1.TopologyV1alpha1ClusterClient
@@ -69,6 +72,11 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.  
 func (c *ClusterClientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface {
 	return c.apisV1alpha1
+}
+
+// ApisV1alpha2 retrieves the ApisV1alpha2ClusterClient.  
+func (c *ClusterClientset) ApisV1alpha2() apisv1alpha2.ApisV1alpha2ClusterInterface {
+	return c.apisV1alpha2
 }
 
 // CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.  
@@ -138,6 +146,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	cs.clientCache = cache
 	var err error
     cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+    cs.apisV1alpha2, err = apisv1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

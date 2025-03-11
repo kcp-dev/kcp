@@ -1,12 +1,16 @@
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   creationTimestamp: null
   name: tenancy.kcp.io
 spec:
-  latestResourceSchemas:
-  - v240903-d6797056a.workspacetypes.tenancy.kcp.io
-  - v241020-fce06d31d.workspaces.tenancy.kcp.io
   maximalPermissionPolicy:
     local: {}
+  resourceSchemas:
+  - schema: v240903-d6797056a.workspacetypes.tenancy.kcp.io
+    storage:
+      crd: {}
+  - schema: v241020-fce06d31d.workspaces.tenancy.kcp.io
+    storage:
+      crd: {}
 status: {}

@@ -20,11 +20,13 @@ package applyconfiguration
 
 import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	v1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha2"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	internal "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/internal"
@@ -105,6 +107,32 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha1.WebhookClientConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("WebhookConversion"):
 		return &apisv1alpha1.WebhookConversionApplyConfiguration{}
+
+		// Group=apis.kcp.io, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExport"):
+		return &apisv1alpha2.APIExportApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportSpec"):
+		return &apisv1alpha2.APIExportSpecApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportStatus"):
+		return &apisv1alpha2.APIExportStatusApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("GroupResource"):
+		return &apisv1alpha2.GroupResourceApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("Identity"):
+		return &apisv1alpha2.IdentityApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("MaximalPermissionPolicy"):
+		return &apisv1alpha2.MaximalPermissionPolicyApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaim"):
+		return &apisv1alpha2.PermissionClaimApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchema"):
+		return &apisv1alpha2.ResourceSchemaApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorage"):
+		return &apisv1alpha2.ResourceSchemaStorageApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorageVirtual"):
+		return &apisv1alpha2.ResourceSchemaStorageVirtualApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSelector"):
+		return &apisv1alpha2.ResourceSelectorApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("VirtualWorkspace"):
+		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
 
 		// Group=conditions, Version=v1alpha1
 	case conditionsv1alpha1.SchemeGroupVersion.WithKind("Condition"):
