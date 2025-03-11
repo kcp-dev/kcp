@@ -35,31 +35,29 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/component-base/cli/flag"
 
-	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
-	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	"github.com/kcp-dev/kcp/test/e2e/framework/env"
 	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
+
+// RunInProcessFunc instantiates the kcp server in process for easier debugging.
+// It is here to decouple the rest of the code from kcp core dependencies.
+var RunInProcessFunc func(t *testing.T, dataDir string, args []string) error
 
 // Fixture manages the lifecycle of a set of kcp servers.
 //
@@ -282,64 +280,17 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
+		if RunInProcessFunc == nil {
+			return fmt.Errorf("RunInProcessFunc is not set")
+		}
 		rootDir := ".kcp"
 		if c.dataDir != "" {
 			rootDir = c.dataDir
 		}
-		serverOptions := kcpoptions.NewOptions(rootDir)
-		fss := flag.NamedFlagSets{}
-		serverOptions.AddFlags(&fss)
-		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
-		for _, fs := range fss.FlagSets {
-			all.AddFlagSet(fs)
-		}
-		if err := all.Parse(c.args); err != nil {
+		if err := RunInProcessFunc(c.t, rootDir, c.args); err != nil {
 			cleanup()
 			return err
 		}
-
-		completed, err := serverOptions.Complete()
-		if err != nil {
-			cleanup()
-			return err
-		}
-		if errs := completed.Validate(); len(errs) > 0 {
-			cleanup()
-			return utilerrors.NewAggregate(errs)
-		}
-
-		config, err := server.NewConfig(ctx, completed.Server)
-		if err != nil {
-			cleanup()
-			return err
-		}
-
-		completedConfig, err := config.Complete()
-		if err != nil {
-			cleanup()
-			return err
-		}
-
-		// the etcd server must be up before NewServer because storage decorators access it right away
-		if completedConfig.EmbeddedEtcd.Config != nil {
-			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
-				return err
-			}
-		}
-
-		s, err := server.NewServer(completedConfig)
-		if err != nil {
-			cleanup()
-			return err
-		}
-		go func() {
-			defer cleanup()
-
-			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
-				c.t.Errorf("`kcp` failed: %v", err)
-			}
-		}()
-
 		return nil
 	}
 
@@ -445,7 +396,7 @@ func (c *kcpServer) Name() string {
 	return c.name
 }
 
-// Name exposes the path of the kubeconfig file of this kcp server.
+// KubeconfigPath exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
