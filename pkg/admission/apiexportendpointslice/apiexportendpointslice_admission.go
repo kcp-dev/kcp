@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -55,8 +56,8 @@ func Register(plugins *admission.Plugins) {
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
-			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-				return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), p.localApiExportIndexer, p.globalApiExportIndexer, path, name)
+			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), p.localApiExportIndexer, p.globalApiExportIndexer, path, name)
 			}
 
 			return p, nil
@@ -66,7 +67,7 @@ func Register(plugins *admission.Plugins) {
 type apiExportEndpointSliceAdmission struct {
 	*admission.Handler
 
-	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
 	localApiExportIndexer  cache.Indexer
 	globalApiExportIndexer cache.Indexer
@@ -184,11 +185,11 @@ func (o *apiExportEndpointSliceAdmission) SetDeepSARClient(client kcpkubernetesc
 }
 
 func (o *apiExportEndpointSliceAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	localApiExportsReady := local.Apis().V1alpha1().APIExports().Informer().HasSynced
-	globalApiExportsReady := global.Apis().V1alpha1().APIExports().Informer().HasSynced
+	localApiExportsReady := local.Apis().V1alpha2().APIExports().Informer().HasSynced
+	globalApiExportsReady := global.Apis().V1alpha2().APIExports().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return localApiExportsReady() && globalApiExportsReady()
 	})
-	o.localApiExportIndexer = local.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-	o.globalApiExportIndexer = global.Apis().V1alpha1().APIExports().Informer().GetIndexer()
+	o.localApiExportIndexer = local.Apis().V1alpha2().APIExports().Informer().GetIndexer()
+	o.globalApiExportIndexer = global.Apis().V1alpha2().APIExports().Informer().GetIndexer()
 }

@@ -41,9 +41,12 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
+	apisv1alpha2listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha2"
 )
 
 const (
@@ -57,7 +60,7 @@ type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSch
 func NewAPIReconciler(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
@@ -69,7 +72,7 @@ func NewAPIReconciler(
 
 		apiExportLister:  apiExportInformer.Lister(),
 		apiExportIndexer: apiExportInformer.Informer().GetIndexer(),
-		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 
@@ -98,13 +101,13 @@ func NewAPIReconciler(
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport), logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha1.APIExport), logger)
+			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport), logger)
 		},
 	})
 
@@ -128,9 +131,9 @@ type APIReconciler struct {
 	apiResourceSchemaLister  apisv1alpha1listers.APIResourceSchemaClusterLister
 	apiResourceSchemaIndexer cache.Indexer
 
-	apiExportLister  apisv1alpha1listers.APIExportClusterLister
+	apiExportLister  apisv1alpha2listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
-	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error)
 
 	queue workqueue.TypedRateLimitingInterface[string]
 
@@ -172,7 +175,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(apiResourceSchema *apisv1alpha1
 	}
 }
 
-func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logger logr.Logger) {
+func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha2.APIExport, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -183,7 +186,7 @@ func (c *APIReconciler) enqueueAPIExport(apiExport *apisv1alpha1.APIExport, logg
 
 	if apiExport.Status.IdentityHash != "" {
 		logger.V(4).Info("looking for APIExports to queue that have claims against this identity", "identity", apiExport.Status.IdentityHash)
-		others, err := indexers.ByIndex[*apisv1alpha1.APIExport](c.apiExportIndexer, indexers.APIExportByClaimedIdentities, apiExport.Status.IdentityHash)
+		others, err := indexers.ByIndex[*apisv1alpha2.APIExport](c.apiExportIndexer, indexers.APIExportByClaimedIdentities, apiExport.Status.IdentityHash)
 		if err != nil {
 			logger.Error(err, "error getting APIExports for claimed identity", "identity", apiExport.Status.IdentityHash)
 			return

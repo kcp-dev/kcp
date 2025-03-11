@@ -34,6 +34,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -162,11 +163,15 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				},
 			}
 
-			for i := range apiExport.Spec.PermissionClaims {
-				exportClaim := apiExport.Spec.PermissionClaims[i]
+			for _, exportClaim := range apiExport.Spec.PermissionClaims {
+				v1Claim := apisv1alpha1.PermissionClaim{}
+				err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&exportClaim, &v1Claim, nil)
+				if err != nil {
+					return fmt.Errorf("failed to convert PermissionClaim: %w", err)
+				}
 
 				acceptedClaim := apisv1alpha1.AcceptablePermissionClaim{
-					PermissionClaim: exportClaim,
+					PermissionClaim: v1Claim,
 					State:           apisv1alpha1.ClaimAccepted,
 				}
 

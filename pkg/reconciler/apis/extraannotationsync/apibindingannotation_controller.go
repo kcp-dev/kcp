@@ -43,9 +43,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 const (
@@ -55,8 +57,8 @@ const (
 // NewController returns a new controller instance.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	apiExportInformer apisinformers.APIExportClusterInformer,
-	apiBindingInformer apisinformers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -72,7 +74,7 @@ func NewController(
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
-		getAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+		getAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
 			// APIBinding keys by full path
 			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -104,8 +106,8 @@ func NewController(
 
 			return ret, nil
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndName[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
 		},
 	}
 
@@ -134,8 +136,8 @@ type controller struct {
 	kcpClusterClient kcpclientset.ClusterInterface
 
 	getAPIBinding             func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
-	getAPIBindingsByAPIExport func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport              func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIBindingsByAPIExport func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport              func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -156,7 +158,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 		obj = d.Obj
 	}
 
-	export, ok := obj.(*apisv1alpha1.APIExport)
+	export, ok := obj.(*apisv1alpha2.APIExport)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
 		return
@@ -168,7 +170,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	logger = logging.WithObject(logger, obj.(*apisv1alpha1.APIExport))
+	logger = logging.WithObject(logger, obj.(*apisv1alpha2.APIExport))
 	for _, binding := range bindings {
 		c.enqueueAPIBinding(binding, logger, " because of APIExport")
 	}
@@ -302,7 +304,7 @@ func syncExtraAnnotationPatch(a1, a2 map[string]string) ([]byte, error) {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisinformers.APIExportClusterInformer, apiBindingInformer apisinformers.APIBindingClusterInformer) {
+func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer, apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})

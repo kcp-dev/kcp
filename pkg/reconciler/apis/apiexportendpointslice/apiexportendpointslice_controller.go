@@ -42,11 +42,13 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	topologyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/topology/v1alpha1"
 )
 
@@ -58,7 +60,7 @@ const (
 // Shards and APIExports are read from the cache server.
 func NewController(
 	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
-	globalAPIExportClusterInformer apisv1alpha1informers.APIExportClusterInformer,
+	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 	partitionClusterInformer topologyinformers.PartitionClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
@@ -75,8 +77,8 @@ func NewController(
 		getAPIExportEndpointSlice: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
 			return indexers.ByPathAndName[*apisv1alpha1.APIExportEndpointSlice](apisv1alpha1.Resource("apiexportendpointslices"), apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), path, name)
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndName[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
 		},
 		getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
 			return partitionClusterInformer.Lister().Cluster(clusterName).Get(name)
@@ -116,10 +118,10 @@ func NewController(
 
 	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(objOrTombstone[*apisv1alpha2.APIExport](obj), logger)
 		},
 	}))
 
@@ -152,7 +154,7 @@ type controller struct {
 
 	listAPIExportEndpointSlices           func() ([]*apisv1alpha1.APIExportEndpointSlice, error)
 	getAPIExportEndpointSlice             func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
-	getAPIExport                          func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport                          func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getPartition                          func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 	getAPIExportEndpointSlicesByPartition func(key string) ([]*apisv1alpha1.APIExportEndpointSlice, error)
 
@@ -173,7 +175,7 @@ func (c *controller) enqueueAPIExportEndpointSlice(slice *apisv1alpha1.APIExport
 }
 
 // enqueueAPIExportEndpointSlicesForAPIExport enqueues APIExportEndpointSlices referencing a specific APIExport.
-func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(export *apisv1alpha1.APIExport, logger logr.Logger) {
+func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(export *apisv1alpha2.APIExport, logger logr.Logger) {
 	// binding keys by full path
 	keys := sets.New[string]()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -311,7 +313,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
-	globalAPIExportClusterInformer apisv1alpha1informers.APIExportClusterInformer,
+	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(globalAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{

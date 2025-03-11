@@ -38,9 +38,9 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 const (
@@ -59,7 +59,7 @@ const (
 // for the given GRs when making requests to the server.
 func NewApiExportIdentityProviderController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	configMapInformer kcpcorev1informers.ConfigMapClusterInformer,
 ) (*controller, error) {
 	c := &controller{
@@ -78,7 +78,7 @@ func NewApiExportIdentityProviderController(
 		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
-		listGlobalAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+		listGlobalAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error) {
 			return globalAPIExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 	}
@@ -180,5 +180,5 @@ type controller struct {
 	createConfigMap      func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	getConfigMap         func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
 	updateConfigMap      func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	listGlobalAPIExports func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	listGlobalAPIExports func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error)
 }

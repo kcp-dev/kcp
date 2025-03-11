@@ -40,6 +40,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
@@ -189,7 +190,16 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	logger = logging.WithObject(logger, apiExport)
 
 	// Record the export's permission claims
-	apiBinding.Status.ExportPermissionClaims = apiExport.Spec.PermissionClaims
+	v1PermissionClaims := []apisv1alpha1.PermissionClaim{}
+	for _, v2Claim := range apiExport.Spec.PermissionClaims {
+		v1Claim := apisv1alpha1.PermissionClaim{}
+		err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&v2Claim, &v1Claim, nil)
+		if err != nil {
+			return reconcileStatusContinue, fmt.Errorf("failed to convert PermissionClaim: %w", err)
+		}
+		v1PermissionClaims = append(v1PermissionClaims, v1Claim)
+	}
+	apiBinding.Status.ExportPermissionClaims = v1PermissionClaims
 
 	// Make sure the APIExport has an identity
 	if apiExport.Status.IdentityHash == "" {
@@ -212,8 +222,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	// Collect the schemas.
 	schemas := make(map[string]*apisv1alpha1.APIResourceSchema)
 	grs := sets.New[schema.GroupResource]()
-	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
+	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
+		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), resourceSchema.Schema)
 		if err != nil {
 			logger.Error(err, "error binding")
 
@@ -222,7 +232,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				apisv1alpha1.APIExportValid,
 				apisv1alpha1.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"Invalid APIExport. Please contact the APIExport owner to resolve: APIResourceSchema %q not found", schemaName,
+				"Invalid APIExport. Please contact the APIExport owner to resolve: APIResourceSchema %q not found", resourceSchema.Schema,
 			)
 
 			if apierrors.IsNotFound(err) {
@@ -231,7 +241,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, err
 		}
-		schemas[schemaName] = sch
+		schemas[resourceSchema.Schema] = sch
 		grs = grs.Insert(schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural})
 	}
 
@@ -325,8 +335,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, err
 	}
 	var needToWaitForRequeueWhenEstablished []string
-	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		sch := schemas[schemaName]
+	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
+		sch := schemas[resourceSchema.Schema]
 		logger := logging.WithObject(logger, sch)
 
 		if _, ok := skipped[schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural}]; ok {
@@ -372,10 +382,10 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, fmt.Errorf(
 				"conversion strategy not specified %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				apiExportPath, schemaName,
+				apiExportPath, resourceSchema.Schema,
 				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
-				apiExportPath, schemaName,
+				apiExportPath, resourceSchema.Schema,
 				err,
 			)
 		}
@@ -396,7 +406,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				SystemBoundCRDsClusterName, boundCRDName(sch),
 				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
-				apiExportPath, schemaName,
+				apiExportPath, resourceSchema.Schema,
 				err,
 			)
 		}
@@ -405,11 +415,11 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			// Bound CRD already exists
 			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
 				logger.V(4).Info("CRD is not established", "conditions", fmt.Sprintf("%#v", existingCRD.Status.Conditions))
-				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
 				continue
 			} else if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
 				logger.V(4).Info("CRD is terminating")
-				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
 				continue
 			}
 		} else {
@@ -453,7 +463,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 						apisv1alpha1.APIResourceSchemaInvalidReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"APIResourceSchema %s|%s is invalid: %v",
-						schemaClusterName, schemaName, status.Status().Details.Causes,
+						schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
 					)
 					// Only change InitialBindingCompleted if it's false
 					if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
@@ -463,7 +473,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 							apisv1alpha1.APIResourceSchemaInvalidReason,
 							conditionsv1alpha1.ConditionSeverityError,
 							"APIResourceSchema %s|%s is invalid: %v",
-							schemaClusterName, schemaName, status.Status().Details.Causes,
+							schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
 						)
 					}
 
@@ -495,7 +505,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			r.deletedCRDTracker.Remove(crd.Name)
 
-			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, schemaName)
+			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
 			continue
 		}
 

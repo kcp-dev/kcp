@@ -157,7 +157,7 @@ func BuildVirtualWorkspace(
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
-				cachedKcpInformers.Apis().V1alpha1().APIExports(),
+				cachedKcpInformers.Apis().V1alpha2().APIExports(),
 				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
@@ -202,7 +202,7 @@ func BuildVirtualWorkspace(
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"apiresourceschemas": cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
-					"apiexports":         cachedKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+					"apiexports":         cachedKcpInformers.Apis().V1alpha2().APIExports().Informer(),
 					"apibindings":        kcpInformers.Apis().V1alpha1().APIBindings().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
@@ -293,7 +293,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 }
 
 func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
-	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, cachedKcpInformers.Apis().V1alpha1().APIExports())
+	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, cachedKcpInformers.Apis().V1alpha2().APIExports())
 	maximalPermissionAuth = authorization.NewDecorator("virtual.apiexport.maxpermissionpolicy.authorization.kcp.io", maximalPermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)

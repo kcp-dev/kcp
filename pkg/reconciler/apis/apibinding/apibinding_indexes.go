@@ -21,7 +21,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/client"
 )
 
@@ -29,14 +29,14 @@ const indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
 
 // indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
 func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) {
-	apiExport, ok := obj.(*apisv1alpha1.APIExport)
+	apiExport, ok := obj.(*apisv1alpha2.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
 	}
 
-	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
-	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
+	ret := make([]string, len(apiExport.Spec.ResourceSchemas))
+	for i, resourceSchema := range apiExport.Spec.ResourceSchemas {
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), resourceSchema.Schema)
 	}
 
 	return ret, nil

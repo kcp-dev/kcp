@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	apisv1alpha1apply "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
@@ -37,8 +38,8 @@ import (
 
 type endpointsReconciler struct {
 	getMyShard                  func() (*corev1alpha1.Shard, error)
-	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
-	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
 	patchAPIExportEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error
 	shardName                   string
 }
@@ -114,7 +115,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 
 func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 	apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice,
-	apiExport *apisv1alpha1.APIExport,
+	apiExport *apisv1alpha2.APIExport,
 	shard *corev1alpha1.Shard,
 	selector labels.Selector,
 ) (*result, error) {

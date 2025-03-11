@@ -414,14 +414,14 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("finished bootstrapping the shard workspace")
 
-		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.Done())
-		go s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
-			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced()
+			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced()
 			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
 			return exportsSynced && cacheExportsSynced && logicalClusterSynced, nil
 		}); err != nil {
