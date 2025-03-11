@@ -46,6 +46,7 @@ import (
 
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
@@ -92,6 +93,11 @@ func main() {
 	logger = logger.WithName(name)
 
 	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
+		logger.Error(err, "Could not initialize scheme")
+		os.Exit(1)
+	}
+
+	if err := apisv1alpha2.AddToScheme(scheme); err != nil {
 		logger.Error(err, "Could not initialize scheme")
 		os.Exit(1)
 	}
@@ -318,7 +324,7 @@ func compareSchemas() cmp.Option {
 	}))
 }
 
-func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
+func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
 	byExport := map[string][]string{}
 	for gr, apiResourceSchema := range allSchemas {
 		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
@@ -331,11 +337,11 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 		}
 	}
 
-	exports := make([]*apisv1alpha1.APIExport, 0, len(byExport))
+	exports := make([]*apisv1alpha2.APIExport, 0, len(byExport))
 	for exportName, schemas := range byExport {
 		sort.Strings(schemas)
 
-		export := apisv1alpha1.APIExport{
+		export := apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: exportName,
 			},
@@ -352,7 +358,15 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 			}
 		}
 
-		export.Spec.LatestResourceSchemas = schemas
+		export.Spec.ResourceSchemas = []apisv1alpha2.ResourceSchema{}
+		for _, schema := range schemas {
+			export.Spec.ResourceSchemas = append(export.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+				Schema: schema,
+				Storage: apisv1alpha2.ResourceSchemaStorage{
+					CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+				},
+			})
+		}
 
 		exports = append(exports, &export)
 	}
@@ -360,7 +374,7 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 	return exports, nil
 }
 
-func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {
+func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha2.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {
 	logger.Info(fmt.Sprintf("Writing %d manifests to %s", len(exports)+len(schemas), outputDir))
 
 	codecs := serializer.NewCodecFactory(scheme)
@@ -368,11 +382,12 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	if !ok {
 		return fmt.Errorf("unsupported media type %q", runtime.ContentTypeYAML)
 	}
-	encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha1.SchemeGroupVersion)
+	v1alpha1encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha1.SchemeGroupVersion)
+	v1alpha2encoder := codecs.EncoderForVersion(info.Serializer, apisv1alpha2.SchemeGroupVersion)
 
 	writtenExports := sets.New[string]()
 	for _, export := range exports {
-		out, err := runtime.Encode(encoder, export)
+		out, err := runtime.Encode(v1alpha2encoder, export)
 		if err != nil {
 			return err
 		}
@@ -386,7 +401,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 
 	writtenSchemas := sets.New[string]()
 	for gr, apiResourceSchema := range schemas {
-		out, err := runtime.Encode(encoder, apiResourceSchema)
+		out, err := runtime.Encode(v1alpha1encoder, apiResourceSchema)
 		if err != nil {
 			return err
 		}
