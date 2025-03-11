@@ -44,6 +44,7 @@ source "${CODEGEN_PKG}/kube_codegen.sh"
   github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2 \
   github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
   k8s.io/apimachinery/pkg/apis/meta/v1 \
@@ -57,6 +58,7 @@ source "${CODEGEN_PKG}/kube_codegen.sh"
   --input github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   --input github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
   --input github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+  --input github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2 \
   --input github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
   --input-base="" \
   --apply-configuration-package=github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
@@ -118,6 +120,7 @@ go install "${OPENAPI_PKG}"/cmd/openapi-gen
   github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1 \
+  github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2 \
   github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1 \
   github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1 \
   k8s.io/apimachinery/pkg/apis/meta/v1 \
