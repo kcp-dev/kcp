@@ -85,7 +85,7 @@ func PrivateKcpServer(t *testing.T, options ...frameworkserver.Option) framework
 	}
 
 	f := frameworkserver.NewFixture(t, *cfg)
-	return f.Servers[serverName]
+	return f[serverName]
 }
 
 // SharedKcpServer returns a kcp server fixture intended to be shared

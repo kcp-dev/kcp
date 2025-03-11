@@ -515,7 +515,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 	t.Helper()
 
 	subDir := filepath.Join("artifacts", "kcp", server.Name())
-	artifactDir, err := CreateTempDirForTest(t, subDir)
+	artifactDir, err := createTempDirForTest(t, subDir)
 	require.NoError(t, err, "could not create artifacts dir")
 	// Using t.Cleanup ensures that artifact collection is local to
 	// the test requesting retention regardless of server's scope.
