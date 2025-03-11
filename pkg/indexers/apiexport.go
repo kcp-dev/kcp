@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const (
@@ -41,14 +42,14 @@ const (
 
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
 func IndexAPIExportByIdentity(obj interface{}) ([]string, error) {
-	apiExport := obj.(*apisv1alpha1.APIExport)
+	apiExport := obj.(*apisv1alpha2.APIExport)
 	return []string{apiExport.Status.IdentityHash}, nil
 }
 
 // IndexAPIExportBySecret is an index function that indexes an APIExport by its identity secret references. Index values
 // are of the form <cluster name>|<secret reference namespace>/<secret reference name> (cache keys).
 func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
-	apiExport := obj.(*apisv1alpha1.APIExport)
+	apiExport := obj.(*apisv1alpha2.APIExport)
 
 	if apiExport.Spec.Identity == nil {
 		return []string{}, nil
@@ -69,7 +70,7 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 // IndexAPIExportByClaimedIdentities is an index function that indexes an APIExport by its permission claims' identity
 // hashes.
 func IndexAPIExportByClaimedIdentities(obj interface{}) ([]string, error) {
-	apiExport := obj.(*apisv1alpha1.APIExport)
+	apiExport := obj.(*apisv1alpha2.APIExport)
 	claimedIdentities := sets.New[string]()
 	for _, claim := range apiExport.Spec.PermissionClaims {
 		claimedIdentities.Insert(claim.IdentityHash)

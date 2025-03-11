@@ -26,13 +26,14 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 )
 
 type endpointsReconciler struct {
-	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getPartition func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 }
 
