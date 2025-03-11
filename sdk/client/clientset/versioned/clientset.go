@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
@@ -34,6 +35,7 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface
+	ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface
@@ -43,6 +45,7 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	apisV1alpha1     *apisv1alpha1.ApisV1alpha1Client
+	apisV1alpha2     *apisv1alpha2.ApisV1alpha2Client
 	coreV1alpha1     *corev1alpha1.CoreV1alpha1Client
 	tenancyV1alpha1  *tenancyv1alpha1.TenancyV1alpha1Client
 	topologyV1alpha1 *topologyv1alpha1.TopologyV1alpha1Client
@@ -51,6 +54,11 @@ type Clientset struct {
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 	return c.apisV1alpha1
+}
+
+// ApisV1alpha2 retrieves the ApisV1alpha2Client
+func (c *Clientset) ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface {
+	return c.apisV1alpha2
 }
 
 // CoreV1alpha1 retrieves the CoreV1alpha1Client
@@ -116,6 +124,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.apisV1alpha2, err = apisv1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.coreV1alpha1, err = corev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -150,6 +162,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.apisV1alpha1 = apisv1alpha1.New(c)
+	cs.apisV1alpha2 = apisv1alpha2.New(c)
 	cs.coreV1alpha1 = corev1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 	cs.topologyV1alpha1 = topologyv1alpha1.New(c)

@@ -66,6 +66,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookClientConfig":                         schema_sdk_apis_apis_v1alpha1_WebhookClientConfig(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookConversion":                           schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExport":                                   schema_sdk_apis_apis_v1alpha2_APIExport(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportList":                               schema_sdk_apis_apis_v1alpha2_APIExportList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportSpec":                               schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportStatus":                             schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.GroupResource":                               schema_sdk_apis_apis_v1alpha2_GroupResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.Identity":                                    schema_sdk_apis_apis_v1alpha2_Identity(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy":                        schema_sdk_apis_apis_v1alpha2_LocalAPIExportPolicy(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy":                     schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaim":                             schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchema":                              schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorage":                       schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD":                    schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageCRD(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual":                schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSelector":                            schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalCluster":                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterList":                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.LogicalClusterOwner":                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
@@ -1806,6 +1821,503 @@ func schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1.WebhookClientConfig"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExport registers an API and implementation to allow consumption by others through APIBindings.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec holds the desired state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status communicates the observed state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportSpec", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExportStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportList is a list of APIExport resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExport"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.APIExport", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportSpec defines the desired state of APIExport.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceSchemas": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"schema",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "resourceSchemas records the APIResourceSchemas that are exposed with this APIExport.\n\nThe schemas can be changed in the life-cycle of the APIExport. These changes have no effect on existing APIBindings, but only on newly bound ones.\n\nFor updating existing APIBindings, use an APIDeployment keeping bound workspaces up-to-date.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchema"),
+									},
+								},
+							},
+						},
+					},
+					"identity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity determines an unique etcd prefix for objects stored via this APIExport.\n\nDifferent APIExport in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the APIExport is moved.\n\nThe identity is a secret of the API provider. The APIBindings referencing this APIExport will store a derived, non-sensitive value of this identity.\n\nThe identity of an APIExport cannot be changed. A derived, non-sensitive value of the identity key is stored in the APIExport status and this value is immutable.\n\nThe identity is defaulted. A secret with the name of the APIExport is automatically created.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.Identity"),
+						},
+					},
+					"maximalPermissionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated` and `apis.kcp.io:binding:a-team`.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy"),
+						},
+					},
+					"permissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "permissionClaims make resources available in APIExport's virtual workspace that are not part of the actual APIExport resources.\n\nPermissionClaims are optional and should be the least access necessary to complete the functions that the service provider needs. Access is asked for on a GroupResource + identity basis.\n\nPermissionClaims must be accepted by the user's explicit acknowledgement. Hence, when claims change, the respecting objects are not visible immediately.\n\nPermissionClaims overlapping with the APIExport resources are ignored.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.Identity", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaim", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchema"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportStatus defines the observed state of APIExport.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "identityHash is the hash of the API identity key of this APIExport. This value is immutable as soon as it is set.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the APIExport.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"virtualWorkspaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs.\n\nDeprecated: use APIExportEndpointSlice.status.endpoints instead",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.VirtualWorkspace"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.VirtualWorkspace", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupResource identifies a resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resource"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Identity defines the identity of an APIExport, i.e. determines the etcd prefix data of this APIExport are stored under.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "secretRef is a reference to a secret that contains the API identity in the 'key' file.",
+							Ref:         ref("k8s.io/api/core/v1.SecretReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.SecretReference"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_LocalAPIExportPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAPIExportPolicy is a maximal permission policy that checks RBAC in the workspace of the API Export.\n\nIn order to avoid conflicts the user and group name will be prefixed with \"apis.kcp.io:binding:\".",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"local": {
+						SchemaProps: spec.SchemaProps{
+							Description: "local is the policy that is defined in same workspace as the API Export.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"all": {
+						SchemaProps: spec.SchemaProps{
+							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"resourceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resourceSelector is a list of claimed resource selectors.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSelector"),
+									},
+								},
+							},
+						},
+					},
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"resource"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSelector"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema is the name of the referenced APIResourceSchema.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Storage defines how the resource is stored.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorage"),
+						},
+					},
+				},
+				Required: []string{"schema", "storage"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorage"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceSchemaStorage must set either CRD or Virtual, but never both.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"crd": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CRD storage defines that this APIResourceSchema is exposed as CustomResourceDefinitions inside the workspaces that bind to the APIExport. Like in vanilla Kubernetes, users can then create, update and delete custom resources.\n\nMutually exclusive with virtual storage.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"),
+						},
+					},
+					"virtual": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Virtual storage provides a read-only view into another virtual workspace. This means that the objects for this resource are not stored as custom resources in any workspace, but are projected from the virtual workspace into the workspace that binds to the APIExport.\n\nMutually exclusive with CRD storage.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageCRD(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"reference": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reference points to another object that has a URL to a virtual workspace in a \"url\" field in its status. The object can be of any kind.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+						},
+					},
+				},
+				Required: []string{"reference"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespace containing the named object. Matches metadata.namespace field. If \"name\" is unset, all objects from the namespace are being claimed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is an APIExport virtual workspace URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
 	}
 }
 
