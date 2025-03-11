@@ -151,3 +151,68 @@ that the system workspace exists.
 As an example, the `system:admin` workspace exists for administrative objects
 that are scoped to the local shard (e.g. `lease` objects for kcp internal controllers if
 leader election is enabled). It is accessible via `/clusters/system:admin`.
+
+# Workspace Type Extensions and Constraints
+kcp offers extensions and constraints that enable you inherit functionality from other 
+workspace types and create custom workspace hierarchies for your organizational structure.
+
+A `WorkspaceType` can extend one or more other `WorkspaceTypes` using the `spec.extend.with`
+field.
+
+**Example**
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: sample
+spec:
+  extend:
+    with:
+    - name: universal
+    - name: custom
+```
+In this example, the `sample` workspace type:
+* inherits [initializers](./workspace-initialization.md) from the extended types
+* is considered as an extended type during type constraint evaluation
+
+You can also extend `WorkspaceTypes` from other workspaces by specifying the path:
+
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: custom
+spec:
+  extend:
+    with:
+    - name: standard
+      path: root:base
+```
+## Workspace Constraint Mechanisms 
+KCP provides two primary constraint mechanisms for workspace types:
+* `limitAllowedChildren`: Controls which workspace types can be created as children.
+* `limitAllowedParents`: Controls which workspace types can serve as parents.
+
+```yaml
+...
+spec:
+  limitAllowedParents:
+    types:
+    - name: sample
+      path: root
+  limitAllowedChildren:
+    types:
+    - name: custom
+      path: root
+```
+You can also block all types from being used as children:
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: leaf-workspace
+spec:
+  limitAllowedChildren:
+    none: true
+```
+This ensures that no other workspace type can be created as a child of `leaf-workspace`.
