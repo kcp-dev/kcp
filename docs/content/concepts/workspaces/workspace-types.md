@@ -153,7 +153,7 @@ that are scoped to the local shard (e.g. `lease` objects for kcp internal contro
 leader election is enabled). It is accessible via `/clusters/system:admin`.
 
 # Workspace Type Extensions and Constraints
-KCP offers extensions and constraints that enable you inherit functionality from other 
+kcp offers extensions and constraints that enable you inherit functionality from other 
 workspace types and create custom workspace hierarchies for your organizational structure.
 
 A `WorkspaceType` can extend one or more other `WorkspaceTypes` using the `spec.extend.with`
