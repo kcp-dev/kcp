@@ -115,7 +115,7 @@ ldflags:
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in ${PATH}"; exit 1; fi
 
-build: WHAT ?= ./cmd/... ./cli/cmd/...
+build: WHAT ?= ./cmd/... ./cli/cmd/... ./sdk/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
 	set -x; for W in $(WHAT); do \
 		pushd . && cd $${W%..}; \
@@ -128,7 +128,7 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
 build-all:
 	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
 
-install: WHAT ?= ./cmd/... ./cli/cmd/...
+install: WHAT ?= ./cmd/... ./cli/cmd/... ./sdk/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
 	set -x; for W in $(WHAT); do \
 		pushd . && cd $${W%..}; \

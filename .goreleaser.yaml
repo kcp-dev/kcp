@@ -64,10 +64,29 @@ builds:
   env:
   - CGO_ENABLED=0
 
+- id: apigen
+  main: ./cmd/apigen
+  dir: sdk
+  binary: bin/apigen
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
 archives:
 - id: kcp
   builds:
   - kcp
+- id: apigen
+  builds:
+  - apigen
+  name_template: "apigen_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-kcp-plugin
   builds:
   - kubectl-kcp
