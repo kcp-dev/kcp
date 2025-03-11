@@ -38,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -68,7 +69,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	export := &apisv1alpha1.APIExport{
+	export := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "my-export",
 		},
@@ -109,7 +110,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	require.True(t, len(sliceList.Items) == 0, "not expecting any APIExportEndpointSlice")
 
 	t.Logf("Creating the missing APIExport")
-	exportClient := kcpClusterClient.ApisV1alpha1().APIExports()
+	exportClient := kcpClusterClient.ApisV1alpha2().APIExports()
 	_, err = exportClient.Cluster(exportClusterPath).Create(ctx, export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
@@ -216,15 +217,22 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("Create an APIExport today-cowboys in %q", providerPath)
-		cowboysAPIExport := &apisv1alpha1.APIExport{
+		cowboysAPIExport := &apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "today-cowboys",
 			},
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+			Spec: apisv1alpha2.APIExportSpec{
+				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+					{
+						Schema: "today.cowboys.wildwest.dev",
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					},
+				},
 			},
 		}
-		_, err = serviceProviderClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+		_, err = serviceProviderClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
 
@@ -271,7 +279,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-		apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet

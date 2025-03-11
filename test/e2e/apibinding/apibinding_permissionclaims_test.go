@@ -38,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -72,10 +73,10 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
 
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha1.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
-	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	require.NoError(t, err)
 	identityHash := sheriffExport.Status.IdentityHash
 
@@ -153,6 +154,21 @@ func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
 	}
 }
 
+func convertPermissionClaims(t *testing.T, v1Claims []apisv1alpha1.PermissionClaim) []apisv1alpha2.PermissionClaim {
+	v2Claims := []apisv1alpha2.PermissionClaim{}
+
+	for _, v1Claim := range v1Claims {
+		v2Claim := apisv1alpha2.PermissionClaim{}
+		err := apisv1alpha2.Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&v1Claim, &v2Claim, nil)
+		if err != nil {
+			t.Fatalf("Failed to convert PermissionClaim: %v", err)
+		}
+		v2Claims = append(v2Claims, v2Claim)
+	}
+
+	return v2Claims
+}
+
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClusterClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string) {
 	t.Helper()
 
@@ -165,16 +181,23 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
-			PermissionClaims:      makePermissionClaims(identityHash),
+		Spec: apisv1alpha2.APIExportSpec{
+			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				{
+					Schema: "today.cowboys.wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
+			PermissionClaims: convertPermissionClaims(t, makePermissionClaims(identityHash)),
 		},
 	}
-	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 

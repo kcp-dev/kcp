@@ -29,7 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
@@ -37,8 +37,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		name                    string
 		attr                    authorizer.Attributes
 		apidomainKey            string
-		getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error)
-		getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha1.APIExport, error)
+		getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error)
+		getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha2.APIExport, error)
 		newDeepSARAuthorizer    func(clusterName logicalcluster.Name) (authorizer.Authorizer, error)
 
 		expectedErr      string
@@ -56,8 +56,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			name:         "no claimed identities",
 			attr:         &authorizer.AttributesRecord{User: &user.DefaultInfo{}},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
@@ -78,24 +78,24 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				Resource: "claimedResource",
 			},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "someWorkspace",
 						},
 					},
-					Spec: apisv1alpha1.APIExportSpec{
-						PermissionClaims: []apisv1alpha1.PermissionClaim{
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "someGroup",
 									Resource: "someResource",
 								},
 							},
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "claimedGroup",
 									Resource: "claimedResource",
 								},
@@ -116,24 +116,24 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				Resource: "claimedResource",
 			},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "someWorkspace",
 						},
 					},
-					Spec: apisv1alpha1.APIExportSpec{
-						PermissionClaims: []apisv1alpha1.PermissionClaim{
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "someGroup",
 									Resource: "someResource",
 								},
 							},
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "claimedGroup",
 									Resource: "claimedResource",
 								},
@@ -143,8 +143,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
-				return []*apisv1alpha1.APIExport{}, nil
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{}, nil
 			},
 
 			expectedDecision: authorizer.DecisionDeny,
@@ -158,24 +158,24 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				Resource: "claimedResource",
 			},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "someWorkspace",
 						},
 					},
-					Spec: apisv1alpha1.APIExportSpec{
-						PermissionClaims: []apisv1alpha1.PermissionClaim{
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "someGroup",
 									Resource: "someResource",
 								},
 							},
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "claimedGroup",
 									Resource: "claimedResource",
 								},
@@ -185,8 +185,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
-				return []*apisv1alpha1.APIExport{
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "foo",
@@ -206,24 +206,24 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				Resource: "claimedResource",
 			},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "someWorkspace",
 						},
 					},
-					Spec: apisv1alpha1.APIExportSpec{
-						PermissionClaims: []apisv1alpha1.PermissionClaim{
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "someGroup",
 									Resource: "someResource",
 								},
 							},
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "claimedGroup",
 									Resource: "claimedResource",
 								},
@@ -233,14 +233,14 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
-				return []*apisv1alpha1.APIExport{
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "foo",
 						},
-						Spec: apisv1alpha1.APIExportSpec{
-							MaximalPermissionPolicy: &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}},
+						Spec: apisv1alpha2.APIExportSpec{
+							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
 						},
 					},
 				}, nil
@@ -262,24 +262,24 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				Resource: "claimedResource",
 			},
 			apidomainKey: "foo/bar",
-			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-				return &apisv1alpha1.APIExport{
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "fooExport",
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "someWorkspace",
 						},
 					},
-					Spec: apisv1alpha1.APIExportSpec{
-						PermissionClaims: []apisv1alpha1.PermissionClaim{
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "someGroup",
 									Resource: "someResource",
 								},
 							},
 							{
-								GroupResource: apisv1alpha1.GroupResource{
+								GroupResource: apisv1alpha2.GroupResource{
 									Group:    "claimedGroup",
 									Resource: "claimedResource",
 								},
@@ -289,8 +289,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
-				return []*apisv1alpha1.APIExport{
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "fooExport",
@@ -298,8 +298,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 								logicalcluster.AnnotationKey: "someWorkspace",
 							},
 						},
-						Spec: apisv1alpha1.APIExportSpec{
-							MaximalPermissionPolicy: &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}},
+						Spec: apisv1alpha2.APIExportSpec{
+							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
 						},
 					},
 				}, nil

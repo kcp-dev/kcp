@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
@@ -72,13 +73,13 @@ func TestReconcile(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c := &controller{
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					if tc.apiExportMissing {
-						return nil, apierrors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
+						return nil, apierrors.NewNotFound(apisv1alpha2.Resource("APIExport"), name)
 					} else if tc.apiExportInternalErr {
 						return nil, fmt.Errorf("internal error")
 					} else {
-						return &apisv1alpha1.APIExport{
+						return &apisv1alpha2.APIExport{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: map[string]string{
 									logicalcluster.AnnotationKey: "root:org:ws",

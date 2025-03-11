@@ -29,6 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestEnqueueAPIResourceSchema(t *testing.T) {
@@ -39,8 +40,8 @@ func TestEnqueueAPIResourceSchema(t *testing.T) {
 				Name: ControllerName,
 			},
 		),
-		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return []*apisv1alpha1.APIExport{
+		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error) {
+			return []*apisv1alpha2.APIExport{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "export1",

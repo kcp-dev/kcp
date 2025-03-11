@@ -31,6 +31,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -64,9 +65,9 @@ func TestPathAnnotationAdmit(t *testing.T) {
 		{
 			name:                    "admission is not applied to a resource that undergoes a deletion",
 			admissionContext:        admissionContextFor("foo"),
-			admissionResource:       apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
+			admissionResource:       apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
 			admissionVerb:           admission.Delete,
-			admissionObject:         &apisv1alpha1.APIExport{},
+			admissionObject:         &apisv1alpha2.APIExport{},
 			validateAdmissionObject: objectWithoutPathAnnotation,
 		},
 		{
@@ -100,16 +101,16 @@ func TestPathAnnotationAdmit(t *testing.T) {
 			name:                    "a path is derived from the LogicalCluster object if it doesn't have the path annotation",
 			admissionContext:        admissionContextFor("foo"),
 			admissionVerb:           admission.Create,
-			admissionResource:       apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:         &apisv1alpha1.APIExport{},
+			admissionResource:       apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:         &apisv1alpha2.APIExport{},
 			getLogicalCluster:       getCluster("foo"),
 			validateAdmissionObject: objectHasPathAnnotation("root:foo"),
 		},
 		{
 			name:                    "a path is updated when is different from the one applied to the LogicalCluster resource",
 			admissionVerb:           admission.Create,
-			admissionResource:       apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:         &apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "bar:foo"}}},
+			admissionResource:       apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:         &apisv1alpha2.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "bar:foo"}}},
 			admissionContext:        admissionContextFor("foo"),
 			getLogicalCluster:       getCluster("foo"),
 			validateAdmissionObject: objectHasPathAnnotation("root:foo"),
@@ -117,8 +118,8 @@ func TestPathAnnotationAdmit(t *testing.T) {
 		{
 			name:                    "happy path: an APIExport is annotated with a path",
 			admissionVerb:           admission.Create,
-			admissionResource:       apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:         &apisv1alpha1.APIExport{},
+			admissionResource:       apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:         &apisv1alpha2.APIExport{},
 			admissionContext:        admissionContextFor("foo"),
 			getLogicalCluster:       getCluster("foo"),
 			validateAdmissionObject: objectHasPathAnnotation("root:foo"),
@@ -202,7 +203,7 @@ func TestPathAnnotationValidate(t *testing.T) {
 		{
 			name:              "admission is not applied to a resource that undergoes a deletion",
 			admissionContext:  admissionContextFor("foo"),
-			admissionResource: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
+			admissionResource: apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
 			admissionVerb:     admission.Delete,
 		},
 		{
@@ -216,8 +217,8 @@ func TestPathAnnotationValidate(t *testing.T) {
 		{
 			name:              "an APIExport with incorrect path annotation is NOT admitted",
 			admissionVerb:     admission.Create,
-			admissionResource: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:   &apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "universe:milky-way"}}},
+			admissionResource: apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:   &apisv1alpha2.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "universe:milky-way"}}},
 			admissionContext:  admissionContextFor("foo"),
 			getLogicalCluster: getCluster("foo"),
 			expectError:       true,
@@ -225,8 +226,8 @@ func TestPathAnnotationValidate(t *testing.T) {
 		{
 			name:              "an APIExport without the path annotation is NOT admitted",
 			admissionVerb:     admission.Create,
-			admissionResource: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:   &apisv1alpha1.APIExport{},
+			admissionResource: apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:   &apisv1alpha2.APIExport{},
 			admissionContext:  admissionContextFor("foo"),
 			getLogicalCluster: getCluster("foo"),
 			expectError:       true,
@@ -234,8 +235,8 @@ func TestPathAnnotationValidate(t *testing.T) {
 		{
 			name:              "happy path: an APIExport with the path annotation is admitted",
 			admissionVerb:     admission.Create,
-			admissionResource: apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
-			admissionObject:   &apisv1alpha1.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "root:foo"}}},
+			admissionResource: apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"),
+			admissionObject:   &apisv1alpha2.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "root:foo"}}},
 			admissionContext:  admissionContextFor("foo"),
 			getLogicalCluster: getCluster("foo"),
 		},

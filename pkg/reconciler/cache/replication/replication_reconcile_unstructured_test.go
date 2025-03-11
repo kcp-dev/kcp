@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestEnsureUnstructuredSpec(t *testing.T) {
@@ -382,12 +382,12 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			cacheAPIExport := &apisv1alpha1.APIExport{ObjectMeta: scenario.cacheObjectMeta}
+			cacheAPIExport := &apisv1alpha2.APIExport{ObjectMeta: scenario.cacheObjectMeta}
 			unstructuredCacheApiExport, err := toUnstructured(cacheAPIExport)
 			if err != nil {
 				tt.Fatal(err)
 			}
-			localApiExport := &apisv1alpha1.APIExport{ObjectMeta: scenario.localObjectMeta}
+			localApiExport := &apisv1alpha2.APIExport{ObjectMeta: scenario.localObjectMeta}
 			unstructuredLocalApiExport, err := toUnstructured(localApiExport)
 			if err != nil {
 				tt.Fatal(err)
@@ -400,12 +400,12 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 				tt.Fatalf("metadata changed = %v, expected metadata to be changed = %v", metaChanged, scenario.expectObjectMetaChanged)
 			}
 			if scenario.validateCacheObjectMeta != nil {
-				cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				cacheApiExportFromUnstructured := &apisv1alpha2.APIExport{}
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredCacheApiExport.Object, cacheApiExportFromUnstructured); err != nil {
 					tt.Fatalf("failed to convert unstructured to APIExport: %v", err)
 				}
 
-				localApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				localApiExportFromUnstructured := &apisv1alpha2.APIExport{}
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredLocalApiExport.Object, localApiExportFromUnstructured); err != nil {
 					tt.Fatalf("failed to convert unstructured to APIExport: %v", err)
 				}

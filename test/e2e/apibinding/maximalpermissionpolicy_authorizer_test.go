@@ -39,6 +39,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -114,7 +115,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				kcptestinghelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
+					_, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIExports().Create(ctx, &apisv1alpha2.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -127,11 +128,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"identityHash":"4711"}}`)
-				export, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				export, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, export))
 
 				t.Logf("Double check to change status as system:master, which should work") // system CRDs even need system:master, hence we need the root shard client
-				_, err = rootKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = rootKcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
@@ -350,16 +351,23 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+		Spec: apisv1alpha2.APIExportSpec{
+			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				{
+					Schema: "today.cowboys.wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
 		},
 	}
 	if serviceProviderWorkspace == rbacServiceProvider {
-		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
+		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}}
 		// install RBAC that allows create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
 		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.io:binding:system:authenticated", "Group", wildwest.GroupName, "cowboys", "", []string{rbacv1.VerbAll})
@@ -368,11 +376,11 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 		_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
-	_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// permit user-3 to be able to bind the api export
-	clusterRole, clusterRoleBinding := createClusterRoleAndBindings("user-3-binding", "user-3", "User", apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys", []string{"bind"})
+	clusterRole, clusterRoleBinding := createClusterRoleAndBindings("user-3-binding", "user-3", "User", apisv1alpha2.SchemeGroupVersion.Group, "apiexports", "today-cowboys", []string{"bind"})
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
