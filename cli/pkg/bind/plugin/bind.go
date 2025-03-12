@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +34,7 @@ import (
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // BindOptions contains the options for creating an APIBinding.

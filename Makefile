@@ -50,11 +50,6 @@ YAML_PATCH_BIN := yaml-patch
 YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
 export YAML_PATCH # so hack scripts can use it
 
-OPENSHIFT_GOIMPORTS_VER := c72f1dc2e3aacfa00aece3391d938c9bc734e791
-OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
-OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
-export OPENSHIFT_GOIMPORTS # so hack scripts can use it
-
 GOLANGCI_LINT_VER := v1.62.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
@@ -190,7 +185,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR) ## Install tools
+tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(CODE_GENERATOR) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -229,12 +224,16 @@ verify-codegen: ## Verify codegen
 		exit 1; \
 	fi
 
-$(OPENSHIFT_GOIMPORTS):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
-
 .PHONY: imports
-imports: $(OPENSHIFT_GOIMPORTS) verify-go-versions
-	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
+imports: WHAT ?=
+imports: $(GOLANGCI_LINT) verify-go-versions
+	@if [ -n "$(WHAT)" ]; then \
+	  $(GOLANGCI_LINT) run --enable-only=gci --fix --fast $(WHAT); \
+	else \
+	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+		(cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --fast); \
+	  done; \
+	fi
 
 $(TOOLS_DIR)/verify_boilerplate.py:
 	mkdir -p $(TOOLS_DIR)
