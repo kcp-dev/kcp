@@ -64,10 +64,11 @@ func TestResolverWithWarrants(t *testing.T) {
 		Verbs:           []string{"get"},
 		NonResourceURLs: []string{"/readyz"},
 	}
-	getMetrics := &authorizer.DefaultNonResourceRuleInfo{
+	// TODO(cnvergence): restore the commented lines once we drop the global service account feature flag
+	/* 	getMetrics := &authorizer.DefaultNonResourceRuleInfo{
 		Verbs:           []string{"get"},
 		NonResourceURLs: []string{"/metrics"},
-	}
+	} */
 	getRoot := &authorizer.DefaultNonResourceRuleInfo{
 		Verbs:           []string{"get"},
 		NonResourceURLs: []string{"/"},
@@ -128,16 +129,19 @@ func TestResolverWithWarrants(t *testing.T) {
 			wantResourceRules:    []authorizer.ResourceRuleInfo{getServices},
 			wantNonResourceRules: nil, // global service accounts do no work without a cluster.
 		},
+		// TODO(cnvergence): restore the commented lines once we drop the global service account feature flag
 		{
-			name:                 "service account with this cluster",
-			user:                 &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"this"}}},
-			wantResourceRules:    []authorizer.ResourceRuleInfo{getServices},
-			wantNonResourceRules: []authorizer.NonResourceRuleInfo{getReadyz},
+			name:              "service account with this cluster",
+			user:              &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"this"}}},
+			wantResourceRules: []authorizer.ResourceRuleInfo{getServices},
+			//wantNonResourceRules: []authorizer.NonResourceRuleInfo{getReadyz},
+			wantNonResourceRules: nil,
 		},
 		{
-			name:                 "service account with other cluster",
-			user:                 &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"other"}}},
-			wantNonResourceRules: []authorizer.NonResourceRuleInfo{getMetrics},
+			name: "service account with other cluster",
+			user: &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"other"}}},
+			//wantNonResourceRules: []authorizer.NonResourceRuleInfo{getMetrics},
+			wantNonResourceRules: nil,
 		},
 		{
 			name:                 "base with service account warrant without cluster, ignored",
