@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 )
 
 // LogicalClusterApplyConfiguration represents a declarative configuration of the LogicalCluster type for use

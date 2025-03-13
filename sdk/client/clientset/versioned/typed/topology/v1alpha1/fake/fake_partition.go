@@ -23,14 +23,13 @@ import (
 	json "encoding/json"
 	"fmt"
 
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
-	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
 )
 
 // FakePartitions implements PartitionInterface

@@ -21,10 +21,9 @@ package v1alpha1
 import (
 	"net/http"
 
-	rest "k8s.io/client-go/rest"
-
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
+	rest "k8s.io/client-go/rest"
 )
 
 type TopologyV1alpha1Interface interface {
