@@ -25,12 +25,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
-	kcpinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -48,6 +42,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
+	kcpinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/projection"

@@ -17,13 +17,13 @@ limitations under the License.
 package rbac
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ rbaclisters.ClusterRoleBindingLister = (*mergedClusterRoleBindingLister)(nil)

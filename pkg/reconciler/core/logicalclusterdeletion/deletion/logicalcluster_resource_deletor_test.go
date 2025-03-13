@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpfakemetadata "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/metadata/fake"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
+	kcpfakemetadata "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/metadata/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"

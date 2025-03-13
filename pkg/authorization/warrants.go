@@ -20,13 +20,13 @@ import (
 	"context"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // WithWarrantsAndScopes flattens the user's warrants and applies scopes. It

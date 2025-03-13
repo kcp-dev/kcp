@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"time"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +36,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"

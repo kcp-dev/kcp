@@ -20,10 +20,6 @@ import (
 	"context"
 	"testing"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/rbac/v1"
@@ -35,6 +31,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"

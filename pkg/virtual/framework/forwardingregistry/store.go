@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +33,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	dynamicextension "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 )

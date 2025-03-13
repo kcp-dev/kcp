@@ -19,12 +19,12 @@ package labelclusterrolebindings
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 )

@@ -24,13 +24,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
-	kcpclientgotesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,6 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
+	kcpclientgotesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/indexers"

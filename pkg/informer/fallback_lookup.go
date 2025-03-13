@@ -17,11 +17,11 @@ limitations under the License.
 package informer
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterLister is a cluster-aware Lister API.

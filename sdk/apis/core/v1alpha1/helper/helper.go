@@ -19,9 +19,9 @@ package helper
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // QualifiedObjectName builds a fully qualified identifier for an object

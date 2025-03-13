@@ -21,10 +21,10 @@ import (
 	"net/http"
 	"strings"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )

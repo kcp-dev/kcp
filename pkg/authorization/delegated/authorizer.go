@@ -19,13 +19,13 @@ package delegated
 import (
 	"time"
 
-	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/server/options"
 	"k8s.io/klog/v2"
+
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface, opts Options) (authorizer.Authorizer, error)

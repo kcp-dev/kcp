@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apiserver/pkg/authorization/authorizer"
+
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"

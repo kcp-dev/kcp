@@ -20,8 +20,9 @@ import (
 	"crypto/sha256"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // UserRewriter translates a user home cluster path: "user:paul:abc" to "<cluster>:abc".

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
-	_ "net/http/pprof"
 	"net/url"
 	"sort"
 	"strings"
@@ -43,6 +42,8 @@ import (
 	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
+
+	_ "net/http/pprof"
 )
 
 var (

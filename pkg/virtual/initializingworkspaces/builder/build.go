@@ -26,10 +26,6 @@ import (
 	"path"
 	"strings"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,6 +37,10 @@ import (
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"

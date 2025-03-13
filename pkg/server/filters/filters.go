@@ -24,7 +24,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/munnerz/goautoneg"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,6 +34,8 @@ import (
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type (

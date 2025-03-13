@@ -19,11 +19,11 @@ package labelclusterroles
 import (
 	"fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/kubernetes/pkg/apis/rbac"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const ClusterRoleBindingByClusterRoleName = "indexClusterRoleBindingByClusterRole"

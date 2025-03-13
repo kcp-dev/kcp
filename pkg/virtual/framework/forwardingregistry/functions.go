@@ -19,12 +19,13 @@ package forwardingregistry
 import (
 	"context"
 
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
 type FactoryFunc func() runtime.Object

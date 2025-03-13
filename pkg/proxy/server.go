@@ -26,7 +26,6 @@ import (
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
-	_ "k8s.io/component-base/metrics/prometheus/workqueue"
 	"k8s.io/klog/v2"
 
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
@@ -38,6 +37,8 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+
+	_ "k8s.io/component-base/metrics/prometheus/workqueue"
 )
 
 type Server struct {

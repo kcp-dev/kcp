@@ -19,10 +19,11 @@ package options
 import (
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"

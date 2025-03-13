@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -31,12 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/common"
-	_ "k8s.io/kubernetes/pkg/apis/core/install"
 	k8sopenapi "k8s.io/kubernetes/pkg/generated/openapi"
-	"sigs.k8s.io/yaml"
 
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+
+	_ "k8s.io/kubernetes/pkg/apis/core/install"
 )
 
 //go:embed fixtures/*.yaml
