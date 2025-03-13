@@ -487,42 +487,6 @@ spec:
 
                             Mutually exclusive with virtual storage.
                           type: object
-                        virtual:
-                          description: |-
-                            Virtual storage provides a read-only view into another virtual workspace.
-                            This means that the objects for this resource are not stored as custom
-                            resources in any workspace, but are projected from the virtual workspace
-                            into the workspace that binds to the APIExport.
-
-                            Mutually exclusive with CRD storage.
-                          properties:
-                            reference:
-                              description: |-
-                                Reference points to another object that has a URL to a virtual workspace
-                                in a "url" field in its status. The object can be of any kind.
-                              properties:
-                                apiGroup:
-                                  description: |-
-                                    APIGroup is the group for the resource being referenced.
-                                    If APIGroup is not specified, the specified Kind must be in the core API group.
-                                    For any other third-party types, APIGroup is required.
-                                  type: string
-                                kind:
-                                  description: Kind is the type of resource being
-                                    referenced
-                                  type: string
-                                name:
-                                  description: Name is the name of resource being
-                                    referenced
-                                  type: string
-                              required:
-                              - kind
-                              - name
-                              type: object
-                              x-kubernetes-map-type: atomic
-                          required:
-                          - reference
-                          type: object
                       type: object
                   required:
                   - schema
