@@ -2228,17 +2228,11 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCal
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"),
 						},
 					},
-					"virtual": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Virtual storage provides a read-only view into another virtual workspace. This means that the objects for this resource are not stored as custom resources in any workspace, but are projected from the virtual workspace into the workspace that binds to the APIExport.\n\nMutually exclusive with CRD storage.",
-							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"},
 	}
 }
 

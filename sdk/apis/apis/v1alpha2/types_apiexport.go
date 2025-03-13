@@ -163,14 +163,6 @@ type ResourceSchemaStorage struct {
 	//
 	// Mutually exclusive with virtual storage.
 	CRD *ResourceSchemaStorageCRD `json:"crd,omitempty"`
-
-	// Virtual storage provides a read-only view into another virtual workspace.
-	// This means that the objects for this resource are not stored as custom
-	// resources in any workspace, but are projected from the virtual workspace
-	// into the workspace that binds to the APIExport.
-	//
-	// Mutually exclusive with CRD storage.
-	Virtual *ResourceSchemaStorageVirtual `json:"virtual,omitempty"`
 }
 
 type ResourceSchemaStorageCRD struct{}

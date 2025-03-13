@@ -25,8 +25,7 @@ import (
 // ResourceSchemaStorageApplyConfiguration represents a declarative configuration of the ResourceSchemaStorage type for use
 // with apply.
 type ResourceSchemaStorageApplyConfiguration struct {
-	CRD     *v1alpha2.ResourceSchemaStorageCRD              `json:"crd,omitempty"`
-	Virtual *ResourceSchemaStorageVirtualApplyConfiguration `json:"virtual,omitempty"`
+	CRD *v1alpha2.ResourceSchemaStorageCRD `json:"crd,omitempty"`
 }
 
 // ResourceSchemaStorageApplyConfiguration constructs a declarative configuration of the ResourceSchemaStorage type for use with
@@ -40,13 +39,5 @@ func ResourceSchemaStorage() *ResourceSchemaStorageApplyConfiguration {
 // If called multiple times, the CRD field is set to the value of the last call.
 func (b *ResourceSchemaStorageApplyConfiguration) WithCRD(value v1alpha2.ResourceSchemaStorageCRD) *ResourceSchemaStorageApplyConfiguration {
 	b.CRD = &value
-	return b
-}
-
-// WithVirtual sets the Virtual field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Virtual field is set to the value of the last call.
-func (b *ResourceSchemaStorageApplyConfiguration) WithVirtual(value *ResourceSchemaStorageVirtualApplyConfiguration) *ResourceSchemaStorageApplyConfiguration {
-	b.Virtual = value
 	return b
 }
