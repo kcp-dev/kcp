@@ -21,6 +21,8 @@ package v1alpha2
 // ResourceSchemaApplyConfiguration represents a declarative configuration of the ResourceSchema type for use
 // with apply.
 type ResourceSchemaApplyConfiguration struct {
+	Name    *string                                  `json:"name,omitempty"`
+	Group   *string                                  `json:"group,omitempty"`
 	Schema  *string                                  `json:"schema,omitempty"`
 	Storage *ResourceSchemaStorageApplyConfiguration `json:"storage,omitempty"`
 }
@@ -29,6 +31,22 @@ type ResourceSchemaApplyConfiguration struct {
 // apply.
 func ResourceSchema() *ResourceSchemaApplyConfiguration {
 	return &ResourceSchemaApplyConfiguration{}
+}
+
+// WithName sets the Name field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *ResourceSchemaApplyConfiguration) WithName(value string) *ResourceSchemaApplyConfiguration {
+	b.Name = &value
+	return b
+}
+
+// WithGroup sets the Group field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Group field is set to the value of the last call.
+func (b *ResourceSchemaApplyConfiguration) WithGroup(value string) *ResourceSchemaApplyConfiguration {
+	b.Group = &value
+	return b
 }
 
 // WithSchema sets the Schema field in the declarative configuration to the given value

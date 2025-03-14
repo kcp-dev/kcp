@@ -1933,7 +1933,8 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-map-keys": []interface{}{
-									"schema",
+									"name",
+									"group",
 								},
 								"x-kubernetes-list-type": "map",
 							},
@@ -2191,9 +2192,25 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Group is the API group of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the name of the referenced APIResourceSchema.",
+							Description: "Schema is the name of the referenced APIResourceSchema. This must be of the format \"<version>.<name>.<group>\".",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -2207,7 +2224,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				Required: []string{"schema", "storage"},
+				Required: []string{"name", "group", "schema", "storage"},
 			},
 		},
 		Dependencies: []string{

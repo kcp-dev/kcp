@@ -512,6 +512,8 @@ func TestReconcileBinding(t *testing.T) {
 					Spec: apisv1alpha2.APIExportSpec{
 						ResourceSchemas: []apisv1alpha2.ResourceSchema{
 							{
+								Name:   "widgets",
+								Group:  "kcp.io",
 								Schema: "today.widgets.kcp.io",
 								Storage: apisv1alpha2.ResourceSchemaStorage{
 									CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -531,6 +533,8 @@ func TestReconcileBinding(t *testing.T) {
 					Spec: apisv1alpha2.APIExportSpec{
 						ResourceSchemas: []apisv1alpha2.ResourceSchema{
 							{
+								Name:   "widgets",
+								Group:  "kcp.io",
 								Schema: "another.widgets.kcp.io",
 								Storage: apisv1alpha2.ResourceSchemaStorage{
 									CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -550,6 +554,8 @@ func TestReconcileBinding(t *testing.T) {
 					Spec: apisv1alpha2.APIExportSpec{
 						ResourceSchemas: []apisv1alpha2.ResourceSchema{
 							{
+								Name:   "schema",
+								Group:  "io",
 								Schema: "invalid.schema.io",
 								Storage: apisv1alpha2.ResourceSchemaStorage{
 									CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -569,6 +575,8 @@ func TestReconcileBinding(t *testing.T) {
 					Spec: apisv1alpha2.APIExportSpec{
 						ResourceSchemas: []apisv1alpha2.ResourceSchema{
 							{
+								Name:   "widgets",
+								Group:  "kcp.io",
 								Schema: "today.widgets.kcp.io",
 								Storage: apisv1alpha2.ResourceSchemaStorage{
 									CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},

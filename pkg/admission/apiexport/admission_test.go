@@ -67,14 +67,14 @@ func updateAttr(name string, obj runtime.Object, kind, resource string) admissio
 
 func TestAdmission(t *testing.T) {
 	cases := map[string]struct {
-		attr        admission.Attributes
-		update      bool
-		kind        string
-		resource    string
-		hasIdentity bool
-		isBuiltIn   bool
-		modifyPCs   func([]apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim
-		want        error
+		attr         admission.Attributes
+		update       bool
+		kind         string
+		resource     string
+		hasIdentity  bool
+		isBuiltIn    bool
+		modifyExport func(*apisv1alpha2.APIExport)
+		want         error
 	}{
 		"NotAPIExportKind": {
 			kind:      "Something",
@@ -108,14 +108,13 @@ func TestAdmission(t *testing.T) {
 			resource:    "apiexports",
 			isBuiltIn:   false,
 			hasIdentity: true,
-			modifyPCs: func(pcs []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
-				pcs = append(pcs, apisv1alpha2.PermissionClaim{
+			modifyExport: func(ae *apisv1alpha2.APIExport) {
+				ae.Spec.PermissionClaims = append(ae.Spec.PermissionClaims, apisv1alpha2.PermissionClaim{
 					GroupResource: apisv1alpha2.GroupResource{
 						Group:    "imnot",
 						Resource: "builtin",
 					},
 				})
-				return pcs
 			},
 			want: field.Invalid(
 				field.NewPath("spec").
@@ -150,14 +149,13 @@ func TestAdmission(t *testing.T) {
 			resource:    "apiexports",
 			isBuiltIn:   false,
 			hasIdentity: true,
-			modifyPCs: func(pcs []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
-				pcs = append(pcs, apisv1alpha2.PermissionClaim{
+			modifyExport: func(ae *apisv1alpha2.APIExport) {
+				ae.Spec.PermissionClaims = append(ae.Spec.PermissionClaims, apisv1alpha2.PermissionClaim{
 					GroupResource: apisv1alpha2.GroupResource{
 						Group:    "imnot",
 						Resource: "builtin",
 					},
 				})
-				return pcs
 			},
 			want: field.Invalid(
 				field.NewPath("spec").
@@ -166,6 +164,44 @@ func TestAdmission(t *testing.T) {
 					Child("identityHash"),
 				"",
 				"identityHash is required for API types that are not built-in"),
+		},
+		"ForbiddenInvalidResourceSchema": {
+			update:      true,
+			kind:        "APIExport",
+			resource:    "apiexports",
+			isBuiltIn:   false,
+			hasIdentity: true,
+			modifyExport: func(ae *apisv1alpha2.APIExport) {
+				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+					Name:   "foo",
+					Group:  "bar",
+					Schema: "this.is.invalid",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				})
+			},
+			want: field.Invalid(
+				field.NewPath("spec").
+					Child("resourceSchemas").
+					Index(0).
+					Child("schema"),
+				"this.is.invalid",
+				"must end in .foo.bar"),
+		},
+		"ValidResourceSchemaName": {
+			update:      true,
+			kind:        "APIExport",
+			resource:    "apiexports",
+			isBuiltIn:   false,
+			hasIdentity: true,
+			modifyExport: func(ae *apisv1alpha2.APIExport) {
+				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+					Name:   "foo",
+					Group:  "bar",
+					Schema: "v1.foo.bar",
+				})
+			},
 		},
 		"ValidCreateNonBuiltIn": {
 			kind:        "APIExport",
@@ -183,8 +219,8 @@ func TestAdmission(t *testing.T) {
 		"ValidNoPermissionClaims": {
 			kind:     "APIExport",
 			resource: "apiexports",
-			modifyPCs: func(pc []apisv1alpha2.PermissionClaim) []apisv1alpha2.PermissionClaim {
-				return []apisv1alpha2.PermissionClaim{}
+			modifyExport: func(ae *apisv1alpha2.APIExport) {
+				ae.Spec.PermissionClaims = []apisv1alpha2.PermissionClaim{}
 			},
 		},
 	}
@@ -208,8 +244,8 @@ func TestAdmission(t *testing.T) {
 			if tc.hasIdentity {
 				ae.Spec.PermissionClaims[0].IdentityHash = "coolidentityhash"
 			}
-			if tc.modifyPCs != nil {
-				ae.Spec.PermissionClaims = tc.modifyPCs(ae.Spec.PermissionClaims)
+			if tc.modifyExport != nil {
+				tc.modifyExport(ae)
 			}
 			var attr admission.Attributes
 			if tc.update {

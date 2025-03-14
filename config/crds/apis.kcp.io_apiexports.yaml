@@ -467,8 +467,16 @@ spec:
                   workspaces up-to-date.
                 items:
                   properties:
+                    group:
+                      description: Group is the API group of the resource.
+                      type: string
+                    name:
+                      description: Name is the name of the resource.
+                      type: string
                     schema:
-                      description: Schema is the name of the referenced APIResourceSchema.
+                      description: |-
+                        Schema is the name of the referenced APIResourceSchema. This must be of the format
+                        "<version>.<name>.<group>".
                       type: string
                     storage:
                       description: Storage defines how the resource is stored.
@@ -489,12 +497,15 @@ spec:
                           type: object
                       type: object
                   required:
+                  - group
+                  - name
                   - schema
                   - storage
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
-                - schema
+                - name
+                - group
                 x-kubernetes-list-type: map
             type: object
           status:

@@ -114,6 +114,8 @@ func TestAPIExportAuthorizers(t *testing.T) {
 			Spec: apisv1alpha2.APIExportSpec{
 				ResourceSchemas: []apisv1alpha2.ResourceSchema{
 					{
+						Name:   "sheriffs",
+						Group:  "wild.wild.west",
 						Schema: "today.sheriffs.wild.wild.west",
 						Storage: apisv1alpha2.ResourceSchemaStorage{
 							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -167,6 +169,8 @@ func TestAPIExportAuthorizers(t *testing.T) {
 			Spec: apisv1alpha2.APIExportSpec{
 				ResourceSchemas: []apisv1alpha2.ResourceSchema{
 					{
+						Name:   "cowboys",
+						Group:  "wildwest.dev",
 						Schema: "today.cowboys.wildwest.dev",
 						Storage: apisv1alpha2.ResourceSchemaStorage{
 							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -618,6 +622,8 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 		Spec: apisv1alpha2.APIExportSpec{
 			ResourceSchemas: []apisv1alpha2.ResourceSchema{
 				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
 					Schema: "today.cowboys.wildwest.dev",
 					Storage: apisv1alpha2.ResourceSchemaStorage{
 						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},

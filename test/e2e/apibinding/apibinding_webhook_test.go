@@ -94,6 +94,8 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		Spec: apisv1alpha2.APIExportSpec{
 			ResourceSchemas: []apisv1alpha2.ResourceSchema{
 				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
 					Schema: "today.cowboys.wildwest.dev",
 					Storage: apisv1alpha2.ResourceSchemaStorage{
 						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
@@ -248,6 +250,8 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		Spec: apisv1alpha2.APIExportSpec{
 			ResourceSchemas: []apisv1alpha2.ResourceSchema{
 				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
 					Schema: "today.cowboys.wildwest.dev",
 					Storage: apisv1alpha2.ResourceSchemaStorage{
 						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},

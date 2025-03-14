@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -97,6 +98,26 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 					"",
 					"identityHash is required for API types that are not built-in"))
 		}
+	}
+
+	for i, rs := range ae.Spec.ResourceSchemas {
+		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resourceSchemas").Index(i)); err != nil {
+			return admission.NewForbidden(a, err)
+		}
+	}
+
+	return nil
+}
+
+func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, path *field.Path) *field.Error {
+	group := resourceSchema.Group
+	if group == "" {
+		group = "core"
+	}
+
+	expectedSuffix := fmt.Sprintf(".%s.%s", resourceSchema.Name, group)
+	if !strings.HasSuffix(resourceSchema.Schema, expectedSuffix) {
+		return field.Invalid(path.Child("schema"), resourceSchema.Schema, fmt.Sprintf("must end in %s", expectedSuffix))
 	}
 
 	return nil
