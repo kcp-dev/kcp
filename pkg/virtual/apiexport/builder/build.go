@@ -59,7 +59,7 @@ func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	cachedKcpInformers kcpinformers.SharedInformerFactory,
+	cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -169,6 +169,7 @@ func BuildVirtualWorkspace(
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"apiresourceschemas": cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 					"apiexports":         cachedKcpInformers.Apis().V1alpha1().APIExports().Informer(),
+					"apibindings":        kcpInformers.Apis().V1alpha1().APIBindings().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
 						klog.Background().Error(nil, "informer not synced")
@@ -184,7 +185,7 @@ func BuildVirtualWorkspace(
 
 			return apiReconciler, nil
 		},
-		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, cachedKcpInformers),
+		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, cachedKcpInformers, kcpInformers),
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
@@ -257,14 +258,17 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	return cluster, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
 }
 
-func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, cachedKcpInformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
+func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, cachedKcpInformers.Apis().V1alpha1().APIExports())
 	maximalPermissionAuth = authorization.NewDecorator("virtual.apiexport.maxpermissionpolicy.authorization.kcp.io", maximalPermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 	apiExportsContentAuth = authorization.NewDecorator("virtual.apiexport.content.authorization.kcp.io", apiExportsContentAuth).AddAuditLogging().AddAnonymization()
 
-	return apiExportsContentAuth
+	boundApiAuth := virtualapiexportauth.NewBoundAPIAuthorizer(apiExportsContentAuth, kcpInformers.Apis().V1alpha1().APIBindings(), kubeClusterClient)
+	boundApiAuth = authorization.NewDecorator("virtual.apiexport.boundapi.authorization.kcp.io", boundApiAuth).AddAuditLogging().AddAnonymization()
+
+	return boundApiAuth
 }
 
 // apiDefinitionWithCancel calls the cancelFn on tear-down.
