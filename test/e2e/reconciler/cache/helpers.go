@@ -37,11 +37,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kcp-dev/embeddedetcd"
+
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
-	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
