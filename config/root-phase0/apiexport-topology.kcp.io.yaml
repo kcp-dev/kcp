@@ -5,10 +5,14 @@ metadata:
   name: topology.kcp.io
 spec:
   resourceSchemas:
-  - schema: v240903-d6797056a.partitions.topology.kcp.io
+  - group: topology.kcp.io
+    name: partitions
+    schema: v240903-d6797056a.partitions.topology.kcp.io
     storage:
       crd: {}
-  - schema: v240903-d6797056a.partitionsets.topology.kcp.io
+  - group: topology.kcp.io
+    name: partitionsets
+    schema: v240903-d6797056a.partitionsets.topology.kcp.io
     storage:
       crd: {}
 status: {}

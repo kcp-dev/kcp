@@ -7,10 +7,14 @@ spec:
   maximalPermissionPolicy:
     local: {}
   resourceSchemas:
-  - schema: v240903-d6797056a.workspacetypes.tenancy.kcp.io
+  - group: tenancy.kcp.io
+    name: workspaces
+    schema: v241020-fce06d31d.workspaces.tenancy.kcp.io
     storage:
       crd: {}
-  - schema: v241020-fce06d31d.workspaces.tenancy.kcp.io
+  - group: tenancy.kcp.io
+    name: workspacetypes
+    schema: v240903-d6797056a.workspacetypes.tenancy.kcp.io
     storage:
       crd: {}
 status: {}
