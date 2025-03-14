@@ -56,7 +56,7 @@ func (o *APIExport) Validate(flagPrefix string) []error {
 func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	cachedKcpInformers kcpinformers.SharedInformerFactory,
+	cachedKcpInformers, wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -72,5 +72,5 @@ func (o *APIExport) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), config, kubeClusterClient, deepSARClient, kcpClusterClient, cachedKcpInformers)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), config, kubeClusterClient, deepSARClient, kcpClusterClient, cachedKcpInformers, wildcardKcpInformers)
 }
