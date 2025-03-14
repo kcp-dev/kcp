@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp/docs/generators/cli-doc
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/kcp-dev/kcp v0.0.0-00010101000000-000000000000
@@ -59,7 +59,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
