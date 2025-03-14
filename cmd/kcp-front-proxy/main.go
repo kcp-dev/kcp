@@ -30,12 +30,13 @@ import (
 	"k8s.io/component-base/cli"
 	utilflag "k8s.io/component-base/cli/flag"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
-	_ "k8s.io/component-base/logs/json/register"
 	"k8s.io/component-base/version"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/proxy"
+
+	_ "k8s.io/component-base/logs/json/register"
 )
 
 func main() {

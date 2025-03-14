@@ -19,8 +19,6 @@ package server
 import (
 	"net/http"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +27,8 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"

@@ -22,10 +22,6 @@ import (
 	"strings"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,6 +31,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"

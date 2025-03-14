@@ -22,12 +22,6 @@ import (
 	"testing"
 	"time"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +34,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/informer"

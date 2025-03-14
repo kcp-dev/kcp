@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"

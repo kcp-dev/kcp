@@ -19,8 +19,9 @@ package helpers
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestParseClusterURL(t *testing.T) {

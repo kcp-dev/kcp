@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"

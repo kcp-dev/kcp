@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -34,6 +32,9 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"

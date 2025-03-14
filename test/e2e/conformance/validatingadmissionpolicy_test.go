@@ -22,9 +22,6 @@ import (
 	"testing"
 	"time"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -34,6 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
+
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"

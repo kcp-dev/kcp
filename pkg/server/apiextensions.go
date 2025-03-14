@@ -19,11 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
-	_ "net/http/pprof"
 	"strings"
-
-	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -37,6 +33,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
@@ -44,6 +43,8 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/tenancy/v1alpha1"
+
+	_ "net/http/pprof"
 )
 
 // SystemCRDClusterName is the logical cluster we install system CRDs into for now. These are needed

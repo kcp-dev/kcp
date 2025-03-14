@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,6 +28,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func (c *controller) reconcile(ctx context.Context, gvrKey string) error {

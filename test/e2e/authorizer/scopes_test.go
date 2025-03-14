@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -34,6 +33,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"

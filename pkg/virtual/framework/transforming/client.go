@@ -21,8 +21,6 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	clientdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"

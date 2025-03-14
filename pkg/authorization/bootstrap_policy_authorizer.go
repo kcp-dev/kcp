@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 )
 
 type BootstrapPolicyAuthorizer struct {

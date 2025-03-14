@@ -20,12 +20,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,6 +44,8 @@ import (
 	autoscalingrest "k8s.io/kubernetes/pkg/registry/autoscaling/rest"
 	flowcontrolrest "k8s.io/kubernetes/pkg/registry/flowcontrol/rest"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	configshard "github.com/kcp-dev/kcp/config/shard"
@@ -60,6 +59,8 @@ import (
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+
+	_ "net/http/pprof"
 )
 
 const resyncPeriod = 10 * time.Hour

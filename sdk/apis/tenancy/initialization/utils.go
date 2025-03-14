@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"

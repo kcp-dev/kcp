@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"

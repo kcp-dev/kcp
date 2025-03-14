@@ -25,9 +25,6 @@ import (
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -40,6 +37,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"

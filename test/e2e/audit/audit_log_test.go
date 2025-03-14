@@ -24,11 +24,12 @@ import (
 	"strings"
 	"testing"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"

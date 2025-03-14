@@ -24,9 +24,8 @@ import (
 	"testing"
 	"time"
 
-	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -36,7 +35,9 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/yaml"
+
+	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"

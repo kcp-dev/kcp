@@ -19,10 +19,11 @@ package quota
 import (
 	"testing"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"

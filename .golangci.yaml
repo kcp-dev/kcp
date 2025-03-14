@@ -15,6 +15,7 @@ linters:
   - durationcheck
   - errcheck
   - errchkjson
+  - gci
   - gocritic
   - godot
   - gofmt
@@ -81,6 +82,17 @@ linters-settings:
       # - name: indent-error-flow # I think @ncdc prefers explicit else statements, remove?
       # - name: redefines-builtin-id
       # - name: dot-imports
+  gci:
+    custom-order: true
+    sections:
+    - standard
+    - default
+    - prefix(k8s.io)
+    - prefix(github.com/kcp-dev)
+    - prefix(github.com/kcp-dev/kcp)
+    - blank
+    - dot
+    skip-generated: true
   gosec:
     excludes:
     - G307 # Deferring unsafe method "Close" on type "\*os.File"

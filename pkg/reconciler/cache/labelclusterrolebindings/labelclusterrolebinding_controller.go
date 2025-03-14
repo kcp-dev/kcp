@@ -21,12 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,6 +31,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"

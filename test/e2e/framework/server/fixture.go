@@ -35,9 +35,9 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +49,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/component-base/cli/flag"
-	"sigs.k8s.io/yaml"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"

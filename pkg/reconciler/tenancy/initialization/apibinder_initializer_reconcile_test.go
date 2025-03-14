@@ -21,8 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestGenerateAPIBindingName(t *testing.T) {

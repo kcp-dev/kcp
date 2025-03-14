@@ -19,12 +19,12 @@ package labelclusterroles
 import (
 	"context"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"

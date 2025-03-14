@@ -38,9 +38,6 @@ import (
 	"sort"
 	"strings"
 
-	kcpmetadata "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
+
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/projection"
 	"github.com/kcp-dev/kcp/sdk/apis/core"

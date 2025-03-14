@@ -20,12 +20,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )

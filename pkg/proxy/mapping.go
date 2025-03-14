@@ -24,9 +24,10 @@ import (
 	"net/url"
 	"os"
 
+	"sigs.k8s.io/yaml"
+
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"

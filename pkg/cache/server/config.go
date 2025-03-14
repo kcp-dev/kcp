@@ -23,9 +23,6 @@ import (
 	"strings"
 	"time"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -37,6 +34,9 @@ import (
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"

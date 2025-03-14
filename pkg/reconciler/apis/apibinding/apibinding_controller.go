@@ -22,10 +22,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -40,6 +36,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"

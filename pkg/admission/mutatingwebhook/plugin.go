@@ -24,10 +24,6 @@ import (
 	"io"
 	"sync"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,6 +32,10 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"

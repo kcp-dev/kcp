@@ -20,9 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -32,6 +29,9 @@ import (
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"

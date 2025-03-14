@@ -25,9 +25,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"sigs.k8s.io/yaml"
 )
 
 func Test_isPartialMetadataHeader(t *testing.T) {

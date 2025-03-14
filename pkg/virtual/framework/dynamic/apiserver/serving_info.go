@@ -19,8 +19,6 @@ package apiserver
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -46,6 +44,8 @@ import (
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"

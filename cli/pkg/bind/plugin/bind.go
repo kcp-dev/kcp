@@ -23,13 +23,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"

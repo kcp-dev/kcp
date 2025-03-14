@@ -19,11 +19,12 @@ package options
 import (
 	"path"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"

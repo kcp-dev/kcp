@@ -21,11 +21,6 @@ import (
 	"io"
 	"sync"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
@@ -40,6 +35,11 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"

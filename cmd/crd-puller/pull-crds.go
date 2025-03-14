@@ -22,11 +22,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/kcp-dev/kcp/sdk/cmd/help"

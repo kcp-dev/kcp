@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/cobra"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +32,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"

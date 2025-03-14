@@ -20,15 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 	"time"
-
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	kcpmetadata "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
@@ -53,6 +46,12 @@ import (
 	"k8s.io/kubernetes/pkg/controller/validatingadmissionpolicystatus"
 	"k8s.io/kubernetes/pkg/generated/openapi"
 	"k8s.io/kubernetes/pkg/serviceaccount"
+
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -97,6 +96,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+
+	_ "net/http/pprof"
 )
 
 type RunFunc func(ctx context.Context)

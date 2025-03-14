@@ -21,14 +21,13 @@ package v1alpha1
 import (
 	"context"
 
+	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
+	scheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-
-	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
-	scheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 )
 
 // CowboysGetter has a method to return a CowboyInterface.

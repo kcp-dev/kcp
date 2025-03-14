@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )

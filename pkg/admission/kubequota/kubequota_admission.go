@@ -22,10 +22,6 @@ import (
 	"io"
 	"sync"
 
-	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -38,6 +34,10 @@ import (
 	quota "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
+
+	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"

@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +33,8 @@ import (
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"

@@ -20,9 +20,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	genericapiserver "k8s.io/apiserver/pkg/server"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	virtualframework "github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"

@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -34,6 +33,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	"github.com/kcp-dev/kcp/test/e2e/framework"

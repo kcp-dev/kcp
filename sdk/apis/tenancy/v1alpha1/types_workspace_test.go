@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
 	"sigs.k8s.io/yaml"
 
 	apitest "github.com/kcp-dev/kcp/sdk/apis/test"

@@ -31,7 +31,6 @@ import (
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/logs"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
-	_ "k8s.io/component-base/logs/json/register"
 	"k8s.io/component-base/term"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
@@ -41,6 +40,8 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/sdk/cmd/help"
+
+	_ "k8s.io/component-base/logs/json/register"
 )
 
 func main() {

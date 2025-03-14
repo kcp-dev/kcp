@@ -27,11 +27,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
-	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -51,7 +48,11 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/yaml"
+
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"

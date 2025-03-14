@@ -25,8 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,6 +39,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	clientdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 )

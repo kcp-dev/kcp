@@ -20,12 +20,13 @@ import (
 	"context"
 	"testing"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"

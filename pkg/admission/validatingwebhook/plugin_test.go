@@ -19,12 +19,13 @@ package validatingwebhook
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const clusterName = logicalcluster.Name("test-cluster")

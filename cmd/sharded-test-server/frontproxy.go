@@ -30,13 +30,13 @@ import (
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
+	"sigs.k8s.io/yaml"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"

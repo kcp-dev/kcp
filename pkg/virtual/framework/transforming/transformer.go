@@ -19,12 +19,12 @@ package transforming
 import (
 	"context"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 )
 
 // ResourceTransformer define transformations that should be applied to a resource

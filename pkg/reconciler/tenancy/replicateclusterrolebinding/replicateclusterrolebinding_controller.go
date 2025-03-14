@@ -17,11 +17,11 @@ limitations under the License.
 package replicateclusterrolebinding
 
 import (
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/replicateclusterrole"

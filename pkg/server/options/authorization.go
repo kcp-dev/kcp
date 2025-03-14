@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,6 +33,8 @@ import (
 	"k8s.io/apiserver/pkg/server/egressselector"
 	authzmodes "k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
+
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	authz "github.com/kcp-dev/kcp/pkg/authorization"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"

@@ -23,10 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	"github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +32,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	"github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/client-go/metadata"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"

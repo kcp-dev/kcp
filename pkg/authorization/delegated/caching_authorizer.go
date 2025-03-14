@@ -20,11 +20,11 @@ import (
 	"context"
 	"time"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // CachingOptions contains options to create a new Delegated Caching Authorizer.

@@ -21,13 +21,14 @@ import (
 	"embed"
 	"time"
 
+	"sigs.k8s.io/yaml"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/yaml"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
