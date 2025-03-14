@@ -39,9 +39,10 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
-func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
+func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
 	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
 
@@ -99,8 +100,14 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 
 		// internal APIs have no identity and a fixed schema.
-		if apiexportbuiltin.IsBuiltInAPI(pc.GroupResource) {
-			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(pc.GroupResource)
+		v1Claim := apisv1alpha1.PermissionClaim{}
+		err = apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&pc, &v1Claim, nil)
+		if err != nil {
+			return err
+		}
+
+		if apiexportbuiltin.IsBuiltInAPI(v1Claim.GroupResource) {
+			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(v1Claim.GroupResource)
 			if err != nil {
 				return err
 			}
@@ -110,7 +117,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			}
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
-			claims[gr] = pc
+			claims[gr] = v1Claim
 			continue
 		}
 		if pc.Group == apis.GroupName {
@@ -125,7 +132,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			}
 
 			apiResourceSchemas[gr] = apisSchema
-			claims[gr] = pc
+			claims[gr] = v1Claim
 			continue
 		}
 		if pc.IdentityHash == "" {
@@ -150,13 +157,13 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		// The kcp server resource handlers will make sure the right structural schemas are applied. Here,
 		// we can just pick one. To make it deterministic, we sort the exports.
 		sort.Slice(exports, func(i, j int) bool {
-			a := exports[i].(*apisv1alpha1.APIExport)
-			b := exports[j].(*apisv1alpha1.APIExport)
+			a := exports[i].(*apisv1alpha2.APIExport)
+			b := exports[j].(*apisv1alpha2.APIExport)
 			return a.Name < b.Name && logicalcluster.From(a).String() < logicalcluster.From(b).String()
 		})
 
 		for _, obj := range exports {
-			export := obj.(*apisv1alpha1.APIExport)
+			export := obj.(*apisv1alpha2.APIExport)
 			logger := logger.WithValues(logging.FromPrefix("candidateAPIExport", export)...)
 			logger.V(4).Info("getting APIResourceSchemas for candidate APIExport")
 			candidates, err := c.getSchemasFromAPIExport(ctx, export)
@@ -175,7 +182,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				logger.V(4).Info("got a match!")
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
-				claims[gr] = pc
+				claims[gr] = v1Claim
 			}
 		}
 	}
@@ -293,18 +300,18 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
+func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *apisv1alpha2.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
-	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
+	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
 		apiExportClusterName := logicalcluster.From(apiExport)
-		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(schemaName)
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
 			logger.WithValues(
-				"schema", schemaName,
+				"schema", resourceSchema.Schema,
 				"exportClusterName", apiExportClusterName,
 				"exportName", apiExport.Name,
 			).V(3).Info("APIResourceSchema for APIExport not found")

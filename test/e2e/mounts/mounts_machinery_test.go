@@ -167,7 +167,7 @@ func TestMountsMachinery(t *testing.T) {
 
 	t.Log("Workspace access should work")
 	frameworkhelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
+		_, err := kcpClusterClient.Cluster(mountPath).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
 		return err == nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to work")
 
@@ -191,7 +191,7 @@ func TestMountsMachinery(t *testing.T) {
 
 	t.Logf("Workspace access should eventually fail")
 	frameworkhelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
+		_, err = kcpClusterClient.Cluster(mountPath).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
 		return err != nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to fail")
 }

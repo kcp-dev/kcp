@@ -27,7 +27,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -55,12 +55,12 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	apiExport := &apisv1alpha1.APIExport{
+	apiExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "my-export",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			Identity: &apisv1alpha1.Identity{
+		Spec: apisv1alpha2.APIExportSpec{
+			Identity: &apisv1alpha2.Identity{
 				SecretRef: &corev1.SecretReference{
 					Namespace: "default",
 					Name:      "identity1",
@@ -70,7 +70,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating APIExport with reference to nonexistent identity secret")
-	apiExportClient := kcpClusterClient.ApisV1alpha1().APIExports()
+	apiExportClient := kcpClusterClient.ApisV1alpha2().APIExports()
 
 	_, err = apiExportClient.Cluster(workspacePath).Create(ctx, apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
@@ -78,7 +78,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
 	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
-	}, frameworkhelpers.IsNot(apisv1alpha1.APIExportIdentityValid).WithReason(apisv1alpha1.IdentityVerificationFailedReason))
+	}, frameworkhelpers.IsNot(apisv1alpha2.APIExportIdentityValid).WithReason(apisv1alpha2.IdentityVerificationFailedReason))
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -97,7 +97,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
 	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
-	}, frameworkhelpers.Is(apisv1alpha1.APIExportIdentityValid))
+	}, frameworkhelpers.Is(apisv1alpha2.APIExportIdentityValid))
 
 	export, err := apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
 	require.NoError(t, err)
