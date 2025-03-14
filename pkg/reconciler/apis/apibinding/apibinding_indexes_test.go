@@ -50,13 +50,17 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 				Spec: apisv1alpha2.APIExportSpec{
 					ResourceSchemas: []apisv1alpha2.ResourceSchema{
 						{
-							Schema: "schema1",
+							Name:   "schema1",
+							Group:  "org",
+							Schema: "v1.schema1.org",
 							Storage: apisv1alpha2.ResourceSchemaStorage{
 								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
 							},
 						},
 						{
-							Schema: "some-other-schema",
+							Name:   "some-other-schema",
+							Group:  "org",
+							Schema: "v1.some-other-schema.org",
 							Storage: apisv1alpha2.ResourceSchemaStorage{
 								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
 							},
@@ -65,8 +69,8 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 				},
 			},
 			want: []string{
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "schema1"),
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "some-other-schema"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "v1.schema1.org"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "v1.some-other-schema.org"),
 			},
 			wantErr: false,
 		},

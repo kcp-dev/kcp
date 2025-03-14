@@ -158,6 +158,8 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				Spec: apisv1alpha2.APIExportSpec{
 					ResourceSchemas: []apisv1alpha2.ResourceSchema{
 						{
+							Name:   "services",
+							Group:  "",
 							Schema: servicesAPIResourceSchema.Name,
 							Storage: apisv1alpha2.ResourceSchemaStorage{
 								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},

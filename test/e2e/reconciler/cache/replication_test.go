@@ -182,7 +182,9 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server kcptes
 			Spec: apisv1alpha2.APIExportSpec{
 				ResourceSchemas: []apisv1alpha2.ResourceSchema{
 					{
-						Schema: "foo.bar",
+						Name:   "foo",
+						Group:  "bar",
+						Schema: "v1.foo.bar",
 						Storage: apisv1alpha2.ResourceSchemaStorage{
 							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
 						},
@@ -214,7 +216,9 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 			Spec: apisv1alpha2.APIExportSpec{
 				ResourceSchemas: []apisv1alpha2.ResourceSchema{
 					{
-						Schema: "foo",
+						Name:   "foo",
+						Group:  "bar",
+						Schema: "v1.foo.bar",
 						Storage: apisv1alpha2.ResourceSchemaStorage{
 							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
 						},

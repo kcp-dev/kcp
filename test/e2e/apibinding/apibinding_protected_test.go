@@ -80,6 +80,8 @@ func TestProtectedAPI(t *testing.T) {
 		Spec: apisv1alpha2.APIExportSpec{
 			ResourceSchemas: []apisv1alpha2.ResourceSchema{
 				{
+					Name:   "tlsroutes",
+					Group:  "gateway.networking.k8s.io",
 					Schema: "latest.tlsroutes.gateway.networking.k8s.io",
 					Storage: apisv1alpha2.ResourceSchemaStorage{
 						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},

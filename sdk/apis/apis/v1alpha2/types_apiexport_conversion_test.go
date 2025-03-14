@@ -34,7 +34,9 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		{
 			Spec: APIExportSpec{
 				ResourceSchemas: []ResourceSchema{{
-					Schema: "foo",
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
 					Storage: ResourceSchemaStorage{
 						CRD: &ResourceSchemaStorageCRD{},
 					},
@@ -44,12 +46,16 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		{
 			Spec: APIExportSpec{
 				ResourceSchemas: []ResourceSchema{{
-					Schema: "foo",
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
 					Storage: ResourceSchemaStorage{
 						CRD: &ResourceSchemaStorageCRD{},
 					},
 				}, {
-					Schema: "bar",
+					Group:  "bar",
+					Name:   "baz",
+					Schema: "v1.baz.bar",
 					Storage: ResourceSchemaStorage{
 						CRD: &ResourceSchemaStorageCRD{},
 					},
@@ -59,7 +65,9 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		{
 			Spec: APIExportSpec{
 				ResourceSchemas: []ResourceSchema{{
-					Schema: "bar",
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
 					Storage: ResourceSchemaStorage{
 						CRD: &ResourceSchemaStorageCRD{},
 					},
@@ -105,8 +113,8 @@ func TestConvertV1Alpha1APIExports(t *testing.T) {
 		{
 			Spec: apisv1alpha1.APIExportSpec{
 				LatestResourceSchemas: []string{
-					"foo",
-					"bar",
+					"v1.foo.org",
+					"v1.bar.org",
 				},
 			},
 		},

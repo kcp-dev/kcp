@@ -86,7 +86,8 @@ type APIExportSpec struct {
 	//
 	// +optional
 	// +listType=map
-	// +listMapKey=schema
+	// +listMapKey=name
+	// +listMapKey=group
 	ResourceSchemas []ResourceSchema `json:"resourceSchemas,omitempty"`
 
 	// identity points to a secret that contains the API identity in the 'key' file.
@@ -148,7 +149,12 @@ type APIExportSpec struct {
 }
 
 type ResourceSchema struct {
-	// Schema is the name of the referenced APIResourceSchema.
+	// Name is the name of the resource.
+	Name string `json:"name"`
+	// Group is the API group of the resource.
+	Group string `json:"group"`
+	// Schema is the name of the referenced APIResourceSchema. This must be of the format
+	// "<version>.<name>.<group>".
 	Schema string `json:"schema"`
 	// Storage defines how the resource is stored.
 	Storage ResourceSchemaStorage `json:"storage"`
