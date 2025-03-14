@@ -22,7 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -325,21 +325,37 @@ func compareSchemas() cmp.Option {
 }
 
 func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
-	byExport := map[string][]string{}
+	type grs struct {
+		group    string
+		resource string
+		schema   string
+	}
+
+	byExport := map[string][]grs{}
 	for gr, apiResourceSchema := range allSchemas {
 		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
 			continue
-		} else if gr.Group == core.GroupName && gr.Resource == "shards" {
-			// we export shards by themselves, not with the rest of the tenancy group
-			byExport["shards."+core.GroupName] = []string{apiResourceSchema.Name}
-		} else {
-			byExport[gr.Group] = append(byExport[gr.Group], apiResourceSchema.Name)
 		}
+
+		exportName := gr.Group
+		if gr.Group == core.GroupName && gr.Resource == "shards" {
+			// we export shards by themselves, not with the rest of the tenancy group
+			exportName = "shards." + core.GroupName
+		}
+
+		byExport[exportName] = append(byExport[exportName], grs{
+			group:    gr.Group,
+			resource: gr.Resource,
+			schema:   apiResourceSchema.Name,
+		})
 	}
 
 	exports := make([]*apisv1alpha2.APIExport, 0, len(byExport))
-	for exportName, schemas := range byExport {
-		sort.Strings(schemas)
+	for exportName, grss := range byExport {
+		slices.SortFunc(grss, func(a, b grs) int {
+			// This assumes all resources are of the same API group.
+			return strings.Compare(a.resource, b.resource)
+		})
 
 		export := apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
@@ -359,9 +375,11 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 		}
 
 		export.Spec.ResourceSchemas = []apisv1alpha2.ResourceSchema{}
-		for _, schema := range schemas {
+		for _, schema := range grss {
 			export.Spec.ResourceSchemas = append(export.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
-				Schema: schema,
+				Group:  schema.group,
+				Name:   schema.resource,
+				Schema: schema.schema,
 				Storage: apisv1alpha2.ResourceSchemaStorage{
 					CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
 				},

@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	kubeconversion "k8s.io/apimachinery/pkg/conversion"
 
@@ -171,7 +172,21 @@ func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.A
 	if schemas := in.LatestResourceSchemas; schemas != nil {
 		newSchemas := []ResourceSchema{}
 		for _, schema := range schemas {
+			// parse strings like "v1.resource.group.org"
+			parts := strings.Split(schema, ".")
+			if len(parts) < 3 {
+				return fmt.Errorf("invalid schema %q: must have at least 3 dot-separated segments", schema)
+			}
+
+			resource := parts[1]
+			group := strings.Join(parts[2:], ".")
+			if group == "core" {
+				group = ""
+			}
+
 			newSchemas = append(newSchemas, ResourceSchema{
+				Group:  group,
+				Name:   resource,
 				Schema: schema,
 				Storage: ResourceSchemaStorage{
 					CRD: &ResourceSchemaStorageCRD{},
