@@ -31,29 +31,43 @@ type Config struct {
 }
 
 // Option a function that wish to modify a given kcp configuration.
-type Option func(*Config) *Config
+type Option func(*Config)
 
 // WithScratchDirectories adds custom scratch directories to a kcp configuration.
 func WithScratchDirectories(artifactDir, dataDir string) Option {
-	return func(cfg *Config) *Config {
+	return func(cfg *Config) {
 		cfg.ArtifactDir = artifactDir
 		cfg.DataDir = dataDir
-		return cfg
 	}
 }
 
 // WithCustomArguments applies provided arguments to a given kcp configuration.
 func WithCustomArguments(args ...string) Option {
-	return func(cfg *Config) *Config {
+	return func(cfg *Config) {
 		cfg.Args = args
-		return cfg
 	}
 }
 
-// WithClientCADir sets the client CA directory for a given kcp configuration.
-func WithClientCADir(clientCADir string) Option {
-	return func(cfg *Config) *Config {
+// WithClientCA sets the client CA directory for a given kcp configuration.
+// A client CA will automatically created and the --client-ca configured.
+func WithClientCA(clientCADir string) Option {
+	return func(cfg *Config) {
 		cfg.ClientCADir = clientCADir
-		return cfg
+	}
+}
+
+// WithRunInProcess sets the kcp server to run in process. This requires extra
+// setup of the RunInProcessFunc variable and will only work inside of the kcp
+// repository.
+func WithRunInProcess() Option {
+	return func(cfg *Config) {
+		cfg.RunInProcess = true
+	}
+}
+
+// WithLogToConsole sets the kcp server to log to console.
+func WithLogToConsole() Option {
+	return func(cfg *Config) {
+		cfg.LogToConsole = true
 	}
 }

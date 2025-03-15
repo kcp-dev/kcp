@@ -41,7 +41,7 @@ func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptesti
 
 	cfg := &kcptestingserver.Config{Name: serverName}
 	for _, opt := range options {
-		cfg = opt(cfg)
+		opt(cfg)
 	}
 
 	auditPolicyArg := false
