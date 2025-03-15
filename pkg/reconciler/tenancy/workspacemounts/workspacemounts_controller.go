@@ -24,9 +24,9 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -197,20 +197,65 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	logger := logging.WithObject(klog.FromContext(ctx), workspace)
 	ctx = klog.NewContext(ctx, logger)
 
-	var errs []error
-	requeue, err := c.reconcile(ctx, workspace)
+	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
+		// TODO(sttts): do proper REST mapping.
+		resource := strings.ToLower(ref.Kind) + "s"
+		gvr := schema.GroupVersionResource{Resource: resource}
+		cs := strings.SplitN(ref.APIVersion, "/", 2)
+		if len(cs) == 2 {
+			gvr.Group = cs[0]
+			gvr.Version = cs[1]
+		} else {
+			gvr.Version = ref.APIVersion
+		}
+		return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Get(ctx, ref.Name, metav1.GetOptions{})
+	}
+
+	// the following logic is a deviation from the standard pattern of reconcilers
+	// because the spec and status are both being updated here
+	// they need to be updated separately through the patch committer
+
+	// reconcile the status
+	statusUpdater := &workspaceStatusUpdater{
+		getMountObject: getMountObjectFunc,
+	}
+
+	status, err := statusUpdater.reconcile(ctx, workspace)
 	if err != nil {
-		errs = append(errs, err)
+		return false, err
+	}
+
+	if status == reconcileStatusStopAndRequeue {
+		return true, nil
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &workspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &workspace.Status}
+	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &workspace.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
-		errs = append(errs, err)
+		return false, err
 	}
 
-	return requeue, utilerrors.NewAggregate(errs)
+	// reconcile the spec
+	specUpdater := &workspaceSpecUpdater{
+		getMountObject: getMountObjectFunc,
+	}
+	status, err = specUpdater.reconcile(ctx, workspace)
+	if err != nil {
+		return false, err
+	}
+	if status == reconcileStatusStopAndRequeue {
+		return true, nil
+	}
+
+	// If the object being reconciled changed as a result, update it.
+	oldResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &old.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 // enqueuePotentiallyMountResource looks for workspaces referencing this kind.
