@@ -61,7 +61,7 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 				tenancyv1alpha1.MountObjectNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"%s %q not found",
-				obj.GroupVersionKind().Kind, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
+				workspace.Spec.Mount.Reference.Kind, types.NamespacedName{Namespace: workspace.Spec.Mount.Reference.Namespace, Name: workspace.Spec.Mount.Reference.Name},
 			)
 			return reconcileStatusContinue, nil
 		}
