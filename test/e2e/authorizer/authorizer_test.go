@@ -47,8 +47,9 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 //go:embed testdata/*.yaml
@@ -61,7 +62,7 @@ func TestAuthorizer(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
@@ -72,13 +73,13 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	org1, _ := framework.NewOrganizationFixture(t, server, framework.WithNameSuffix("org1"))
-	org2, _ := framework.NewPrivilegedOrganizationFixture(t, server, framework.PrivilegedWorkspaceOption(framework.WithNameSuffix("org2")), framework.WithRequiredGroups("empty-group"))
+	org1, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithNamePrefix("org1")) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	org2, _ := framework.NewRootShardOrganizationFixture(t, server, kcptesting.PrivilegedWorkspaceOption(kcptesting.WithNamePrefix("org2")), framework.WithRequiredGroups("empty-group"))
 
-	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
-	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"), framework.WithRootShard())                      // on root for system:admin ClusterRole test
-	_, org2Workspace1 := framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
-	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
+	kcptesting.NewWorkspaceFixture(t, server, org1, kcptesting.WithName("workspace1"))
+	kcptesting.NewWorkspaceFixture(t, server, org1, kcptesting.WithName("workspace2"), kcptesting.WithRootShard())                      // on root for system:admin ClusterRole test
+	_, org2Workspace1 := kcptesting.NewWorkspaceFixture(t, server, org2, kcptesting.WithName("workspace1"), kcptesting.WithRootShard()) // on root for deep SAR test
+	kcptesting.NewWorkspaceFixture(t, server, org2, kcptesting.WithName("workspace2"))
 
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "testdata/workspace1-resources.yaml")
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "testdata/workspace1-resources.yaml")
@@ -228,7 +229,7 @@ func TestAuthorizer(t *testing.T) {
 			_, err = shardKubeClusterClient.Cluster(controlplaneapiserver.LocalAdminCluster.Path()).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("kcp-authorizer-test-namespace-%d", rand.Uint32()),
@@ -266,7 +267,7 @@ func TestAuthorizer(t *testing.T) {
 			t.Logf("ask with deep SAR that user-1 hypothetically could list configmaps in %q if it had access", org2.Join("workspace1"))
 			deepSARClient, err := kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
 			require.NoError(t, err)
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				resp, err = deepSARClient.Cluster(logicalcluster.NewPath(org2Workspace1.Spec.Cluster)).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("failed to create SAR: %v", err)
@@ -359,7 +360,7 @@ func TestAuthorizer(t *testing.T) {
 			_, err = kubeClusterClient.Cluster(ws).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				review, err := user5KubeClusterClient.Cluster(ws).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("failed to create SelfSubjectRulesReview: %v", err)

@@ -34,9 +34,10 @@ import (
 	utilconditions "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaceController(t *testing.T) {
@@ -44,7 +45,7 @@ func TestWorkspaceController(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	type runningServer struct {
-		frameworkserver.RunningServer
+		kcptestingserver.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
 	}
 	var testCases = []struct {
@@ -77,9 +78,9 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
-				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				kcptestinghelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, frameworkhelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
+				}, kcptestinghelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
 			},
 		},
 		{
@@ -107,9 +108,9 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be unschedulable")
-				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				kcptestinghelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, frameworkhelpers.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
+				}, kcptestinghelpers.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
 				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
@@ -128,9 +129,9 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
-				frameworkhelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
+				kcptestinghelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				}, frameworkhelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
+				}, kcptestinghelpers.Is(tenancyv1alpha1.WorkspaceScheduled))
 
 				workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err)
@@ -142,7 +143,7 @@ func TestWorkspaceController(t *testing.T) {
 		},
 	}
 
-	sharedServer := framework.SharedKcpServer(t)
+	sharedServer := kcptesting.SharedKcpServer(t)
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -156,12 +157,12 @@ func TestWorkspaceController(t *testing.T) {
 				// Destructive tests require their own server
 				//
 				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
-				server = framework.PrivateKcpServer(t)
+				server = kcptesting.PrivateKcpServer(t)
 			}
 
 			cfg := server.BaseConfig(t)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 			// create clients
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)

@@ -36,6 +36,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
@@ -46,7 +47,7 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -62,9 +63,9 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 	err = wildwestv1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")

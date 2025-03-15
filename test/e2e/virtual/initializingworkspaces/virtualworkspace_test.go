@@ -52,15 +52,16 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	source := framework.SharedKcpServer(t)
+	source := kcptesting.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
 	rootShardCfg.Host += "/services/initializingworkspaces/whatever"
 
@@ -97,8 +98,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	source := framework.SharedKcpServer(t)
-	wsPath, _ := framework.NewWorkspaceFixture(t, source, core.RootCluster.Path())
+	source := kcptesting.SharedKcpServer(t)
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -113,7 +114,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, wsPath, []string{"user-1"}, nil, false)
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
-	framework.NewWorkspaceFixture(t, source, wsPath)
+	kcptesting.NewWorkspaceFixture(t, source, wsPath)
 
 	testLabelSelector := map[string]string{
 		"internal.kcp.io/e2e-test": t.Name(),
@@ -177,7 +178,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		wtName := workspacetypes[name].Name
-		frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
+		kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 		}, "could not wait for readiness on WorkspaceType %s|%s", wsPath.String(), wtName)
 	}
@@ -287,7 +288,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err := adminVwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()
@@ -412,11 +413,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.True(t, ok, "didn't find WorkspaceType for %s initializer", initializer)
 		initializerWs, ok := workspacesByType[wt.Name]
 		require.True(t, ok, "didn't find Workspace for %v type", wt.Name)
-		initializerWsShard := framework.WorkspaceShardOrDie(t, sourceKcpClusterClient, &initializerWs)
+		initializerWsShard := kcptesting.WorkspaceShardOrDie(t, sourceKcpClusterClient, &initializerWs)
 
 		ws, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, func() *tenancyv1alpha1.Workspace {
 			w := workspaceForType(workspacetypes["gamma"], testLabelSelector)
-			framework.WithShard(initializerWsShard.Name)(w)
+			kcptesting.WithShard(initializerWsShard.Name)(w)
 			return w
 		}(), metav1.CreateOptions{})
 		require.NoError(t, err)
@@ -597,7 +598,7 @@ func workspacesStuckInInitializing(t *testing.T, kcpClient kcpclientset.ClusterI
 			t.Logf("workspace %s has no initializers", workspace.Name)
 			return false
 		}
-		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, framework.WorkspaceShardOrDie(t, kcpClient, &workspace).Name)
+		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, kcptesting.WorkspaceShardOrDie(t, kcpClient, &workspace).Name)
 	}
 	return true
 }

@@ -40,9 +40,10 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestWorkspaceTypes(t *testing.T) {
@@ -50,7 +51,7 @@ func TestWorkspaceTypes(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	type runningServer struct {
-		frameworkserver.RunningServer
+		kcptestingserver.RunningServer
 		kcpClusterClient kcpclientset.ClusterInterface
 		orgPath          logicalcluster.Path
 	}
@@ -93,7 +94,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
@@ -116,7 +117,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				wtName := wt.Name
-				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
+				kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -158,8 +159,8 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
-				typeSourcePath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				typeSourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
 				cfg := server.RunningServer.BaseConfig(t)
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -205,7 +206,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Bar to be usable in typesource workspace %q", typeSourcePath)
 				wtName := wt.Name
-				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
+				kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(typeSourcePath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -253,7 +254,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create type Foo with an initializer")
 				wt, err := server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -267,7 +268,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 				t.Logf("Wait for type Foo to be usable")
 				wtName := wt.Name
-				frameworkhelpers.EventuallyReady(t, func() (conditions.Getter, error) {
+				kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Get(ctx, wtName, metav1.GetOptions{})
 				}, "could not wait for readiness on WorkspaceType %s|%s", universalPath.String(), wtName)
 
@@ -294,7 +295,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be stuck in initializing phase")
-				frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+				kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 					workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						return false, err.Error()
@@ -327,7 +328,7 @@ func TestWorkspaceTypes(t *testing.T) {
 		},
 	}
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -336,7 +337,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 			cfg := server.BaseConfig(t)
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

@@ -39,25 +39,26 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspace on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 	clusterConfig := server.BaseConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
@@ -111,7 +112,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	clusterConfig := server.BaseConfig(t)
@@ -120,11 +121,11 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	dynamicKcpClusterClient, err := kcpdynamic.NewForConfig(clusterConfig)
 	require.NoError(t, err)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspaces on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsExport1aPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
-	wsConsume1aPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsExport1aPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
+	wsConsume1aPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 	group := "newyork.io"
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1aPath, kcpClusterClient, group, "export1")
@@ -163,7 +164,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	clusterConfig := server.BaseConfig(t)
@@ -171,10 +172,10 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspace on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", wsPath)
 	_, err = kubeClusterClient.Cluster(wsPath).CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
@@ -250,7 +251,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 
 func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 	t.Helper()
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		if err := fn(); err != nil {
 			return false, err.Error()
 		}

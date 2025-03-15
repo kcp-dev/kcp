@@ -30,6 +30,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -42,9 +43,9 @@ func TestRootCACertConfigmap(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	server := framework.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("cluster"))
+	server := kcptesting.SharedKcpServer(t)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("cluster"))
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)

@@ -39,10 +39,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
+	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 //go:embed *.yaml
@@ -186,7 +186,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		auditFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d-audit.log", v.index))
 	}
 
-	commandLine := frameworkserver.Command("virtual-workspaces", strings.ToLower(prefix))
+	commandLine := kcptestingserver.Command("virtual-workspaces", strings.ToLower(prefix))
 	commandLine = append(commandLine, v.args...)
 	commandLine = append(
 		commandLine,

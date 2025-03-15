@@ -40,8 +40,9 @@ import (
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestPartialMetadataCRD(t *testing.T) {
@@ -50,9 +51,9 @@ func TestPartialMetadataCRD(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	workspacePath, _ := framework.NewOrganizationFixture(t, server)
+	workspacePath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
@@ -118,7 +119,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 		t.Log("List resources with partial object metadata")
 		metadataClient, err := metadata.NewForConfig(cfg)
 		require.NoError(t, err)
-		frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+		kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 			_, err = metadataClient.Cluster(workspacePath).Resource(resource).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()
@@ -159,11 +160,11 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
 	// Create ws1. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace1Path, workspace1 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	workspace1Path, workspace1 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating workspace1 CRD client")
 
@@ -219,16 +220,16 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Workspace %s: waiting for ready CRD with version %s", workspace1.Name, crd.Spec.Versions[0].Name)
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		crd, err := crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspace1Path).Get(ctx, crdName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 		return &crdConditionsAdapter{CustomResourceDefinition: crd}, nil
-	}, frameworkhelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
+	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	// Create ws2. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	require.NoError(t, err)
 
 	// Install CRD with only v2
@@ -238,13 +239,13 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Workspace %s: waiting for ready CRD with version %s", workspace2.Name, crd.Spec.Versions[0].Name)
-	frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 		crd, err := crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspace2Path).Get(ctx, crdName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 		return &crdConditionsAdapter{CustomResourceDefinition: crd}, nil
-	}, frameworkhelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
+	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	dynamicClusterClient, err := dynamic.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -306,7 +307,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Listing partial metadata for version v1")
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		metadataList, err := metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvrV1).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -327,7 +328,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 
 	// Do a partial metadata list for v2
 	t.Logf("Listing partial metadata for version v2")
-	frameworkhelpers.Eventually(t, func() (success bool, reason string) {
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		metadataList, err := metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvrV2).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err.Error()

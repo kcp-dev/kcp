@@ -43,8 +43,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
 // StartStandaloneCacheServer runs the cache server as a separate process
@@ -52,15 +52,15 @@ import (
 func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir string) string {
 	t.Helper()
 
-	cacheServerPortStr, err := frameworkserver.GetFreePort(t)
+	cacheServerPortStr, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err)
 	cacheServerPort, err := strconv.Atoi(cacheServerPortStr)
 	require.NoError(t, err)
 	cacheServerOptions := cacheopitons.NewOptions(path.Join(dataDir, "cache"))
 	cacheServerOptions.SecureServing.BindPort = cacheServerPort
-	cacheServerEmbeddedEtcdClientPort, err := frameworkserver.GetFreePort(t)
+	cacheServerEmbeddedEtcdClientPort, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err)
-	cacheServerEmbeddedEtcdPeerPort, err := frameworkserver.GetFreePort(t)
+	cacheServerEmbeddedEtcdPeerPort, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err)
 	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
 	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort
@@ -89,7 +89,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	}()
 
 	cacheServerCertificatePath := path.Join(dataDir, "cache", "apiserver.crt")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		if _, err = os.Stat(cacheServerCertificatePath); os.IsNotExist(err) {
 			return false, "Failed to read the cache server's certificate, the file hasn't been created"
 		}

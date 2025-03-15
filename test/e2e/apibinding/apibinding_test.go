@@ -51,25 +51,26 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	providerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-1"))
-	consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-1-bound-against-1"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
 
 	cfg := server.BaseConfig(t)
 
@@ -115,7 +116,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 		},
 	}
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -130,7 +131,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
 		expected := "APIExport reference must not be changed"
 		if strings.Contains(err.Error(), expected) {
@@ -143,19 +144,19 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 func TestAPIBinding(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	provider1Path, provider1 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-1"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	provider1Path, provider1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
 	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
-	provider2Path, provider2 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-2"))
+	provider2Path, provider2 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"))
 	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
-	consumer1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-1-bound-against-1"))
-	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-2-bound-against-1"))
-	consumer3Path, consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-3-bound-against-2"))
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
+	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
+	consumer3Path, consumer3Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
 	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	cfg := server.BaseConfig(t)
@@ -230,7 +231,7 @@ func TestAPIBinding(t *testing.T) {
 			},
 		}
 
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -317,15 +318,15 @@ func TestAPIBinding(t *testing.T) {
 			},
 		}
 
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", provider2Path, providerPath)
-		frameworkhelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
 			return kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys2", metav1.GetOptions{})
-		}, frameworkhelpers.IsNot(apisv1alpha1.InitialBindingCompleted).WithReason(apisv1alpha1.NamingConflictsReason), "expected naming conflict")
+		}, kcptestinghelpers.IsNot(apisv1alpha1.InitialBindingCompleted).WithReason(apisv1alpha1.NamingConflictsReason), "expected naming conflict")
 	}
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
@@ -338,7 +339,7 @@ func TestAPIBinding(t *testing.T) {
 		}
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			e, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
 				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)

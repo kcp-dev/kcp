@@ -33,6 +33,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -43,11 +44,11 @@ func TestImpersonation(t *testing.T) {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, _ := framework.NewOrganizationFixture(t, server)
-	_, wsObj := framework.NewWorkspaceFixture(t, server, org)
+	org, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	_, wsObj := kcptesting.NewWorkspaceFixture(t, server, org)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -91,10 +92,10 @@ func TestImpersonateScoping(t *testing.T) {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, ws := framework.NewOrganizationFixture(t, server)
+	org, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
