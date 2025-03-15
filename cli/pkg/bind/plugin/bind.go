@@ -21,9 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -48,6 +51,11 @@ type BindOptions struct {
 	APIBindingName string
 	// BindWaitTimeout is how long to wait for the APIBinding to be created and successful.
 	BindWaitTimeout time.Duration
+	// AcceptedPermissionClaims is the list of accepted permission claims for the APIBinding.
+	AcceptedPermissionClaims []string
+
+	// acceptedPermissionClaims is the parsed list of accepted permission claims for the APIBinding parsed from AcceptedPermissionClaims.
+	acceptedPermissionClaims []apisv1alpha1.AcceptablePermissionClaim
 }
 
 // NewBindOptions returns new BindOptions.
@@ -63,6 +71,7 @@ func (b *BindOptions) BindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringVar(&b.APIBindingName, "name", b.APIBindingName, "Name of the APIBinding to create.")
 	cmd.Flags().DurationVar(&b.BindWaitTimeout, "timeout", time.Second*30, "Duration to wait for APIBinding to be created successfully.")
+	cmd.Flags().StringSliceVar(&b.AcceptedPermissionClaims, "permission-claims", nil, "List of accepted permission claims for the APIBinding. Format: --permissionClaims resource=secrets,all=true,state=Accepted")
 }
 
 // Complete ensures all fields are initialized.
@@ -88,6 +97,18 @@ func (b *BindOptions) Validate() error {
 
 	if !path.IsValid() {
 		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `<logical-cluster-name>:<apiexport>` or `<full>:<path>:<to>:<apiexport>`")
+	}
+
+	if b.AcceptedPermissionClaims != nil {
+		var errs []error
+		for _, claim := range b.AcceptedPermissionClaims {
+			if err := b.parsePermissionClaim(claim); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("invalid permission claims: %v", errs)
+		}
 	}
 
 	return b.Options.Validate()
@@ -127,6 +148,10 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		},
 	}
 
+	if len(b.acceptedPermissionClaims) > 0 {
+		binding.Spec.PermissionClaims = b.acceptedPermissionClaims
+	}
+
 	kcpclient, err := newKCPClusterClient(config)
 	if err != nil {
 		return err
@@ -161,6 +186,41 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	return nil
+}
+
+func (b *BindOptions) parsePermissionClaim(claim string) error {
+	claimParts := strings.Split(claim, ":")
+	if len(claimParts) == 0 {
+		return fmt.Errorf("invalid permission claim %q", claim)
+	}
+
+	parsedClaim := apisv1alpha1.AcceptablePermissionClaim{}
+	for _, part := range claimParts {
+		kv := strings.Split(part, "=")
+		if len(kv) != 2 {
+			return fmt.Errorf("invalid permission claim %q", claim)
+		}
+
+		switch kv[0] {
+		case "group":
+			parsedClaim.Group = kv[1]
+		case "resource":
+			parsedClaim.Resource = kv[1]
+		case "all":
+			parsedClaim.All = kv[1] == "true"
+		case "state":
+			s := apisv1alpha1.AcceptablePermissionClaimState(cases.Title(language.Und).String(kv[1]))
+			if s != apisv1alpha1.ClaimAccepted && s != apisv1alpha1.ClaimRejected {
+				return fmt.Errorf("invalid permission claim %q", claim)
+			}
+			parsedClaim.State = s
+		default:
+			return fmt.Errorf("invalid permission claim %q", claim)
+		}
+	}
+
+	b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
 	return nil
 }
 
