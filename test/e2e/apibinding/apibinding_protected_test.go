@@ -51,9 +51,9 @@ func TestProtectedAPI(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	providerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 

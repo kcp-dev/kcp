@@ -68,9 +68,9 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	providerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-1"))
-	consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-1-bound-against-1"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
 
 	cfg := server.BaseConfig(t)
 
@@ -149,14 +149,14 @@ func TestAPIBinding(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	provider1Path, provider1 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-1"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	provider1Path, provider1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
 	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
-	provider2Path, provider2 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider-2"))
+	provider2Path, provider2 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"))
 	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
-	consumer1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-1-bound-against-1"))
-	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-2-bound-against-1"))
-	consumer3Path, consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-3-bound-against-2"))
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
+	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
+	consumer3Path, consumer3Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
 	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	cfg := server.BaseConfig(t)

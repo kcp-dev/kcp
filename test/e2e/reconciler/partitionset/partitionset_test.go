@@ -49,8 +49,8 @@ func TestPartitionSet(t *testing.T) {
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	partitionClusterPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("partitionset"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("partitionset"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -269,8 +269,8 @@ func TestPartitionSetAdmission(t *testing.T) {
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	partitionClusterPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("partitionset-admission"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("partitionset-admission"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

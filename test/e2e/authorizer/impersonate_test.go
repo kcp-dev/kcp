@@ -47,8 +47,8 @@ func TestImpersonation(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, _ := framework.NewOrganizationFixture(t, server)
-	_, wsObj := framework.NewWorkspaceFixture(t, server, org)
+	org, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	_, wsObj := kcptesting.NewWorkspaceFixture(t, server, org)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestImpersonateScoping(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, ws := framework.NewOrganizationFixture(t, server)
+	org, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)

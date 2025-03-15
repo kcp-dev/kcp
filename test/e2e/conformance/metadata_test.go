@@ -53,7 +53,7 @@ func TestMetadataMutations(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")

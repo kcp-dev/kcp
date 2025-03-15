@@ -71,9 +71,9 @@ func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-builtins"))
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-builtins"))
 
 	t.Logf("Creating owner configmap")
 	owner, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Apply(ctx,
@@ -111,9 +111,9 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
-	apiProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-api-export"))
+	apiProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-api-export"))
 
 	cfg := server.BaseConfig(t)
 
@@ -151,7 +151,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			c, cancelFunc := context.WithCancel(ctx)
 			t.Cleanup(cancelFunc)
 
-			userPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-api-binding-%d", i))
+			userPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-api-binding-%d", i))
 
 			t.Logf("Create a binding in the user workspace")
 			binding := &apisv1alpha1.APIBinding{
@@ -279,15 +279,15 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	group := framework.UniqueGroup(".io")
 
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
-	ws1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-crd-1"))
-	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-crd-2"))
+	ws1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-crd-1"))
+	ws2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-crd-2"))
 
 	t.Logf("Install a normal sheriffs CRD into workspace 1 %q", ws1Path)
 	bootstrapCRD(t, ws1Path, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
@@ -357,13 +357,13 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	group := framework.UniqueGroup(".io")
 
 	sheriffCRD := apifixtures.NewSheriffsCRDWithVersions(group, "v1", "v2")
 
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-crd-versions"))
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-crd-versions"))
 
 	t.Logf("Install a versioned sheriffs CRD into workspace %q", wsPath)
 	bootstrapCRD(t, wsPath, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD)
@@ -523,13 +523,13 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	group := framework.UniqueGroup(".io")
 
 	crd := NewClusterScopedCRD(group, "clustered")
 
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("gc-crd-cluster-scope"))
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-crd-cluster-scope"))
 
 	t.Logf("Install cluster-scoped CRD into workspace %q", wsPath)
 	bootstrapCRD(t, wsPath, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)

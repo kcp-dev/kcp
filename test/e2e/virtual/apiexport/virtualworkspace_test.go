@@ -95,9 +95,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	serviceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumerPath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
@@ -338,9 +338,9 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, ws1 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("workspace1"))
-	ws2Path, ws2 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("workspace2"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("workspace1"))
+	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("workspace2"))
 
 	cfg := server.BaseConfig(t)
 
@@ -563,12 +563,12 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// Need to Create a Producer w/ APIExport
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	claimerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("claimer"))
-	sheriffProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("provider"))
-	serviceProviderSheriffsNotUsed, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("provider-unused"))
-	consumer1Path, consumer1 := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer1"))
-	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer2"))
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	claimerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("claimer"))
+	sheriffProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"))
+	serviceProviderSheriffsNotUsed, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider-unused"))
+	consumer1Path, consumer1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer1"))
+	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer2"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -837,8 +837,8 @@ func TestAPIExportClaimableBuiltInAPIsDrift(t *testing.T) {
 	require.NoError(t, err, "failed to construct discovery client for server")
 
 	t.Logf("Creating a normal workspace")
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	anyPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	anyPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	t.Logf("Gathering APIs for %s", anyPath)
 	apis, err := gatherClaimableBuiltInAPIs(t, discoveryClient.Cluster(anyPath))

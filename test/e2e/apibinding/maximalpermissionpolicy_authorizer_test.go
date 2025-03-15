@@ -68,7 +68,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")
-	orgPath, _ := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	orgPath, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	t.Logf("Giving user-1 admin access")
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, orgPath, []string{"user-1"}, nil, true)
@@ -153,11 +153,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	rbacServiceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	serviceProvider2Workspace, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumer1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	rbacServiceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	serviceProvider2Workspace, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 

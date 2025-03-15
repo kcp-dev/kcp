@@ -63,10 +63,10 @@ func TestMountsMachinery(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	mountWorkspaceName := "mounts-machinery"
-	mountPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("%s", mountWorkspaceName))
+	mountPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("%s", mountWorkspaceName))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

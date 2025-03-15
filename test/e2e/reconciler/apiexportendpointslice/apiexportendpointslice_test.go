@@ -58,9 +58,9 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create Organization and Workspaces
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	exportClusterPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	partitionClusterPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	exportClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -203,8 +203,8 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 	t.Logf("Setup provider workspace")
 	var orgPath, providerPath logicalcluster.Path
 	{
-		orgPath, _ = framework.NewOrganizationFixture(t, server)
-		providerPath, _ = framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("service-provider"))
+		orgPath, _ = framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+		providerPath, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider"))
 
 		serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -238,7 +238,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 			if bindShardname != shard.Name {
 				continue
 			}
-			consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-bound-against-%s", shard.Name), framework.WithShard(shard.Name))
+			consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
 
 			t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
 			apiBinding := &apisv1alpha1.APIBinding{
@@ -345,7 +345,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 			if bindShardname == shard.Name {
 				continue
 			}
-			consumerPath, _ = framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("consumer-bound-against-%s", shard.Name), framework.WithShard(shard.Name))
+			consumerPath, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
 
 			t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
 			apiBinding := &apisv1alpha1.APIBinding{

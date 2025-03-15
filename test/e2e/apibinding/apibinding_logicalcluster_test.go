@@ -50,9 +50,9 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	providerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	t.Logf("providerPath: %v", providerPath)
 	t.Logf("consumerPath: %v", consumerPath)
@@ -174,9 +174,9 @@ func TestAPIBindingCRDs(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	providerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumerPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	t.Logf("providerPath: %v", providerPath)
 	t.Logf("consumerPath: %v", consumerPath)

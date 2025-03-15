@@ -96,9 +96,9 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, ws1 := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2Path, ws2 := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	paths := []logicalcluster.Path{ws1Path, ws2Path}
 	workspaces := []*tenancyv1alpha1.Workspace{ws1, ws2}
 
@@ -214,9 +214,9 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	workspaces := []logicalcluster.Path{ws1, ws2}
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)

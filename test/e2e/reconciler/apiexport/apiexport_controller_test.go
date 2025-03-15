@@ -44,8 +44,8 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	workspacePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	workspacePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	t.Logf("Running test in cluster %s", workspacePath)
 
 	cfg := server.BaseConfig(t)

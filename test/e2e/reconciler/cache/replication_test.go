@@ -321,9 +321,9 @@ func replicateResource(ctx context.Context, t *testing.T,
 	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	if clusterName.Empty() {
-		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+		_, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
 	resMeta, err := meta.Accessor(res)
@@ -374,9 +374,9 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	resWithModifiedSpec runtime.Object /*a strongly typed resource obj with modified spec only, will be used for an update*/) {
 	t.Helper()
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	if clusterName.Empty() {
-		_, ws := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+		_, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 		clusterName = logicalcluster.Name(ws.Spec.Cluster)
 	}
 	resMeta, err := meta.Accessor(res)

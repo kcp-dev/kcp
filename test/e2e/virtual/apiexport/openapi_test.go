@@ -60,9 +60,9 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kube cluster client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	serviceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	_, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)

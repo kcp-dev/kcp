@@ -63,9 +63,9 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -210,9 +210,9 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 

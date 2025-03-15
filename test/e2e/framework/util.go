@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"testing"
@@ -24,7 +25,17 @@ import (
 	"github.com/martinlindhe/base36"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	"github.com/kcp-dev/kcp/pkg/authorization"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/server"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	testing2 "github.com/kcp-dev/kcp/sdk/testing"
 )
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
@@ -53,4 +64,55 @@ func UniqueGroup(suffix string) string {
 		return "a" + ret[1:]
 	}
 	return ret
+}
+
+// VirtualWorkspaceURL returns the virtual workspace URL base URL of the shard
+// the workspace is scheduled on.
+func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
+	shard, err := testing2.WorkspaceShard(ctx, kcpClusterClient, ws)
+	if err != nil {
+		return "", false, err
+	}
+
+	for _, url := range urls {
+		if strings.HasPrefix(url, shard.Spec.VirtualWorkspaceURL) {
+			return url, true, nil
+		}
+	}
+
+	return "", false, nil
+}
+
+// ExportVirtualWorkspaceURLs returns the URLs of the virtual workspaces of the
+// given APIExport.
+func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	for _, vw := range export.Status.VirtualWorkspaces {
+		urls = append(urls, vw.URL)
+	}
+	return urls
+}
+
+// WithRequiredGroups is a privileged action, so we return a privileged option type, and only the helpers that
+// use the system:master config can consume this. However, workspace initialization requires a valid user annotation
+// on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
+// end up needing to hard-code something conceivable.
+func WithRequiredGroups(groups ...string) testing2.PrivilegedWorkspaceOption {
+	return func(ws *tenancyv1alpha1.Workspace) {
+		if ws.Annotations == nil {
+			ws.Annotations = map[string]string{}
+		}
+		ws.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
+		userInfo, err := workspace.WorkspaceOwnerAnnotationValue(&user.DefaultInfo{
+			Name:   server.KcpBootstrapperUserName,
+			Groups: []string{user.AllAuthenticated, bootstrappolicy.SystemKcpWorkspaceBootstrapper},
+		})
+		if err != nil {
+			// should never happen
+			panic(err)
+		}
+		ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
+	}
 }

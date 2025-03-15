@@ -65,12 +65,12 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.
 	for i := 0; i < 3; i++ {
-		wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("quota-%d", i))
+		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("quota-%d", i))
 
 		ws1Quota := &corev1.ResourceQuota{
 			ObjectMeta: metav1.ObjectMeta{
@@ -125,9 +125,9 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(ctx)
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, source)
-			apiProviderPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("api-provider"))
-			userPath, _ := framework.NewWorkspaceFixture(t, source, orgPath, framework.WithName("user"))
+			orgPath, _ := framework.NewOrganizationFixture(t, source) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+			apiProviderPath, _ := kcptesting.NewWorkspaceFixture(t, source, orgPath, kcptesting.WithName("api-provider"))
+			userPath, _ := kcptesting.NewWorkspaceFixture(t, source, orgPath, kcptesting.WithName("user"))
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
@@ -256,15 +256,15 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	group := framework.UniqueGroup(".io")
 
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
-	ws1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("one"))
-	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("two"))
+	ws1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("one"))
+	ws2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("two"))
 
 	t.Logf("Install a normal sheriffs CRD into workspace 1 %q", ws1Path)
 	bootstrapCRD(t, ws1Path, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
@@ -338,12 +338,12 @@ func TestClusterScopedQuota(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.
 	for i := 0; i < 3; i++ {
-		wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("quota-%d", i))
+		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("quota-%d", i))
 
 		const adminNamespace = "admin"
 		t.Logf("Creating %q namespace %q", wsPath, adminNamespace)
@@ -362,7 +362,7 @@ func TestClusterScopedQuota(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating %q namespace", adminNamespace)
 
 		t.Logf("Creating a child workspace in %q to make sure the quota controller counts it", wsPath)
-		_, _ = framework.NewWorkspaceFixture(t, server, wsPath, framework.WithName("child"))
+		_, _ = kcptesting.NewWorkspaceFixture(t, server, wsPath, kcptesting.WithName("child"))
 
 		const quotaName = "cluster-scoped"
 		quota := &corev1.ResourceQuota{

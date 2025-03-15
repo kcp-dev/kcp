@@ -53,7 +53,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	workspacePath, _ := framework.NewOrganizationFixture(t, server)
+	workspacePath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
@@ -164,7 +164,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	// Create ws1. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace1Path, workspace1 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	workspace1Path, workspace1 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating workspace1 CRD client")
 
@@ -229,7 +229,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	// Create ws2. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	require.NoError(t, err)
 
 	// Install CRD with only v2

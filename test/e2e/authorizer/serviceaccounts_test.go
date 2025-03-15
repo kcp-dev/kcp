@@ -50,8 +50,8 @@ func TestServiceAccounts(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := kcptesting.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -187,7 +187,7 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("Access another workspace in the same org", func(t *testing.T) {
 				t.Log("Create workspace with the same name ")
-				otherPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
@@ -275,8 +275,8 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
 				t.Log("Create namespace with the same name")
-				otherOrgPath, _ := framework.NewOrganizationFixture(t, server)
-				otherPath, _ := framework.NewWorkspaceFixture(t, server, otherOrgPath)
+				otherOrgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, otherOrgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,

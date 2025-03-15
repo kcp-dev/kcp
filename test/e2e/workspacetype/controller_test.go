@@ -94,7 +94,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Create(ctx, &tenancyv1alpha1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
@@ -159,8 +159,8 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
-				typeSourcePath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				typeSourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
 				cfg := server.RunningServer.BaseConfig(t)
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -254,7 +254,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				universalPath, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create type Foo with an initializer")
 				wt, err := server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -337,7 +337,7 @@ func TestWorkspaceTypes(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 			cfg := server.BaseConfig(t)
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

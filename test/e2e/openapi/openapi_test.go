@@ -44,7 +44,7 @@ func TestOpenAPIv3(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	wsPath, _ := framework.NewOrganizationFixture(t, server)
+	wsPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	t.Logf("Checking /openapi/v3 paths for %q", wsPath)
 	openAPIV3 := kubeClusterClient.Cluster(wsPath).Discovery().OpenAPIV3()

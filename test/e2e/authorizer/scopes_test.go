@@ -47,7 +47,7 @@ func TestSubjectAccessReview(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	wsPath, ws := framework.NewOrganizationFixture(t, server)
+	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	clusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	wsPath, ws := framework.NewOrganizationFixture(t, server)
+	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	t.Log("User scoped to a another workspace has no access in the beginning")
 	foreignConfig := rest.CopyConfig(cfg)

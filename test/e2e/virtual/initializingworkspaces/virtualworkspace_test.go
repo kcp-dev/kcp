@@ -99,7 +99,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	source := kcptesting.SharedKcpServer(t)
-	wsPath, _ := framework.NewWorkspaceFixture(t, source, core.RootCluster.Path())
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -114,7 +114,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, wsPath, []string{"user-1"}, nil, false)
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
-	framework.NewWorkspaceFixture(t, source, wsPath)
+	kcptesting.NewWorkspaceFixture(t, source, wsPath)
 
 	testLabelSelector := map[string]string{
 		"internal.kcp.io/e2e-test": t.Name(),
@@ -413,11 +413,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.True(t, ok, "didn't find WorkspaceType for %s initializer", initializer)
 		initializerWs, ok := workspacesByType[wt.Name]
 		require.True(t, ok, "didn't find Workspace for %v type", wt.Name)
-		initializerWsShard := framework.WorkspaceShardOrDie(t, sourceKcpClusterClient, &initializerWs)
+		initializerWsShard := kcptesting.WorkspaceShardOrDie(t, sourceKcpClusterClient, &initializerWs)
 
 		ws, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, func() *tenancyv1alpha1.Workspace {
 			w := workspaceForType(workspacetypes["gamma"], testLabelSelector)
-			framework.WithShard(initializerWsShard.Name)(w)
+			kcptesting.WithShard(initializerWsShard.Name)(w)
 			return w
 		}(), metav1.CreateOptions{})
 		require.NoError(t, err)
@@ -598,7 +598,7 @@ func workspacesStuckInInitializing(t *testing.T, kcpClient kcpclientset.ClusterI
 			t.Logf("workspace %s has no initializers", workspace.Name)
 			return false
 		}
-		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, framework.WorkspaceShardOrDie(t, kcpClient, &workspace).Name)
+		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, kcptesting.WorkspaceShardOrDie(t, kcpClient, &workspace).Name)
 	}
 	return true
 }

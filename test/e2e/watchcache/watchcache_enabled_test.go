@@ -55,10 +55,10 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspace on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 	clusterConfig := server.BaseConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
@@ -121,11 +121,11 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	dynamicKcpClusterClient, err := kcpdynamic.NewForConfig(clusterConfig)
 	require.NoError(t, err)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspaces on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsExport1aPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
-	wsConsume1aPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsExport1aPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
+	wsConsume1aPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 	group := "newyork.io"
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1aPath, kcpClusterClient, group, "export1")
@@ -172,10 +172,10 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	// note that we schedule the workspace on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
-	wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", wsPath)
 	_, err = kubeClusterClient.Cluster(wsPath).CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})

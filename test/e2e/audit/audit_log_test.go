@@ -53,7 +53,7 @@ func TestAuditLogs(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	t.Log("Creating org workspace")
-	wsPath, ws := framework.NewOrganizationFixture(t, server)
+	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 

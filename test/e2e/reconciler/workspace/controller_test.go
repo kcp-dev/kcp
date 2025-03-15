@@ -162,7 +162,7 @@ func TestWorkspaceController(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server)
+			orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 			// create clients
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)

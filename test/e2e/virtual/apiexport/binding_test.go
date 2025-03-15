@@ -48,10 +48,10 @@ func TestBinding(t *testing.T) {
 	t.Cleanup(cancel)
 
 	t.Logf("Creating two service workspaces and a consumer workspace")
-	org, _ := framework.NewOrganizationFixture(t, server)
-	serviceWorkspacePath, _ := framework.NewWorkspaceFixture(t, server, org, framework.WithName("service"))
-	restrictedWorkspacePath, _ := framework.NewWorkspaceFixture(t, server, org, framework.WithName("restricted-service"))
-	consumerWorkspacePath, consumerWorkspace := framework.NewWorkspaceFixture(t, server, org, framework.WithName("consumer"))
+	org, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	serviceWorkspacePath, _ := kcptesting.NewWorkspaceFixture(t, server, org, kcptesting.WithName("service"))
+	restrictedWorkspacePath, _ := kcptesting.NewWorkspaceFixture(t, server, org, kcptesting.WithName("restricted-service"))
+	consumerWorkspacePath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, org, kcptesting.WithName("consumer"))
 	cfg := server.BaseConfig(t)
 
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))

@@ -63,9 +63,9 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 	err = wildwestv1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")

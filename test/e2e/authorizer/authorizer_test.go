@@ -73,13 +73,13 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	org1, _ := framework.NewOrganizationFixture(t, server, framework.WithNameSuffix("org1"))
-	org2, _ := framework.NewPrivilegedOrganizationFixture(t, server, framework.PrivilegedWorkspaceOption(framework.WithNameSuffix("org2")), framework.WithRequiredGroups("empty-group"))
+	org1, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithNamePrefix("org1")) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	org2, _ := framework.NewRootShardOrganizationFixture(t, server, kcptesting.PrivilegedWorkspaceOption(kcptesting.WithNamePrefix("org2")), framework.WithRequiredGroups("empty-group"))
 
-	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
-	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"), framework.WithRootShard())                      // on root for system:admin ClusterRole test
-	_, org2Workspace1 := framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithRootShard()) // on root for deep SAR test
-	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
+	kcptesting.NewWorkspaceFixture(t, server, org1, kcptesting.WithName("workspace1"))
+	kcptesting.NewWorkspaceFixture(t, server, org1, kcptesting.WithName("workspace2"), kcptesting.WithRootShard())                      // on root for system:admin ClusterRole test
+	_, org2Workspace1 := kcptesting.NewWorkspaceFixture(t, server, org2, kcptesting.WithName("workspace1"), kcptesting.WithRootShard()) // on root for deep SAR test
+	kcptesting.NewWorkspaceFixture(t, server, org2, kcptesting.WithName("workspace2"))
 
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "testdata/workspace1-resources.yaml")
 	createResources(ctx, t, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "testdata/workspace1-resources.yaml")
