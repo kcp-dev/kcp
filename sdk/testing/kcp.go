@@ -74,10 +74,11 @@ func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptesti
 func SharedKcpServer(t *testing.T) kcptestingserver.RunningServer {
 	t.Helper()
 
+	setupExternal()
 	if len(externalConfig.kubeconfigPath) > 0 {
 		// Use a pre-existing external server
 
-		t.Logf("shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
+		t.Logf("Shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
 		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
 
