@@ -134,7 +134,6 @@ type Workspace struct {
 // WorkspaceSpec holds the desired state of the Workspace.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster cannot be unset"
-// +kubebuilder:validation:XValidation:rule="!(has(self.mount) && has(self.type))",message="spec.mount and spec.type cannot both be set"
 type WorkspaceSpec struct {
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).

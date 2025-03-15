@@ -223,8 +223,6 @@ spec:
               rule: '!has(oldSelf.URL) || has(self.URL)'
             - message: cluster cannot be unset
               rule: '!has(oldSelf.cluster) || has(self.cluster)'
-            - message: spec.mount and spec.type cannot both be set
-              rule: '!(has(self.mount) && has(self.type))'
           status:
             default: {}
             description: WorkspaceStatus communicates the observed state of the Workspace.

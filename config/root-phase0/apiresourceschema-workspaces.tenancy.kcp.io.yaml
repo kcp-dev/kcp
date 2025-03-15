@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250211-efec4a2a7.workspaces.tenancy.kcp.io
+  name: v250315-28b43d5a9.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -221,8 +221,6 @@ spec:
             rule: '!has(oldSelf.URL) || has(self.URL)'
           - message: cluster cannot be unset
             rule: '!has(oldSelf.cluster) || has(self.cluster)'
-          - message: spec.mount and spec.type cannot both be set
-            rule: '!(has(self.mount) && has(self.type))'
         status:
           default: {}
           description: WorkspaceStatus communicates the observed state of the Workspace.
