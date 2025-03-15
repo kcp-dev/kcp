@@ -30,8 +30,9 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
+	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
+
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
-	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 )

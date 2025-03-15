@@ -14,6 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250223115924-431177b024f3
 	github.com/kcp-dev/client-go v0.0.0-20250223133118-3dea338dc267
+	github.com/kcp-dev/embeddedetcd v1.0.2
 	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/martinlindhe/base36 v1.1.1
@@ -22,10 +23,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.9.0
-	go.etcd.io/etcd/client/pkg/v3 v3.5.14
-	go.etcd.io/etcd/server/v3 v3.5.13
 	go.uber.org/multierr v1.11.0
-	go.uber.org/zap v1.26.0
 	golang.org/x/sys v0.30.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -118,10 +116,12 @@ require (
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	go.etcd.io/bbolt v1.3.9 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.14 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.14 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.13 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.14 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.5.13 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.13 // indirect
+	go.etcd.io/etcd/server/v3 v3.5.13 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
 	go.opentelemetry.io/otel v1.28.0 // indirect
@@ -131,6 +131,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc // indirect
 	golang.org/x/mod v0.23.0 // indirect
@@ -151,17 +152,17 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/cloud-provider v0.0.0 // indirect
-	k8s.io/cluster-bootstrap v0.0.0 // indirect
-	k8s.io/component-helpers v0.0.0 // indirect
-	k8s.io/controller-manager v0.0.0 // indirect
-	k8s.io/dynamic-resource-allocation v0.0.0 // indirect
+	k8s.io/cluster-bootstrap v0.31.6 // indirect
+	k8s.io/component-helpers v0.31.6 // indirect
+	k8s.io/controller-manager v0.31.6 // indirect
+	k8s.io/dynamic-resource-allocation v0.31.6 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
-	k8s.io/kms v0.0.0 // indirect
-	k8s.io/kube-aggregator v0.0.0 // indirect
-	k8s.io/kube-controller-manager v0.0.0 // indirect
-	k8s.io/kubelet v0.0.0 // indirect
-	k8s.io/mount-utils v0.0.0 // indirect
-	k8s.io/pod-security-admission v0.0.0 // indirect
+	k8s.io/kms v0.31.6 // indirect
+	k8s.io/kube-aggregator v0.31.6 // indirect
+	k8s.io/kube-controller-manager v0.31.6 // indirect
+	k8s.io/kubelet v0.31.6 // indirect
+	k8s.io/mount-utils v0.31.6 // indirect
+	k8s.io/pod-security-admission v0.31.6 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )

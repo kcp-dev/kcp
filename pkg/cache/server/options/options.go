@@ -25,7 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
-	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
+	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
 )
 
 type Options struct {
