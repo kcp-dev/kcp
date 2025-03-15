@@ -81,9 +81,7 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 
 		return reconcileStatusContinue, nil //nolint:nilerr // we ignore the error intentionally. Not helpful.
 	}
-	if err := fillWorkspaceSpec(obj, workspace); err != nil {
-		return reconcileStatusStopAndRequeue, err
-	}
+
 	// Inject condition into the workspace.
 	// This is a loose coupling, we are not interested in the rest of the status.
 	switch tenancyv1alpha1.MountPhaseType(statusPhase) {
@@ -99,6 +97,35 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 			"Mount is not reporting ready. See %s %q status for more details",
 			obj.GroupVersionKind().Kind, obj.GetName(),
 		)
+	}
+
+	return reconcileStatusContinue, nil
+}
+
+// workspaceSpecUpdater updates the spec of the workspace based on the mount status.
+type workspaceSpecUpdater struct {
+	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+}
+
+func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
+	if workspace.Spec.Mount == nil {
+		return reconcileStatusContinue, nil
+	}
+
+	if !workspace.DeletionTimestamp.IsZero() {
+		return reconcileStatusContinue, nil
+	}
+
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return reconcileStatusContinue, nil
+		}
+		return reconcileStatusStopAndRequeue, err
+	}
+
+	if err := fillWorkspaceSpec(obj, workspace); err != nil {
+		return reconcileStatusStopAndRequeue, err
 	}
 
 	return reconcileStatusContinue, nil
