@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -48,6 +49,15 @@ type BindOptions struct {
 	APIBindingName string
 	// BindWaitTimeout is how long to wait for the APIBinding to be created and successful.
 	BindWaitTimeout time.Duration
+	// AcceptedPermissionClaims is the list of accepted permission claims for the APIBinding.
+	AcceptedPermissionClaims []string
+	// RejectedPermissionClaims is the list of rejected permission claims for the APIBinding.
+	RejectedPermissionClaims []string
+
+	// acceptedPermissionClaims is the parsed list of accepted permission claims for the APIBinding parsed from AcceptedPermissionClaims.
+	acceptedPermissionClaims []apisv1alpha1.AcceptablePermissionClaim
+	// rejectedPermissionClaims is the parsed list of rejected permission claims for the APIBinding parsed from RejectedPermissionClaims.
+	rejectedPermissionClaims []apisv1alpha1.AcceptablePermissionClaim
 }
 
 // NewBindOptions returns new BindOptions.
@@ -63,6 +73,8 @@ func (b *BindOptions) BindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringVar(&b.APIBindingName, "name", b.APIBindingName, "Name of the APIBinding to create.")
 	cmd.Flags().DurationVar(&b.BindWaitTimeout, "timeout", time.Second*30, "Duration to wait for APIBinding to be created successfully.")
+	cmd.Flags().StringSliceVar(&b.AcceptedPermissionClaims, "accept-permission-claim", nil, "List of accepted permission claims for the APIBinding. Format:  --accept-permission-claim resource.group")
+	cmd.Flags().StringSliceVarP(&b.RejectedPermissionClaims, "reject-permission-claim", "", nil, "List of rejected permission claims for the APIBinding. Format:  --reject-permission-claim resource.group")
 }
 
 // Complete ensures all fields are initialized.
@@ -88,6 +100,37 @@ func (b *BindOptions) Validate() error {
 
 	if !path.IsValid() {
 		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `<logical-cluster-name>:<apiexport>` or `<full>:<path>:<to>:<apiexport>`")
+	}
+
+	if b.AcceptedPermissionClaims != nil {
+		var errs []error
+		for _, claim := range b.AcceptedPermissionClaims {
+			if err := b.parsePermissionClaim(claim, true); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("invalid accepted permission claims: %v", errs)
+		}
+	}
+	if b.RejectedPermissionClaims != nil {
+		var errs []error
+		for _, claim := range b.RejectedPermissionClaims {
+			if err := b.parsePermissionClaim(claim, false); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("invalid rejected permission claims: %v", errs)
+		}
+	}
+	// once parsed we can validate if the dont conflict with each other
+	for _, acceptedClaim := range b.acceptedPermissionClaims {
+		for _, rejectedClaim := range b.rejectedPermissionClaims {
+			if acceptedClaim.Group == rejectedClaim.Group && acceptedClaim.Resource == rejectedClaim.Resource {
+				return fmt.Errorf("accepted permission claim %s conflicts with rejected permission claim %s", acceptedClaim, rejectedClaim)
+			}
+		}
 	}
 
 	return b.Options.Validate()
@@ -127,6 +170,13 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		},
 	}
 
+	if len(b.acceptedPermissionClaims) > 0 {
+		binding.Spec.PermissionClaims = b.acceptedPermissionClaims
+	}
+	if len(b.rejectedPermissionClaims) > 0 {
+		binding.Spec.PermissionClaims = append(binding.Spec.PermissionClaims, b.rejectedPermissionClaims...)
+	}
+
 	kcpclient, err := newKCPClusterClient(config)
 	if err != nil {
 		return err
@@ -159,6 +209,38 @@ func (b *BindOptions) Run(ctx context.Context) error {
 
 	if _, err := fmt.Fprintf(b.Out, "%s created and bound.\n", binding.Name); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {
+	claimParts := strings.Split(claim, ".")
+	if len(claimParts) != 2 {
+		return fmt.Errorf("invalid permission claim %q", claim)
+	}
+
+	parsedClaim := apisv1alpha1.AcceptablePermissionClaim{}
+	resource := claimParts[0]
+	group := claimParts[1]
+	if group == "core" {
+		group = ""
+	}
+
+	parsedClaim.Group = group
+	parsedClaim.Resource = resource
+	if accepted {
+		parsedClaim.State = apisv1alpha1.ClaimAccepted
+	} else {
+		parsedClaim.State = apisv1alpha1.ClaimRejected
+	}
+	// TODO(mjudeikis): Once we add support for selectors/
+	parsedClaim.All = true
+
+	if accepted {
+		b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
+	} else {
+		b.rejectedPermissionClaims = append(b.rejectedPermissionClaims, parsedClaim)
 	}
 
 	return nil
