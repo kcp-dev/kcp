@@ -112,7 +112,18 @@ func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 				return err
 			}
 
-			return WaitForReady(srv.ctx, t, srv.RootShardSystemMasterBaseConfig(t), !cfgs[i].RunInProcess)
+			rootCfg := srv.RootShardSystemMasterBaseConfig(t)
+			t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
+			if err := WaitForReady(srv.ctx, rootCfg); err != nil {
+				return err
+			}
+
+			if !cfgs[i].RunInProcess {
+				rootCfg := srv.RootShardSystemMasterBaseConfig(t)
+				MonitorEndpoints(t, rootCfg, "/livez", "/readyz")
+			}
+
+			return nil
 		})
 	}
 	err := g.Wait()

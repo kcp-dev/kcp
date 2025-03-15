@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -31,9 +30,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func WaitForReady(ctx context.Context, t *testing.T, cfg *rest.Config, keepMonitoring bool) error {
-	t.Logf("waiting for readiness for server at %s", cfg.Host)
-
+// WaitForReady waits for /livez and then /readyz to return success.
+func WaitForReady(ctx context.Context, cfg *rest.Config) error {
 	cfg = rest.CopyConfig(cfg)
 	if cfg.NegotiatedSerializer == nil {
 		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
@@ -44,45 +42,53 @@ func WaitForReady(ctx context.Context, t *testing.T, cfg *rest.Config, keepMonit
 		return fmt.Errorf("failed to create unversioned client: %w", err)
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			defer wg.Done()
-			waitForEndpoint(ctx, t, client, endpoint)
-		}(endpoint)
+	if err := waitForEndpoint(ctx, client, "/livez"); err != nil {
+		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
 	}
-	wg.Wait()
-	t.Logf("server at %s is ready", cfg.Host)
+	if err := waitForEndpoint(ctx, client, "/readyz"); err != nil {
+		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
+	}
 
-	if keepMonitoring {
-		for _, endpoint := range []string{"/livez", "/readyz"} {
-			go func(endpoint string) {
-				monitorEndpoint(ctx, t, client, endpoint)
-			}(endpoint)
+	return nil
+}
+
+func waitForEndpoint(ctx context.Context, client *rest.RESTClient, endpoint string) error {
+	var lastError error
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Minute, true, func(ctx context.Context) (bool, error) {
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		if _, err := req.Do(ctx).Raw(); err != nil {
+			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
+			return false, nil
 		}
+		return true, nil
+	}); err != nil && lastError != nil {
+		return lastError
 	}
 	return nil
 }
 
-func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
-	var lastError error
-	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Minute, true, func(ctx context.Context) (bool, error) {
-		req := rest.NewRequest(client).RequestURI(endpoint)
-		_, err := req.Do(ctx).Raw()
-		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
-			return false, nil
-		}
-
-		t.Logf("success contacting %s", req.URL())
-		return true, nil
-	}); err != nil && lastError != nil {
-		t.Error(lastError)
+// MonitorEndpoints keeps watching the given endpoints and fails t on error.
+func MonitorEndpoints(t *testing.T, client *rest.Config, endpoints ...string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	for _, endpoint := range endpoints {
+		go func(endpoint string) {
+			monitorEndpoint(ctx, t, client, endpoint)
+		}(endpoint)
 	}
 }
 
-func monitorEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+func monitorEndpoint(ctx context.Context, t *testing.T, cfg *rest.Config, endpoint string) {
+	cfg = rest.CopyConfig(cfg)
+	if cfg.NegotiatedSerializer == nil {
+		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+	client, err := rest.UnversionedRESTClientFor(cfg)
+	if err != nil {
+		t.Errorf("failed to create unversioned client: %v", err)
+		return
+	}
+
 	// we need a shorter deadline than the server, or else:
 	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
 	if deadline, ok := t.Deadline(); ok {

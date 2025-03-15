@@ -84,8 +84,12 @@ func SharedKcpServer(t *testing.T) kcptestingserver.RunningServer {
 		ctx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		err = kcptestingserver.WaitForReady(ctx, t, s.RootShardSystemMasterBaseConfig(t), true)
-		require.NoError(t, err, "error waiting for readiness")
+		rootCfg := s.RootShardSystemMasterBaseConfig(t)
+		t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
+		err = kcptestingserver.WaitForReady(ctx, rootCfg)
+		require.NoError(t, err, "external server is not ready")
+
+		kcptestingserver.MonitorEndpoints(t, rootCfg, "/livez", "/readyz")
 
 		return s
 	}
