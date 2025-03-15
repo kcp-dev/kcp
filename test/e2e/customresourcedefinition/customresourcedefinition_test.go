@@ -30,6 +30,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -40,13 +41,13 @@ func TestCustomResourceCreation(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 

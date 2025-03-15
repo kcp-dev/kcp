@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
 func gatherMetrics(ctx context.Context, t *testing.T, server RunningServer, directory string) {
@@ -75,7 +75,7 @@ func scrapeMetricsForServer(t *testing.T, srv RunningServer) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	defer cancel()
-	require.NoError(t, ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, frameworkhelpers.RepositoryDir(), jobName, filepath.Join(srv.CADirectory(), "apiserver.crt"), labels))
+	require.NoError(t, ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, kcptestinghelpers.RepositoryDir(), jobName, filepath.Join(srv.CADirectory(), "apiserver.crt"), labels))
 }
 
 func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, jobName, caFile string, labels map[string]string) error {

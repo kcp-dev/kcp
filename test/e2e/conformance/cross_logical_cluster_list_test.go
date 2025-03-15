@@ -48,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -56,7 +57,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -68,8 +69,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp client for server")
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
-	_, ws1 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
-	_, ws2 := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	_, ws1 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	_, ws2 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	logicalClusters := []logicalcluster.Name{
 		logicalcluster.Name(ws1.Spec.Cluster),
 		logicalcluster.Name(ws2.Spec.Cluster),
@@ -127,37 +128,37 @@ func bootstrapCRD(
 func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 
 	// These 2 workspaces will have the same sheriffs CRD schema as normal CRDs
-	wsNormalCRD1a, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
-	wsNormalCRD1b, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsNormalCRD1a, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
+	wsNormalCRD1b, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	// This workspace will have a different sherrifs CRD schema as a normal CRD - will conflict with 1a/1b.
-	wsNormalCRD2, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsNormalCRD2, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	// These 2 workspaces will export a sheriffs API with the same schema
-	wsExport1a, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	wsExport1b, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	wsExport1a, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	wsExport1b, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	// This workspace will export a sheriffs API with a different schema
-	wsExport2, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	wsExport2, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	// This workspace will consume from wsExport1a
-	wsConsume1a, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsConsume1a, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	// This workspace will consume from wsExport1b
-	wsConsume1b, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsConsume1b, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	// This workspace will consume from wsExport2
-	wsConsume2, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+	wsConsume2, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 	cfg := server.BaseConfig(t)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
@@ -275,12 +276,12 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Parallel()
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
@@ -289,7 +290,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	require.NoError(t, err, "error creating kube cluster client")
 
 	for i := 0; i < 3; i++ {
-		wsPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithRootShard())
+		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 		configMapName := fmt.Sprintf("test-cm-%d", i)
 		configMap := &corev1.ConfigMap{

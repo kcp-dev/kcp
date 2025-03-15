@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,7 +27,8 @@ import (
 // run when the suite containing it is selected by the user running tests.
 func Suite(t *testing.T, suite string) {
 	t.Helper()
-	if !sets.New[string](TestConfig.Suites()...).Has(suite) {
+
+	if !sets.New[string](strings.Split(testConfig.suites, ",")...).Has(suite) {
 		t.Skipf("suite %s disabled", suite)
 	}
 }

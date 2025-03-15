@@ -38,8 +38,8 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 //go:embed *.yaml
@@ -94,9 +94,11 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	}
 
 	// setup command
-	commandLine := append(frameworkserver.StartKcpCommand(s.name), framework.TestServerArgs()...)
+	var commandLine []string
+	commandLine = append(commandLine, kcptestingserver.StartKcpCommand(s.name)...)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
+		"--token-auth-file", framework.DefaultTokenAuthFile,
 		"--audit-log-maxsize", "1024",
 		"--audit-log-mode=batch",
 		"--audit-log-batch-max-wait=1s",
@@ -292,7 +294,7 @@ func ScrapeMetrics(ctx context.Context, s *Shard, workDir string) error {
 		return err
 	}
 
-	return frameworkserver.ScrapeMetrics(ctx, config, promUrl, workDir, s.name, filepath.Join(s.runtimeDir, "apiserver.crt"), map[string]string{
+	return kcptestingserver.ScrapeMetrics(ctx, config, promUrl, workDir, s.name, filepath.Join(s.runtimeDir, "apiserver.crt"), map[string]string{
 		"server": s.name,
 	})
 }

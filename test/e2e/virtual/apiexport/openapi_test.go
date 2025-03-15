@@ -34,16 +34,17 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestAPIExportOpenAPI(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -59,9 +60,9 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kube cluster client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	serviceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	_, consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	_, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
@@ -70,7 +71,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerWorkspace.Name)
 	apiExportVWCfg := rest.CopyConfig(cfg)
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExport, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
@@ -83,7 +84,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	t.Logf("Checking /openapi/v3 paths for %q", orgPath)
 	wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		openAPIV3 := wildwestVCClusterClient.Cluster(consumerClusterName.Path()).Discovery().OpenAPIV3()
 		paths, err := openAPIV3.Paths()
 		if err != nil {

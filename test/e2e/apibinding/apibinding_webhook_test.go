@@ -45,26 +45,27 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestAPIBindingMutatingWebhook(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -113,7 +114,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		},
 	}
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -144,7 +145,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			},
 			Deserializer: deserializer,
 		}
-		port, err := frameworkserver.GetFreePort(t)
+		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
 		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
@@ -204,14 +205,14 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -260,7 +261,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		},
 	}
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kcpClients.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -291,12 +292,12 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			},
 			Deserializer: deserializer,
 		}
-		port, err := frameworkserver.GetFreePort(t)
+		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
 		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			cl := gohttp.Client{Transport: &gohttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 			resp, err := cl.Get(testWebhooks[cluster].GetURL()) //nolint:noctx
 			if err != nil {

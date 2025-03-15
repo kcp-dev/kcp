@@ -35,48 +35,45 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/component-base/cli/flag"
 
-	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
-	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
-	"github.com/kcp-dev/kcp/test/e2e/framework/env"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	"github.com/kcp-dev/kcp/sdk/testing/env"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
+
+// kcpBinariesDirEnvDir can be set to find kcp binaries for testing.
+const kcpBinariesDirEnvDir = "KCP_BINARIES_DIR"
+
+// RunInProcessFunc instantiates the kcp server in process for easier debugging.
+// It is here to decouple the rest of the code from kcp core dependencies.
+var RunInProcessFunc func(t *testing.T, dataDir string, args []string) (<-chan struct{}, error)
 
 // Fixture manages the lifecycle of a set of kcp servers.
 //
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
-type Fixture struct {
-	Servers map[string]RunningServer
-}
+type Fixture = map[string]RunningServer
 
 // NewFixture returns a new kcp server fixture.
-func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
+func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 	t.Helper()
-
-	f := &Fixture{}
 
 	// Initialize servers from the provided configuration
 	servers := make([]*kcpServer, 0, len(cfgs))
-	f.Servers = make(map[string]RunningServer, len(cfgs))
+	ret := make(Fixture, len(cfgs))
 	for _, cfg := range cfgs {
 		if len(cfg.ArtifactDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing ArtifactDir", cfg.Name))
@@ -88,7 +85,7 @@ func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
 		require.NoError(t, err)
 
 		servers = append(servers, srv)
-		f.Servers[srv.name] = srv
+		ret[srv.name] = srv
 	}
 
 	// Launch kcp servers and ensure they are ready before starting the test
@@ -129,17 +126,19 @@ func NewFixture(t *testing.T, cfgs ...Config) *Fixture {
 	}
 
 	t.Cleanup(func() {
+		t.Logf("Stopping kcp servers...")
 		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 		defer cancel()
 
 		for _, s := range servers {
+			t.Log("Gathering metrics for kcp server", s.name)
 			gatherMetrics(ctx, t, s, s.artifactDir)
 		}
 	})
 
 	t.Logf("Started kcp servers after %s", time.Since(start))
 
-	return f
+	return ret
 }
 
 // kcpServer exposes a kcp invocation to a test and
@@ -198,6 +197,7 @@ func newKcpServer(t *testing.T, cfg Config, artifactDir, dataDir, clientCADir st
 			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
 			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 			"--audit-log-path", filepath.Join(artifactDir, "kcp.audit"),
+			"--v=4",
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
@@ -235,15 +235,28 @@ func StartKcpCommand(identity string) []string {
 // via `go run`).
 func Command(executableName, identity string) []string {
 	if env.RunDelveEnvSet() {
-		cmdPath := filepath.Join(frameworkhelpers.RepositoryDir(), "cmd", executableName)
+		cmdPath := filepath.Join(kcptestinghelpers.RepositoryDir(), "cmd", executableName)
 		return []string{"dlv", "debug", "--api-version=2", "--headless", fmt.Sprintf("--listen=unix:dlv-%s.sock", identity), cmdPath, "--"}
 	}
-	if env.NoGoRunEnvSet() {
-		cmdPath := filepath.Join(frameworkhelpers.RepositoryBinDir(), executableName)
-		return []string{cmdPath}
+
+	// are we inside of the kcp repository?
+	repo := kcptestinghelpers.RepositoryDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
 	}
-	cmdPath := filepath.Join(frameworkhelpers.RepositoryDir(), "cmd", executableName)
-	return []string{"go", "run", cmdPath}
+	inKcp := strings.HasPrefix(wd, repo+"/")
+
+	binary := executableName
+	if binDir := os.Getenv(kcpBinariesDirEnvDir); binDir == "" && inKcp {
+		binary = filepath.Join(kcptestinghelpers.RepositoryBinDir(), executableName)
+	}
+
+	if env.NoGoRunEnvSet() || !inKcp {
+		return []string{binary}
+	}
+
+	return []string{"go", "run", filepath.Join(repo, "cmd", executableName)}
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -282,64 +295,22 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
+		if RunInProcessFunc == nil {
+			return fmt.Errorf("RunInProcessFunc is not set")
+		}
 		rootDir := ".kcp"
 		if c.dataDir != "" {
 			rootDir = c.dataDir
 		}
-		serverOptions := kcpoptions.NewOptions(rootDir)
-		fss := flag.NamedFlagSets{}
-		serverOptions.AddFlags(&fss)
-		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
-		for _, fs := range fss.FlagSets {
-			all.AddFlagSet(fs)
-		}
-		if err := all.Parse(c.args); err != nil {
-			cleanup()
-			return err
-		}
-
-		completed, err := serverOptions.Complete()
-		if err != nil {
-			cleanup()
-			return err
-		}
-		if errs := completed.Validate(); len(errs) > 0 {
-			cleanup()
-			return utilerrors.NewAggregate(errs)
-		}
-
-		config, err := server.NewConfig(ctx, completed.Server)
-		if err != nil {
-			cleanup()
-			return err
-		}
-
-		completedConfig, err := config.Complete()
-		if err != nil {
-			cleanup()
-			return err
-		}
-
-		// the etcd server must be up before NewServer because storage decorators access it right away
-		if completedConfig.EmbeddedEtcd.Config != nil {
-			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
-				return err
-			}
-		}
-
-		s, err := server.NewServer(completedConfig)
+		stopCh, err := RunInProcessFunc(c.t, rootDir, c.args)
 		if err != nil {
 			cleanup()
 			return err
 		}
 		go func() {
 			defer cleanup()
-
-			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
-				c.t.Errorf("`kcp` failed: %v", err)
-			}
+			<-stopCh
 		}()
-
 		return nil
 	}
 
@@ -445,7 +416,7 @@ func (c *kcpServer) Name() string {
 	return c.name
 }
 
-// Name exposes the path of the kubeconfig file of this kcp server.
+// KubeconfigPath exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
@@ -568,7 +539,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 	t.Helper()
 
 	subDir := filepath.Join("artifacts", "kcp", server.Name())
-	artifactDir, err := CreateTempDirForTest(t, subDir)
+	artifactDir, err := createTempDirForTest(t, subDir)
 	require.NoError(t, err, "could not create artifacts dir")
 	// Using t.Cleanup ensures that artifact collection is local to
 	// the test requesting retention regardless of server's scope.

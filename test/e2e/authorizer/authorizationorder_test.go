@@ -30,8 +30,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestAuthorizationOrder(t *testing.T) {
@@ -113,7 +114,7 @@ func TestAuthorizationOrder(t *testing.T) {
 	})
 }
 
-func setupTest(t *testing.T, authOrder, webhookConfigFile string) (frameworkserver.RunningServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
+func setupTest(t *testing.T, authOrder, webhookConfigFile string) (kcptestingserver.RunningServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
 	args := []string{
 		"--authorization-webhook-config-file", webhookConfigFile,
 	}
@@ -121,7 +122,7 @@ func setupTest(t *testing.T, authOrder, webhookConfigFile string) (frameworkserv
 		args = append(args, "--authorization-order", authOrder)
 	}
 
-	server := framework.PrivateKcpServer(t, frameworkserver.WithCustomArguments(args...))
+	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(args...))
 
 	kcpConfig := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
@@ -132,7 +133,7 @@ func setupTest(t *testing.T, authOrder, webhookConfigFile string) (frameworkserv
 	return server, kcpClusterClient, kubeClusterClient
 }
 
-func verifyEndpointAccess(ctx context.Context, t *testing.T, server frameworkserver.RunningServer, endpoint string, shouldSucceed bool) {
+func verifyEndpointAccess(ctx context.Context, t *testing.T, server kcptestingserver.RunningServer, endpoint string, shouldSucceed bool) {
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 	if rootShardCfg.NegotiatedSerializer == nil {
 		rootShardCfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()

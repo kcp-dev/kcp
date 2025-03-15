@@ -20,13 +20,14 @@ import (
 	"errors"
 	"flag"
 	"path/filepath"
-	"strings"
+	"testing"
 
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
 func init() {
@@ -36,48 +37,35 @@ func init() {
 	}
 }
 
-type testConfig struct {
+var testConfig = struct {
 	kcpKubeconfig       string
 	shardKubeconfigs    map[string]string
 	useDefaultKCPServer bool
 	suites              string
-}
+}{}
 
-var TestConfig *testConfig
-
-func (c *testConfig) KCPKubeconfig() string {
-	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
-	if c.useDefaultKCPServer && len(c.kcpKubeconfig) > 0 {
+func complete() {
+	if testConfig.useDefaultKCPServer && len(testConfig.kcpKubeconfig) > 0 {
 		panic(errors.New("only one of --use-default-kcp-server and --kcp-kubeconfig should be set"))
 	}
-
-	if c.useDefaultKCPServer {
-		return filepath.Join(frameworkhelpers.RepositoryDir(), ".kcp", "admin.kubeconfig")
+	if testConfig.useDefaultKCPServer {
+		testConfig.kcpKubeconfig = filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp", "admin.kubeconfig")
 	}
-	return c.kcpKubeconfig
-}
-
-func (c *testConfig) ShardKubeconfig() map[string]string {
-	if len(c.shardKubeconfigs) == 0 {
-		return map[string]string{corev1alpha1.RootShard: c.KCPKubeconfig()}
+	if len(testConfig.kcpKubeconfig) > 0 && len(testConfig.shardKubeconfigs) == 0 {
+		testConfig.shardKubeconfigs = map[string]string{corev1alpha1.RootShard: testConfig.kcpKubeconfig}
 	}
-
-	return c.shardKubeconfigs
-}
-
-func (c *testConfig) Suites() []string {
-	return strings.Split(c.suites, ",")
 }
 
 func init() {
-	TestConfig = &testConfig{}
-	registerFlags(TestConfig)
-	// The testing package will call flags.Parse()
-}
+	flag.StringVar(&testConfig.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
+	flag.Var(cliflag.NewMapStringString(&testConfig.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
+	flag.BoolVar(&testConfig.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
+	flag.StringVar(&testConfig.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
 
-func registerFlags(c *testConfig) {
-	flag.StringVar(&c.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
-	flag.Var(cliflag.NewMapStringString(&c.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
-	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
-	flag.StringVar(&c.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
+	// Make testing package call flags.Parse()
+	testing.Init()
+
+	complete()
+
+	kcptesting.InitExternalServer(testConfig.kcpKubeconfig, testConfig.shardKubeconfigs)
 }

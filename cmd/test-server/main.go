@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
+	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 // Start a kcp server with the configuration expected by the e2e
@@ -65,7 +65,10 @@ func main() {
 			genericFlags = append(genericFlags, arg)
 		}
 	}
-	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
+	if err := flag.CommandLine.Parse(genericFlags); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := start(shardFlags, *logDirPath, *quiet); err != nil {
 		var exitErr *exec.ExitError

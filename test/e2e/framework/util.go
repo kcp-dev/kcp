@@ -17,54 +17,26 @@ limitations under the License.
 package framework
 
 import (
-	"embed"
+	"context"
 	"math/rand"
-	"os"
-	"path"
 	"strings"
 	"testing"
 
 	"github.com/martinlindhe/base36"
-	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	"github.com/kcp-dev/kcp/pkg/authorization"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/server"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	testing2 "github.com/kcp-dev/kcp/sdk/testing"
 )
-
-//go:embed *.csv
-//go:embed *.yaml
-var fs embed.FS
-
-// WriteTokenAuthFile writes the embedded token file to the current
-// test's data dir.
-//
-// Persistent servers can target the file in the source tree with
-// `--token-auth-file` and test-managed servers can target a file
-// written to a temp path. This avoids requiring a test to know the
-// location of the token file.
-//
-// TODO(marun) Is there a way to avoid embedding by determining the
-// path to the file during test execution?
-func WriteTokenAuthFile(t *testing.T) string {
-	t.Helper()
-	return WriteEmbedFile(t, "auth-tokens.csv")
-}
-
-func WriteEmbedFile(t *testing.T, source string) string {
-	t.Helper()
-	data, err := fs.ReadFile(source)
-	require.NoErrorf(t, err, "error reading embed file: %q", source)
-
-	targetPath := path.Join(t.TempDir(), source)
-	targetFile, err := os.Create(targetPath)
-	require.NoErrorf(t, err, "failed to create target file: %q", targetPath)
-	defer targetFile.Close()
-
-	_, err = targetFile.Write(data)
-	require.NoError(t, err, "error writing target file: %q", targetPath)
-
-	return targetPath
-}
 
 type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 
@@ -74,6 +46,7 @@ func StaticTokenUserConfig(username string, cfg *rest.Config) *rest.Config {
 	return ConfigWithToken(username+"-token", cfg)
 }
 
+// ConfigWithToken returns a copy of the given rest.Config with the given token set.
 func ConfigWithToken(token string, cfg *rest.Config) *rest.Config {
 	cfgCopy := rest.CopyConfig(cfg)
 	cfgCopy.CertData = nil
@@ -91,4 +64,55 @@ func UniqueGroup(suffix string) string {
 		return "a" + ret[1:]
 	}
 	return ret
+}
+
+// VirtualWorkspaceURL returns the virtual workspace URL base URL of the shard
+// the workspace is scheduled on.
+func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
+	shard, err := testing2.WorkspaceShard(ctx, kcpClusterClient, ws)
+	if err != nil {
+		return "", false, err
+	}
+
+	for _, url := range urls {
+		if strings.HasPrefix(url, shard.Spec.VirtualWorkspaceURL) {
+			return url, true, nil
+		}
+	}
+
+	return "", false, nil
+}
+
+// ExportVirtualWorkspaceURLs returns the URLs of the virtual workspaces of the
+// given APIExport.
+func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	for _, vw := range export.Status.VirtualWorkspaces {
+		urls = append(urls, vw.URL)
+	}
+	return urls
+}
+
+// WithRequiredGroups is a privileged action, so we return a privileged option type, and only the helpers that
+// use the system:master config can consume this. However, workspace initialization requires a valid user annotation
+// on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
+// end up needing to hard-code something conceivable.
+func WithRequiredGroups(groups ...string) testing2.PrivilegedWorkspaceOption {
+	return func(ws *tenancyv1alpha1.Workspace) {
+		if ws.Annotations == nil {
+			ws.Annotations = map[string]string{}
+		}
+		ws.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
+		userInfo, err := workspace.WorkspaceOwnerAnnotationValue(&user.DefaultInfo{
+			Name:   server.KcpBootstrapperUserName,
+			Groups: []string{user.AllAuthenticated, bootstrappolicy.SystemKcpWorkspaceBootstrapper},
+		})
+		if err != nil {
+			// should never happen
+			panic(err)
+		}
+		ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
+	}
 }

@@ -14,37 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package framework
+package testing
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"github.com/kcp-dev/kcp/pkg/admission/workspace"
-	"github.com/kcp-dev/kcp/pkg/authorization"
-	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
-	"github.com/kcp-dev/kcp/pkg/server"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
 const (
@@ -54,22 +49,23 @@ const (
 	workspaceInitTimeout = 60 * time.Second
 )
 
+// WorkspaceOption is an option for creating a workspace.
 type WorkspaceOption interface {
 	PrivilegedWorkspaceOption | UnprivilegedWorkspaceOption
 }
 
+// PrivilegedWorkspaceOption is an option that requires system:master permissions.
 type PrivilegedWorkspaceOption func(ws *tenancyv1alpha1.Workspace)
 
+// UnprivilegedWorkspaceOption is an option that does not require system:master permissions.
 type UnprivilegedWorkspaceOption func(ws *tenancyv1alpha1.Workspace)
 
+// WithRootShard schedules the workspace on the root shard.
 func WithRootShard() UnprivilegedWorkspaceOption {
 	return WithShard(corev1alpha1.RootShard)
 }
 
-func TODO_WithoutMultiShardSupport() UnprivilegedWorkspaceOption {
-	return WithRootShard()
-}
-
+// WithShard schedules the workspace on the given shard.
 func WithShard(name string) UnprivilegedWorkspaceOption {
 	return WithLocation(tenancyv1alpha1.WorkspaceLocation{Selector: &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -78,34 +74,14 @@ func WithShard(name string) UnprivilegedWorkspaceOption {
 	}})
 }
 
+// WithLocation sets the location of the workspace.
 func WithLocation(w tenancyv1alpha1.WorkspaceLocation) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Spec.Location = &w
 	}
 }
 
-// WithRequiredGroups is a privileged action, so we return a privileged option type, and only the helpers that
-// use the system:master config can consume this. However, workspace initialization requires a valid user annotation
-// on the workspace object to impersonate during initialization, and system:master bypasses setting that, so we
-// end up needing to hard-code something conceivable.
-func WithRequiredGroups(groups ...string) PrivilegedWorkspaceOption {
-	return func(ws *tenancyv1alpha1.Workspace) {
-		if ws.Annotations == nil {
-			ws.Annotations = map[string]string{}
-		}
-		ws.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
-		userInfo, err := workspace.WorkspaceOwnerAnnotationValue(&user.DefaultInfo{
-			Name:   server.KcpBootstrapperUserName,
-			Groups: []string{user.AllAuthenticated, bootstrappolicy.SystemKcpWorkspaceBootstrapper},
-		})
-		if err != nil {
-			// should never happen
-			panic(err)
-		}
-		ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
-	}
-}
-
+// WithType sets the type of the workspace.
 func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
@@ -115,6 +91,7 @@ func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) 
 	}
 }
 
+// WithName sets the name of the workspace.
 func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1alpha1.Workspace) {
 		ws.Name = fmt.Sprintf(s, formatArgs...)
@@ -122,13 +99,16 @@ func WithName(s string, formatArgs ...interface{}) UnprivilegedWorkspaceOption {
 	}
 }
 
-func WithNameSuffix(suffix string) UnprivilegedWorkspaceOption {
+// WithNamePrefix make the workspace be named with the given prefix plus "-".
+func WithNamePrefix(prefix string) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1alpha1.Workspace) {
-		ws.GenerateName += suffix + "-"
+		ws.GenerateName += prefix + "-"
 	}
 }
 
-func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
+// NewLowLevelWorkspaceFixture creates a new workspace under the given parent
+// using the given client. Don't use this if NewWorkspaceFixture can be used.
+func NewLowLevelWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -154,7 +134,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.
 	var ws *tenancyv1alpha1.Workspace
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		var err error
 		ws, err = createClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
@@ -162,7 +142,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 
 	wsName := ws.Name
 	t.Cleanup(func() {
-		if preserveTestResources() {
+		if os.Getenv("PRESERVE") != "" {
 			return
 		}
 
@@ -176,7 +156,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 		require.NoErrorf(t, err, "failed to delete workspace %s", wsName)
 	})
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		var err error
 		ws, err = clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
@@ -187,7 +167,7 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 		return true, ""
 	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
-	frameworkhelpers.Eventually(t, func() (bool, string) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		if _, err := clusterClient.Cluster(logicalcluster.NewPath(ws.Spec.Cluster)).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{}); err != nil {
 			return false, fmt.Sprintf("failed to get LogicalCluster %s by cluster name %s: %v", parent.Join(ws.Name), ws.Spec.Cluster, err)
 		}
@@ -201,37 +181,19 @@ func newWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, c
 	return ws
 }
 
-func NewWorkspaceFixture(t *testing.T, server frameworkserver.RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
+// NewWorkspaceFixture creates a new workspace under the given parent.
+func NewWorkspaceFixture(t *testing.T, server kcptestingserver.RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
 	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	ws := newWorkspaceFixture(t, clusterClient, clusterClient, parent, options...)
+	ws := NewLowLevelWorkspaceFixture(t, clusterClient, clusterClient, parent, options...)
 	return parent.Join(ws.Name), ws
 }
 
-func NewOrganizationFixture(t *testing.T, server frameworkserver.RunningServer, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
-	t.Helper()
-	return NewWorkspaceFixture(t, server, core.RootCluster.Path(), append(options, WithType(core.RootCluster.Path(), "organization"))...)
-}
-
-func NewPrivilegedOrganizationFixture[O WorkspaceOption](t *testing.T, server frameworkserver.RunningServer, options ...O) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
-	t.Helper()
-
-	rootConfig := server.RootShardSystemMasterBaseConfig(t)
-	rootClusterClient, err := kcpclientset.NewForConfig(rootConfig)
-	require.NoError(t, err, "failed to construct client for server")
-
-	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
-	require.NoError(t, err, "failed to construct client for server")
-
-	ws := newWorkspaceFixture(t, rootClusterClient, clusterClient, core.RootCluster.Path(), append(options, O(WithType(core.RootCluster.Path(), "organization")))...)
-	return core.RootCluster.Path().Join(ws.Name), ws
-}
-
+// WorkspaceShard returns the shard that a workspace is scheduled on.
 func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) (*corev1alpha1.Shard, error) {
 	shards, err := kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -239,13 +201,13 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 	}
 
 	// best effort to get a shard name from the hash in the annotation
-	hash := ws.Annotations[reconcilerworkspace.WorkspaceShardHashAnnotationKey]
+	hash := ws.Annotations["internal.tenancy.kcp.io/shard"]
 	if hash == "" {
 		return nil, fmt.Errorf("workspace %s does not have a shard hash annotation", logicalcluster.From(ws).Path().Join(ws.Name))
 	}
 
 	for i := range shards.Items {
-		if name := shards.Items[i].Name; reconcilerworkspace.ByBase36Sha224NameValue(name) == hash {
+		if name := shards.Items[i].Name; base36Sha224NameValue(name) == hash {
 			return &shards.Items[i], nil
 		}
 	}
@@ -253,6 +215,8 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 	return nil, fmt.Errorf("failed to determine shard for workspace %s", ws.Name)
 }
 
+// WorkspaceShardOrDie returns the shard that a workspace is scheduled on, or
+// fails the test on error.
 func WorkspaceShardOrDie(t *testing.T, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
 	t.Helper()
 
@@ -264,43 +228,9 @@ func WorkspaceShardOrDie(t *testing.T, kcpClient kcpclientset.ClusterInterface, 
 	return shard
 }
 
-func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
-	shard, err := WorkspaceShard(ctx, kcpClusterClient, ws)
-	if err != nil {
-		return "", false, err
-	}
+func base36Sha224NameValue(name string) string {
+	hash := sha256.Sum224([]byte(name))
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 
-	for _, url := range urls {
-		if strings.HasPrefix(url, shard.Spec.VirtualWorkspaceURL) {
-			return url, true, nil
-		}
-	}
-
-	return "", false, nil
-}
-
-func VirtualWorkspaceURLOrDie(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) string {
-	t.Helper()
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	url, found, err := VirtualWorkspaceURL(ctx, kcpClusterClient, ws, urls)
-	require.NoError(t, err)
-	require.True(t, found, "failed to find virtual workspace URL for workspace %s", ws.Name)
-	return url
-}
-
-func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExport) []string {
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	for _, vw := range export.Status.VirtualWorkspaces {
-		urls = append(urls, vw.URL)
-	}
-	return urls
-}
-
-func preserveTestResources() bool {
-	return os.Getenv("PRESERVE") != ""
+	return base36hash[:8]
 }

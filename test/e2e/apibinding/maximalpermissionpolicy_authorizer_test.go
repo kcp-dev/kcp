@@ -41,18 +41,19 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkhelpers "github.com/kcp-dev/kcp/test/e2e/framework/helpers"
 )
 
 func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -67,7 +68,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")
-	orgPath, _ := framework.NewOrganizationFixture(t, server, framework.WithRootShard())
+	orgPath, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
 	t.Logf("Giving user-1 admin access")
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, orgPath, []string{"user-1"}, nil, true)
@@ -84,7 +85,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Logf("Creating a WorkspaceType as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
-				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				kcptestinghelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = userKcpClusterClient.Cluster(orgPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
@@ -112,7 +113,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Logf("Creating a APIExport as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
-				frameworkhelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+				kcptestinghelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err := userKcpClusterClient.Cluster(orgPath).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
@@ -147,16 +148,16 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	rbacServiceProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	serviceProvider2Workspace, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumer1Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	consumer2Path, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	rbacServiceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	serviceProvider2Workspace, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -197,7 +198,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		}
 
 		// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
-		frameworkhelpers.Eventually(t, func() (bool, string) {
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err = user3KcpClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
@@ -238,7 +239,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderPath {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
-			frameworkhelpers.Eventually(t, func() (bool, string) {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				_, err = cowboyclient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
 				if err == nil {
 					return false, "error"

@@ -30,18 +30,19 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestUserHomeWorkspaces(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	serverArgs := framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)
+	var serverArgs []string
+	serverArgs = append(serverArgs, "--token-auth-file", framework.DefaultTokenAuthFile) //nolint:gocritic // no.
 	serverArgs = append(serverArgs, "--home-workspaces-home-creator-groups=team-1")
-	server := framework.PrivateKcpServer(t, frameworkserver.WithCustomArguments(serverArgs...))
+	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(serverArgs...))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

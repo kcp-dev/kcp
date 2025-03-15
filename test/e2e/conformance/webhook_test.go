@@ -41,19 +41,20 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	frameworkserver "github.com/kcp-dev/kcp/test/e2e/framework/server"
 )
 
 func TestMutatingWebhookInWorkspace(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -90,14 +91,14 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 		Deserializer: deserializer,
 	}
 
-	port, err := frameworkserver.GetFreePort(t)
+	port, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err, "failed to get free port for test webhook")
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1Path, ws1 := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2Path, ws2 := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	paths := []logicalcluster.Path{ws1Path, ws2Path}
 	workspaces := []*tenancyv1alpha1.Workspace{ws1, ws2}
 
@@ -177,7 +178,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -208,14 +209,14 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 		Deserializer: deserializer,
 	}
 
-	port, err := frameworkserver.GetFreePort(t)
+	port, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err, "failed to get free port for test webhook")
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
-	ws1, _ := framework.NewWorkspaceFixture(t, server, orgPath)
-	ws2, _ := framework.NewWorkspaceFixture(t, server, orgPath)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	ws1, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	ws2, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	workspaces := []logicalcluster.Path{ws1, ws2}
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)

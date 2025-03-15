@@ -33,9 +33,9 @@ var (
 	baseTempDirsLock = sync.Mutex{}
 )
 
-// CreateTempDirForTest creates the named directory with a unique base
+// createTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
-func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
+func createTempDirForTest(t *testing.T, dirName string) (string, error) {
 	t.Helper()
 	baseTempDir, err := ensureBaseTempDir(t)
 	if err != nil {
@@ -54,7 +54,7 @@ func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
 func ScratchDirs(t *testing.T) (string, string, error) {
 	t.Helper()
 
-	artifactDir, err := CreateTempDirForTest(t, toTestDir(t.Name()))
+	artifactDir, err := createTempDirForTest(t, toTestDir(t.Name()))
 	if err != nil {
 		return "", "", err
 	}

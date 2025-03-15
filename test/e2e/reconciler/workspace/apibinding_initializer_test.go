@@ -32,6 +32,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -39,14 +40,14 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := framework.SharedKcpServer(t)
+	server := kcptesting.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server)
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 
-	cowboysProviderPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("cowboys-provider"))
+	cowboysProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("cowboys-provider"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -90,7 +91,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
-	universalPath, _ := framework.NewWorkspaceFixture(t, server, orgPath, framework.WithName("universal"))
+	universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("universal"))
 
 	wtParent1 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,5 +160,5 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	require.NoError(t, err, "error creating wt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly
-	_, _ = framework.NewWorkspaceFixture(t, server, universalPath, framework.WithType(universalPath, "test"), framework.WithName("init"))
+	_, _ = kcptesting.NewWorkspaceFixture(t, server, universalPath, kcptesting.WithType(universalPath, "test"), kcptesting.WithName("init"))
 }
