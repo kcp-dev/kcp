@@ -774,6 +774,14 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 						},
 					},
 					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"url",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "endpoints contains all the URLs of the APIExport service.",
 							Type:        []string{"array"},
@@ -785,6 +793,13 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 									},
 								},
 							},
+						},
+					},
+					"shardSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shardSelector is the selector used to filter the shards. It is used to filter the shards when determining partition scope when deriving the endpoints. This is set by owning shard, and is used by follower shards to determine if its inscope or not.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -2755,7 +2770,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"initializer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
+							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:example`.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

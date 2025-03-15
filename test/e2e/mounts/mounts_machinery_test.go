@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
@@ -38,6 +37,7 @@ import (
 
 	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -70,15 +70,17 @@ func TestMountsMachinery(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	orgSource, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
-		framework.WithNameSuffix("source"),
-		framework.WithType(core.RootCluster.Path(), "organization"))
-	orgDestination, _ := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
-		framework.WithNameSuffix("destination"),
-		framework.WithType(core.RootCluster.Path(), "organization"))
+	_, _ = kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
-	sourcePath, _ := framework.NewWorkspaceFixture(t, server, orgSource, framework.WithName("source"))
-	_, destinationWorkspaceObj := framework.NewWorkspaceFixture(t, server, orgDestination, framework.WithName("destination"))
+	orgSource, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
+		kcptesting.WithName("source"),
+		kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	orgDestination, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
+		kcptesting.WithName("destination"),
+		kcptesting.WithType(core.RootCluster.Path(), "organization"))
+
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgSource, kcptesting.WithName("source"))
+	_, destinationWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, orgDestination, kcptesting.WithName("destination"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
