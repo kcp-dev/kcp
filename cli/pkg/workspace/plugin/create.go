@@ -127,17 +127,17 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
-	var structuredWorkspaceType tenancyv1alpha1.WorkspaceTypeReference
+	var structuredWorkspaceType *tenancyv1alpha1.WorkspaceTypeReference
 	if o.Type != "" {
 		separatorIndex := strings.LastIndex(o.Type, ":")
 		switch separatorIndex {
 		case -1:
-			structuredWorkspaceType = tenancyv1alpha1.WorkspaceTypeReference{
+			structuredWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
-			structuredWorkspaceType = tenancyv1alpha1.WorkspaceTypeReference{
+			structuredWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
 				Path: o.Type[:separatorIndex],
 			}

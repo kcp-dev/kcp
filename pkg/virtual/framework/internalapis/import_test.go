@@ -92,6 +92,8 @@ func TestImportInternalAPIs(t *testing.T) {
 		require.NoError(t, err)
 		actualContent, err := yaml.Marshal(s)
 		require.NoError(t, err)
+		// If you just changed the schema and wondering "how do I make this test pass?", uncomment the following line
+		// os.WriteFile(path.Join("fixtures", s.Spec.Names.Plural+".yaml"), actualContent, 0644)
 		require.Emptyf(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")), "%s was not identical to the expected content", s.Name)
 	}
 }
