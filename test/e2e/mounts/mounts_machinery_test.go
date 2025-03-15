@@ -70,6 +70,8 @@ func TestMountsMachinery(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
+	_, _ = kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+
 	// This will create structure as bellow for testing:
 	// └── root
 	//   └── e2e-workspace-n784f
@@ -77,12 +79,15 @@ func TestMountsMachinery(t *testing.T) {
 	//    └── source
 	//        └── mount
 	//
-	rootOrg, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+	orgSource, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
+		kcptesting.WithName("source"),
+		kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	orgDestination, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(),
+		kcptesting.WithName("destination"),
+		kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
-		kcptesting.WithName("source"))
-	_, destinationWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
-		kcptesting.WithName("destination"))
+	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgSource, kcptesting.WithName("source"))
+	_, destinationWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, orgDestination, kcptesting.WithName("destination"))
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -144,7 +149,7 @@ func TestMountsMachinery(t *testing.T) {
 		Resource: "kubeclusters",
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		destinationWorkspace, err := kcpClusterClient.Cluster(rootOrg).TenancyV1alpha1().Workspaces().Get(ctx, destinationWorkspaceObj.Name, metav1.GetOptions{})
+		destinationWorkspace, err := kcpClusterClient.Cluster(orgSource).TenancyV1alpha1().Workspaces().Get(ctx, destinationWorkspaceObj.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		if destinationWorkspace.Spec.URL == "" {
