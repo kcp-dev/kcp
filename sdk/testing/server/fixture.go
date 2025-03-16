@@ -31,7 +31,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
@@ -61,7 +60,7 @@ const kcpBinariesDirEnvDir = "KCP_BINARIES_DIR"
 
 // RunInProcessFunc instantiates the kcp server in process for easier debugging.
 // It is here to decouple the rest of the code from kcp core dependencies.
-var RunInProcessFunc func(t *testing.T, dataDir string, args []string) (<-chan struct{}, error)
+var RunInProcessFunc func(t TestingT, dataDir string, args []string) (<-chan struct{}, error)
 
 // Fixture manages the lifecycle of a set of kcp servers.
 //
@@ -69,7 +68,7 @@ var RunInProcessFunc func(t *testing.T, dataDir string, args []string) (<-chan s
 type Fixture = map[string]RunningServer
 
 // NewFixture returns a new kcp server fixture.
-func NewFixture(t *testing.T, cfgs ...Config) Fixture {
+func NewFixture(t TestingT, cfgs ...Config) Fixture {
 	t.Helper()
 
 	// Initialize servers from the provided configuration
@@ -170,10 +169,10 @@ type kcpServer struct {
 	cfg            clientcmd.ClientConfig
 	kubeconfigPath string
 
-	t *testing.T
+	t TestingT
 }
 
-func newKcpServer(t *testing.T, cfg Config, artifactDir, dataDir, clientCADir string) (*kcpServer, error) {
+func newKcpServer(t TestingT, cfg Config, artifactDir, dataDir, clientCADir string) (*kcpServer, error) {
 	t.Helper()
 
 	kcpListenPort, err := GetFreePort(t)
@@ -462,12 +461,12 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 	return restConfig, nil
 }
 
-func (c *kcpServer) ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config {
+func (c *kcpServer) ClientCAUserConfig(t TestingT, config *rest.Config, name string, groups ...string) *rest.Config {
 	return clientCAUserConfig(t, config, c.clientCADir, name, groups...)
 }
 
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
-func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
+func (c *kcpServer) BaseConfig(t TestingT) *rest.Config {
 	t.Helper()
 
 	cfg, err := c.config("base")
@@ -477,7 +476,7 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 }
 
 // RootShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context. Client-side throttling is disabled (QPS=-1).
-func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
+func (c *kcpServer) RootShardSystemMasterBaseConfig(t TestingT) *rest.Config {
 	t.Helper()
 
 	cfg, err := c.config("shard-base")
@@ -488,7 +487,7 @@ func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 }
 
 // ShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context of a given shard. Client-side throttling is disabled (QPS=-1).
-func (c *kcpServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
+func (c *kcpServer) ShardSystemMasterBaseConfig(t TestingT, shard string) *rest.Config {
 	t.Helper()
 
 	if shard != corev1alpha1.RootShard {
@@ -545,14 +544,14 @@ func (c *kcpServer) CADirectory() string {
 	return c.dataDir
 }
 
-func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
+func (c *kcpServer) Artifact(t TestingT, producer func() (runtime.Object, error)) {
 	t.Helper()
 	artifact(t, c, producer)
 }
 
 // artifact registers the data-producing function to run and dump the YAML-formatted output
 // to the artifact directory for the test before the kcp process is terminated.
-func artifact(t *testing.T, server RunningServer, producer func() (runtime.Object, error)) {
+func artifact(t TestingT, server RunningServer, producer func() (runtime.Object, error)) {
 	t.Helper()
 
 	subDir := filepath.Join("artifacts", "kcp", server.Name())

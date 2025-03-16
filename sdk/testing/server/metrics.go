@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -39,7 +38,7 @@ import (
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
-func gatherMetrics(ctx context.Context, t *testing.T, server RunningServer, directory string) {
+func gatherMetrics(ctx context.Context, t TestingT, server RunningServer, directory string) {
 	cfg := server.RootShardSystemMasterBaseConfig(t)
 	client, err := kcpclientset.NewForConfig(cfg)
 	if err != nil {
@@ -61,7 +60,7 @@ func gatherMetrics(ctx context.Context, t *testing.T, server RunningServer, dire
 	}
 }
 
-func scrapeMetricsForServer(t *testing.T, srv RunningServer) {
+func scrapeMetricsForServer(t TestingT, srv RunningServer) {
 	promUrl, set := os.LookupEnv("PROMETHEUS_URL")
 	if !set || promUrl == "" {
 		t.Logf("PROMETHEUS_URL environment variable unset, skipping Prometheus scrape config generation")

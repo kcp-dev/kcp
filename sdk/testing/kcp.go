@@ -20,7 +20,6 @@ import (
 	"context"
 	"embed"
 	"path/filepath"
-	"testing"
 
 	"github.com/stretchr/testify/require"
 
@@ -34,7 +33,7 @@ var fs embed.FS
 
 // PrivateKcpServer returns a new kcp server fixture managing a new
 // server process that is not intended to be shared between tests.
-func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptestingserver.RunningServer {
+func PrivateKcpServer(t TestingT, options ...kcptestingserver.Option) kcptestingserver.RunningServer {
 	t.Helper()
 
 	serverName := "main"
@@ -71,7 +70,7 @@ func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptesti
 // `--kcp-kubeconfig` or `--use-default-kcp-server` is supplied to the test
 // runner. Otherwise a test-managed server will be started. Only tests
 // that are known to be hermetic are compatible with shared fixture.
-func SharedKcpServer(t *testing.T) kcptestingserver.RunningServer {
+func SharedKcpServer(t TestingT) kcptestingserver.RunningServer {
 	t.Helper()
 
 	setupExternal()
@@ -122,7 +121,7 @@ func SharedKcpServer(t *testing.T) kcptestingserver.RunningServer {
 	return f[c.Name]
 }
 
-func createClientCA(t *testing.T) (string, string) {
+func createClientCA(t TestingT) (string, string) {
 	clientCADir := t.TempDir()
 	_, err := crypto.MakeSelfSignedCA(
 		filepath.Join(clientCADir, "client-ca.crt"),

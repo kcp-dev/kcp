@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/martinlindhe/base36"
@@ -108,7 +107,7 @@ func WithNamePrefix(prefix string) UnprivilegedWorkspaceOption {
 
 // NewLowLevelWorkspaceFixture creates a new workspace under the given parent
 // using the given client. Don't use this if NewWorkspaceFixture can be used.
-func NewLowLevelWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterClient, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
+func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterClient, clusterClient kcpclientset.ClusterInterface, parent logicalcluster.Path, options ...O) *tenancyv1alpha1.Workspace {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -182,7 +181,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t *testing.T, createClusterC
 }
 
 // NewWorkspaceFixture creates a new workspace under the given parent.
-func NewWorkspaceFixture(t *testing.T, server kcptestingserver.RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
+func NewWorkspaceFixture(t TestingT, server kcptestingserver.RunningServer, parent logicalcluster.Path, options ...UnprivilegedWorkspaceOption) (logicalcluster.Path, *tenancyv1alpha1.Workspace) {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -217,7 +216,7 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 
 // WorkspaceShardOrDie returns the shard that a workspace is scheduled on, or
 // fails the test on error.
-func WorkspaceShardOrDie(t *testing.T, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
+func WorkspaceShardOrDie(t TestingT, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
