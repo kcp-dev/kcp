@@ -23,11 +23,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"testing"
 )
 
 // GetFreePort asks the kernel for a free open port that is ready to use.
-func GetFreePort(t *testing.T) (string, error) {
+func GetFreePort(t TestingT) (string, error) {
 	t.Helper()
 
 	for {

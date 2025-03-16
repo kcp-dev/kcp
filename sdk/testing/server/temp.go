@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"testing"
 )
 
 // Persistent mapping of test name to base temp dir used to ensure
@@ -35,7 +34,7 @@ var (
 
 // createTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
-func createTempDirForTest(t *testing.T, dirName string) (string, error) {
+func createTempDirForTest(t TestingT, dirName string) (string, error) {
 	t.Helper()
 	baseTempDir, err := ensureBaseTempDir(t)
 	if err != nil {
@@ -51,7 +50,7 @@ func createTempDirForTest(t *testing.T, dirName string) (string, error) {
 // ScratchDirs determines where artifacts and data should live for a test server.
 // The passed subDir is appended to the artifact directory and should be unique
 // to the test.
-func ScratchDirs(t *testing.T) (string, string, error) {
+func ScratchDirs(t TestingT) (string, string, error) {
 	t.Helper()
 
 	artifactDir, err := createTempDirForTest(t, toTestDir(t.Name()))
@@ -63,7 +62,7 @@ func ScratchDirs(t *testing.T) (string, string, error) {
 
 // ensureBaseTempDir returns the name of a base temp dir for the
 // current test, creating it if needed.
-func ensureBaseTempDir(t *testing.T) (string, error) {
+func ensureBaseTempDir(t TestingT) (string, error) {
 	t.Helper()
 
 	baseTempDirsLock.Lock()

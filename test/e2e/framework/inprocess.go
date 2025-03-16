@@ -18,7 +18,6 @@ package framework
 
 import (
 	"context"
-	"testing"
 
 	"github.com/spf13/pflag"
 
@@ -33,7 +32,7 @@ import (
 )
 
 func init() {
-	kcptestingserver.RunInProcessFunc = func(t *testing.T, rootDir string, args []string) (<-chan struct{}, error) {
+	kcptestingserver.RunInProcessFunc = func(t kcptestingserver.TestingT, rootDir string, args []string) (<-chan struct{}, error) {
 		ctx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 

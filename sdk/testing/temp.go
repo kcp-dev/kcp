@@ -20,13 +20,12 @@ import (
 	"embed"
 	"os"
 	"path"
-	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 // copyEmbeddedToTempDir copies the given file to a temp dir and returns the path.
-func copyEmbeddedToTempDir(t *testing.T, fs embed.FS, source string) string {
+func copyEmbeddedToTempDir(t TestingT, fs embed.FS, source string) string {
 	t.Helper()
 
 	data, err := fs.ReadFile(source)

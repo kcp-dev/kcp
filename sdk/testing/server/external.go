@@ -28,7 +28,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -87,7 +86,7 @@ func (s *externalKCPServer) CADirectory() string {
 	return s.caDir
 }
 
-func (s *externalKCPServer) ClientCAUserConfig(t *testing.T, config *rest.Config, name string, groups ...string) *rest.Config {
+func (s *externalKCPServer) ClientCAUserConfig(t TestingT, config *rest.Config, name string, groups ...string) *rest.Config {
 	return clientCAUserConfig(t, config, s.caDir, name, groups...)
 }
 
@@ -104,7 +103,7 @@ func (s *externalKCPServer) RawConfig() (clientcmdapi.Config, error) {
 }
 
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
-func (s *externalKCPServer) BaseConfig(t *testing.T) *rest.Config {
+func (s *externalKCPServer) BaseConfig(t TestingT) *rest.Config {
 	t.Helper()
 
 	raw, err := s.cfg.RawConfig()
@@ -122,14 +121,14 @@ func (s *externalKCPServer) BaseConfig(t *testing.T) *rest.Config {
 }
 
 // RootShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context. Client-side throttling is disabled (QPS=-1).
-func (s *externalKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
+func (s *externalKCPServer) RootShardSystemMasterBaseConfig(t TestingT) *rest.Config {
 	t.Helper()
 
 	return s.ShardSystemMasterBaseConfig(t, corev1alpha1.RootShard)
 }
 
 // ShardSystemMasterBaseConfig returns a rest.Config for the "shard-base" context of the given shard. Client-side throttling is disabled (QPS=-1).
-func (s *externalKCPServer) ShardSystemMasterBaseConfig(t *testing.T, shard string) *rest.Config {
+func (s *externalKCPServer) ShardSystemMasterBaseConfig(t TestingT, shard string) *rest.Config {
 	t.Helper()
 
 	cfg, found := s.shardCfgs[shard]
@@ -155,7 +154,7 @@ func (s *externalKCPServer) ShardNames() []string {
 	return sets.StringKeySet(s.shardCfgs).List()
 }
 
-func (s *externalKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
+func (s *externalKCPServer) Artifact(t TestingT, producer func() (runtime.Object, error)) {
 	t.Helper()
 	artifact(t, s, producer)
 }
@@ -183,7 +182,7 @@ func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig,
 
 // clientCAUserConfig returns a config based on a dynamically created client certificate.
 // The returned client CA is signed by "test/e2e/framework/client-ca.crt".
-func clientCAUserConfig(t *testing.T, cfg *rest.Config, clientCAConfigDirectory, username string, groups ...string) *rest.Config {
+func clientCAUserConfig(t TestingT, cfg *rest.Config, clientCAConfigDirectory, username string, groups ...string) *rest.Config {
 	t.Helper()
 	caBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.crt"))
 	require.NoError(t, err, "error reading CA file")

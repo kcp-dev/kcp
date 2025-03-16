@@ -16,21 +16,18 @@ limitations under the License.
 
 package server
 
-import (
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-)
-
-type RunningServer interface {
+// TestingT is implemented by *testing.T and potentially other test frameworks.
+type TestingT interface {
+	Cleanup(func())
+	Error(args ...any)
+	Errorf(format string, args ...any)
+	FailNow()
+	Failed() bool
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
+	Helper()
+	Log(args ...any)
+	Logf(format string, args ...any)
 	Name() string
-	KubeconfigPath() string
-	RawConfig() (clientcmdapi.Config, error)
-	BaseConfig(t TestingT) *rest.Config
-	RootShardSystemMasterBaseConfig(t TestingT) *rest.Config
-	ShardSystemMasterBaseConfig(t TestingT, shard string) *rest.Config
-	ShardNames() []string
-	Artifact(t TestingT, producer func() (runtime.Object, error))
-	ClientCAUserConfig(t TestingT, config *rest.Config, name string, groups ...string) *rest.Config
-	CADirectory() string
+	TempDir() string
 }

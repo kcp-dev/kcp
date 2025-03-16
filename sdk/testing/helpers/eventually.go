@@ -18,7 +18,6 @@ package helpers
 
 import (
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -33,7 +32,7 @@ import (
 // Eventually asserts that given condition will be met in waitFor time, periodically checking target function
 // each tick. In addition to require.Eventually, this function t.Logs the reason string value returned by the condition
 // function (eventually after 20% of the wait time) to aid in debugging.
-func Eventually(t *testing.T, condition func() (success bool, reason string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+func Eventually(t TestingT, condition func() (success bool, reason string), waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
 	t.Helper()
 
 	var last string
@@ -55,7 +54,7 @@ func Eventually(t *testing.T, condition func() (success bool, reason string), wa
 }
 
 // EventuallyReady asserts that the object returned by getter() eventually has a ready condition.
-func EventuallyReady(t *testing.T, getter func() (conditions.Getter, error), msgAndArgs ...interface{}) {
+func EventuallyReady(t TestingT, getter func() (conditions.Getter, error), msgAndArgs ...interface{}) {
 	t.Helper()
 	EventuallyCondition(t, getter, Is(conditionsv1alpha1.ReadyCondition), msgAndArgs...)
 }
@@ -117,7 +116,7 @@ func (c *ConditionEvaluator) WithReason(reason string) *ConditionEvaluator {
 }
 
 // EventuallyCondition asserts that the object returned by getter() eventually has a condition that matches the evaluator.
-func EventuallyCondition(t *testing.T, getter func() (conditions.Getter, error), evaluator *ConditionEvaluator, msgAndArgs ...interface{}) {
+func EventuallyCondition(t TestingT, getter func() (conditions.Getter, error), evaluator *ConditionEvaluator, msgAndArgs ...interface{}) {
 	t.Helper()
 	Eventually(t, func() (bool, string) {
 		obj, err := getter()

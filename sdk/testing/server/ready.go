@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -68,7 +67,7 @@ func waitForEndpoint(ctx context.Context, client *rest.RESTClient, endpoint stri
 }
 
 // MonitorEndpoints keeps watching the given endpoints and fails t on error.
-func MonitorEndpoints(t *testing.T, client *rest.Config, endpoints ...string) {
+func MonitorEndpoints(t TestingT, client *rest.Config, endpoints ...string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	for _, endpoint := range endpoints {
@@ -78,7 +77,7 @@ func MonitorEndpoints(t *testing.T, client *rest.Config, endpoints ...string) {
 	}
 }
 
-func monitorEndpoint(ctx context.Context, t *testing.T, cfg *rest.Config, endpoint string) {
+func monitorEndpoint(ctx context.Context, t TestingT, cfg *rest.Config, endpoint string) {
 	cfg = rest.CopyConfig(cfg)
 	if cfg.NegotiatedSerializer == nil {
 		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
@@ -89,13 +88,6 @@ func monitorEndpoint(ctx context.Context, t *testing.T, cfg *rest.Config, endpoi
 		return
 	}
 
-	// we need a shorter deadline than the server, or else:
-	// timeout.go:135] post-timeout activity - time-elapsed: 23.784917ms, GET "/livez" result: Header called after Handler finished
-	if deadline, ok := t.Deadline(); ok {
-		deadlinedCtx, deadlinedCancel := context.WithDeadline(ctx, deadline.Add(-20*time.Second))
-		ctx = deadlinedCtx
-		t.Cleanup(deadlinedCancel) // this does not really matter but govet is upset
-	}
 	var errCount int
 	errs := sets.New[string]()
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
@@ -108,7 +100,14 @@ func monitorEndpoint(ctx context.Context, t *testing.T, cfg *rest.Config, endpoi
 			errCount++
 			errs.Insert(fmt.Sprintf("failed components: %v", unreadyComponentsFromError(err)))
 			if errCount == 2 {
-				t.Errorf("error contacting %s: %v", endpoint, sets.List[string](errs))
+				select {
+				case <-ctx.Done():
+					// ignore error if we're already shutting down
+				default:
+					if !t.Failed() {
+						t.Errorf("error contacting %s: %v", endpoint, sets.List[string](errs))
+					}
+				}
 			}
 		}
 		// otherwise, reset the counters
