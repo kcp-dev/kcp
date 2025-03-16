@@ -212,9 +212,15 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			if !isSystemPrivileged && ws.Spec.Type != nil {
 				return admission.NewForbidden(a, errors.New("spec.type cannot be set for mounted workspaces"))
 			}
-
-			if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+			// Check for immutability of spec.type via pointers checks first.
+			if (old.Spec.Type == nil && ws.Spec.Type != nil) || (old.Spec.Type != nil && ws.Spec.Type == nil) {
 				return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+			}
+			// Check for immutability of spec.type via field checks.
+			if old.Spec.Type != nil && ws.Spec.Type != nil {
+				if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+					return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+				}
 			}
 		}
 	case admission.Create:
