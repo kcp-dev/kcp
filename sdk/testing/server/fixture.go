@@ -36,6 +36,7 @@ import (
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,8 +92,9 @@ func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 	// Launch kcp servers and ensure they are ready before starting the test
 	start := time.Now()
 	t.Log("Starting kcp servers...")
-	wg := sync.WaitGroup{}
-	wg.Add(len(servers))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	g, ctx := errgroup.WithContext(ctx)
 	for i, srv := range servers {
 		var opts []RunOption
 		if env.LogToConsoleEnvSet() || cfgs[i].LogToConsole {
@@ -105,17 +107,27 @@ func NewFixture(t *testing.T, cfgs ...Config) Fixture {
 		require.NoError(t, err)
 
 		// Wait for the server to become ready
-		go func(s *kcpServer, i int) {
-			defer wg.Done()
+		g.Go(func() error {
+			if err := srv.loadCfg(); err != nil {
+				return err
+			}
 
-			err := s.loadCfg()
-			require.NoError(t, err, "error loading config")
+			rootCfg := srv.RootShardSystemMasterBaseConfig(t)
+			t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
+			if err := WaitForReady(srv.ctx, rootCfg); err != nil {
+				return err
+			}
 
-			err = WaitForReady(s.ctx, t, s.RootShardSystemMasterBaseConfig(t), !cfgs[i].RunInProcess)
-			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
-		}(srv, i)
+			if !cfgs[i].RunInProcess {
+				rootCfg := srv.RootShardSystemMasterBaseConfig(t)
+				MonitorEndpoints(t, rootCfg, "/livez", "/readyz")
+			}
+
+			return nil
+		})
 	}
-	wg.Wait()
+	err := g.Wait()
+	require.NoError(t, err, "failed to start kcp servers")
 
 	for _, s := range servers {
 		scrapeMetricsForServer(t, s)
@@ -250,6 +262,8 @@ func Command(executableName, identity string) []string {
 	binary := executableName
 	if binDir := os.Getenv(kcpBinariesDirEnvDir); binDir == "" && inKcp {
 		binary = filepath.Join(kcptestinghelpers.RepositoryBinDir(), executableName)
+	} else if binDir != "" {
+		binary = filepath.Join(binDir, executableName)
 	}
 
 	if env.NoGoRunEnvSet() || !inKcp {
@@ -290,9 +304,6 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	})
 	c.ctx = ctx
 
-	commandLine := append(StartKcpCommand("KCP"), c.args...)
-	c.t.Logf("running: %v", strings.Join(commandLine, " "))
-
 	// run kcp start in-process for easier debugging
 	if runOpts.runInProcess {
 		if RunInProcessFunc == nil {
@@ -313,6 +324,9 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 		}()
 		return nil
 	}
+
+	commandLine := append(StartKcpCommand("KCP"), c.args...)
+	c.t.Logf("running: %v", strings.Join(commandLine, " "))
 
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
@@ -354,7 +368,10 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 
 	if err := cmd.Start(); err != nil {
 		cleanup()
-		return err
+		if os.Getenv(kcpBinariesDirEnvDir) == "" && commandLine[0] == "kcp" {
+			c.t.Log("Consider setting KCP_BINARIES_DIR pointing to a directory with a kcp binary.")
+		}
+		return fmt.Errorf("failed to start kcp: %w", err)
 	}
 
 	c.t.Cleanup(func() {

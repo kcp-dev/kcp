@@ -41,7 +41,7 @@ func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptesti
 
 	cfg := &kcptestingserver.Config{Name: serverName}
 	for _, opt := range options {
-		cfg = opt(cfg)
+		opt(cfg)
 	}
 
 	auditPolicyArg := false
@@ -74,18 +74,23 @@ func PrivateKcpServer(t *testing.T, options ...kcptestingserver.Option) kcptesti
 func SharedKcpServer(t *testing.T) kcptestingserver.RunningServer {
 	t.Helper()
 
+	setupExternal()
 	if len(externalConfig.kubeconfigPath) > 0 {
 		// Use a pre-existing external server
 
-		t.Logf("shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
+		t.Logf("Shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
 		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp"))
 		require.NoError(t, err, "failed to create persistent server fixture")
 
 		ctx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		err = kcptestingserver.WaitForReady(ctx, t, s.RootShardSystemMasterBaseConfig(t), true)
-		require.NoError(t, err, "error waiting for readiness")
+		rootCfg := s.RootShardSystemMasterBaseConfig(t)
+		t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
+		err = kcptestingserver.WaitForReady(ctx, rootCfg)
+		require.NoError(t, err, "external server is not ready")
+
+		kcptestingserver.MonitorEndpoints(t, rootCfg, "/livez", "/readyz")
 
 		return s
 	}

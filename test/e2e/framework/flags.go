@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"path/filepath"
-	"testing"
 
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
@@ -29,13 +28,6 @@ import (
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
-
-func init() {
-	klog.InitFlags(flag.CommandLine)
-	if err := flag.Lookup("v").Value.Set("4"); err != nil {
-		panic(err)
-	}
-}
 
 var testConfig = struct {
 	kcpKubeconfig       string
@@ -57,15 +49,18 @@ func complete() {
 }
 
 func init() {
+	klog.InitFlags(flag.CommandLine)
+	if err := flag.Lookup("v").Value.Set("4"); err != nil {
+		panic(err)
+	}
+
 	flag.StringVar(&testConfig.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
 	flag.Var(cliflag.NewMapStringString(&testConfig.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
 	flag.BoolVar(&testConfig.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 	flag.StringVar(&testConfig.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
 
-	// Make testing package call flags.Parse()
-	testing.Init()
-
-	complete()
-
-	kcptesting.InitExternalServer(testConfig.kcpKubeconfig, testConfig.shardKubeconfigs)
+	kcptesting.InitExternalServer(func() (string, map[string]string) {
+		complete()
+		return testConfig.kcpKubeconfig, testConfig.shardKubeconfigs
+	})
 }

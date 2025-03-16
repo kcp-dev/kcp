@@ -17,6 +17,8 @@ limitations under the License.
 package testing
 
 import (
+	"sync"
+
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
@@ -32,6 +34,9 @@ var (
 		kubeconfigPath       string
 		shardKubeconfigPaths map[string]string
 	}{}
+
+	externalSetupOnce sync.Once
+	externalSetupFn   func() (kubeconfigPath string, shardKubeconfigPaths map[string]string)
 )
 
 // InitSharedKcpServer initializes a shared kcp server fixture. It must be
@@ -45,7 +50,14 @@ func InitSharedKcpServer(opts ...kcptestingserver.Option) {
 // InitExternalServer configures a potentially pre-existing shared external kcp
 // server. It must be called before SharedKcpServer is called. The shard
 // kubeconfigs are optional, but the kubeconfigPath must be provided.
-func InitExternalServer(kubeconfigPath string, shardKubeconfigPaths map[string]string) {
-	externalConfig.kubeconfigPath = kubeconfigPath
-	externalConfig.shardKubeconfigPaths = shardKubeconfigPaths
+func InitExternalServer(fn func() (kubeconfigPath string, shardKubeconfigPaths map[string]string)) {
+	externalSetupFn = fn
+}
+
+func setupExternal() {
+	externalSetupOnce.Do(func() {
+		if externalSetupFn != nil {
+			externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths = externalSetupFn()
+		}
+	})
 }
