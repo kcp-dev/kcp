@@ -139,23 +139,39 @@ func fillWorkspaceSpec(obj *unstructured.Unstructured, workspace *tenancyv1alpha
 	}
 	workspace.Spec.URL = statusURL
 
-	clusterName, _, _ := unstructured.NestedString(obj.Object, "status", "cluster")
-	workspace.Spec.Cluster = clusterName
+	// cluster is optional since not all moounts will point to a KCP workspace
+	clusterName, found, err := unstructured.NestedString(obj.Object, "status", "cluster")
+	if err != nil {
+		return fmt.Errorf("unable to read .status.cluster, err: %w", err)
+	}
+	if found {
+		workspace.Spec.Cluster = clusterName
+	}
 
+	// type is optional since not all mounts will point to a KCP workspace
+	_, found, err = unstructured.NestedStringMap(obj.Object, "status", "type")
+	if err != nil {
+		return fmt.Errorf("unable to read .status.type, err: %w", err)
+	}
+	if !found {
+		return nil
+	}
+
+	// at this point, the mount object has a type field, so we can attempt to read it's attributes
 	wsTypeName, found, err := unstructured.NestedString(obj.Object, "status", "type", "name")
 	if !found || err != nil {
 		return fmt.Errorf("unable to read .status.type.name, found %v, err: %w", found, err)
+	}
+
+	wsTypePath, found, err := unstructured.NestedString(obj.Object, "status", "type", "path")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.type.path, found %v, err: %w", found, err)
 	}
 
 	if workspace.Spec.Type == nil {
 		workspace.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{}
 	}
 	workspace.Spec.Type.Name = tenancyv1alpha1.WorkspaceTypeName(wsTypeName)
-
-	wsTypePath, found, err := unstructured.NestedString(obj.Object, "status", "type", "path")
-	if !found || err != nil {
-		return fmt.Errorf("unable to read .status.type.path, found %v, err: %w", found, err)
-	}
 	workspace.Spec.Type.Path = wsTypePath
 
 	return nil
