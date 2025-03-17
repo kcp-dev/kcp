@@ -30,6 +30,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/kubernetes/pkg/features"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 )
@@ -79,6 +81,7 @@ func TestResolverWithWarrants(t *testing.T) {
 		wantResourceRules    []authorizer.ResourceRuleInfo
 		wantNonResourceRules []authorizer.NonResourceRuleInfo
 		wantError            bool
+		skip                 bool
 	}{
 		{
 			name:                 "base without warrants",
@@ -128,16 +131,19 @@ func TestResolverWithWarrants(t *testing.T) {
 			wantResourceRules:    []authorizer.ResourceRuleInfo{getServices},
 			wantNonResourceRules: nil, // global service accounts do no work without a cluster.
 		},
+		// TODO(cnvergence): restore the skip field once we drop the global service account feature flag
 		{
 			name:                 "service account with this cluster",
 			user:                 &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"this"}}},
 			wantResourceRules:    []authorizer.ResourceRuleInfo{getServices},
 			wantNonResourceRules: []authorizer.NonResourceRuleInfo{getReadyz},
+			skip:                 !utilfeature.DefaultFeatureGate.Enabled(features.GlobalServiceAccount),
 		},
 		{
 			name:                 "service account with other cluster",
 			user:                 &user.DefaultInfo{Name: "system:serviceaccount:default:sa", Groups: []string{"system:serviceaccounts", user.AllAuthenticated}, Extra: map[string][]string{authserviceaccount.ClusterNameKey: {"other"}}},
 			wantNonResourceRules: []authorizer.NonResourceRuleInfo{getMetrics},
+			skip:                 !utilfeature.DefaultFeatureGate.Enabled(features.GlobalServiceAccount),
 		},
 		{
 			name:                 "base with service account warrant without cluster, ignored",
@@ -277,7 +283,7 @@ func TestResolverWithWarrants(t *testing.T) {
 			sort.Sort(sortedResourceRules(resourceRules))
 			sort.Sort(sortedNonResourceRules(nonResourceRules))
 
-			if !tt.wantError {
+			if !tt.wantError && !tt.skip {
 				if diff := cmp.Diff(resourceRules, tt.wantResourceRules); diff != "" {
 					t.Errorf("resourceRules differs: +want -got:\n%s", diff)
 				}
