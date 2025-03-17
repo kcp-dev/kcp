@@ -3101,25 +3101,33 @@
 <h3 id="examples">Examples</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>    # Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace.
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    kubectl kcp bind apiexport root:my-service:my-export --name my-binding
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    # Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace with accepted permission claims.
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    kubectl kcp bind apiexport root:my-service:my-export --name my-binding --accept-permission-claims core.secrets,core.configmaps
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    # Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace with rejected permission claims.
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    kubectl kcp bind apiexport root:my-service:my-export --name my-binding --reject-permission-claims core.secrets,core.configmaps
 </code></pre></div>
 <h3 id="options">Options</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --as-uid string                  UID to impersonate for the operation
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --certificate-authority string   Path to a cert file for the certificate authority
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --context string                 The name of the kubeconfig context to use
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --disable-compression            If true, opt-out of response compression for all requests to the server
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  -h, --help                           help for apiexport
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      --insecure-skip-tls-verify       If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --kubeconfig string              path to the kubeconfig file
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --name string                    Name of the APIBinding to create.
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  -n, --namespace string               If present, the namespace scope for this CLI request
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>      --password string                Password for basic authentication to the API server
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      --proxy-url string               If provided, this URL will be used to connect via proxy
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      --server string                  The address and port of the Kubernetes API server
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      --timeout duration               Duration to wait for APIBinding to be created successfully. (default 30s)
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      --tls-server-name string         If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      --token string                   Bearer token for authentication to the API server
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --user string                    The name of the kubeconfig user to use
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>      --username string                Username for basic authentication to the API server
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --accept-permission-claim strings   List of accepted permission claims for the APIBinding. Format:  --accept-permission-claim resource.group
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --as-uid string                     UID to impersonate for the operation
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --certificate-authority string      Path to a cert file for the certificate authority
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --context string                    The name of the kubeconfig context to use
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --disable-compression               If true, opt-out of response compression for all requests to the server
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  -h, --help                              help for apiexport
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --insecure-skip-tls-verify          If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --kubeconfig string                 path to the kubeconfig file
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --name string                       Name of the APIBinding to create.
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  -n, --namespace string                  If present, the namespace scope for this CLI request
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      --password string                   Password for basic authentication to the API server
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      --proxy-url string                  If provided, this URL will be used to connect via proxy
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      --reject-permission-claim strings   List of rejected permission claims for the APIBinding. Format:  --reject-permission-claim resource.group
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      --server string                     The address and port of the Kubernetes API server
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      --timeout duration                  Duration to wait for APIBinding to be created successfully. (default 30s)
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --tls-server-name string            If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>      --token string                      Bearer token for authentication to the API server
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>      --user string                       The name of the kubeconfig user to use
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>      --username string                   Username for basic authentication to the API server
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
