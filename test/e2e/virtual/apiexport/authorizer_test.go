@@ -462,11 +462,11 @@ metadata:
 		if err == nil {
 			return false, "expected error, got none"
 		}
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsForbidden(err) {
 			return true, ""
 		}
-		return false, fmt.Sprintf("expected a not-found error, but got %v", err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected service-provider-2-admin to get a not-found for shadowed cowboy resources")
+		return false, fmt.Sprintf("expected a forbidden error, but got %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected service-provider-2-admin to get a forbidden for shadowed cowboy resources")
 }
 
 var scheme *runtime.Scheme
