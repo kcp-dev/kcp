@@ -131,8 +131,8 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 // - has a valid type and it is not mutated
 // - the cluster is not removed
 // - the user is recorded in annotations on create
-// - the required groups match with the LogicalCluster.
-// - only system privileged users can set both spec.Type and spec.Mount
+// - the required groups match with the LogicalCluster
+// - only system privileged users can set both spec.Type and spec.Mount.
 func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
