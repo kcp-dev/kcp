@@ -215,7 +215,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 }
 
 func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {
-	claimParts := strings.Split(claim, ".")
+	claimParts := strings.SplitN(claim, ".", 2)
 	if len(claimParts) != 2 {
 		return fmt.Errorf("invalid permission claim %q", claim)
 	}
