@@ -2236,12 +2236,12 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ResourceSchemaStorage must set either CRD or Virtual, but never both.",
+				Description: "ResourceSchemaStorage defines how the resource is stored.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"crd": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CRD storage defines that this APIResourceSchema is exposed as CustomResourceDefinitions inside the workspaces that bind to the APIExport. Like in vanilla Kubernetes, users can then create, update and delete custom resources.\n\nMutually exclusive with virtual storage.",
+							Description: "CRD storage defines that this APIResourceSchema is exposed as CustomResourceDefinitions inside the workspaces that bind to the APIExport. Like in vanilla Kubernetes, users can then create, update and delete custom resources.",
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"),
 						},
 					},

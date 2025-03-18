@@ -492,8 +492,6 @@ spec:
                             CustomResourceDefinitions inside the workspaces that bind to the APIExport.
                             Like in vanilla Kubernetes, users can then create, update and delete
                             custom resources.
-
-                            Mutually exclusive with virtual storage.
                           type: object
                       type: object
                   required:
