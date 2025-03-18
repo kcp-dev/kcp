@@ -1,0 +1,3522 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/v0.27/contributing/">
+      
+      
+        <link rel="prev" href="../developers/investigations/transparent-multi-cluster/">
+      
+      
+        <link rel="next" href="inspecting-e2e-metrics/">
+      
+      
+      <link rel="icon" href="../favicons/favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Contributing to kcp - docs.kcp.io</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/crd.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#contributing-to-kcp" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+      
+  <img src="../logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            docs.kcp.io
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Contributing to kcp
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9h-1.9M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69m-9.15 3.96h2.3L12 9l-1.15 3.65Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kcp-dev/kcp
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+    
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../setup/" class="md-tabs__link">
+          
+  
+    
+  
+  Setup
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../concepts/" class="md-tabs__link">
+          
+  
+    
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../developers/" class="md-tabs__link">
+          
+  
+    
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+    
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/" class="md-tabs__link">
+          
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+      
+  <img src="../logo.svg" alt="logo">
+
+    </a>
+    docs.kcp.io
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kcp-dev/kcp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href=".." class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GOALS/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Project Goals
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../setup/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Setup
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Setup
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quickstart
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/helm/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation with Helm
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/kubectl-plugin/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kubectl Plugins
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/terminology/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Terminology
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quickstart: Tenancy and APIs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/workspaces/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Workspaces
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Workspaces
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/workspaces/workspace-types/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workspace Types
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Virtual Workspaces
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workspace Initialization
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/apis/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    APIs
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            APIs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/apis/built-in/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Built-in APIs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/apis/exporting-apis/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Exporting APIs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/apis/rest-access-patterns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REST Access Patterns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/authorization/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Authorization
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Authorization
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/authorization/authorizers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Authorizers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_7" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/sharding/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Sharding
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Sharding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/sharding/shards/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Shards
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/sharding/partitions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Partitions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/sharding/cache-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cache Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_8" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/miscellaneous/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Miscellaneous
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Miscellaneous
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/miscellaneous/braindump/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture – A Brain Dump
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../developers/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Developers
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Developers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/storage-to-rest-patterns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage to rest patterns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Controllers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            Controllers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing kcp-aware Controllers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Internals
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Internals
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/internals/etcd-structure/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    etcd structure
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using kcp as a library
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_5" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../developers/investigations/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Investigations
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            Investigations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/investigations/logical-clusters/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Logical clusters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/investigations/minimal-api-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Minimal API Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/investigations/self-service-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Self-service policy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Transparent multi-cluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="inspecting-e2e-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inspecting Prometheus Metrics for e2e Runs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="publishing-a-new-kcp-release/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New kcp Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="rebasing-kubernetes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rebasing Kubernetes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="replicate-new-resource/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Replicating New Resources in the Cache Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../reference/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    CLI
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            CLI
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/create_workspace/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    create workspace
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_bind/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp bind
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp bind apiexport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp claims
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims_get/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp claims get
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp claims get apibinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_crd/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp crd
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp crd snapshot
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp workspace
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp workspace create-context
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_current/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp workspace current
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp workspace tree
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/kcp_workspace_use/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kcp workspace use
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/workspace/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    workspace
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/workspace_create-context/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    workspace create-context
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/workspace_current/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    workspace current
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/workspace_tree/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    workspace tree
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/workspace_use/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    workspace use
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    CRD
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3">
+            <span class="md-nav__icon md-icon"></span>
+            CRD
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3_1" id="__nav_6_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    apis.kcp.io
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            apis.kcp.io
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIConversion
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIExportEndpointSlice
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIExport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIResourceSchema
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3_2" id="__nav_6_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    core.kcp.io
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            core.kcp.io
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LogicalCluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Shard
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3_3" id="__nav_6_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    tenancy.kcp.io
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            tenancy.kcp.io
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Workspace
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    WorkspaceType
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3_4" id="__nav_6_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    topology.kcp.io
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            topology.kcp.io
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Partition
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PartitionSet
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#certificate-of-origin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Certificate of Origin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build &amp; Verify
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finding-areas-to-contribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding Areas to Contribute
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#priorities-milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      Priorities &amp; Milestones
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#epics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Epics
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Epics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#story-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Story Tasks
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tracking-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tracking Work
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tracking Work">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#issue-status-and-project-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      Issue Status and Project Board
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unplanneduntracked-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unplanned/Untracked Work
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-guidelines-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coding Guidelines &amp; Conventions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coding Guidelines & Conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-kubebuilder-crd-validation-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Kubebuilder CRD Validation Annotations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replicated-data-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replicated Data Types
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getting-your-pr-merged" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting your PR Merged
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#continuous-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Continuous Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#debugging-flakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Debugging Flakes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Debugging Flakes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-test-flakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unit Test Flakes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-to-end-test-flakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      End to End Test Flakes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      Community Roles
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Community Roles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reviewers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reviewers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#approvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Approvers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#management-of-owners-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Management of OWNERS Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="contributing-to-kcp">Contributing to kcp</h1>
+<p>kcp is <a href="https://github.com/kcp-dev/kcp/tree/main/LICENSE">Apache 2.0 licensed</a> and we accept contributions via
+GitHub pull requests.</p>
+<p>Please read the following guide if you're interested in contributing to kcp.</p>
+<h2 id="certificate-of-origin">Certificate of Origin</h2>
+<p>By contributing to this project you agree to the Developer Certificate of
+Origin (DCO). This document was created by the Linux Kernel community and is a
+simple statement that you, as a contributor, have the legal right to make the
+contribution. See the <a href="https://github.com/kcp-dev/kcp/tree/main/DCO">DCO</a> file for details.</p>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ol>
+<li>Clone this repository.</li>
+<li><a href="https://golang.org/doc/install">Install Go</a> (currently 1.23.7).</li>
+<li>Install <a href="https://kubernetes.io/docs/tasks/tools/#kubectl">kubectl</a>.</li>
+</ol>
+<p>Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/.ci-operator.yaml, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/.ci-operator.yaml the go version is indicated by the "tag" attribute. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version"</p>
+<h3 id="build-verify">Build &amp; Verify</h3>
+<ol>
+<li>
+<p>In one terminal, build and start <code>kcp</code>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go run ./cmd/kcp start
+</code></pre></div></p>
+</li>
+<li>
+<p>In another terminal, tell <code>kubectl</code> where to find the kubeconfig:</p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>export KUBECONFIG=.kcp/admin.kubeconfig
+</code></pre></div>
+<ol>
+<li>Confirm you can connect to <code>kcp</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl api-resources
+</code></pre></div>
+<h2 id="finding-areas-to-contribute">Finding Areas to Contribute</h2>
+<p>Starting to participate in a new project can sometimes be overwhelming, and you may not know where to begin. Fortunately, we are here to help! We track all of our tasks here in GitHub, and we label our issues to categorize them. Here are a couple of handy links to check out:</p>
+<ul>
+<li><a href="https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22">Good first issue</a> issues</li>
+<li><a href="https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22">Help wanted</a> issues</li>
+</ul>
+<p>You're certainly not limited to only these kinds of issues, though! If you're comfortable, please feel free to try working on anything that is open.</p>
+<p>We do use the assignee feature in GitHub for issues. If you find an unassigned issue, comment asking if you can be assigned, and ideally wait for a maintainer to respond. If you find an assigned issue and you want to work on it or help out, please reach out to the assignee first.</p>
+<p>Sometimes you might get an amazing idea and start working on a huge amount of code. We love and encourage excitement like this, but we do ask that before you embarking on a giant pull request, please reach out to the community first for an initial discussion. You could <a href="https://github.com/kcp-dev/kcp/issues/new/choose">file an issue</a>, send a discussion to our <a href="https://groups.google.com/g/kcp-dev">mailing list</a>, and/or join one of our <a href="https://docs.google.com/document/d/1PrEhbmq1WfxFv1fTikDBZzXEIJkUWVHdqDFxaY1Ply4">community meetings</a>.</p>
+<p>Finally, we welcome and value all types of contributions, beyond "just code"! Other types include triaging bugs, tracking down and fixing flaky tests, improving our documentation, helping answer community questions, proposing and reviewing designs, etc.</p>
+<h2 id="priorities-milestones">Priorities &amp; Milestones</h2>
+<p>We prioritize issues and features both synchronously (during community meetings) and asynchronously (Slack/GitHub conversations).</p>
+<p>We group issues together into milestones. Each milestone represents a set of new features and bug fixes that we want users to try out. We aim for each milestone to take about a month from start to finish.</p>
+<p>You can see the <a href="https://github.com/kcp-dev/kcp/milestones?direction=asc&amp;sort=due_date&amp;state=open">current list of milestones</a> in GitHub.</p>
+<p>For a given issue or pull request, its milestone may be:</p>
+<ul>
+<li><strong>unset/unassigned</strong>: we haven't looked at this yet, or if we have, we aren't sure if we want to do it and it needs more community discussion</li>
+<li><strong>assigned to a named milestone</strong></li>
+<li><strong>assigned to <code>TBD</code></strong> - we have looked at this, decided that it is important and we eventually would like to do it, but we aren't sure exactly when</li>
+</ul>
+<p>If you are confident about the target milestone for your issue or PR, please set it. If you don’t have permissions, please ask &amp; we’ll set it for you.</p>
+<h2 id="epics">Epics</h2>
+<p>We use the <a href="https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+">epic label</a> to track large features that typically involve multiple stories. When creating a new epic, please use the <a href="https://github.com/kcp-dev/kcp/issues/new?assignees=&amp;labels=epic&amp;template=epic.md&amp;title=">epic issue template</a>.</p>
+<p>Please make sure that you fill in all the sections of the template (it's ok if some of this is done later, after creating the issue). If you need help with anything, please let us know.</p>
+<h3 id="story-tasks">Story Tasks</h3>
+<p>Story tasks in an epic should generally represent an independent chunk of work that can be implemented. These don't necessarily need to be copied to standalone GitHub issues; it's ok if we just track the story in the epic as a task. On a case by case basis, if a story seems large enough that it warrants its own issue, we can discuss creating one.</p>
+<p>Please tag yourself using your GitHub handle next to a story task you plan to work on. If you don't have permission to do this, please let us know by either commenting on the issue, or reaching out in Slack, and we'll assist you.</p>
+<p>When you open a PR for a story task, please edit the epic description and add a link to the PR next to your task.</p>
+<p>When the PR has been merged, please make sure the task is checked off in the epic.</p>
+<h2 id="tracking-work">Tracking Work</h2>
+<h3 id="issue-status-and-project-board">Issue Status and Project Board</h3>
+<p>We use the Github projects beta for project management, compare <a href="https://github.com/orgs/kcp-dev/projects/1">our project board</a>. Please add issues and PRs into the kcp project and update the status (new, in-progress, ...) for those you are actively working on.</p>
+<h3 id="unplanneduntracked-work">Unplanned/Untracked Work</h3>
+<p>If you find yourself working on something that is unplanned and/or untracked (i.e., not an open GitHub issue or story task in an epic), that's 100% ok, but we'd like to track this type of work too! Please file a new issue for it, and when you have a PR ready, mark the PR as fixing the issue.</p>
+<h2 id="coding-guidelines-conventions">Coding Guidelines &amp; Conventions</h2>
+<ul>
+<li>Always be clear about what clients or client configs target. Never use an unqualified <code>client</code>. Instead, always qualify. For example:<ul>
+<li><code>rootClient</code></li>
+<li><code>orgClient</code></li>
+<li><code>pclusterClient</code></li>
+<li><code>rootKcpClient</code></li>
+<li><code>orgKubeClient</code></li>
+</ul>
+</li>
+<li>Configs intended for <code>NewForConfig</code> (i.e. today often called "admin workspace config") should uniformly be called <code>clusterConfig</code><ul>
+<li>Note: with org workspaces, <code>kcp</code> will no longer default clients to the "root" ("admin") logical cluster</li>
+<li>Note 2: sometimes we use clients for same purpose, but this can be harder to read</li>
+</ul>
+</li>
+<li>Cluster-aware clients should follow similar naming conventions:<ul>
+<li><code>crdClusterClient</code></li>
+<li><code>kcpClusterClient</code></li>
+<li><code>kubeClusterClient</code></li>
+</ul>
+</li>
+<li><code>clusterName</code> is a kcp term. It is <strong>NOT</strong> a name of a physical cluster. If we mean the latter, use <code>pclusterName</code> or similar.</li>
+<li>In the syncer: upstream = kcp, downstream = pcluster. Depending on direction, "from" and "to" can have different meanings. <code>source</code> and <code>sink</code> are synonyms for upstream and downstream.</li>
+<li>Qualify "namespace"s in code that handle up- and downstream, e.g. <code>upstreamNamespace</code>, <code>downstreamNamespace</code>, and also <code>upstreamObj</code>, <code>downstreamObj</code>.</li>
+<li>Logging:</li>
+<li>Use the <code>fmt.Sprintf("%s|%s/%s", clusterName, namespace, name</code> syntax.</li>
+<li>Default log-level is 2.</li>
+<li>Controllers should generally log (a) <strong>one</strong> line (not more) non-error progress per item with <code>klog.V(2)</code> (b) actions like create/update/delete via <code>klog.V(3)</code> and (c) skipped actions, i.e. what was not done for reasons via <code>klog.V(4)</code>.</li>
+<li>When orgs land: <code>clusterName</code> or <code>fooClusterName</code> is always the fully qualified value that you can stick into obj.ObjectMeta.ClusterName. It's not necessarily the <code>(Cluster)Workspace.Name</code> from the object. For the latter, use <code>workspaceName</code> or <code>orgName</code>.</li>
+<li>Generally do <code>klog.Errorf</code> or <code>return err</code>, but not both together. If you need to make it clear where an error came from, you can wrap it.</li>
+<li>New features start under a feature-gate (<code>--feature-gate GateName=true</code>). (At some point in the future), new feature-gates are off by default <em>at least</em> until the APIs are promoted to beta (we are not there before we have reached MVP).</li>
+<li>Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. <strong>We do not compromise on unit tests</strong>. Every feature-gated code needs full unit tests as every other code-path.</li>
+<li>Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.</li>
+<li>We use Testify's <a href="https://pkg.go.dev/github.com/stretchr/testify/require">require</a> a
+  lot in tests, and avoid
+  <a href="https://pkg.go.dev/github.com/stretchr/testify/assert">assert</a>.</li>
+</ul>
+<p>Note this subtle distinction of nested <code>require</code> statements:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">require</span><span class="p">.</span><span class="nx">Eventually</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nx">foos</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">List</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nx">require</span><span class="p">.</span><span class="nx">NoError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="c1">// fail fast, including failing require.Eventually immediately</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">someCondition</span><span class="p">(</span><span class="nx">foos</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">},</span><span class="w"> </span><span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+  and
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">require</span><span class="p">.</span><span class="nx">Eventually</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nx">foos</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">List</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">     </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="c1">// keep trying</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">someCondition</span><span class="p">(</span><span class="nx">foos</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">},</span><span class="w"> </span><span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+  The first fails fast on every client error. The second ignores client errors and keeps trying. Either
+  has its place, depending on whether the client error is to be expected (e.g. because of asynchronicity making the resource available),
+  or signals a real test problem.</p>
+<h3 id="using-kubebuilder-crd-validation-annotations">Using Kubebuilder CRD Validation Annotations</h3>
+<p>All of the built-in types for <code>kcp</code> are <code>CustomResourceDefinitions</code>, and we generate YAML spec for them from our Go types using <a href="https://github.com/kubernetes-sigs/kubebuilder">kubebuilder</a>.</p>
+<p>When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. <a href="https://book.kubebuilder.io/reference/markers/crd-validation.html">This doc</a> gives an overview of possible validations. These annotations map directly to concepts in the <a href="https://swagger.io/specification/#data-type-format">OpenAPI Spec</a> so, for instance, the <code>format</code> of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project <a href="https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation">here</a> and extends more formats in the extensions-apiserver <a href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27">here</a>.</p>
+<h3 id="replicated-data-types">Replicated Data Types</h3>
+<p>Some objects are replicated and cached amongst shards when <code>kcp</code> is run in a sharded configuration. When writing code to list or get these objects, be sure to reference both shard-local and cache informers. To make this more convenient, wrap the look up in a function pointer.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewController</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nx">localAPIExportInformer</span><span class="p">,</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="w"> </span><span class="nx">apisinformers</span><span class="p">.</span><span class="nx">APIExportClusterInformer</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">controller</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">controller</span><span class="p">{</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nx">listAPIExports</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">clusterName</span><span class="w"> </span><span class="nx">logicalcluster</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="nx">apisv1apha1</span><span class="p">.</span><span class="nx">APIExport</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">localAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="p">}</span>
+</code></pre></div>
+<p>A full list of replicated resources is currently outlined in the <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/replication/replication_controller.go">replication controller</a>.</p>
+<h3 id="getting-your-pr-merged">Getting your PR Merged</h3>
+<p>The <code>kcp</code> project uses <code>OWNERS</code> files to denote the collaborators who can assist you in getting your PR merged.  There
+are two roles: reviewer and approver.  Merging a PR requires sign off from both a reviewer and an approver.</p>
+<h2 id="continuous-integration">Continuous Integration</h2>
+<p>kcp uses a combination of <a href="https://help.github.com/en/actions/automating-your-workflow-with-github-actions">GitHub Actions</a> and
+and <a href="https://github.com/kubernetes/test-infra/tree/master/prow">prow</a> to automate the build process.</p>
+<p>Here are the most important links:</p>
+<ul>
+<li><a href="https://github.com/kcp-dev/kcp/blob/main/.github/workflows/ci.yaml">.github/workflows/ci.yaml</a> defines the Github Actions based jobs.</li>
+<li><a href="https://github.com/kcp-dev/kcp/blob/main/.prow.yaml">kcp-dev/kcp/.prow.yaml</a> defines the prow based jobs.</li>
+</ul>
+<h2 id="debugging-flakes">Debugging Flakes</h2>
+<p>Tests that sometimes pass and sometimes fail are known as flakes. Sometimes, there is only an issue with the test, while
+other times, there is an actual bug in the main code. Regardless of the root cause, it's important to try to eliminate
+as many flakes as possible.</p>
+<h3 id="unit-test-flakes">Unit Test Flakes</h3>
+<p>If you're trying to debug a unit test flake, you can try to do something like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./pkg/reconciler/apis/apibinding<span class="w"> </span>-run<span class="w"> </span>TestReconcileBinding<span class="w"> </span>-count<span class="w"> </span><span class="m">100</span><span class="w"> </span>-failfast
+</code></pre></div>
+<p>This tests one specific package, running only a single test case by name, 100 times in a row. It fails as soon as it
+encounters any failure. If this passes, it may still be possible there is a flake somewhere, so you may need to run
+it a few times to be certain. If it fails, that's a great sign - you've been able to reproduce it locally. Now you
+need to dig into the test condition that is failing. Work backwards from the condition and try to determine if the
+condition is correct, and if it should be that way all the time. Look at the code under test and see if there are any
+reasons things might not be deterministic.</p>
+<h3 id="end-to-end-test-flakes">End to End Test Flakes</h3>
+<p>Debugging an end-to-end (e2e) test that is flaky can be a bit trickier than a unit test. Our e2e tests run in one of
+two modes:</p>
+<ol>
+<li>Tests share a single kcp server</li>
+<li>Tests in a package share a single kcp server</li>
+</ol>
+<p>The <code>e2e-shared-server</code> CI job uses mode 1, and the <code>e2e</code> CI job uses mode 2.</p>
+<p>There are also a handful of tests that require a fully isolated kcp server, because they manipulate some configuration
+aspects that are system-wide and would break all the other tests. These tests run in both <code>e2e</code> and <code>e2e-shared-server</code>,
+separate from the other kcp instance(s).</p>
+<p>You can use the same <code>run</code>, <code>-count</code>, and <code>-failfast</code> settings from the unit test section above for trying to reproduce
+e2e flakes locally. Additionally, if you would like to operate in mode 1 (all tests share a single kcp server), you can
+start a kcp instance locally in a separate terminal or tab:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>bin/test-server
+</code></pre></div>
+<p>Then, to have your test use that shared kcp server, you add <code>-args --use-default-kcp-server</code> to your <code>go test</code> run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./test/e2e/apibinding<span class="w"> </span>-count<span class="w"> </span><span class="m">20</span><span class="w"> </span>-failfast<span class="w"> </span>-args<span class="w"> </span>--use-default-kcp-server
+</code></pre></div>
+<h2 id="community-roles">Community Roles</h2>
+<h3 id="reviewers">Reviewers</h3>
+<p>Reviewers are responsible for reviewing code for correctness and adherence to standards. Oftentimes reviewers will
+be able to advise on code efficiency and style as it relates to golang or project conventions as well as other considerations
+that might not be obvious to the contributor.</p>
+<h3 id="approvers">Approvers</h3>
+<p>Approvers are responsible for sign-off on the acceptance of the contribution. In essence, approval indicates that the
+change is desired and good for the project, aligns with code, api, and system conventions, and appears to follow all required
+process including adequate testing, documentation, follow ups, or notifications to other areas who might be interested
+or affected by the change.</p>
+<p>Approvers are also reviewers.</p>
+<h3 id="management-of-owners-files">Management of <code>OWNERS</code> Files</h3>
+<p>If a reviewer or approver no longer wishes to be in their current role it is requested that a PR
+be opened to update the <code>OWNERS</code> file. <code>OWNERS</code> files may be periodically reviewed and updated based on project activity
+or feedback to ensure an acceptable contributor experience is maintained.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/kcp-dev/kcp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://kubernetes.slack.com/archives/C021U8WSAFK" target="_blank" rel="noopener" title="kubernetes.slack.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M94.12 315.1c0 25.9-21.16 47.06-47.06 47.06S0 341 0 315.1c0-25.9 21.16-47.06 47.06-47.06h47.06v47.06zm23.72 0c0-25.9 21.16-47.06 47.06-47.06s47.06 21.16 47.06 47.06v117.84c0 25.9-21.16 47.06-47.06 47.06s-47.06-21.16-47.06-47.06V315.1zm47.06-188.98c-25.9 0-47.06-21.16-47.06-47.06S139 32 164.9 32s47.06 21.16 47.06 47.06v47.06H164.9zm0 23.72c25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06H47.06C21.16 243.96 0 222.8 0 196.9s21.16-47.06 47.06-47.06H164.9zm188.98 47.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06h-47.06V196.9zm-23.72 0c0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06V79.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06V196.9zM283.1 385.88c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06v-47.06h47.06zm0-23.72c-25.9 0-47.06-21.16-47.06-47.06 0-25.9 21.16-47.06 47.06-47.06h117.84c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06H283.1z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
