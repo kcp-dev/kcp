@@ -160,14 +160,12 @@ type ResourceSchema struct {
 	Storage ResourceSchemaStorage `json:"storage"`
 }
 
-// ResourceSchemaStorage must set either CRD or Virtual, but never both.
+// ResourceSchemaStorage defines how the resource is stored.
 type ResourceSchemaStorage struct {
 	// CRD storage defines that this APIResourceSchema is exposed as
 	// CustomResourceDefinitions inside the workspaces that bind to the APIExport.
 	// Like in vanilla Kubernetes, users can then create, update and delete
 	// custom resources.
-	//
-	// Mutually exclusive with virtual storage.
 	CRD *ResourceSchemaStorageCRD `json:"crd,omitempty"`
 }
 
