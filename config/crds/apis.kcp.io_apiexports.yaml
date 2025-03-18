@@ -479,6 +479,8 @@ spec:
                         "<version>.<name>.<group>".
                       type: string
                     storage:
+                      default:
+                        crd: {}
                       description: Storage defines how the resource is stored.
                       oneOf:
                       - required:

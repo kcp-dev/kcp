@@ -157,6 +157,8 @@ type ResourceSchema struct {
 	// "<version>.<name>.<group>".
 	Schema string `json:"schema"`
 	// Storage defines how the resource is stored.
+	//
+	// +kubebuilder:default={crd:{}}
 	Storage ResourceSchemaStorage `json:"storage"`
 }
 
