@@ -1,4 +1,4 @@
-
+version: 2
 builds:
 # server builds
 - id: "kcp"
@@ -81,22 +81,22 @@ builds:
 
 archives:
 - id: kcp
-  builds:
+  ids:
   - kcp
 - id: apigen
-  builds:
+  ids:
   - apigen
   name_template: "apigen_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-kcp-plugin
-  builds:
+  ids:
   - kubectl-kcp
   name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-ws-plugin
-  builds:
+  ids:
   - kubectl-ws
   name_template: "kubectl-ws-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: kubectl-create-workspace-plugin-krew
-  builds:
+  ids:
   - kubectl-create-workspace
   name_template: "kubectl-create-workspace-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
