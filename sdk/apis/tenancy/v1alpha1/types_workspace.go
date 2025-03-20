@@ -94,6 +94,19 @@ const (
 	// WorkspaceInitializedAPIBindingErrors is a reason for the APIBindingsInitialized condition that indicates there
 	// were errors trying to initialize APIBindings for the workspace.
 	WorkspaceInitializedAPIBindingErrors = "APIBindingErrors"
+
+	// WorkspaceAPIBindingsReconciled represents the status of the reconcile APIBindings for the workspace.
+	WorkspaceAPIBindingsReconciled conditionsv1alpha1.ConditionType = "APIBindingsReconciled"
+	// WorkspaceInitializedWaitingOnAPIBindings is a reason for the APIBindingsInitialized condition that indicates
+	// at least one APIBinding is not ready.
+	WorkspaceReconciledWaitingOnAPIBindings = WorkspaceInitializedWaitingOnAPIBindings
+	// WorkspaceInitializedWorkspaceTypeInvalid is a reason for the APIBindingsInitialized
+	// condition that indicates something is invalid with the WorkspaceType (e.g. a cycle trying
+	// to resolve all the transitive types).
+	WorkspaceReconciledWorkspaceTypeInvalid = WorkspaceInitializedWorkspaceTypeInvalid
+	// WorkspaceInitializedAPIBindingErrors is a reason for the APIBindingsInitialized condition that indicates there
+	// were errors trying to initialize APIBindings for the workspace.
+	WorkspaceReconciledAPIBindingErrors = WorkspaceInitializedAPIBindingErrors
 )
 
 // LogicalClusterTypeAnnotationKey is the annotation key used to indicate
