@@ -20,6 +20,9 @@ goio.yaml
 # Common editor / temporary files
 .DS_Store
 
+# goreleaser snapshots
+/dist/
+
 # Folder where each developer can store temporary files
 tmp
 
