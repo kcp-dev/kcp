@@ -18,6 +18,7 @@ package workspacemounts
 
 import (
 	"context"
+	"fmt"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -35,103 +37,142 @@ import (
 // we should add second reconciler that will update the status of the workspace so triggering
 // it to be "not ready" if the mount is not ready.
 type workspaceStatusUpdater struct {
-	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref *tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
 }
 
 func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
-	v, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
-	if !ok {
-		// no mount annotation, might be nothing or mount was soft "deleted" by removing the annotation.
-		// Delete the condition.
-		conditions.Delete(workspace, tenancyv1alpha1.MountConditionReady)
-		return reconcileStatusContinue, nil
-	}
-	mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(v)
-	if err != nil {
-		conditions.MarkFalse(
-			workspace,
-			tenancyv1alpha1.MountConditionReady,
-			tenancyv1alpha1.MountAnnotationInvalidReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			"Annotation %q is invalid: %v", tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey, err,
-		)
-		return reconcileStatusContinue, nil
-	} else if mount == nil {
-		conditions.MarkFalse(
-			workspace,
-			tenancyv1alpha1.MountConditionReady,
-			tenancyv1alpha1.MountAnnotationInvalidReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			"Annotation %q is invalid: no mount JSON", tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey,
-		)
+	if workspace.Spec.Mount == nil {
 		return reconcileStatusContinue, nil
 	}
 
-	switch {
-	case !workspace.DeletionTimestamp.IsZero():
+	if !workspace.DeletionTimestamp.IsZero() {
 		return reconcileStatusContinue, nil
-	case mount != nil && mount.MountSpec.Reference != nil:
-		obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), mount.MountSpec.Reference)
-		if err != nil {
-			return reconcileStatusStopAndRequeue, err
-		} else if kerrors.IsNotFound(err) {
+	}
+
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				workspace,
 				tenancyv1alpha1.MountConditionReady,
 				tenancyv1alpha1.MountObjectNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"%s %q not found",
-				obj.GroupVersionKind().Kind, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
+				workspace.Spec.Mount.Reference.Kind, types.NamespacedName{Namespace: workspace.Spec.Mount.Reference.Namespace, Name: workspace.Spec.Mount.Reference.Name},
 			)
 			return reconcileStatusContinue, nil
 		}
+		return reconcileStatusStopAndRequeue, err
+	}
 
-		// we are working on status field. As this is "loose coupling, we parse it out"
-		// Mount point implementors must expose status.{URL,phase} as a fields.
-		// We are not interested in the rest of the status.
-		statusPhase, ok, err := unstructured.NestedString(obj.Object, "status", "phase")
-		if err != nil || !ok {
-			conditions.MarkFalse(
-				workspace,
-				tenancyv1alpha1.MountConditionReady,
-				tenancyv1alpha1.MountObjectNotReadyReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"Mount is not reporting ready. See %s %q status for more details",
-				obj.GroupVersionKind().Kind, obj.GetName(),
-			)
+	// we are working on status field. As this is "loose coupling, we parse it out"
+	// Mount point implementors must expose status.{URL,phase} as a fields.
+	// We are not interested in the rest of the status.
+	statusPhase, ok, err := unstructured.NestedString(obj.Object, "status", "phase")
+	if err != nil || !ok {
+		conditions.MarkFalse(
+			workspace,
+			tenancyv1alpha1.MountConditionReady,
+			tenancyv1alpha1.MountObjectNotReadyReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Mount is not reporting ready. See %s %q status for more details",
+			obj.GroupVersionKind().Kind, obj.GetName(),
+		)
 
-			return reconcileStatusContinue, nil //nolint:nilerr // we ignore the error intentionally. Not helpful.
-		}
+		return reconcileStatusContinue, nil //nolint:nilerr // we ignore the error intentionally. Not helpful.
+	}
 
-		// url might not be there if the mount is not ready
-		statusURL, _, _ := unstructured.NestedString(obj.Object, "status", "URL")
-
-		// Only Spec or Status can be updated, not both.
-		if mount.MountStatus.Phase != tenancyv1alpha1.MountPhaseType(statusPhase) || mount.MountStatus.URL != statusURL {
-			mount.MountStatus.Phase = tenancyv1alpha1.MountPhaseType(statusPhase)
-			mount.MountStatus.URL = statusURL
-
-			workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] = mount.String()
-
-			return reconcileStatusStopAndRequeue, nil
-		}
-
-		// Inject condition into the workspace.
-		// This is a loose coupling, we are not interested in the rest of the status.
-		switch mount.MountStatus.Phase {
-		case tenancyv1alpha1.MountPhaseReady:
-			conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
-		default:
-			conditions.MarkFalse(
-				workspace,
-				tenancyv1alpha1.MountConditionReady,
-				tenancyv1alpha1.MountObjectNotReadyReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"Mount is not reporting ready. See %s %q status for more details",
-				obj.GroupVersionKind().Kind, obj.GetName(),
-			)
-		}
+	// Inject condition into the workspace.
+	// This is a loose coupling, we are not interested in the rest of the status.
+	switch tenancyv1alpha1.MountPhaseType(statusPhase) {
+	case tenancyv1alpha1.MountPhaseReady:
+		conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
+	default:
+		conditions.MarkFalse(
+			workspace,
+			tenancyv1alpha1.MountConditionReady,
+			tenancyv1alpha1.MountObjectNotReadyReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Mount is not reporting ready. See %s %q status for more details",
+			obj.GroupVersionKind().Kind, obj.GetName(),
+		)
 	}
 
 	return reconcileStatusContinue, nil
+}
+
+// workspaceSpecUpdater updates the spec of the workspace based on the mount status.
+type workspaceSpecUpdater struct {
+	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+}
+
+func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
+	if workspace.Spec.Mount == nil {
+		return reconcileStatusContinue, nil
+	}
+
+	if !workspace.DeletionTimestamp.IsZero() {
+		return reconcileStatusContinue, nil
+	}
+
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return reconcileStatusContinue, nil
+		}
+		return reconcileStatusStopAndRequeue, err
+	}
+
+	if err := fillWorkspaceSpec(obj, workspace); err != nil {
+		return reconcileStatusStopAndRequeue, err
+	}
+
+	return reconcileStatusContinue, nil
+}
+
+func fillWorkspaceSpec(obj *unstructured.Unstructured, workspace *tenancyv1alpha1.Workspace) error {
+	// url might not be there if the mount is not ready
+	statusURL, found, err := unstructured.NestedString(obj.Object, "status", "URL")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
+	}
+	workspace.Spec.URL = statusURL
+
+	// cluster is optional since not all moounts will point to a KCP workspace
+	clusterName, found, err := unstructured.NestedString(obj.Object, "status", "cluster")
+	if err != nil {
+		return fmt.Errorf("unable to read .status.cluster, err: %w", err)
+	}
+	if found {
+		workspace.Spec.Cluster = clusterName
+	}
+
+	// type is optional since not all mounts will point to a KCP workspace
+	_, found, err = unstructured.NestedStringMap(obj.Object, "status", "type")
+	if err != nil {
+		return fmt.Errorf("unable to read .status.type, err: %w", err)
+	}
+	if !found {
+		return nil
+	}
+
+	// at this point, the mount object has a type field, so we can attempt to read it's attributes
+	wsTypeName, found, err := unstructured.NestedString(obj.Object, "status", "type", "name")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.type.name, found %v, err: %w", found, err)
+	}
+
+	wsTypePath, found, err := unstructured.NestedString(obj.Object, "status", "type", "path")
+	if !found || err != nil {
+		return fmt.Errorf("unable to read .status.type.path, found %v, err: %w", found, err)
+	}
+
+	if workspace.Spec.Type == nil {
+		workspace.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{}
+	}
+	workspace.Spec.Type.Name = tenancyv1alpha1.WorkspaceTypeName(wsTypeName)
+	workspace.Spec.Type.Path = wsTypePath
+
+	return nil
 }

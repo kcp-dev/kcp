@@ -225,7 +225,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 			if ws, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 				notFound = true
 			} else if err == nil {
-				workspaceType = &ws.Spec.Type
+				workspaceType = ws.Spec.Type
 			}
 		}
 	}
