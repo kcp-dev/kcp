@@ -29,6 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 		apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
@@ -100,6 +101,9 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIResourceSchemas().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIConversions().Informer()}, nil
+	// Group=apis.kcp.io, Version=V1alpha2
+	case apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha2().APIExports().Informer()}, nil
 	// Group=core.kcp.io, Version=V1alpha1
 	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().LogicalClusters().Informer()}, nil
@@ -139,6 +143,10 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"):
 		informer := f.Apis().V1alpha1().APIConversions().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=apis.kcp.io, Version=V1alpha2
+	case apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"):
+		informer := f.Apis().V1alpha2().APIExports().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=core.kcp.io, Version=V1alpha1
 	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):

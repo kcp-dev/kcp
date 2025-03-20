@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
@@ -168,7 +169,7 @@ func TestAdmit(t *testing.T) {
 						tc.authzError,
 					}, nil
 				},
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					switch path.Join(name).String() {
 					case "root:org:ws:someExport", "root-org-ws:someExport":
 						return newExport(logicalcluster.NewPath("root:org:ws"), "someExport").APIExport, nil
@@ -181,7 +182,7 @@ func TestAdmit(t *testing.T) {
 
 						// intentionally not the root export. Binding without looking up the root exports is needed for bootstrapping.
 					}
-					return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), name)
+					return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
 				},
 			}
 
@@ -441,7 +442,7 @@ func TestValidate(t *testing.T) {
 						tc.authzError,
 					}, nil
 				},
-				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					switch path.Join(name).String() {
 					case "root:org:workspaceName:someExport", "root-org-workspaceName:someExport":
 						return newExport(logicalcluster.NewPath("root:org:workspaceName"), name).APIExport, nil
@@ -456,7 +457,7 @@ func TestValidate(t *testing.T) {
 
 						// intentionally not the root export. Binding without looking up the root exports is needed for bootstrapping.
 					}
-					return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+					return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), path.Join(name).String())
 				},
 			}
 
@@ -539,12 +540,12 @@ func toBase62(hash [28]byte) string {
 }
 
 type apiExportBuilder struct {
-	*apisv1alpha1.APIExport
+	*apisv1alpha2.APIExport
 }
 
 func newExport(path logicalcluster.Path, name string) apiExportBuilder {
 	clusterName := strings.ReplaceAll(path.String(), ":", "-")
-	return apiExportBuilder{APIExport: &apisv1alpha1.APIExport{
+	return apiExportBuilder{APIExport: &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
