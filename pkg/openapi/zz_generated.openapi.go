@@ -4249,6 +4249,13 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 							},
 						},
 					},
+					"defaultAPIBindingLifecycle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the lifecycle behaviour of defaultAPIBindings.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

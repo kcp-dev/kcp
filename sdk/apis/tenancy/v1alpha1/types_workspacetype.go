@@ -23,6 +23,11 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+const (
+	// ExperimentalDefaultAPIBindingLifecycleAnnotationKey is used to configure the maintenance mode of the defaultAPIBindings.
+	ExperimentalDefaultAPIBindingLifecycleAnnotationKey string = "experimental.tenancy.kcp.io/default-api-binding-lifecycle"
+)
+
 // WorkspaceTypeReservedNames defines the set of names that may not be
 // used on user-supplied WorkspaceTypes.
 // TODO(hasheddan): tie this definition of reserved names to the patches used to
@@ -116,6 +121,12 @@ type WorkspaceTypeSpec struct {
 	//
 	// +optional
 	DefaultAPIBindings []APIExportReference `json:"defaultAPIBindings,omitempty"`
+
+	// Configure the lifecycle behaviour of defaultAPIBindings.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=InitializeOnly;Maintain
+	DefaultAPIBindingLifecycle *APIBindingLifecycleMode `json:"defaultAPIBindingLifecycle,omitempty"`
 }
 
 // APIExportReference provides the fields necessary to resolve an APIExport.
@@ -135,6 +146,19 @@ type APIExportReference struct {
 	// +kube:validation:MinLength=1
 	Export string `json:"export"`
 }
+
+// APIBindingLifecycleMode defines how the lifecycle of an APIBinding is
+// managed.
+type APIBindingLifecycleMode string
+
+const (
+	// APIBindingLifecycleModeInitializeOnly defines that the APIBinding is
+	// only initialized once upon workspace creation.
+	APIBindingLifecycleModeInitializeOnly APIBindingLifecycleMode = "InitializeOnly"
+	// APIBindingLifecycleModeInitializeOnly defines that the APIBinding is
+	// continuesly reconciled.
+	APIBindingLifecycleModeMaintain APIBindingLifecycleMode = "Maintain"
+)
 
 // WorkspaceTypeSelector describes a set of types.
 type WorkspaceTypeSelector struct {
