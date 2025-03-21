@@ -8,100 +8,17 @@ description: >
 OpenID Connect (OIDC) is a simple identity layer on top of the OAuth 2.0 protocol, which allows clients to verify the identity of users based on the authentication performed by an external authorization server. In this guide, we will set up OIDC authentication in kcp using Dex as the identity provider.
 For more details on Kubernetes specific configuration, please refer to this [page](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#openid-connect-tokens).
 
-## Configuring OIDC in kcp with Dex
 
-This guide provides step-by-step instructions on setting up OIDC authentication in a local kcp server using Dex. OIDC allows for secure authentication using external identity providers, enhancing security and ease of access.
+## Configure kcp OIDC Authentication Using OIDC Flags
 
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-- [Go](https://go.dev/dl/)
-- [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- [Krew](https://krew.sigs.k8s.io/docs/)
-- [OpenSSL](https://www.openssl.org/)
-
-#### Set Up Dex
-
-Dex is an OpenID Connect (OIDC) provider used for authentication in Kubernetes and other platforms. Here is how to configure and run it locally
-*Important: We use a fork to allow local group support that Kubernetes relies on: [dexidp/dex#1080](https://github.com/dexidp/dex/issues/1080)*
-
-```bash
-git clone https://github.com/mjudeikis/dex.git -b mjudeikis/groups.support
-cd dex
-make build
-```
-
-The compiled Dex binary will be available at `bin/dex`.
-
-#### Generate Certificates for Dex
-
-To continue with this tutorial, we need to generate self-signed certificates for authentication requests.
-`genkey` tool can be used to create them for localhost.
-
-```bash
-GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
-./bin/genkey 127.0.0.1
-```
-
-#### Configure Dex
-
-Dex requires a configuration file to define authentication parameters. Create a `dex-config.yaml` file with the following content:
-
-```bash
-issuer: https://127.0.0.1:5556/dex
-web:
-  https: 127.0.0.1:5556
-  tlsCert: ../127.0.0.1.pem
-  tlsKey: ../127.0.0.1.pem
-storage:
-  type: sqlite3
-  config:
-    file: examples/dex.db
-staticClients:
-  - id: kcp-dev
-    public: true
-    redirectURIs:
-    - http://localhost:8000
-    name: 'KCP App'
-    secret: <generate a secret for the static client here>
-
-# Let dex keep a list of passwords which can be used to login to dex.
-enablePasswordDB: true
-
-# A static list of passwords to login the end user. By identifying here, dex
-# won't look in its underlying storage for passwords.
-#
-# If this option isn't chosen users may be added through the gRPC API.
-staticPasswords:
-- email: "admin"
-  hash: <bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)>
-  username: "admin"
-  userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
-  groups: ["system:kcp:admin", "system:admin"]
-```
-
-#### Run Dex
-
-Start Dex with the required configuration:
-
-```bash
-./bin/dex serve ../contrib/kcp-dex/dex-config.yaml
-```
-
-### Run kcp with OIDC Enabled
-
-You can configure kcp authentication using OIDC flags or a structured authentication configuration file.
-
-#### Using OIDC Flags
-
-To start kcp with OIDC authentication enabled, run:
+kcp server will configure the OIDC authentication using the same Kubernetes control plane settings, to start kcp with OIDC authentication enabled, you can simply pass OIDC flags during the start of the kcp server:
 
 ```bash
 kcp start \
---oidc-issuer-url=https://127.0.0.1:5556/dex \
---oidc-client-id=kcp-dev \
---oidc-groups-claim=groups \
---oidc-ca-file=127.0.0.1.pem
+--oidc-issuer-url=<url of the issuer> \
+--oidc-client-id=<client-id>\
+--oidc-groups-claim=<jwt-claim-name> \
+--oidc-ca-file=<ca-file-path>
 ```
 - `--oidc-issuer-url` URL of the provider that allows the API server to discover public signing keys.
 
@@ -111,110 +28,152 @@ kcp start \
 
 - `--oidc-ca-file` The path to the certificate for the CA that signed your identity provider's web certificate.
 
-#### Using Structured Authentication Configuration
+You can also set:
 
-Alternatively, create an authentication configuration file for kcp
+- `--oidc-username-claim` JWT claim to use as the user name.
 
-```bash
-CA_CERT=$(openssl x509 -in 127.0.0.1.pem | sed 's/^/      /')
+- `--oidc-required-claim` A key=value pair that describes a required claim in the ID Token.
+
+- `--oidc-signing-algs` The signing algorithms accepted.
+
+- `--oidc-username-prefix` Prefix prepended to username claims to prevent clashes with existing names.
+
+- `--oidc-groups-prefix` Prefix prepended to group claims to prevent clashes with existing names
+
+## Configure kcp OIDC Authentication Using Structured Authentication Configuration
+
+Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
+Please note that iff you specify --authentication-config along with any of the --oidc-* command line arguments, this will be treated as a misconfiguration.
+
+```bashapiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration
+# list of authenticators to authenticate Kubernetes users using JWT compliant tokens.
+# the maximum number of allowed authenticators is 64.
+jwt:
+- issuer:
+    # url must be unique across all authenticators.
+    # url must not conflict with issuer configured in --service-account-issuer.
+    url: https://example.com # Same as --oidc-issuer-url.
+    # discoveryURL, if specified, overrides the URL used to fetch discovery
+    # information instead of using "{url}/.well-known/openid-configuration".
+    # The exact value specified is used, so "/.well-known/openid-configuration"
+    # must be included in discoveryURL if needed.
+    #
+    # The "issuer" field in the fetched discovery information must match the "issuer.url" field
+    # in the AuthenticationConfiguration and will be used to validate the "iss" claim in the presented JWT.
+    # This is for scenarios where the well-known and jwks endpoints are hosted at a different
+    # location than the issuer (such as locally in the cluster).
+    # discoveryURL must be different from url if specified and must be unique across all authenticators.
+    discoveryURL: https://discovery.example.com/.well-known/openid-configuration
+    # PEM encoded CA certificates used to validate the connection when fetching
+    # discovery information. If not set, the system verifier will be used.
+    # Same value as the content of the file referenced by the --oidc-ca-file flag.
+    certificateAuthority: <PEM encoded CA certificates>
+    # audiences is the set of acceptable audiences the JWT must be issued to.
+    # At least one of the entries must match the "aud" claim in presented JWTs.
+    audiences:
+    - my-app # Same as --oidc-client-id.
+    - my-other-app
+    # this is required to be set to "MatchAny" when multiple audiences are specified.
+    audienceMatchPolicy: MatchAny
+  # rules applied to validate token claims to authenticate users.
+  claimValidationRules:
+    # Same as --oidc-required-claim key=value.
+  - claim: hd
+    requiredValue: example.com
+    # Instead of claim and requiredValue, you can use expression to validate the claim.
+    # expression is a CEL expression that evaluates to a boolean.
+    # all the expressions must evaluate to true for validation to succeed.
+  - expression: 'claims.hd == "example.com"'
+    # Message customizes the error message seen in the API server logs when the validation fails.
+    message: the hd claim must be set to example.com
+  - expression: 'claims.exp - claims.nbf <= 86400'
+    message: total token lifetime must not exceed 24 hours
+  claimMappings:
+    # username represents an option for the username attribute.
+    # This is the only required attribute.
+    username:
+      # Same as --oidc-username-claim. Mutually exclusive with username.expression.
+      claim: "sub"
+      # Same as --oidc-username-prefix. Mutually exclusive with username.expression.
+      # if username.claim is set, username.prefix is required.
+      # Explicitly set it to "" if no prefix is desired.
+      prefix: ""
+      # Mutually exclusive with username.claim and username.prefix.
+      # expression is a CEL expression that evaluates to a string.
+      #
+      # 1.  If username.expression uses 'claims.email', then 'claims.email_verified' must be used in
+      #     username.expression or extra[*].valueExpression or claimValidationRules[*].expression.
+      #     An example claim validation rule expression that matches the validation automatically
+      #     applied when username.claim is set to 'email' is 'claims.?email_verified.orValue(true) == true'.
+      #     By explicitly comparing the value to true, we let type-checking see the result will be a boolean, and
+      #     to make sure a non-boolean email_verified claim will be caught at runtime.
+      # 2.  If the username asserted based on username.expression is the empty string, the authentication
+      #     request will fail.
+      expression: 'claims.username + ":external-user"'
+    # groups represents an option for the groups attribute.
+    groups:
+      # Same as --oidc-groups-claim. Mutually exclusive with groups.expression.
+      claim: "sub"
+      # Same as --oidc-groups-prefix. Mutually exclusive with groups.expression.
+      # if groups.claim is set, groups.prefix is required.
+      # Explicitly set it to "" if no prefix is desired.
+      prefix: ""
+      # Mutually exclusive with groups.claim and groups.prefix.
+      # expression is a CEL expression that evaluates to a string or a list of strings.
+      expression: 'claims.roles.split(",")'
+    # uid represents an option for the uid attribute.
+    uid:
+      # Mutually exclusive with uid.expression.
+      claim: 'sub'
+      # Mutually exclusive with uid.claim
+      # expression is a CEL expression that evaluates to a string.
+      expression: 'claims.sub'
+    # extra attributes to be added to the UserInfo object. Keys must be domain-prefix path and must be unique.
+    extra:
+      # key is a string to use as the extra attribute key.
+      # key must be a domain-prefix path (e.g. example.org/foo). All characters before the first "/" must be a valid
+      # subdomain as defined by RFC 1123. All characters trailing the first "/" must
+      # be valid HTTP Path characters as defined by RFC 3986.
+      # k8s.io, kubernetes.io and their subdomains are reserved for Kubernetes use and cannot be used.
+      # key must be lowercase and unique across all extra attributes.
+    - key: 'example.com/tenant'
+      # valueExpression is a CEL expression that evaluates to a string or a list of strings.
+      valueExpression: 'claims.tenant'
+  # validation rules applied to the final user object.
+  userValidationRules:
+    # expression is a CEL expression that evaluates to a boolean.
+    # all the expressions must evaluate to true for the user to be valid.
+  - expression: "!user.username.startsWith('system:')"
+    # Message customizes the error message seen in the API server logs when the validation fails.
+    message: 'username cannot used reserved system: prefix'
+  - expression: "user.groups.all(group, !group.startsWith('system:'))"
+    message: 'groups cannot used reserved system: prefix'
 ```
 
-This extracts the CA certificate and formats it properly for AuthenticationConfiguration yaml file.
-
-Create `auth-config.yaml`:
+To set up the AuthenticationConfiguration, similarly to the previous example with OIDC flags(`--oidc-issuer-url`, `--oidc-client-id`, `--oidc-groups-claim`, `--oidc-ca-file`), you can set it in the file:
 
 ```bash
-cat << EOF_AuthConfig > auth-config.yaml
 apiVersion: apiserver.config.k8s.io/v1beta1
 kind: AuthenticationConfiguration
 jwt:
 - issuer:
-    url: https://127.0.0.1:5556/dex
+    url: <url of the issuer>
     certificateAuthority: |
-$CA_CERT
+      <ca-file-content>
     audiences:
-      - kcp-dev
+      - <client-id>
     audienceMatchPolicy: MatchAny
   claimMappings:
-    username:
-      claim: "email"
-      prefix: ""
     groups:
-      claim: "groups"
+      claim: <jwt-claim-name>
       prefix: ""
   claimValidationRules: []
   userValidationRules: []
-EOF_AuthConfig
 ```
 
-This command starts kcp with the specified authentication configuration.
+To start the kcp server with the specified OIDC authentication configuration, pass the file path to the `--authentication-config` flag.
 
 ```bash
-kcp start --authentication-config auth-config.yaml
-```
-
-### Configure OIDC Login with Kubectl
-
-To allow kubectl to authenticate via OIDC, install the required plugin:
-
-```bash
-kubectl krew install oidc-login
-```
-
-#### Verify OIDC Login
-
-Verify the login process by running
-
-```bash
-kubectl oidc-login get-token \
---oidc-issuer-url=https://127.0.0.1:5556/dex \
---oidc-client-id=kcp-dev \
---oidc-client-secret=<client-secret> \
---insecure-skip-tls-verify \
---oidc-extra-scope=groups,email
-```
-
-- `--oidc-issuer-url` specifies Dex server endpoint.
-
-- `--oidc-client-id` is the client ID used during authentication.
-
-- `--oidc-client-secret` authenticates the client, specify the one you have provided in the dex-config file.
-
-- `--oidc-extra-scope` requests additional claims.
-
-You will be redirected to the Dex to provide your static admin user and password that was configured in the dex-config.yaml file.
-
-#### Configure Context for OIDC User
-
-To use the OIDC-authenticated user in kubectl, update the kubeconfig
-
-```bash
-export KUBECONFIG=.kcp/admin.kubeconfig
-
-kubectl config set-credentials oidc \
-  --exec-api-version=client.authentication.k8s.io/v1beta1 \
-  --exec-command=kubectl \
-  --exec-arg=oidc-login \
-  --exec-arg=get-token \
-  --exec-arg=--oidc-issuer-url=https://127.0.0.1:5556/dex  \
-  --exec-arg=--oidc-client-id=kcp-dev \
-  --exec-arg=--oidc-client-secret=<client-secret> \
-  --exec-arg=--oidc-extra-scope=groups \
-  --exec-arg=--oidc-extra-scope=email \
-  --exec-arg=--insecure-skip-tls-verify
-
-kubectl config set-context --current --user=oidc
-```
-
-- This command configures the Kubernetes context to use OIDC authentication.
-
-- The `oidc-login` plugin retrieves authentication tokens dynamically.
-
-### Verify OIDC Authentication in kcp
-
-To confirm the setup, try to first fetch workspaces and then create a new one
-
-```bash
-kubectl get ws
-kubectl create workspace test-oidc
+kcp start --authentication-config <auth-config-file-path>
 ```

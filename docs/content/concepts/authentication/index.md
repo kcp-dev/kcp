@@ -45,7 +45,7 @@ flowchart
 ### Groups Filter
 
 kcp Front Proxy drops or passes specific system groups before forwarding requests.
-These can be passed by setting `--authentication-pass-on-groups` and `--authentication-drop-groups` flags. They accept a comma-separated list of group names.
+These can be passed by setting `--authentication-pass-on-groups` and `--authentication-drop-groups` flags. They accept a comma-separated list of group names. Groups specified via drop-groups take precedence over ones specified via pass-on.
 
 By default, proxy is configured to drop `system:masters` and `system:kcp:logical-cluster-admin`.
 This ensures that highly privileged users, do not receive elevated access when passing through the proxy.
@@ -60,8 +60,8 @@ This setting is currently enabled by default.
 
 | **User Name**   | **Role**                                                                                                                           | **Groups**                           |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
-| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks.                                           | system:masters, system:authenticated |
-| **kcp-admin**   | Member of the system:kcp:workspace:admin and system:kcp:workspace:access groups. This user is subject to kcp authorization checks. | system:kcp:workspace:admin           |
+| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks.                                           | system:masters|
+| **kcp-admin**   | Member of the system:kcp:admin group. This user is subject to kcp authorization checks. | system:kcp:admin           |
 | **user**        | Regular non-admin user who is not a part of any predefined groups.                                                                 | None                                 |
 
 ### Generated Kubeconfig Contexts
