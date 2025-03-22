@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '30 1 * * *'
 jobs:
-  - name: ghcr cleanup action
+  cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: dataaxiom/ghcr-cleanup-action@v1
