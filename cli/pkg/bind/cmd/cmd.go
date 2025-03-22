@@ -32,10 +32,10 @@ var (
 	%[1]s bind apiexport root:my-service:my-export --name my-binding
 
 	# Create an APIBinding named "my-binding" that binds to the APIExport "my-export" in the "root:my-service" workspace with accepted permission claims.
-	%[1]s bind apiexport root:my-service:my-export --name my-binding --accept-permission-claims secrets.core,configmaps.core
+	%[1]s bind apiexport root:my-service:my-export --name my-binding --accept-permission-claim secrets.core,configmaps.core
 
 	# Create an APIBinding named "my-binding" that binds to the APIExport "my-export" in the "root:my-service" workspace with rejected permission claims.
-	%[1]s bind apiexport root:my-service:my-export --name my-binding --reject-permission-claims secrets.core,configmaps.core
+	%[1]s bind apiexport root:my-service:my-export --name my-binding --reject-permission-claim secrets.core,configmaps.core
 	`
 )
 
