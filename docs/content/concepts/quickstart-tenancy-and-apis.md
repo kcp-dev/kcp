@@ -42,16 +42,18 @@ workspaces                        ws           tenancy.kcp.io/v1alpha1          
 
 ## Create and Navigate Some Workspaces
 
-The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces, and to create new ones:
+The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces and use `workspace create` plugin for `kubectl` to create new ones:
+> [!NOTE]  
+> Plugins can be found in the [release page](https://github.com/kcp-dev/kcp/releases/latest)
 
 ```shell
 $ kubectl ws .
 Current workspace is "root".
-$ kubectl ws create a --enter
+$ kubectl create workspace a --enter
 Workspace "a" (type root:organization) created. Waiting for it to be ready...
 Workspace "a" (type root:organization) is ready to use.
 Current workspace is "root:a".
-$ kubectl ws create b
+$ kubectl create workspace b
 Workspace "b" (type root:universal) created. Waiting for it to be ready...
 Workspace "b" (type root:universal) is ready to use.
 $ kubectl get workspaces
@@ -156,11 +158,11 @@ capabilities to service consumers in other workspaces.
 First we'll create an organization workspace, and then within that create a service provider workspace.
 
 ```shell
-$ kubectl ws create wildwest --enter
+$ kubectl create workspace wildwest --enter
 Workspace "wildwest" (type root:organization) created. Waiting for it to be ready...
 Workspace "wildwest" (type root:organization) is ready to use.
 Current workspace is "root:wildwest".
-$ kubectl ws create cowboys-service --enter
+$ kubectl create workspace cowboys-service --enter
 Workspace "cowboys-service" (type root:universal) created. Waiting for it to be ready...
 Workspace "cowboys-service" (type root:universal) is ready to use.
 Current workspace is "root:wildwest:cowboys-service".
@@ -196,7 +198,7 @@ Now we can adopt the service consumer persona and create a workspace from which 
 ```shell
 $ kubectl ws
 Current workspace is "root:users:zu:yc:kcp-admin".
-$ kubectl ws create --enter test-consumer
+$ kubectl create workspace --enter test-consumer
 Workspace "test-consumer" (type root:universal) created. Waiting for it to be ready...
 Workspace "test-consumer" (type root:universal) is ready to use.
 Current workspace is "root:users:zu:yc:kcp-admin:test-consumer".
