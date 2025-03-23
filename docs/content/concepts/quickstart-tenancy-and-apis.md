@@ -171,9 +171,8 @@ Current workspace is "root:wildwest:cowboys-service".
 Then we'll use a CRD to generate an `APIResourceSchema` and `APIExport` and apply these within the service provider
 workspace.
 
-> The `apigen` tool used below can be found
-> [here](https://github.com/kcp-dev/kcp/tree/main/sdk/cmd/apigen). Builds for the
-> tool are not currently published as part of the kcp release process.
+> [!NOTE]
+> The `apigen` tool used below can be found on the [release page](https://github.com/kcp-dev/kcp/releases/latest)
 
 ```shell
 $ mkdir wildwest-schemas/
