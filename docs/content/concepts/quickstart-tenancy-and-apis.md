@@ -42,9 +42,9 @@ workspaces                        ws           tenancy.kcp.io/v1alpha1          
 
 ## Create and Navigate Some Workspaces
 
-The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces and use `workspace create` plugin for `kubectl` to create new ones:
+The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces and use `create-workspace` plugin for `kubectl` to create new ones:
 > [!NOTE]  
-> Plugins can be found in the [release page](https://github.com/kcp-dev/kcp/releases/latest)
+> Refer to the [plugins page](https://docs.kcp.io/kcp/main/setup/kubectl-plugin/) to install them.
 
 ```shell
 $ kubectl ws .
