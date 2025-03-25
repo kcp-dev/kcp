@@ -3179,8 +3179,10 @@
 <h1 id="authentication">Authentication</h1>
 <p>kcp implements the same authentication mechanisms as Kubernetes, allowing the use of Kubernetes authentication strategies. The kcp server can also be configured to generate a local admin.kubeconfig file and a token hash file, enabling access to kcp as a shard admin. This authentication mechanism is then added to any existing Kubernetes authentication <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a> from generic control plane settings.</p>
 <h2 id="examples">Examples</h2>
-<p>For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:
-- <a href="oidc/">OIDC</a></p>
+<p>For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:</p>
+<ul>
+<li><a href="oidc/">OIDC</a></li>
+</ul>
 <h2 id="kcp-front-proxy-authentication">KCP Front Proxy Authentication</h2>
 <p>kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.</p>
 <p>Four authentication strategies are enabled in union.</p>
