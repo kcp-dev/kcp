@@ -20,6 +20,7 @@ kcp start \
 --oidc-groups-claim=<jwt-claim-name> \
 --oidc-ca-file=<ca-file-path>
 ```
+
 - `--oidc-issuer-url` URL of the provider that allows the API server to discover public signing keys.
 
 - `--oidc-client-id` A client id that all tokens must be issued for.
@@ -45,7 +46,8 @@ You can also set:
 Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
 Please note that iff you specify --authentication-config along with any of the --oidc-* command line arguments, this will be treated as a misconfiguration.
 
-```bashapiVersion: apiserver.config.k8s.io/v1beta1
+```bash
+apiVersion: apiserver.config.k8s.io/v1beta1
 kind: AuthenticationConfiguration
 # list of authenticators to authenticate Kubernetes users using JWT compliant tokens.
 # the maximum number of allowed authenticators is 64.
