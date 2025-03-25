@@ -6,33 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="kubectl plugin for KCP
+        <meta name="description" content="How to authenticate requests to kcp.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/cli/kcp/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/authentication/">
       
       
-        <link rel="prev" href="../create_workspace/">
+        <link rel="prev" href="../apis/rest-access-patterns/">
       
       
-        <link rel="next" href="../kcp_bind/">
+        <link rel="next" href="oidc/">
       
       
-      <link rel="icon" href="../../../favicons/favicon.ico">
+      <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>kcp - docs.kcp.io</title>
+        <title>Authentication - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synopsis" class="md-skip">
+        <a href="#authentication" class="md-skip">
           Skip to content
         </a>
       
@@ -97,9 +97,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kcp
+              Authentication
             
           </span>
         </div>
@@ -235,7 +235,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href="../.." class="md-tabs__link">
           
   
     
@@ -255,7 +255,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../setup/" class="md-tabs__link">
+        <a href="../../setup/" class="md-tabs__link">
           
   
     
@@ -271,11 +271,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../concepts/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
     
@@ -295,7 +297,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../developers/" class="md-tabs__link">
+        <a href="../../developers/" class="md-tabs__link">
           
   
     
@@ -315,7 +317,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../contributing/" class="md-tabs__link">
+        <a href="../../contributing/" class="md-tabs__link">
           
   
     
@@ -331,13 +333,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
           
   
     
@@ -372,9 +372,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -426,7 +426,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../.." class="md-nav__link ">
+            <a href="../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -459,7 +459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOALS/" class="md-nav__link">
+      <a href="../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -516,7 +516,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../setup/" class="md-nav__link ">
+            <a href="../../setup/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -549,7 +549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/quickstart/" class="md-nav__link">
+      <a href="../../setup/quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -570,7 +570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/helm/" class="md-nav__link">
+      <a href="../../setup/helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -591,7 +591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -616,6 +616,8 @@
       
   
   
+    
+  
   
   
     
@@ -644,21 +646,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -669,13 +672,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -691,7 +694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/terminology/" class="md-nav__link">
+      <a href="../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -712,7 +715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -762,7 +765,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -795,7 +798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -816,7 +819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -837,7 +840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -895,7 +898,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/apis/" class="md-nav__link ">
+            <a href="../apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -928,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -949,7 +952,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -970,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -996,6 +999,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1013,18 +1018,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authentication/" class="md-nav__link ">
+            <a href="./" class="md-nav__link md-nav__link--active">
               
   
   <span class="md-ellipsis">
@@ -1035,13 +1038,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+              <label class="md-nav__link md-nav__link--active" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Authentication
@@ -1057,7 +1060,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1111,7 +1114,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1144,7 +1147,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1202,7 +1205,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1235,7 +1238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1256,7 +1259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1277,7 +1280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1331,7 +1334,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1364,7 +1367,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1431,7 +1434,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../developers/" class="md-nav__link ">
+            <a href="../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1464,7 +1467,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
+      <a href="../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1529,7 +1532,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1604,7 +1607,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
+      <a href="../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1625,7 +1628,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1685,7 +1688,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../developers/investigations/" class="md-nav__link ">
+            <a href="../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1718,7 +1721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1739,7 +1742,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1760,7 +1763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1781,7 +1784,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1848,7 +1851,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/" class="md-nav__link ">
+            <a href="../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1881,7 +1884,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../contributing/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1902,7 +1905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../contributing/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1923,7 +1926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../contributing/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1944,7 +1947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/replicate-new-resource/" class="md-nav__link">
+      <a href="../../contributing/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1969,8 +1972,6 @@
       
   
   
-    
-  
   
   
     
@@ -1987,22 +1988,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2013,13 +2013,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -2032,10 +2032,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -2083,11 +2081,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
         
           
           <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
@@ -2101,7 +2101,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_2">
             <span class="md-nav__icon md-icon"></span>
             CLI
@@ -2115,7 +2115,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../create_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2133,28 +2133,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    kcp
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2163,51 +2145,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#synopsis" class="md-nav__link">
-    <span class="md-ellipsis">
-      Synopsis
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      SEE ALSO
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2220,7 +2157,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2241,7 +2178,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2262,7 +2199,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2283,7 +2220,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2304,7 +2241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2325,7 +2262,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2346,7 +2283,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2367,7 +2304,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2388,7 +2325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2409,7 +2346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2430,7 +2367,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2451,7 +2388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2472,7 +2409,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace/" class="md-nav__link">
+      <a href="../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2493,7 +2430,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_create-context/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2514,7 +2451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2535,7 +2472,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2556,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2687,7 +2624,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2708,7 +2645,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2729,7 +2666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2750,7 +2687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2771,7 +2708,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2846,7 +2783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2867,7 +2804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2942,7 +2879,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2963,7 +2900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3038,7 +2975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3059,7 +2996,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3113,6 +3050,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3121,29 +3060,101 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#synopsis" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Synopsis
+      Examples
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
+  <a href="#kcp-front-proxy-authentication" class="md-nav__link">
     <span class="md-ellipsis">
-      Options
+      KCP Front Proxy Authentication
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="KCP Front Proxy Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication-flow-with-client-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Flow With Client Certificate
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#groups-filter" class="md-nav__link">
     <span class="md-ellipsis">
-      SEE ALSO
+      Groups Filter
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kcp-server-admin-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      KCP Server Admin Authentication
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="KCP Server Admin Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#users-and-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Users and Groups
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generated-kubeconfig-contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generated Kubeconfig Contexts
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pages
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oidc-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      OIDC Setup
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3165,34 +3176,101 @@
   
 
 
-  <h1>kcp</h1>
-
-<h3 id="synopsis">Synopsis</h3>
-<p>KCP is the easiest way to manage Kubernetes applications against one or more clusters, by giving you a personal control plane that schedules your workloads onto one or many clusters, and making it simple to pick up and move. Advanced use cases including spreading your apps across clusters for resiliency, scheduling batch workloads onto clusters with free capacity, and enabling collaboration for individual teams without having access to the underlying clusters.</p>
-<p>This command provides KCP specific sub-command for kubectl.</p>
-<h3 id="options">Options</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -h, --help                             help for kcp
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>      --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>      --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>      --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>      --log_file_max_size uint           Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>      --logtostderr                      log to standard error instead of files (default true)
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>      --one_output                       If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>      --skip_headers                     If true, avoid header prefixes in the log messages
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>      --skip_log_headers                 If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>      --stderrthreshold severity         logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true) (default 2)
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  -v, --v Level                          number for the log level verbosity
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>      --vmodule moduleSpec               comma-separated list of pattern=N settings for file-filtered logging
-</code></pre></div>
-<h3 id="see-also">SEE ALSO</h3>
+<h1 id="authentication">Authentication</h1>
+<p>kcp implements the same authentication mechanisms as Kubernetes, allowing the use of Kubernetes authentication strategies. The kcp server can also be configured to generate a local admin.kubeconfig file and a token hash file, enabling access to kcp as a shard admin. This authentication mechanism is then added to any existing Kubernetes authentication <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a> from generic control plane settings.</p>
+<h2 id="examples">Examples</h2>
+<p>For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:
+- <a href="oidc/">OIDC</a></p>
+<h2 id="kcp-front-proxy-authentication">KCP Front Proxy Authentication</h2>
+<p>kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.</p>
+<p>Four authentication strategies are enabled in union.</p>
 <ul>
-<li><a href="../kcp_bind/">kcp bind</a>  - Bind different types into current workspace.</li>
-<li><a href="../kcp_claims/">kcp claims</a>  - Operations related to viewing or updating permission claims</li>
-<li><a href="../kcp_crd/">kcp crd</a>    - CRD related operations</li>
-<li><a href="../kcp_workspace/">kcp workspace</a>    - Manages KCP workspaces</li>
+<li>Client certificate</li>
+<li>Token file</li>
+<li>Service account</li>
+<li>OIDC</li>
 </ul>
+<p>You can configure them with the settings from Kubernetes control plane <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a>.</p>
+<h3 id="authentication-flow-with-client-certificate">Authentication Flow With Client Certificate</h3>
+<pre class="mermaid"><code>flowchart
+    n1@{ label: "Rectangle" }
+    n1["A client sends a request
+  with a client certificate."] --- n2
+    n2["The proxy verifies the
+  certificate against a trusted CA."] --- n3
+    n3["Filters specified
+  groups from requests."] --- n4
+    n4["Extracts the user and
+  groups and passing them
+  as HTTP access headers."] --- n5["Forwards the request
+  to the kcp API server."]</code></pre>
+<h3 id="groups-filter">Groups Filter</h3>
+<p>kcp-front-proxy drops or passes specific system groups before forwarding requests.
+These can be passed by setting <code>--authentication-pass-on-groups</code> and <code>--authentication-drop-groups</code> flags. They accept a comma-separated list of group names. Groups specified via drop-groups take precedence over ones specified via pass-on.</p>
+<p>By default, kcp-front-proxy is configured to drop <code>system:masters</code> and <code>system:kcp:logical-cluster-admin</code>.
+This ensures that highly privileged users do not receive elevated access when passing through the proxy.</p>
+<h2 id="kcp-server-admin-authentication">KCP Server Admin Authentication</h2>
+<p>Admin Authenticator sets up user roles and groups and generates authentication tokens and <code>admin.kubeconfig</code> file. The authentication process relies on Kubernetes authenticated group authenticator.
+To enable admin authentication in the kcp server, you need run it in the development mode with the <code>--batteries-included=admin</code> flag set.
+This setting is currently enabled by default when running the <code>kcp</code> binary, but is disabled in the Helm chart.</p>
+<h3 id="users-and-groups">Users and Groups</h3>
+<table>
+<thead>
+<tr>
+<th><strong>User Name</strong></th>
+<th><strong>Role</strong></th>
+<th><strong>Groups</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>shard-admin</strong></td>
+<td>Member of the privileged system group. This user bypasses most kcp authorization checks.</td>
+<td>system:masters</td>
+</tr>
+<tr>
+<td><strong>kcp-admin</strong></td>
+<td>Member of the system:kcp:admin group. This user is subject to kcp authorization checks.</td>
+<td>system:kcp:admin</td>
+</tr>
+<tr>
+<td><strong>user</strong></td>
+<td>Regular non-admin user who is not a part of any predefined groups.</td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<h3 id="generated-kubeconfig-contexts">Generated Kubeconfig Contexts</h3>
+<p>kcp server generates a kubeconfig file (admin.kubeconfig) containing credentials for the predefined users. This file allows users to authenticate into different logical clusters.</p>
+<table>
+<thead>
+<tr>
+<th><strong>Context Name</strong></th>
+<th><strong>Cluster Endpoint</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>root</strong></td>
+<td>/clusters/root</td>
+</tr>
+<tr>
+<td><strong>base</strong></td>
+<td>/clusters/base</td>
+</tr>
+<tr>
+<td><strong>system:admin</strong></td>
+<td>/clusters/system:admin</td>
+</tr>
+<tr>
+<td><strong>shard-base</strong></td>
+<td>/clusters/base</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pages">Pages</h2>
+<h3 id="oidc-setup"><a href="./oidc/">OIDC Setup</a></h3>
+<p>How to setup OIDC authentication in kcp.</p>
 
 
 
@@ -3274,10 +3352,10 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
     
   </body>

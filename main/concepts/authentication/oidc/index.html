@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="kubectl plugin for KCP
+        <meta name="description" content="How to setup OIDC authentication in kcp.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/cli/kcp/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/authentication/oidc/">
       
       
-        <link rel="prev" href="../create_workspace/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../kcp_bind/">
+        <link rel="next" href="../../authorization/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>kcp - docs.kcp.io</title>
+        <title>OIDC Setup - docs.kcp.io</title>
       
     
     
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synopsis" class="md-skip">
+        <a href="#oidc-setup" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kcp
+              OIDC Setup
             
           </span>
         </div>
@@ -271,11 +271,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../concepts/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -331,13 +333,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -616,6 +616,8 @@
       
   
   
+    
+  
   
   
     
@@ -644,21 +646,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -669,13 +672,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -691,7 +694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/terminology/" class="md-nav__link">
+      <a href="../../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -712,7 +715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -762,7 +765,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -795,7 +798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -816,7 +819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -837,7 +840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -895,7 +898,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/apis/" class="md-nav__link ">
+            <a href="../../apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -928,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -949,7 +952,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -970,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -996,6 +999,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1013,18 +1018,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authentication/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1041,7 +1044,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Authentication
@@ -1054,10 +1057,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    OIDC Setup
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1066,6 +1089,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configure-kcp-oidc-authentication-using-oidc-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configure kcp OIDC Authentication Using OIDC Flags
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configure-kcp-oidc-authentication-using-structured-authentication-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configure kcp OIDC Authentication Using Structured Authentication Configuration
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1111,7 +1172,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1144,7 +1205,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1202,7 +1263,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1235,7 +1296,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1256,7 +1317,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1277,7 +1338,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1331,7 +1392,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1364,7 +1425,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1969,8 +2030,6 @@
       
   
   
-    
-  
   
   
     
@@ -1987,22 +2046,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2013,13 +2071,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -2032,10 +2090,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -2083,11 +2139,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
         
           
           <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
@@ -2101,7 +2159,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_2">
             <span class="md-nav__icon md-icon"></span>
             CLI
@@ -2115,7 +2173,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2133,28 +2191,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    kcp
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2163,51 +2203,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#synopsis" class="md-nav__link">
-    <span class="md-ellipsis">
-      Synopsis
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      SEE ALSO
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2220,7 +2215,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2241,7 +2236,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2262,7 +2257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2283,7 +2278,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2304,7 +2299,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2325,7 +2320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2346,7 +2341,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2367,7 +2362,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2388,7 +2383,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2409,7 +2404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2430,7 +2425,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2451,7 +2446,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2472,7 +2467,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2493,7 +2488,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2514,7 +2509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2535,7 +2530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2556,7 +2551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2687,7 +2682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2708,7 +2703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2729,7 +2724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2750,7 +2745,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2771,7 +2766,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2846,7 +2841,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2867,7 +2862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2942,7 +2937,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2963,7 +2958,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3038,7 +3033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3059,7 +3054,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3113,6 +3108,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3121,27 +3118,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#synopsis" class="md-nav__link">
+  <a href="#configure-kcp-oidc-authentication-using-oidc-flags" class="md-nav__link">
     <span class="md-ellipsis">
-      Synopsis
+      Configure kcp OIDC Authentication Using OIDC Flags
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
+  <a href="#configure-kcp-oidc-authentication-using-structured-authentication-configuration" class="md-nav__link">
     <span class="md-ellipsis">
-      Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      SEE ALSO
+      Configure kcp OIDC Authentication Using Structured Authentication Configuration
     </span>
   </a>
   
@@ -3165,34 +3153,177 @@
   
 
 
-  <h1>kcp</h1>
-
-<h3 id="synopsis">Synopsis</h3>
-<p>KCP is the easiest way to manage Kubernetes applications against one or more clusters, by giving you a personal control plane that schedules your workloads onto one or many clusters, and making it simple to pick up and move. Advanced use cases including spreading your apps across clusters for resiliency, scheduling batch workloads onto clusters with free capacity, and enabling collaboration for individual teams without having access to the underlying clusters.</p>
-<p>This command provides KCP specific sub-command for kubectl.</p>
-<h3 id="options">Options</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -h, --help                             help for kcp
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>      --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>      --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>      --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>      --log_file_max_size uint           Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>      --logtostderr                      log to standard error instead of files (default true)
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>      --one_output                       If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>      --skip_headers                     If true, avoid header prefixes in the log messages
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>      --skip_log_headers                 If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>      --stderrthreshold severity         logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true) (default 2)
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  -v, --v Level                          number for the log level verbosity
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>      --vmodule moduleSpec               comma-separated list of pattern=N settings for file-filtered logging
+<h1 id="oidc-setup">OIDC Setup</h1>
+<p>OpenID Connect (OIDC) is a simple identity layer on top of the OAuth 2.0 protocol, which allows clients to verify the identity of users based on the authentication performed by an external authorization server. In this guide, we will set up OIDC authentication in kcp using Dex as the identity provider.
+For more details on Kubernetes specific configuration, please refer to this <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#openid-connect-tokens">page</a>.</p>
+<h2 id="configure-kcp-oidc-authentication-using-oidc-flags">Configure kcp OIDC Authentication Using OIDC Flags</h2>
+<p>kcp server will configure the OIDC authentication using the same Kubernetes control plane settings, to start kcp with OIDC authentication enabled, you can simply pass OIDC flags during the start of the kcp server:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>--oidc-issuer-url<span class="o">=</span>&lt;url<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>issuer&gt;<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>--oidc-client-id<span class="o">=</span>&lt;client-id&gt;<span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>--oidc-groups-claim<span class="o">=</span>&lt;jwt-claim-name&gt;<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>--oidc-ca-file<span class="o">=</span>&lt;ca-file-path&gt;
 </code></pre></div>
-<h3 id="see-also">SEE ALSO</h3>
+- <code>--oidc-issuer-url</code> URL of the provider that allows the API server to discover public signing keys.</p>
 <ul>
-<li><a href="../kcp_bind/">kcp bind</a>  - Bind different types into current workspace.</li>
-<li><a href="../kcp_claims/">kcp claims</a>  - Operations related to viewing or updating permission claims</li>
-<li><a href="../kcp_crd/">kcp crd</a>    - CRD related operations</li>
-<li><a href="../kcp_workspace/">kcp workspace</a>    - Manages KCP workspaces</li>
+<li>
+<p><code>--oidc-client-id</code> A client id that all tokens must be issued for.</p>
+</li>
+<li>
+<p><code>--oidc-groups-claim</code> JWT claim to use as the user's group.</p>
+</li>
+<li>
+<p><code>--oidc-ca-file</code> The path to the certificate for the CA that signed your identity provider's web certificate.</p>
+</li>
 </ul>
+<p>You can also set:</p>
+<ul>
+<li>
+<p><code>--oidc-username-claim</code> JWT claim to use as the user name.</p>
+</li>
+<li>
+<p><code>--oidc-required-claim</code> A key=value pair that describes a required claim in the ID Token.</p>
+</li>
+<li>
+<p><code>--oidc-signing-algs</code> The signing algorithms accepted.</p>
+</li>
+<li>
+<p><code>--oidc-username-prefix</code> Prefix prepended to username claims to prevent clashes with existing names.</p>
+</li>
+<li>
+<p><code>--oidc-groups-prefix</code> Prefix prepended to group claims to prevent clashes with existing names</p>
+</li>
+</ul>
+<h2 id="configure-kcp-oidc-authentication-using-structured-authentication-configuration">Configure kcp OIDC Authentication Using Structured Authentication Configuration</h2>
+<p>Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
+Please note that iff you specify --authentication-config along with any of the --oidc-* command line arguments, this will be treated as a misconfiguration.</p>
+<p>```bashapiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration</p>
+<h1 id="list-of-authenticators-to-authenticate-kubernetes-users-using-jwt-compliant-tokens">list of authenticators to authenticate Kubernetes users using JWT compliant tokens.</h1>
+<h1 id="the-maximum-number-of-allowed-authenticators-is-64">the maximum number of allowed authenticators is 64.</h1>
+<p>jwt:
+- issuer:
+    # url must be unique across all authenticators.
+    # url must not conflict with issuer configured in --service-account-issuer.
+    url: https://example.com # Same as --oidc-issuer-url.
+    # discoveryURL, if specified, overrides the URL used to fetch discovery
+    # information instead of using "{url}/.well-known/openid-configuration".
+    # The exact value specified is used, so "/.well-known/openid-configuration"
+    # must be included in discoveryURL if needed.
+    #
+    # The "issuer" field in the fetched discovery information must match the "issuer.url" field
+    # in the AuthenticationConfiguration and will be used to validate the "iss" claim in the presented JWT.
+    # This is for scenarios where the well-known and jwks endpoints are hosted at a different
+    # location than the issuer (such as locally in the cluster).
+    # discoveryURL must be different from url if specified and must be unique across all authenticators.
+    discoveryURL: https://discovery.example.com/.well-known/openid-configuration
+    # PEM encoded CA certificates used to validate the connection when fetching
+    # discovery information. If not set, the system verifier will be used.
+    # Same value as the content of the file referenced by the --oidc-ca-file flag.
+    certificateAuthority: <PEM encoded CA certificates>
+    # audiences is the set of acceptable audiences the JWT must be issued to.
+    # At least one of the entries must match the "aud" claim in presented JWTs.
+    audiences:
+    - my-app # Same as --oidc-client-id.
+    - my-other-app
+    # this is required to be set to "MatchAny" when multiple audiences are specified.
+    audienceMatchPolicy: MatchAny
+  # rules applied to validate token claims to authenticate users.
+  claimValidationRules:
+    # Same as --oidc-required-claim key=value.
+  - claim: hd
+    requiredValue: example.com
+    # Instead of claim and requiredValue, you can use expression to validate the claim.
+    # expression is a CEL expression that evaluates to a boolean.
+    # all the expressions must evaluate to true for validation to succeed.
+  - expression: 'claims.hd == "example.com"'
+    # Message customizes the error message seen in the API server logs when the validation fails.
+    message: the hd claim must be set to example.com
+  - expression: 'claims.exp - claims.nbf &lt;= 86400'
+    message: total token lifetime must not exceed 24 hours
+  claimMappings:
+    # username represents an option for the username attribute.
+    # This is the only required attribute.
+    username:
+      # Same as --oidc-username-claim. Mutually exclusive with username.expression.
+      claim: "sub"
+      # Same as --oidc-username-prefix. Mutually exclusive with username.expression.
+      # if username.claim is set, username.prefix is required.
+      # Explicitly set it to "" if no prefix is desired.
+      prefix: ""
+      # Mutually exclusive with username.claim and username.prefix.
+      # expression is a CEL expression that evaluates to a string.
+      #
+      # 1.  If username.expression uses 'claims.email', then 'claims.email_verified' must be used in
+      #     username.expression or extra[<em>].valueExpression or claimValidationRules[</em>].expression.
+      #     An example claim validation rule expression that matches the validation automatically
+      #     applied when username.claim is set to 'email' is 'claims.?email_verified.orValue(true) == true'.
+      #     By explicitly comparing the value to true, we let type-checking see the result will be a boolean, and
+      #     to make sure a non-boolean email_verified claim will be caught at runtime.
+      # 2.  If the username asserted based on username.expression is the empty string, the authentication
+      #     request will fail.
+      expression: 'claims.username + ":external-user"'
+    # groups represents an option for the groups attribute.
+    groups:
+      # Same as --oidc-groups-claim. Mutually exclusive with groups.expression.
+      claim: "sub"
+      # Same as --oidc-groups-prefix. Mutually exclusive with groups.expression.
+      # if groups.claim is set, groups.prefix is required.
+      # Explicitly set it to "" if no prefix is desired.
+      prefix: ""
+      # Mutually exclusive with groups.claim and groups.prefix.
+      # expression is a CEL expression that evaluates to a string or a list of strings.
+      expression: 'claims.roles.split(",")'
+    # uid represents an option for the uid attribute.
+    uid:
+      # Mutually exclusive with uid.expression.
+      claim: 'sub'
+      # Mutually exclusive with uid.claim
+      # expression is a CEL expression that evaluates to a string.
+      expression: 'claims.sub'
+    # extra attributes to be added to the UserInfo object. Keys must be domain-prefix path and must be unique.
+    extra:
+      # key is a string to use as the extra attribute key.
+      # key must be a domain-prefix path (e.g. example.org/foo). All characters before the first "/" must be a valid
+      # subdomain as defined by RFC 1123. All characters trailing the first "/" must
+      # be valid HTTP Path characters as defined by RFC 3986.
+      # k8s.io, kubernetes.io and their subdomains are reserved for Kubernetes use and cannot be used.
+      # key must be lowercase and unique across all extra attributes.
+    - key: 'example.com/tenant'
+      # valueExpression is a CEL expression that evaluates to a string or a list of strings.
+      valueExpression: 'claims.tenant'
+  # validation rules applied to the final user object.
+  userValidationRules:
+    # expression is a CEL expression that evaluates to a boolean.
+    # all the expressions must evaluate to true for the user to be valid.
+  - expression: "!user.username.startsWith('system:')"
+    # Message customizes the error message seen in the API server logs when the validation fails.
+    message: 'username cannot used reserved system: prefix'
+  - expression: "user.groups.all(group, !group.startsWith('system:'))"
+    message: 'groups cannot used reserved system: prefix'
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>To set up the AuthenticationConfiguration, similarly to the previous example with OIDC flags(`--oidc-issuer-url`, `--oidc-client-id`, `--oidc-groups-claim`, `--oidc-ca-file`), you can set it in the file:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>```bash
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>apiVersion: apiserver.config.k8s.io/v1beta1
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>kind: AuthenticationConfiguration
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>jwt:
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>- issuer:
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    url: &lt;url of the issuer&gt;
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    certificateAuthority: |
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>      &lt;ca-file-content&gt;
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    audiences:
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>      - &lt;client-id&gt;
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    audienceMatchPolicy: MatchAny
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  claimMappings:
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    groups:
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>      claim: &lt;jwt-claim-name&gt;
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>      prefix: &quot;&quot;
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  claimValidationRules: []
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  userValidationRules: []
+</code></pre></div></p>
+<p>To start the kcp server with the specified OIDC authentication configuration, pass the file path to the <code>--authentication-config</code> flag.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kcp<span class="w"> </span>start<span class="w"> </span>--authentication-config<span class="w"> </span>&lt;auth-config-file-path&gt;
+</code></pre></div>
 
 
 
