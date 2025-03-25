@@ -224,6 +224,8 @@ verify-codegen: ## Verify codegen
 		exit 1; \
 	fi
 
+	./hack/verify-apiresourceschemas.sh
+
 .PHONY: imports
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
