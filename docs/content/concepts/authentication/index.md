@@ -10,6 +10,7 @@ kcp implements the same authentication mechanisms as Kubernetes, allowing the us
 ## Examples
 
 For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:
+
 - [OIDC]
 
 ## KCP Front Proxy Authentication
@@ -27,7 +28,7 @@ You can configure them with the settings from Kubernetes control plane [strategi
 
 ### Authentication Flow With Client Certificate
 
-``` mermaid
+```mermaid
 flowchart
 	n1@{ label: "Rectangle" }
 	n1["A client sends a request
