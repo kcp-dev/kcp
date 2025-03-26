@@ -22,7 +22,7 @@
     
     
       
-        <title>Exporting APIs - docs.kcp.io</title>
+        <title>Exporting and Binding APIs - docs.kcp.io</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#exporting-apis" class="md-skip">
+        <a href="#exporting-and-binding-apis" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Exporting APIs
+              Exporting and Binding APIs
             
           </span>
         </div>
@@ -962,7 +962,7 @@
           
   
   <span class="md-ellipsis">
-    Exporting APIs
+    Exporting and Binding APIs
   </span>
   
 
@@ -973,7 +973,7 @@
         
   
   <span class="md-ellipsis">
-    Exporting APIs
+    Exporting and Binding APIs
   </span>
   
 
@@ -3330,7 +3330,7 @@
   
 
 
-<h1 id="exporting-apis">Exporting APIs</h1>
+<h1 id="exporting-and-binding-apis">Exporting and Binding APIs</h1>
 <p>If you're looking to provide APIs that can be consumed by multiple workspaces, this section is for you!</p>
 <p>kcp adds new APIs that enable this new model of publishing and consuming APIs. The following diagram shows a workspace
 that an API provider would use to export their <code>widgets</code> API. The provider uses kcp's new <code>APIResourceSchema</code> type to
@@ -3363,7 +3363,7 @@ etc.).</p>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                                     │  Widget C             │
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                                     └───────────────────────┘
 </code></pre></div>
-<p><strong>Diagram: 1 APIExport consumed by 2 different workspaces</strong> (<a href="https://asciiflow.com/#/share/eJyrVspLzE1VssorzcnRUcpJrEwtUrJSqo5RqohRsrI0NdGJUaoEsozMzYCsktSKEiAnRkmBGPBoyh5qoZiYPGKtVFBwzs8rLs1NLVIIzy%2FKLi5ITE6FyJBgyIC4G5cMEYZgtVwhPDMlPbWkWMExwNMpMy8lMy%2BdFAOp5C44BXGNgiMWY6gY4igBgNUBTtgdAGQDw0khoCi%2FLDMFNfHgNMp5gPxCxeSJO4YR8YeqEilVuVYU5BeVKDya3kKCDdj5ONROw68WyS1BqcX5pUXJqcHJGam5iehx1vNoSgM10AT6xHATzlKsiZRcN4dKvl5C1xIDS9DgKMmICQyoqU24ZUgyBEcpRpYh6CURWYagl0EkGDKFSsljRoxSrVItAH%2FrdL4%3D">source</a>)</p>
+<p><strong>Diagram: 1 APIExport consumed by 2 different workspaces</strong> ([source][diagram1])</p>
 <p>Above we talked about needing 1 controller instance per workspace, as workspace is roughly synonymous with cluster, and
 most/all controllers out there currently only support a single cluster. But because multiple workspaces coexist in kcp,
 we can be much more efficient and have 1 controller handle <code>widgets</code> in multiple workspaces!</p>
@@ -3646,13 +3646,51 @@ TODO
 
 <h2 id="bind-to-exported-apis">Bind to Exported APIs</h2>
 <h3 id="apibinding">APIBinding</h3>
-<p>TODO
-- "imports" all the <code>APIResourceSchemas</code> defined in an <code>APIExport</code> into its workspace
-- Also provides access to the group/resources defined in an <code>APIExport</code>'s <code>PermissionClaims</code> slice
-- APIs are "imported" by accepting <code>PermissionClaims</code> within the <code>APIBinding</code> for each of the <code>APIExport</code>'s group/resources
-- The consumer of the <code>APIExport</code> must be granted permission to the <code>bind</code> verb on that <code>APIExport</code> in order to create an <code>APIBinding</code>
-- An <code>APIBinding</code> is bound to a specific <code>APIExport</code> and associated <code>APIResourceSchema</code>s via the <code>APIBinding.Status.BoundResources</code> field, which will hold the identity information to precisely identify relevant objects.
-- how do I correctly reference an APIExport?</p>
+<p><code>APIBindings</code> are used to import API resources. They contain a reference to an <code>APIExport</code> using the name and kcp workspace path of an <code>APIExport</code> and will bind all APIs defined in the <code>APIExport</code> to your workspace. The reference path needs to be provided to you by the provider of the API or an external cataloging solution. Alternatively the provider of the api could give you read permissions on the <code>APIExport</code> in their workspace.</p>
+<p>Returning to our previous example, we can use the following <code>APIBinding</code> to import the widgets api.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIBinding</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">reference</span><span class="p">:</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">export</span><span class="p">:</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;root:api-provider&quot;</span><span class="w"> </span><span class="c1"># path of your api-provider workspace</span>
+</code></pre></div>
+<p>Furthermore, <code>APIBindings</code> provide the <code>APIExport</code> owner access to additional resources defined in an <code>APIExport</code>'s permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other <code>APIExports</code>.
+When an <code>APIExport</code> is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all <code>APIBindings</code>. New permission claims on the other hand are NOT automatically accepted.</p>
+<p>Returning to our example, we can grant the requested permissions in the <code>APIBinding</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIBinding</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">reference</span><span class="p">:</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="nt">export</span><span class="p">:</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;root:api-provider&quot;</span><span class="w"> </span><span class="c1"># path of your api-provider workspace</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="nt">permissionClaims</span><span class="p">:</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">configmaps</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">resourceSelector</span><span class="p">:</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-setup</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-system</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+</code></pre></div>
+<p>It should be noted that <code>APIBindings</code> do not create <code>CRDs</code> or <code>APIResourceSchemas</code>in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.</p>
+<p>In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using <code>kubectl api-resources</code>. Additionally you can use <code>kubectl explain</code> to get a detailed view on all fields of the API.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># inside consumer workspace</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>api-resources<span class="w"> </span>--api-group<span class="o">=</span><span class="s1">&#39;example.kcp.io&#39;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>NAME<span class="w">      </span>SHORTNAMES<span class="w">   </span>APIVERSION<span class="w">                </span>NAMESPACED<span class="w">   </span>KIND
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>widgets<span class="w">                </span>example.kcp.io/v1alpha1<span class="w">   </span><span class="nb">false</span><span class="w">        </span>Widget
+</code></pre></div>
+<p>Furthermore, you can use the <code>.status.boundResources</code> field to precisely identify which <code>APIResourceSchemas</code> have been imported.</p>
 
 
 
