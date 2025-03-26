@@ -44,7 +44,7 @@ You can also set:
 ## Configure kcp OIDC Authentication Using Structured Authentication Configuration
 
 Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
-Please note that iff you specify --authentication-config along with any of the --oidc-* command line arguments, this will be treated as a misconfiguration.
+Please note that if you specify `--authentication-config` along with any of the `--oidc-*` command line arguments, this will be treated as a misconfiguration.
 
 ```bash
 apiVersion: apiserver.config.k8s.io/v1beta1
