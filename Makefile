@@ -205,6 +205,7 @@ codegen:  $(KCP_APIGEN_GEN) $(CODE_GENERATOR) crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	$(MAKE) imports
+	./hack/gen-patch-defaultrestmapper.sh
 .PHONY: codegen
 
 # Note, running this locally if you have any modified files, even those that are not generated,
