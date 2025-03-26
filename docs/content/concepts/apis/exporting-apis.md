@@ -391,8 +391,8 @@ spec:
       path: "root:api-provider" # path of your api-provider workspace
 ```
 
-Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s PermissionClaims list. PermissionClaims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
-When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New `PermissionClaims` on the other hand are NOT automatically accepted.
+Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
+When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New permission claims on the other hand are NOT automatically accepted.
 
 Returning to our example, we can grant the requested permissions in the `APIBinding`:
 
