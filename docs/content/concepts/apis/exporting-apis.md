@@ -375,10 +375,7 @@ TODO
 
 ### APIBinding
 
-`APIBindings` are used to import API resources. They contain a reference to an `APIExport` using the namespace and workspace path of an `APIExport` and will bind all APIs defined in the `APIExport`. The reference path needs to be provided to you by the provider of the API or an external catalog solution.
-
-Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s `PermissionClaims` list. `PermissionClaims` must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
-When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New `PermissionClaims` on the other hand are NOT automatically accepted.
+`APIBindings` are used to import API resources. They contain a reference to an `APIExport` using the name and kcp workspace path of an `APIExport` and will bind all APIs defined in the `APIExport` to your workspace. The reference path needs to be provided to you by the provider of the API or an external cataloging solution. Alternatively the provider of the api could give you read permissions on the `APIExport` in their workspace.
 
 Returning to our previous example, we can use the following `APIBinding` to import the widgets api.
 
@@ -394,16 +391,44 @@ spec:
       path: "root:api-provider" # path of your api-provider workspace
 ```
 
-It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`. Instead APIs are directly bound. 
+Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s PermissionClaims list. PermissionClaims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
+When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New `PermissionClaims` on the other hand are NOT automatically accepted.
 
-Bound APIs are like any other resources in kcp or Kubernetes. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
+Returning to our example, we can grant the requested permissions in the `APIBinding`:
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIBinding
+metadata:
+  name: example.kcp.io
+spec:
+  reference:
+    export:
+      name: example.kcp.io
+      path: "root:api-provider" # path of your api-provider workspace
+  permissionClaims:
+  - resource: configmaps
+    resourceSelector:
+    - name: my-setup
+      namespace: example-system
+    state: Accepted
+  - resource: things
+    group: somegroup.kcp.io
+    all: true
+    identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
+    state: Accepted
+```
+
+It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.
+
+In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
 
 ```sh
 # inside consumer workspace
-kubectl api-resources --api-group='example.kcp.io'
+$ kubectl api-resources --api-group='example.kcp.io'
 
 NAME      SHORTNAMES   APIVERSION                NAMESPACED   KIND
 widgets                example.kcp.io/v1alpha1   false        Widget
 ```
 
-Furthermore, you can use the `APIBinding.Status.BoundResources` field to precisely identify which `APIResourceSchemas` have been imported.
+Furthermore, you can use the `.status.boundResources` field to precisely identify which `APIResourceSchemas` have been imported.
