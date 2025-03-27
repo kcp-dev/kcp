@@ -66,7 +66,7 @@ func TestBinding(t *testing.T) {
 
 	t.Logf("Creating 'api-manager' APIExport in service-provider workspace with apibindings permission claim")
 	require.NoError(t, apply(t, ctx, serviceWorkspacePath, cfg, `
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: api-manager
@@ -79,7 +79,7 @@ spec:
 
 	t.Logf("Creating APIExport in restricted workspace without anybody allowed to bind")
 	require.NoError(t, apply(t, ctx, restrictedWorkspacePath, cfg, `
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: restricted-service
@@ -133,7 +133,7 @@ spec:
 	t.Logf("Waiting for 'api-manager' APIExport virtual workspace URL")
 	serviceProviderVirtualWorkspaceConfig := rest.CopyConfig(serviceProviderUser)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha1().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
+		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha2().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}

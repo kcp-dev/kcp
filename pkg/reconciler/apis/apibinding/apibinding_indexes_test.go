@@ -24,7 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/client"
 )
 
@@ -40,20 +40,37 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 			wantErr: true,
 		},
 		"valid APIExport": {
-			obj: &apisv1alpha1.APIExport{
+			obj: &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:default",
 					},
 					Name: "foo",
 				},
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1", "some-other-schema"},
+				Spec: apisv1alpha2.APIExportSpec{
+					Resources: []apisv1alpha2.ResourceSchema{
+						{
+							Name:   "schema1",
+							Group:  "org",
+							Schema: "v1.schema1.org",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+							},
+						},
+						{
+							Name:   "some-other-schema",
+							Group:  "org",
+							Schema: "v1.some-other-schema.org",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+							},
+						},
+					},
 				},
 			},
 			want: []string{
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "schema1"),
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "some-other-schema"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "v1.schema1.org"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "v1.some-other-schema.org"),
 			},
 			wantErr: false,
 		},

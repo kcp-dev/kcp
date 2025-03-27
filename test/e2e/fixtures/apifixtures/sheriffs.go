@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
@@ -114,7 +115,7 @@ func NewSheriffsCRDWithVersions(group string, versions ...string) *apiextensions
 	return crd
 }
 
-// CreateSheriffsSchemaAndExport creates a sheriffs apisv1alpha1.APIResourceSchema and then creates a apisv1alpha1.APIExport to export it.
+// CreateSheriffsSchemaAndExport creates a sheriffs apisv1alpha1.APIResourceSchema and then creates a apisv1alpha2.APIExport to export it.
 func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
@@ -160,17 +161,26 @@ func CreateSheriffsSchemaAndExport(
 	_, err := clusterClient.Cluster(path).ApisV1alpha1().APIResourceSchemas().Create(ctx, s, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIResourceSchema %s|%s", path, s.Name)
 
-	export := &apisv1alpha1.APIExport{
+	export := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: group,
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{s.Name},
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: []apisv1alpha2.ResourceSchema{
+				{
+					Name:   "sheriffs",
+					Group:  group,
+					Schema: s.Name,
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
 		},
 	}
 
 	t.Logf("Creating APIExport %s|%s", path, export.Name)
-	_, err = clusterClient.Cluster(path).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+	_, err = clusterClient.Cluster(path).ApisV1alpha2().APIExports().Create(ctx, export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport %s|%s", path, export.Name)
 }
 

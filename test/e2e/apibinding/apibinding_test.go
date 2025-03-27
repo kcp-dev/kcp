@@ -47,6 +47,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -78,27 +79,45 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	t.Logf("Create an APIExport today-cowboys in %q", providerPath)
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: []apisv1alpha2.ResourceSchema{
+				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
+					Schema: "today.cowboys.wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport other-export in %q", providerPath)
-	otherAPIExport := &apisv1alpha1.APIExport{
+	otherAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "other-export",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: []apisv1alpha2.ResourceSchema{
+				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
+					Schema: "today.cowboys.wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, otherAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, otherAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
@@ -202,16 +221,25 @@ func TestAPIBinding(t *testing.T) {
 		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 		require.NoError(t, err)
 
-		cowboysAPIExport := &apisv1alpha1.APIExport{
+		cowboysAPIExport := &apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: exportName,
 			},
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+			Spec: apisv1alpha2.APIExportSpec{
+				Resources: []apisv1alpha2.ResourceSchema{
+					{
+						Name:   "cowboys",
+						Group:  "wildwest.dev",
+						Schema: "today.cowboys.wildwest.dev",
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					},
+				},
 			},
 		}
 		t.Logf("Create an APIExport today-cowboys in %q", serviceProviderWorkspace)
-		_, err = kcpClusterClient.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+		_, err = kcpClusterClient.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
 
@@ -340,7 +368,7 @@ func TestAPIBinding(t *testing.T) {
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			e, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+			e, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
 				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)
 			}
@@ -411,7 +439,7 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("=== Verify that %s|%s export virtual workspace shows cowboys", provider2Path, exportName)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
-	export2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+	export2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	foundOnShards := 0

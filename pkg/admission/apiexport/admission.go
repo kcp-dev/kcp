@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +30,7 @@ import (
 	builtinapiexport "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // PluginName is the name used to identify this admission webhook.
@@ -62,11 +64,11 @@ var _ = admission.ValidationInterface(&APIExportAdmission{})
 
 // Validate ensures that the APIExport is valid.
 func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
-	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apiexports") {
+	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apiexports") {
 		return nil
 	}
 
-	if a.GetKind().GroupKind() != apisv1alpha1.Kind("APIExport") {
+	if a.GetKind().GroupKind() != apisv1alpha2.Kind("APIExport") {
 		return nil
 	}
 
@@ -74,13 +76,19 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ae := &apisv1alpha1.APIExport{}
+	ae := &apisv1alpha2.APIExport{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ae); err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
 	}
 
 	for i, pc := range ae.Spec.PermissionClaims {
-		if pc.IdentityHash == "" && !e.isBuiltIn(pc.GroupResource) && pc.Group != apis.GroupName {
+		v1GroupResource := apisv1alpha1.GroupResource{}
+		err := apisv1alpha2.Convert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(&pc.GroupResource, &v1GroupResource, nil)
+		if !ok {
+			return fmt.Errorf("failed to convert GroupResource: %w", err)
+		}
+
+		if pc.IdentityHash == "" && !e.isBuiltIn(v1GroupResource) && pc.Group != apis.GroupName {
 			return admission.NewForbidden(a,
 				field.Invalid(
 					field.NewPath("spec").
@@ -90,6 +98,26 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 					"",
 					"identityHash is required for API types that are not built-in"))
 		}
+	}
+
+	for i, rs := range ae.Spec.Resources {
+		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resourceSchemas").Index(i)); err != nil {
+			return admission.NewForbidden(a, err)
+		}
+	}
+
+	return nil
+}
+
+func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, path *field.Path) *field.Error {
+	group := resourceSchema.Group
+	if group == "" {
+		group = "core"
+	}
+
+	expectedSuffix := fmt.Sprintf(".%s.%s", resourceSchema.Name, group)
+	if !strings.HasSuffix(resourceSchema.Schema, expectedSuffix) {
+		return field.Invalid(path.Child("schema"), resourceSchema.Schema, fmt.Sprintf("must end in %s", expectedSuffix))
 	}
 
 	return nil

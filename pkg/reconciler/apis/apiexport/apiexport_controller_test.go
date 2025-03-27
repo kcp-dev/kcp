@@ -32,6 +32,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -207,7 +208,7 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 
-			apiExport := &apisv1alpha1.APIExport{
+			apiExport := &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:ws",
@@ -217,7 +218,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.secretRefSet {
-				apiExport.Spec.Identity = &apisv1alpha1.Identity{
+				apiExport.Spec.Identity = &apisv1alpha2.Identity{
 					SecretRef: &corev1.SecretReference{
 						Namespace: "somens",
 						Name:      "somename",
@@ -233,7 +234,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.hasPreexistingVerifyFailure {
-				conditions.MarkFalse(apiExport, apisv1alpha1.APIExportIdentityValid, apisv1alpha1.IdentityVerificationFailedReason, conditionsv1alpha1.ConditionSeverityError, "")
+				conditions.MarkFalse(apiExport, apisv1alpha2.APIExportIdentityValid, apisv1alpha2.IdentityVerificationFailedReason, conditionsv1alpha1.ConditionSeverityError, "")
 			}
 
 			err := c.reconcile(context.Background(), apiExport)
@@ -264,8 +265,8 @@ func TestReconcile(t *testing.T) {
 			if tc.wantGenerationFailed {
 				requireConditionMatches(t, apiExport,
 					conditions.FalseCondition(
-						apisv1alpha1.APIExportIdentityValid,
-						apisv1alpha1.IdentityGenerationFailedReason,
+						apisv1alpha2.APIExportIdentityValid,
+						apisv1alpha2.IdentityGenerationFailedReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"",
 					),
@@ -275,8 +276,8 @@ func TestReconcile(t *testing.T) {
 			if tc.wantVerifyFailure {
 				requireConditionMatches(t, apiExport,
 					conditions.FalseCondition(
-						apisv1alpha1.APIExportIdentityValid,
-						apisv1alpha1.IdentityVerificationFailedReason,
+						apisv1alpha2.APIExportIdentityValid,
+						apisv1alpha2.IdentityVerificationFailedReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"",
 					),
@@ -284,14 +285,14 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.wantIdentityValid {
-				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha1.APIExportIdentityValid))
+				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportIdentityValid))
 			}
 
 			if tc.wantVirtualWorkspaceURLsError {
 				requireConditionMatches(t, apiExport,
 					conditions.FalseCondition(
-						apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
-						apisv1alpha1.ErrorGeneratingURLsReason,
+						apisv1alpha2.APIExportVirtualWorkspaceURLsReady,
+						apisv1alpha2.ErrorGeneratingURLsReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"",
 					),
@@ -299,7 +300,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.wantVirtualWorkspaceURLsReady {
-				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha1.APIExportVirtualWorkspaceURLsReady))
+				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportVirtualWorkspaceURLsReady))
 			}
 		})
 	}
