@@ -42,3 +42,5 @@ dex/
 *.crt
 *.key
 *.pem
+
+index.html
