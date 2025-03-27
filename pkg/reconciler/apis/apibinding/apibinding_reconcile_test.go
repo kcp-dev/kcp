@@ -510,7 +510,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "some-export",
 					},
 					Spec: apisv1alpha2.APIExportSpec{
-						ResourceSchemas: []apisv1alpha2.ResourceSchema{
+						Resources: []apisv1alpha2.ResourceSchema{
 							{
 								Name:   "widgets",
 								Group:  "kcp.io",
@@ -531,7 +531,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "conflict",
 					},
 					Spec: apisv1alpha2.APIExportSpec{
-						ResourceSchemas: []apisv1alpha2.ResourceSchema{
+						Resources: []apisv1alpha2.ResourceSchema{
 							{
 								Name:   "widgets",
 								Group:  "kcp.io",
@@ -552,7 +552,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "invalid-schema",
 					},
 					Spec: apisv1alpha2.APIExportSpec{
-						ResourceSchemas: []apisv1alpha2.ResourceSchema{
+						Resources: []apisv1alpha2.ResourceSchema{
 							{
 								Name:   "schema",
 								Group:  "io",
@@ -573,7 +573,7 @@ func TestReconcileBinding(t *testing.T) {
 						Name: "some-export",
 					},
 					Spec: apisv1alpha2.APIExportSpec{
-						ResourceSchemas: []apisv1alpha2.ResourceSchema{
+						Resources: []apisv1alpha2.ResourceSchema{
 							{
 								Name:   "widgets",
 								Group:  "kcp.io",

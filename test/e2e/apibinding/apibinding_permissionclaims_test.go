@@ -186,7 +186,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 			Name: "today-cowboys",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "cowboys",
 					Group:  "wildwest.dev",

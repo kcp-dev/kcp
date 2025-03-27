@@ -33,7 +33,7 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		},
 		{
 			Spec: APIExportSpec{
-				ResourceSchemas: []ResourceSchema{{
+				Resources: []ResourceSchema{{
 					Group:  "bar",
 					Name:   "foo",
 					Schema: "v1.foo.bar",
@@ -45,7 +45,7 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		},
 		{
 			Spec: APIExportSpec{
-				ResourceSchemas: []ResourceSchema{{
+				Resources: []ResourceSchema{{
 					Group:  "bar",
 					Name:   "foo",
 					Schema: "v1.foo.bar",
@@ -64,7 +64,7 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 		},
 		{
 			Spec: APIExportSpec{
-				ResourceSchemas: []ResourceSchema{{
+				Resources: []ResourceSchema{{
 					Group:  "bar",
 					Name:   "foo",
 					Schema: "v1.foo.bar",

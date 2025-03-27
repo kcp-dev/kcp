@@ -166,7 +166,7 @@ func CreateSheriffsSchemaAndExport(
 			Name: group,
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "sheriffs",
 					Group:  group,

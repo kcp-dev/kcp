@@ -455,9 +455,9 @@ spec:
                 - group
                 - resource
                 x-kubernetes-list-type: map
-              resourceSchemas:
+              resources:
                 description: |-
-                  resourceSchemas records the APIResourceSchemas that are exposed with this
+                  Resources records the APIResourceSchemas that are exposed with this
                   APIExport.
 
                   The schemas can be changed in the life-cycle of the APIExport. These changes
@@ -466,9 +466,12 @@ spec:
                   For updating existing APIBindings, use an APIDeployment keeping bound
                   workspaces up-to-date.
                 items:
+                  description: ResourceSchema defines the resource schemas that are
+                    exposed with this APIExport.
                   properties:
                     group:
-                      description: Group is the API group of the resource.
+                      description: Group is the API group of the resource. Empty string
+                        represents the core group.
                       type: string
                     name:
                       description: Name is the name of the resource.
@@ -485,8 +488,6 @@ spec:
                       oneOf:
                       - required:
                         - crd
-                      - required:
-                        - virtual
                       properties:
                         crd:
                           description: |-
@@ -500,7 +501,6 @@ spec:
                   - group
                   - name
                   - schema
-                  - storage
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:

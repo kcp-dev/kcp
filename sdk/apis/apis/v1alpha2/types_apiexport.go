@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -75,7 +76,7 @@ func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
 
 // APIExportSpec defines the desired state of APIExport.
 type APIExportSpec struct {
-	// resourceSchemas records the APIResourceSchemas that are exposed with this
+	// Resources records the APIResourceSchemas that are exposed with this
 	// APIExport.
 	//
 	// The schemas can be changed in the life-cycle of the APIExport. These changes
@@ -88,7 +89,7 @@ type APIExportSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +listMapKey=group
-	ResourceSchemas []ResourceSchema `json:"resourceSchemas,omitempty"`
+	Resources []ResourceSchema `json:"resources,omitempty"`
 
 	// identity points to a secret that contains the API identity in the 'key' file.
 	// The API identity determines an unique etcd prefix for objects stored via this
@@ -148,10 +149,11 @@ type APIExportSpec struct {
 	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
 }
 
+// ResourceSchema defines the resource schemas that are exposed with this APIExport.
 type ResourceSchema struct {
 	// Name is the name of the resource.
 	Name string `json:"name"`
-	// Group is the API group of the resource.
+	// Group is the API group of the resource. Empty string represents the core group.
 	Group string `json:"group"`
 	// Schema is the name of the referenced APIResourceSchema. This must be of the format
 	// "<version>.<name>.<group>".
@@ -159,6 +161,7 @@ type ResourceSchema struct {
 	// Storage defines how the resource is stored.
 	//
 	// +kubebuilder:default={crd:{}}
+	// +optional
 	Storage ResourceSchemaStorage `json:"storage"`
 }
 
@@ -269,6 +272,8 @@ func (p PermissionClaim) Equal(claim PermissionClaim) bool {
 		p.IdentityHash == claim.IdentityHash
 }
 
+var _ apis.GroupResource = &GroupResource{}
+
 // GroupResource identifies a resource.
 type GroupResource struct {
 	// group is the name of an API group.
@@ -285,6 +290,14 @@ type GroupResource struct {
 	// +required
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`
+}
+
+func (p GroupResource) GetGroup() string {
+	return p.Group
+}
+
+func (p GroupResource) GetResource() string {
+	return p.Resource
 }
 
 // APIExportStatus defines the observed state of APIExport.

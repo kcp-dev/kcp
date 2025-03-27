@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -219,6 +220,14 @@ type PermissionClaim struct {
 	IdentityHash string `json:"identityHash,omitempty"`
 }
 
+func (p PermissionClaim) GetIdentityHash() string {
+	return p.IdentityHash
+}
+
+func (p PermissionClaim) GetGroupResource() GroupResource {
+	return p.GroupResource
+}
+
 // +kubebuilder:validation:XValidation:rule="has(self.__namespace__) || has(self.name)",message="at least one field must be set"
 type ResourceSelector struct {
 	// name of an object within a claimed group/resource.
@@ -260,6 +269,8 @@ func (p PermissionClaim) Equal(claim PermissionClaim) bool {
 		p.IdentityHash == claim.IdentityHash
 }
 
+var _ apis.GroupResource = &GroupResource{}
+
 // GroupResource identifies a resource.
 type GroupResource struct {
 	// group is the name of an API group.
@@ -276,6 +287,16 @@ type GroupResource struct {
 	// +required
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`
+}
+
+// GetGroup returns the group of the resource.
+func (g GroupResource) GetGroup() string {
+	return g.Group
+}
+
+// GetResource returns the resource of the resource.
+func (g GroupResource) GetResource() string {
+	return g.Resource
 }
 
 // APIExportStatus defines the observed state of APIExport.

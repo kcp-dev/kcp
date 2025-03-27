@@ -21,7 +21,7 @@ package v1alpha2
 // APIExportSpecApplyConfiguration represents a declarative configuration of the APIExportSpec type for use
 // with apply.
 type APIExportSpecApplyConfiguration struct {
-	ResourceSchemas         []ResourceSchemaApplyConfiguration         `json:"resourceSchemas,omitempty"`
+	Resources               []ResourceSchemaApplyConfiguration         `json:"resources,omitempty"`
 	Identity                *IdentityApplyConfiguration                `json:"identity,omitempty"`
 	MaximalPermissionPolicy *MaximalPermissionPolicyApplyConfiguration `json:"maximalPermissionPolicy,omitempty"`
 	PermissionClaims        []PermissionClaimApplyConfiguration        `json:"permissionClaims,omitempty"`
@@ -33,15 +33,15 @@ func APIExportSpec() *APIExportSpecApplyConfiguration {
 	return &APIExportSpecApplyConfiguration{}
 }
 
-// WithResourceSchemas adds the given value to the ResourceSchemas field in the declarative configuration
+// WithResources adds the given value to the Resources field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ResourceSchemas field.
-func (b *APIExportSpecApplyConfiguration) WithResourceSchemas(values ...*ResourceSchemaApplyConfiguration) *APIExportSpecApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the Resources field.
+func (b *APIExportSpecApplyConfiguration) WithResources(values ...*ResourceSchemaApplyConfiguration) *APIExportSpecApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
-			panic("nil value passed to WithResourceSchemas")
+			panic("nil value passed to WithResources")
 		}
-		b.ResourceSchemas = append(b.ResourceSchemas, *values[i])
+		b.Resources = append(b.Resources, *values[i])
 	}
 	return b
 }

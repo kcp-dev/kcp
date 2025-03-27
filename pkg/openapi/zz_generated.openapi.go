@@ -1929,7 +1929,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 				Description: "APIExportSpec defines the desired state of APIExport.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"resourceSchemas": {
+					"resources": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-map-keys": []interface{}{
@@ -1940,7 +1940,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "resourceSchemas records the APIResourceSchemas that are exposed with this APIExport.\n\nThe schemas can be changed in the life-cycle of the APIExport. These changes have no effect on existing APIBindings, but only on newly bound ones.\n\nFor updating existing APIBindings, use an APIDeployment keeping bound workspaces up-to-date.",
+							Description: "Resources records the APIResourceSchemas that are exposed with this APIExport.\n\nThe schemas can be changed in the life-cycle of the APIExport. These changes have no effect on existing APIBindings, but only on newly bound ones.\n\nFor updating existing APIBindings, use an APIDeployment keeping bound workspaces up-to-date.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2190,7 +2190,8 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "ResourceSchema defines the resource schemas that are exposed with this APIExport.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
@@ -2202,7 +2203,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 					},
 					"group": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Group is the API group of the resource.",
+							Description: "Group is the API group of the resource. Empty string represents the core group.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -2224,7 +2225,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				Required: []string{"name", "group", "schema", "storage"},
+				Required: []string{"name", "group", "schema"},
 			},
 		},
 		Dependencies: []string{

@@ -34,8 +34,8 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
 	}
 
-	ret := make([]string, len(apiExport.Spec.ResourceSchemas))
-	for i, resourceSchema := range apiExport.Spec.ResourceSchemas {
+	ret := make([]string, len(apiExport.Spec.Resources))
+	for i, resourceSchema := range apiExport.Spec.Resources {
 		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), resourceSchema.Schema)
 	}
 

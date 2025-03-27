@@ -180,7 +180,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server kcptes
 		},
 		&apisv1alpha2.APIExport{
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "foo",
 						Group:  "bar",
@@ -214,7 +214,7 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 		},
 		&apisv1alpha2.APIExport{
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "foo",
 						Group:  "bar",

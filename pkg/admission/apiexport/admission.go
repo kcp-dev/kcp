@@ -18,6 +18,7 @@ package apiexport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -48,11 +49,11 @@ func Register(plugins *admission.Plugins) {
 type APIExportAdmission struct {
 	*admission.Handler
 
-	isBuiltIn func(apisv1alpha1.GroupResource) bool
+	isBuiltIn func(apis.GroupResource) bool
 }
 
 // NewAPIExportAdmission constructs a new APIExportAdmission admission plugin.
-func NewAPIExportAdmission(isBuiltIn func(apisv1alpha1.GroupResource) bool) *APIExportAdmission {
+func NewAPIExportAdmission(isBuiltIn func(apis.GroupResource) bool) *APIExportAdmission {
 	return &APIExportAdmission{
 		Handler:   admission.NewHandler(admission.Create, admission.Update),
 		isBuiltIn: isBuiltIn,
@@ -64,11 +65,7 @@ var _ = admission.ValidationInterface(&APIExportAdmission{})
 
 // Validate ensures that the APIExport is valid.
 func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
-	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apiexports") {
-		return nil
-	}
-
-	if a.GetKind().GroupKind() != apisv1alpha2.Kind("APIExport") {
+	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apiexports") || a.GetKind().GroupKind() != apisv1alpha2.Kind("APIExport") {
 		return nil
 	}
 
@@ -76,19 +73,56 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	ae := &apisv1alpha2.APIExport{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ae); err != nil {
-		return fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
-	}
 
-	for i, pc := range ae.Spec.PermissionClaims {
-		v1GroupResource := apisv1alpha1.GroupResource{}
-		err := apisv1alpha2.Convert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(&pc.GroupResource, &v1GroupResource, nil)
-		if !ok {
-			return fmt.Errorf("failed to convert GroupResource: %w", err)
+	switch a.GetKind().GroupVersion().Version {
+	case apisv1alpha1.SchemeGroupVersion.Version:
+		// v1alpha1 is deprecated, but we still need to support it for a while
+		// for backward compatibility.
+		// We have one non-shared validation, which checks if annotations, carrying overhanging
+		// resource schemas, are set correctly.
+
+		ae := &apisv1alpha1.APIExport{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ae); err != nil {
+			return fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
 		}
 
-		if pc.IdentityHash == "" && !e.isBuiltIn(v1GroupResource) && pc.Group != apis.GroupName {
+		// Before we convert to v1alpha2, we need to validate the annotations overhanging:
+		if err := validateOverhangingAnnotations(ctx, a, ae); err != nil {
+			return admission.NewForbidden(a, err)
+		}
+
+		var v2 *apisv1alpha2.APIExport
+		err := apisv1alpha2.Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(ae, v2, nil)
+		if err != nil {
+			return fmt.Errorf("failed to convert v1alpha1 APIExport to v1alpha2: %w", err)
+		}
+
+		if err := e.validatev1alpha2(ctx, a, v2); err != nil {
+			return err
+		}
+	case apisv1alpha2.SchemeGroupVersion.Version:
+		// v1alpha2 is the current version.
+		ae := &apisv1alpha2.APIExport{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ae); err != nil {
+			return fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
+		}
+		if err := e.validatev1alpha2(ctx, a, ae); err != nil {
+			return err
+		}
+
+	default:
+		return admission.NewForbidden(a,
+			field.Invalid(
+				field.NewPath("apiVersion"),
+				a.GetKind().GroupVersion().String(),
+				fmt.Sprintf("unsupported API version %s", a.GetKind().GroupVersion().String())))
+	}
+	return nil
+}
+
+func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Attributes, ae *apisv1alpha2.APIExport) (err error) {
+	for i, pc := range ae.Spec.PermissionClaims {
+		if pc.IdentityHash == "" && !e.isBuiltIn(pc.GroupResource) && pc.Group != apis.GroupName {
 			return admission.NewForbidden(a,
 				field.Invalid(
 					field.NewPath("spec").
@@ -100,8 +134,8 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 		}
 	}
 
-	for i, rs := range ae.Spec.ResourceSchemas {
-		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resourceSchemas").Index(i)); err != nil {
+	for i, rs := range ae.Spec.Resources {
+		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resources").Index(i)); err != nil {
 			return admission.NewForbidden(a, err)
 		}
 	}
@@ -115,10 +149,42 @@ func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, path *fi
 		group = "core"
 	}
 
+	// TODO(mjudeikis): Once v1alpha1 is removed, we can relax this if we chose to.
+	// We should revisit this once we have a better understanding of the APIExport usage patterns.
 	expectedSuffix := fmt.Sprintf(".%s.%s", resourceSchema.Name, group)
 	if !strings.HasSuffix(resourceSchema.Schema, expectedSuffix) {
 		return field.Invalid(path.Child("schema"), resourceSchema.Schema, fmt.Sprintf("must end in %s", expectedSuffix))
 	}
 
+	return nil
+}
+
+func validateOverhangingAnnotations(_ context.Context, _ admission.Attributes, ae *apisv1alpha1.APIExport) error {
+	// TODO(mjudeikis): Remove this once we are sure that all APIExport objects are
+	// converted to v1alpha2.
+	if _, ok := ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation]; ok {
+		// validate if we can decode overhanging resource schemas. If not, we will fail.
+		var overhanging []apisv1alpha2.ResourceSchema
+		if err := json.Unmarshal([]byte(ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation]), &overhanging); err != nil {
+			return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.ResourceSchemasAnnotation), ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation], "failed to decode overhanging resource schemas")
+		}
+
+		// validate duplicates. We could have duplicates in annotations itself, or in spec + annotations.
+		// We convert to v2 to check for duplicates.
+		v2Schemas := make([]apisv1alpha2.ResourceSchema, len(ae.Spec.LatestResourceSchemas))
+		err := apisv1alpha2.Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(ae.Spec.LatestResourceSchemas, &v2Schemas)
+		if err != nil {
+			return field.Invalid(field.NewPath("spec").Child("latestResourceSchemas"), ae.Spec.LatestResourceSchemas, "failed to convert spec.LatestResourceSchema")
+		}
+		overhanging = append(overhanging, v2Schemas...)
+
+		seen := map[string]struct{}{}
+		for _, rs := range overhanging {
+			if _, ok := seen[rs.Schema]; ok {
+				return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.ResourceSchemasAnnotation), ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation], "duplicate resource schema")
+			}
+			seen[rs.Schema] = struct{}{}
+		}
+	}
 	return nil
 }

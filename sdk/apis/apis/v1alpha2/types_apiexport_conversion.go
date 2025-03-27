@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	resourceSchemasAnnotation = "apis.v1alpha2.kcp.io/resource-schemas"
+	ResourceSchemasAnnotation = "apis.v1alpha2.kcp.io/resource-schemas"
 )
 
 func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
@@ -35,7 +35,7 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 
 	// before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
 	// retain them via an annotation
-	_, overhanging := convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in.Spec)
+	_, overhanging := Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in.Spec)
 	if len(overhanging) > 0 {
 		encoded, err := json.Marshal(overhanging)
 		if err != nil {
@@ -44,7 +44,7 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		if out.Annotations == nil {
 			out.Annotations = map[string]string{}
 		}
-		out.Annotations[resourceSchemasAnnotation] = string(encoded)
+		out.Annotations[ResourceSchemasAnnotation] = string(encoded)
 	}
 
 	if err := Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -57,11 +57,11 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 	return nil
 }
 
-func convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIExportSpec) ([]string, []ResourceSchema) {
+func Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIExportSpec) ([]string, []ResourceSchema) {
 	hubSchemas := []string{}
 	nonCRDSchemas := []ResourceSchema{}
 
-	if schemas := in.ResourceSchemas; schemas != nil {
+	if schemas := in.Resources; schemas != nil {
 		for _, schema := range schemas {
 			if schema.Storage.CRD != nil {
 				hubSchemas = append(hubSchemas, schema.Schema)
@@ -104,7 +104,7 @@ func Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(in *APIExportSpec,
 		out.PermissionClaims = newClaims
 	}
 
-	latest, _ := convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(*in)
+	latest, _ := Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(*in)
 	if len(latest) > 0 {
 		out.LatestResourceSchemas = latest
 	}
@@ -117,21 +117,21 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 		return err
 	}
 
-	if overhanging, ok := in.Annotations[resourceSchemasAnnotation]; ok {
+	if overhanging, ok := in.Annotations[ResourceSchemasAnnotation]; ok {
 		resourceSchemas := []ResourceSchema{}
 		if err := json.Unmarshal([]byte(overhanging), &resourceSchemas); err != nil {
 			return fmt.Errorf("failed to decode schemas from JSON: %w", err)
 		}
 
 		if len(resourceSchemas) > 0 {
-			if out.Spec.ResourceSchemas == nil {
-				out.Spec.ResourceSchemas = []ResourceSchema{}
+			if out.Spec.Resources == nil {
+				out.Spec.Resources = []ResourceSchema{}
 			}
 
-			out.Spec.ResourceSchemas = append(out.Spec.ResourceSchemas, resourceSchemas...)
+			out.Spec.Resources = append(out.Spec.Resources, resourceSchemas...)
 		}
 
-		delete(out.Annotations, resourceSchemasAnnotation)
+		delete(out.Annotations, ResourceSchemasAnnotation)
 
 		// make tests for equality easier to write by turning []string into nil
 		if len(out.Annotations) == 0 {
@@ -144,12 +144,14 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.APIExportSpec, out *APIExportSpec, s kubeconversion.Scope) error {
 	if in.Identity != nil {
+		out.Identity = &Identity{}
 		if err := Convert_v1alpha1_Identity_To_v1alpha2_Identity(in.Identity, out.Identity, s); err != nil {
 			return err
 		}
 	}
 
 	if in.MaximalPermissionPolicy != nil {
+		out.MaximalPermissionPolicy = &MaximalPermissionPolicy{}
 		if err := Convert_v1alpha1_MaximalPermissionPolicy_To_v1alpha2_MaximalPermissionPolicy(in.MaximalPermissionPolicy, out.MaximalPermissionPolicy, s); err != nil {
 			return err
 		}
@@ -194,8 +196,46 @@ func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.A
 			})
 		}
 
-		out.ResourceSchemas = newSchemas
+		out.Resources = newSchemas
 	}
 
+	return nil
+}
+
+// Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema will only convert CRD-based ResourceSchemas. All
+// others are still tucked away in an annotation and are converted after this function has completed,
+// in Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
+func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []string, out *[]ResourceSchema) error {
+	if out == nil {
+		return fmt.Errorf("output slice is nil. Programmer error")
+	}
+	// This will only convert CRD-based ResourceSchemas. All others are still tucked away in an annotation
+	// and are converted after this function has completed, in Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
+	if schemas := in; schemas != nil {
+		for _, schema := range schemas {
+			// parse strings like "v1.resource.group.org"
+			parts := strings.Split(schema, ".")
+			if len(parts) < 3 {
+				return fmt.Errorf("invalid schema %q: must have at least 3 dot-separated segments", schema)
+			}
+
+			resource := parts[1]
+			group := strings.Join(parts[2:], ".")
+			if group == "core" {
+				group = ""
+			}
+
+			*out = append(*out, ResourceSchema{
+				Group:  group,
+				Name:   resource,
+				Schema: schema,
+				Storage: ResourceSchemaStorage{
+					CRD: &ResourceSchemaStorageCRD{},
+				},
+			})
+		}
+
+		return nil
+	}
 	return nil
 }

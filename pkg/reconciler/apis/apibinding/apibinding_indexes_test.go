@@ -48,7 +48,7 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: apisv1alpha2.APIExportSpec{
-					ResourceSchemas: []apisv1alpha2.ResourceSchema{
+					Resources: []apisv1alpha2.ResourceSchema{
 						{
 							Name:   "schema1",
 							Group:  "org",

@@ -18,6 +18,7 @@ package apiexport
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
@@ -82,9 +84,10 @@ func TestAdmission(t *testing.T) {
 			isBuiltIn: false,
 		},
 		"NotAPIExportResource": {
-			kind:      "APIExport",
-			resource:  "somethings",
-			isBuiltIn: false,
+			kind:        "APIExport",
+			resource:    "somethings",
+			isBuiltIn:   false,
+			hasIdentity: true,
 		},
 		"ValidCreateBuiltInNoID": {
 			kind:      "APIExport",
@@ -172,7 +175,7 @@ func TestAdmission(t *testing.T) {
 			isBuiltIn:   false,
 			hasIdentity: true,
 			modifyExport: func(ae *apisv1alpha2.APIExport) {
-				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+				ae.Spec.Resources = append(ae.Spec.Resources, apisv1alpha2.ResourceSchema{
 					Name:   "foo",
 					Group:  "bar",
 					Schema: "this.is.invalid",
@@ -183,7 +186,7 @@ func TestAdmission(t *testing.T) {
 			},
 			want: field.Invalid(
 				field.NewPath("spec").
-					Child("resourceSchemas").
+					Child("resources").
 					Index(0).
 					Child("schema"),
 				"this.is.invalid",
@@ -196,10 +199,10 @@ func TestAdmission(t *testing.T) {
 			isBuiltIn:   false,
 			hasIdentity: true,
 			modifyExport: func(ae *apisv1alpha2.APIExport) {
-				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
-					Name:   "foo",
-					Group:  "bar",
-					Schema: "v1.foo.bar",
+				ae.Spec.Resources = append(ae.Spec.Resources, apisv1alpha2.ResourceSchema{
+					Name:   "wild.wild.west",
+					Group:  "sheriffs",
+					Schema: "today.wild.wild.west.sheriffs",
 				})
 			},
 		},
@@ -253,7 +256,7 @@ func TestAdmission(t *testing.T) {
 			} else {
 				attr = createAttr("cool-something", ae, tc.kind, tc.resource)
 			}
-			plugin := NewAPIExportAdmission(func(apisv1alpha1.GroupResource) bool {
+			plugin := NewAPIExportAdmission(func(apis.GroupResource) bool {
 				return tc.isBuiltIn
 			})
 			if err := plugin.Validate(context.Background(), attr, nil); err != nil {
@@ -262,6 +265,128 @@ func TestAdmission(t *testing.T) {
 			}
 			if tc.want != nil {
 				t.Errorf("no error returned but expected: %s", tc.want.Error())
+			}
+		})
+	}
+}
+
+func TestValidateOverhangingAnnotations(t *testing.T) {
+	tests := map[string]struct {
+		annotations   func() map[string]string
+		latestSchemas []string // LatestResourceSchemas
+		expectedError string
+	}{
+		"NoAnnotations": {
+			annotations:   func() map[string]string { return nil },
+			latestSchemas: nil,
+			expectedError: "",
+		},
+		"EmptyJSON": {
+			annotations: func() map[string]string {
+				s := apisv1alpha2.ResourceSchema{}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			latestSchemas: nil,
+			expectedError: "failed to decode overhanging resource schemas",
+		},
+		"EmptyLatestSchemaAndAnnotation": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: "[]",
+				}
+			},
+			latestSchemas: []string{},
+			expectedError: "",
+		},
+		"ValidJSON": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.ResourceSchema{{
+					Name:   "test",
+					Group:  "group",
+					Schema: "v1.test.schema",
+				}}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			latestSchemas: nil,
+			expectedError: "",
+		},
+		"DuplicateSchemaInAnnotations": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.ResourceSchema{{
+					Name:   "test",
+					Group:  "group",
+					Schema: "v1.test.schema",
+				}, {
+					Name:   "test",
+					Group:  "group",
+					Schema: "v1.test.schema",
+				}}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			latestSchemas: nil,
+			expectedError: "duplicate resource schema",
+		},
+		"DuplicateSchemaInSpecAndAnnotations": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.ResourceSchema{{
+					Name:   "test",
+					Group:  "schema",
+					Schema: "v1.test.schema",
+				}}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			latestSchemas: []string{"v1.test.schema"},
+			expectedError: "duplicate resource schema",
+		},
+		"InvalidJSON": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: "invalid json",
+				}
+			},
+			latestSchemas: nil,
+			expectedError: "failed to decode overhanging resource schemas",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ae := &apisv1alpha1.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations(),
+				},
+				Spec: apisv1alpha1.APIExportSpec{
+					LatestResourceSchemas: tc.latestSchemas,
+				},
+			}
+			err := validateOverhangingAnnotations(context.TODO(), nil, ae)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedError)
 			}
 		})
 	}

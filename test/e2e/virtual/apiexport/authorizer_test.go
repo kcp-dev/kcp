@@ -114,7 +114,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "sheriffs",
 						Group:  "wild.wild.west",
@@ -169,7 +169,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "today-cowboys"},
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "cowboys",
 						Group:  "wildwest.dev",
@@ -533,13 +533,22 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 				},
 			},
 		},
-		&apisv1alpha1.APIExport{
+		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
-			Spec: apisv1alpha1.APIExportSpec{
-				LatestResourceSchemas: []string{"today.sheriffs.wild.wild.west"},
-				PermissionClaims: []apisv1alpha1.PermissionClaim{
+			Spec: apisv1alpha2.APIExportSpec{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
-						GroupResource: apisv1alpha1.GroupResource{
+						Name:   "sheriffs",
+						Group:  "wild.wild.west",
+						Schema: "today.sheriffs.wild.wild.west",
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					},
+				},
+				PermissionClaims: []apisv1alpha2.PermissionClaim{
+					{
+						GroupResource: apisv1alpha2.GroupResource{
 							Group:    "",
 							Resource: "configmaps",
 						},
@@ -796,7 +805,7 @@ func apply(t *testing.T, ctx context.Context, workspace logicalcluster.Path, cfg
 
 		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return fmt.Errorf("error getting REST mapping: %w", err)
+			return fmt.Errorf("error getting REST mapping for %s/%s: %w", gvk.GroupKind(), gvk.Version, err)
 		}
 
 		dynamicClient, err := kcpdynamic.NewForConfig(cfg)
@@ -883,7 +892,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			Name: "today-cowboys",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "cowboys",
 					Group:  "wildwest.dev",
