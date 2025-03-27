@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: projects
     steps:
-      - uses: actions/add-to-project@main
+      - uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # tag=v1.0.2
         with:
           project-url: https://github.com/orgs/kcp-dev/projects/1
           github-token: ${{ secrets.GHPROJECT_TOKEN }}
