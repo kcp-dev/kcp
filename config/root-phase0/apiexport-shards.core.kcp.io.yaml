@@ -4,7 +4,7 @@ metadata:
   creationTimestamp: null
   name: shards.core.kcp.io
 spec:
-  resourceSchemas:
+  resources:
   - group: core.kcp.io
     name: shards
     schema: v240903-d6797056a.shards.core.kcp.io

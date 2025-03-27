@@ -6,7 +6,7 @@ metadata:
 spec:
   maximalPermissionPolicy:
     local: {}
-  resourceSchemas:
+  resources:
   - group: tenancy.kcp.io
     name: workspaces
     schema: v241020-fce06d31d.workspaces.tenancy.kcp.io

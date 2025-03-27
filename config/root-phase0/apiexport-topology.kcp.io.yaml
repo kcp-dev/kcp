@@ -4,7 +4,7 @@ metadata:
   creationTimestamp: null
   name: topology.kcp.io
 spec:
-  resourceSchemas:
+  resources:
   - group: topology.kcp.io
     name: partitions
     schema: v240903-d6797056a.partitions.topology.kcp.io
