@@ -374,9 +374,9 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 			}
 		}
 
-		export.Spec.ResourceSchemas = []apisv1alpha2.ResourceSchema{}
+		export.Spec.Resources = []apisv1alpha2.ResourceSchema{}
 		for _, schema := range grss {
-			export.Spec.ResourceSchemas = append(export.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+			export.Spec.Resources = append(export.Spec.Resources, apisv1alpha2.ResourceSchema{
 				Group:  schema.group,
 				Name:   schema.resource,
 				Schema: schema.schema,

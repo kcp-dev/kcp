@@ -61,7 +61,7 @@ func convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIEx
 	hubSchemas := []string{}
 	nonCRDSchemas := []ResourceSchema{}
 
-	if schemas := in.ResourceSchemas; schemas != nil {
+	if schemas := in.Resources; schemas != nil {
 		for _, schema := range schemas {
 			if schema.Storage.CRD != nil {
 				hubSchemas = append(hubSchemas, schema.Schema)
@@ -124,11 +124,11 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 		}
 
 		if len(resourceSchemas) > 0 {
-			if out.Spec.ResourceSchemas == nil {
-				out.Spec.ResourceSchemas = []ResourceSchema{}
+			if out.Spec.Resources == nil {
+				out.Spec.Resources = []ResourceSchema{}
 			}
 
-			out.Spec.ResourceSchemas = append(out.Spec.ResourceSchemas, resourceSchemas...)
+			out.Spec.Resources = append(out.Spec.Resources, resourceSchemas...)
 		}
 
 		delete(out.Annotations, resourceSchemasAnnotation)
@@ -196,7 +196,7 @@ func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.A
 			})
 		}
 
-		out.ResourceSchemas = newSchemas
+		out.Resources = newSchemas
 	}
 
 	return nil

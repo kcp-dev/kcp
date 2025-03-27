@@ -84,7 +84,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 			Name: "today-cowboys",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "cowboys",
 					Group:  "wildwest.dev",
@@ -105,7 +105,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 			Name: "other-export",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "cowboys",
 					Group:  "wildwest.dev",
@@ -226,7 +226,7 @@ func TestAPIBinding(t *testing.T) {
 				Name: exportName,
 			},
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "cowboys",
 						Group:  "wildwest.dev",

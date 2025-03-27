@@ -78,7 +78,7 @@ func TestProtectedAPI(t *testing.T) {
 			Name: "gateway-api",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "tlsroutes",
 					Group:  "gateway.networking.k8s.io",

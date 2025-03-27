@@ -62,7 +62,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
 			group := nonEmptyString(c.RandString)
 			schema := "v1." + name + "." + group
 
-			r.ResourceSchemas = []v1alpha2.ResourceSchema{
+			r.Resources = []v1alpha2.ResourceSchema{
 				{
 					Group:  group,
 					Name:   name,

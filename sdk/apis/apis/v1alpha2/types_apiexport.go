@@ -75,7 +75,7 @@ func (in *APIExport) SetConditions(conditions conditionsv1alpha1.Conditions) {
 
 // APIExportSpec defines the desired state of APIExport.
 type APIExportSpec struct {
-	// resourceSchemas records the APIResourceSchemas that are exposed with this
+	// Resources records the APIResourceSchemas that are exposed with this
 	// APIExport.
 	//
 	// The schemas can be changed in the life-cycle of the APIExport. These changes
@@ -88,7 +88,7 @@ type APIExportSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +listMapKey=group
-	ResourceSchemas []ResourceSchema `json:"resourceSchemas,omitempty"`
+	Resources []ResourceSchema `json:"resources,omitempty"`
 
 	// identity points to a secret that contains the API identity in the 'key' file.
 	// The API identity determines an unique etcd prefix for objects stored via this
@@ -148,6 +148,7 @@ type APIExportSpec struct {
 	PermissionClaims []PermissionClaim `json:"permissionClaims,omitempty"`
 }
 
+// ResourceSchema defines the resource schemas that are exposed with this APIExport.
 type ResourceSchema struct {
 	// Name is the name of the resource.
 	Name string `json:"name"`

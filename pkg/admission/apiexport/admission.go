@@ -100,7 +100,7 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 		}
 	}
 
-	for i, rs := range ae.Spec.ResourceSchemas {
+	for i, rs := range ae.Spec.Resources {
 		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resourceSchemas").Index(i)); err != nil {
 			return admission.NewForbidden(a, err)
 		}

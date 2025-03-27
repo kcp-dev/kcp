@@ -156,7 +156,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 					Name: "services",
 				},
 				Spec: apisv1alpha2.APIExportSpec{
-					ResourceSchemas: []apisv1alpha2.ResourceSchema{
+					Resources: []apisv1alpha2.ResourceSchema{
 						{
 							Name:   "services",
 							Group:  "",

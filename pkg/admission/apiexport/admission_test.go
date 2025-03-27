@@ -172,7 +172,7 @@ func TestAdmission(t *testing.T) {
 			isBuiltIn:   false,
 			hasIdentity: true,
 			modifyExport: func(ae *apisv1alpha2.APIExport) {
-				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+				ae.Spec.Resources = append(ae.Spec.Resources, apisv1alpha2.ResourceSchema{
 					Name:   "foo",
 					Group:  "bar",
 					Schema: "this.is.invalid",
@@ -196,7 +196,7 @@ func TestAdmission(t *testing.T) {
 			isBuiltIn:   false,
 			hasIdentity: true,
 			modifyExport: func(ae *apisv1alpha2.APIExport) {
-				ae.Spec.ResourceSchemas = append(ae.Spec.ResourceSchemas, apisv1alpha2.ResourceSchema{
+				ae.Spec.Resources = append(ae.Spec.Resources, apisv1alpha2.ResourceSchema{
 					Name:   "foo",
 					Group:  "bar",
 					Schema: "v1.foo.bar",

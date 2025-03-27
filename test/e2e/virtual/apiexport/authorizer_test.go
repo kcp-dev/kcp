@@ -114,7 +114,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "wild.wild.west"},
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "sheriffs",
 						Group:  "wild.wild.west",
@@ -169,7 +169,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "today-cowboys"},
 			Spec: apisv1alpha2.APIExportSpec{
-				ResourceSchemas: []apisv1alpha2.ResourceSchema{
+				Resources: []apisv1alpha2.ResourceSchema{
 					{
 						Name:   "cowboys",
 						Group:  "wildwest.dev",
@@ -883,7 +883,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			Name: "today-cowboys",
 		},
 		Spec: apisv1alpha2.APIExportSpec{
-			ResourceSchemas: []apisv1alpha2.ResourceSchema{
+			Resources: []apisv1alpha2.ResourceSchema{
 				{
 					Name:   "cowboys",
 					Group:  "wildwest.dev",

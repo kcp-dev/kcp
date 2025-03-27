@@ -216,7 +216,7 @@ func Convert_v1alpha1_APIExportList_To_v1alpha2_APIExportList(in *v1alpha1.APIEx
 }
 
 func autoConvert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(in *APIExportSpec, out *v1alpha1.APIExportSpec, s conversion.Scope) error {
-	// WARNING: in.ResourceSchemas requires manual conversion: does not exist in peer-type
+	// WARNING: in.Resources requires manual conversion: does not exist in peer-type
 	out.Identity = (*v1alpha1.Identity)(unsafe.Pointer(in.Identity))
 	out.MaximalPermissionPolicy = (*v1alpha1.MaximalPermissionPolicy)(unsafe.Pointer(in.MaximalPermissionPolicy))
 	out.PermissionClaims = *(*[]v1alpha1.PermissionClaim)(unsafe.Pointer(&in.PermissionClaims))

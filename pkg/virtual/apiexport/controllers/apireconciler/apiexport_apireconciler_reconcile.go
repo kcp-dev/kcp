@@ -303,7 +303,7 @@ func gvrString(gvr schema.GroupVersionResource) string {
 func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *apisv1alpha2.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
-	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
+	for _, resourceSchema := range apiExport.Spec.Resources {
 		apiExportClusterName := logicalcluster.From(apiExport)
 		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
 		if err != nil && !apierrors.IsNotFound(err) {

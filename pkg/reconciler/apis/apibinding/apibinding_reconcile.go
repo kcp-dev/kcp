@@ -222,7 +222,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	// Collect the schemas.
 	schemas := make(map[string]*apisv1alpha1.APIResourceSchema)
 	grs := sets.New[schema.GroupResource]()
-	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
+	for _, resourceSchema := range apiExport.Spec.Resources {
 		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), resourceSchema.Schema)
 		if err != nil {
 			logger.Error(err, "error binding")
@@ -335,7 +335,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, err
 	}
 	var needToWaitForRequeueWhenEstablished []string
-	for _, resourceSchema := range apiExport.Spec.ResourceSchemas {
+	for _, resourceSchema := range apiExport.Spec.Resources {
 		sch := schemas[resourceSchema.Schema]
 		logger := logging.WithObject(logger, sch)
 
