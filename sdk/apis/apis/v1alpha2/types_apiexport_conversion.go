@@ -144,12 +144,14 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.APIExportSpec, out *APIExportSpec, s kubeconversion.Scope) error {
 	if in.Identity != nil {
+		out.Identity = &Identity{}
 		if err := Convert_v1alpha1_Identity_To_v1alpha2_Identity(in.Identity, out.Identity, s); err != nil {
 			return err
 		}
 	}
 
 	if in.MaximalPermissionPolicy != nil {
+		out.MaximalPermissionPolicy = &MaximalPermissionPolicy{}
 		if err := Convert_v1alpha1_MaximalPermissionPolicy_To_v1alpha2_MaximalPermissionPolicy(in.MaximalPermissionPolicy, out.MaximalPermissionPolicy, s); err != nil {
 			return err
 		}
