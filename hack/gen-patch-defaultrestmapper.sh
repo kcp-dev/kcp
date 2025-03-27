@@ -97,7 +97,7 @@ for sym in ${symbols_from_meta_pkg[@]}; do
     gofmt -w -r "${sym} -> meta.${sym}" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
 done
 
-goimports -w "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+"${REPO_ROOT}/hack/tools/goimports" -w "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
 
 # Inform the caller if there were changes. Something could have broken.
 
