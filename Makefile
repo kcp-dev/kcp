@@ -170,6 +170,11 @@ generate-api-docs: ## Generate api docs
 VENVDIR=$(abspath docs/venv)
 REQUIREMENTS_TXT=docs/requirements.txt
 
+.PHONY: local-docs
+local-docs: venv ## Run mkdocs serve
+	. $(VENV)/activate; \
+	VENV=$(VENV) cd docs && mkdocs serve
+
 .PHONY: serve-docs
 serve-docs: venv ## Serve docs
 	. $(VENV)/activate; \
