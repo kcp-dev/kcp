@@ -178,7 +178,7 @@ REQUIREMENTS_TXT=docs/requirements.txt
 .PHONY: local-docs
 local-docs: venv ## Run mkdocs serve
 	. $(VENV)/activate; \
-	VENV=$(VENV) docs/scripts/run-mkdocs.sh
+	VENV=$(VENV) cd docs && mkdocs serve
 
 .PHONY: serve-docs
 serve-docs: venv ## Serve docs
