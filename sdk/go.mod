@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp/sdk
 
-go 1.23.0
+go 1.23.1
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0

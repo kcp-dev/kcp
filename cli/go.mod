@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp/cli
 
-go 1.23.0
+go 1.23.1
 
 require (
 	github.com/google/go-cmp v0.6.0
