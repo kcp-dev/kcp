@@ -3198,7 +3198,7 @@ For more details on Kubernetes specific configuration, please refer to this <a h
 </ul>
 <h2 id="configure-kcp-oidc-authentication-using-structured-authentication-configuration">Configure kcp OIDC Authentication Using Structured Authentication Configuration</h2>
 <p>Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
-Please note that iff you specify --authentication-config along with any of the --oidc-* command line arguments, this will be treated as a misconfiguration.</p>
+Please note that if you specify <code>--authentication-config</code> along with any of the <code>--oidc-*</code> command line arguments, this will be treated as a misconfiguration.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>apiVersion:<span class="w"> </span>apiserver.config.k8s.io/v1beta1
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kind:<span class="w"> </span>AuthenticationConfiguration
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># list of authenticators to authenticate Kubernetes users using JWT compliant tokens.</span>

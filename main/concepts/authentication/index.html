@@ -3194,17 +3194,16 @@
 </ul>
 <p>You can configure them with the settings from Kubernetes control plane <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a>.</p>
 <h3 id="authentication-flow-with-client-certificate">Authentication Flow With Client Certificate</h3>
-<pre class="mermaid"><code>flowchart
-    n1@{ label: "Rectangle" }
+<pre class="mermaid"><code>flowchart TD
     n1["A client sends a request
-  with a client certificate."] --- n2
+  with a client certificate."] --&gt; n2
     n2["The proxy verifies the
-  certificate against a trusted CA."] --- n3
+  certificate against a trusted CA."] --&gt; n3
     n3["Filters specified
-  groups from requests."] --- n4
+  groups from requests."] --&gt; n4
     n4["Extracts the user and
   groups and passing them
-  as HTTP access headers."] --- n5["Forwards the request
+  as HTTP access headers."] --&gt; n5["Forwards the request
   to the kcp API server."]</code></pre>
 <h3 id="groups-filter">Groups Filter</h3>
 <p>kcp-front-proxy drops or passes specific system groups before forwarding requests.
