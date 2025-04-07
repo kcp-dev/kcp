@@ -202,6 +202,11 @@ func WithLocalProxy(
 		handler.ServeHTTP(w, req.WithContext(ctx))
 	})
 
+	// if no additional mappings are provided, do not start local-only mini-front-proxy.
+	if additionalMappingsFile == "" {
+		return defaultHandlerFunc, nil
+	}
+
 	// If additional mappings file is provided, read it and add the mappings to the handler
 	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, indexState, additionalMappingsFile)
 	if err != nil {
