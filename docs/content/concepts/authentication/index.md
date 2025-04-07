@@ -29,17 +29,16 @@ You can configure them with the settings from Kubernetes control plane [strategi
 ### Authentication Flow With Client Certificate
 
 ```mermaid
-flowchart
-	n1@{ label: "Rectangle" }
-	n1["A client sends a request
-  with a client certificate."] --- n2
-	n2["The proxy verifies the
-  certificate against a trusted CA."] --- n3
-	n3["Filters specified
-  groups from requests."] --- n4
-	n4["Extracts the user and
+flowchart TD
+    n1["A client sends a request
+  with a client certificate."] --> n2
+    n2["The proxy verifies the
+  certificate against a trusted CA."] --> n3
+    n3["Filters specified
+  groups from requests."] --> n4
+    n4["Extracts the user and
   groups and passing them
-  as HTTP access headers."] --- n5["Forwards the request
+  as HTTP access headers."] --> n5["Forwards the request
   to the kcp API server."]
 ```
 
