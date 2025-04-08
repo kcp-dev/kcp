@@ -137,3 +137,19 @@ func ByPathAndNameWithFallback[T runtime.Object](groupResource schema.GroupResou
 	// Didn't find it locally - try remote
 	return ByPathAndName[T](groupResource, globalIndexer, path, name)
 }
+
+// IndexByWorkspaceLogicalClusterAndURL indexes by logical cluster path and object name, if the annotation exists.
+func IndexByWorkspaceLogicalClusterAndURL(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if path, found := metaObj.GetAnnotations()[core.LogicalClusterPathAnnotationKey]; found {
+		return []string{
+			logicalcluster.NewPath(path).Join(metaObj.GetName()).String(),
+			logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String(),
+		}, nil
+	}
+
+	return []string{logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String()}, nil
+}

@@ -18,7 +18,6 @@ package workspacemounts
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -238,7 +237,8 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 
 	// reconcile the spec
 	specUpdater := &workspaceSpecUpdater{
-		getMountObject: getMountObjectFunc,
+		getMountObject:   getMountObjectFunc,
+		workspaceIndexer: c.workspaceIndexer,
 	}
 	status, err = specUpdater.reconcile(ctx, workspace)
 	if err != nil {
@@ -277,16 +277,6 @@ func (c *Controller) enqueuePotentiallyMountResource(gvr schema.GroupVersionReso
 	}
 }
 
-const workspaceMountsReferenceIndex = "WorkspacesByMountReference"
-
-type workspaceMountsReferenceKey struct {
-	ClusterName string `json:"clusterName"`
-	Group       string `json:"group"`
-	Resource    string `json:"resource"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace,omitempty"`
-}
-
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
@@ -294,48 +284,8 @@ func InstallIndexers(
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		workspaceMountsReferenceIndex: indexWorkspaceByMountObject,
 	})
-}
 
-func indexWorkspaceByMountObject(obj interface{}) ([]string, error) {
-	ws, ok := obj.(*tenancyv1alpha1.Workspace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
-	}
-
-	if ws.Spec.Mount == nil {
-		return nil, nil
-	}
-
-	key := workspaceMountsReferenceKey{
-		ClusterName: logicalcluster.From(ws).String(),
-		// TODO(sttts): do proper REST mapping
-		Resource:  strings.ToLower(ws.Spec.Mount.Reference.Kind) + "s",
-		Name:      ws.Spec.Mount.Reference.Name,
-		Namespace: ws.Spec.Mount.Reference.Namespace,
-	}
-	cs := strings.SplitN(ws.Spec.Mount.Reference.APIVersion, "/", 2)
-	if len(cs) == 2 {
-		key.Group = cs[0]
-	}
-	bs, err := json.Marshal(key)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal mount reference: %w", err)
-	}
-
-	return []string{string(bs)}, nil
-}
-
-func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) (string, error) {
-	key := workspaceMountsReferenceKey{
-		ClusterName: logicalcluster.From(obj).String(),
-		Group:       gvr.Group,
-		Resource:    gvr.Resource,
-		Name:        obj.GetName(),
-		Namespace:   obj.GetNamespace(),
-	}
-	bs, err := json.Marshal(key)
-	if err != nil {
-		return "", fmt.Errorf("unable to marshal mount reference: %w", err)
-	}
-	return string(bs), nil
+	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
+		workspaceByURL: indexWorkspaceByURL,
+	})
 }

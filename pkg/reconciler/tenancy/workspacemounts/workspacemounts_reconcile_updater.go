@@ -23,9 +23,11 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -104,7 +106,8 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 
 // workspaceSpecUpdater updates the spec of the workspace based on the mount status.
 type workspaceSpecUpdater struct {
-	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+	getMountObject   func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+	workspaceIndexer cache.Indexer
 }
 
 func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -124,55 +127,24 @@ func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancy
 		return reconcileStatusStopAndRequeue, err
 	}
 
-	if err := fillWorkspaceSpec(obj, workspace); err != nil {
-		return reconcileStatusStopAndRequeue, err
-	}
-
-	return reconcileStatusContinue, nil
-}
-
-func fillWorkspaceSpec(obj *unstructured.Unstructured, workspace *tenancyv1alpha1.Workspace) error {
-	// url might not be there if the mount is not ready
 	statusURL, found, err := unstructured.NestedString(obj.Object, "status", "URL")
 	if !found || err != nil {
-		return fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
+		return reconcileStatusStopAndRequeue, fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
 	}
 	workspace.Spec.URL = statusURL
 
-	// cluster is optional since not all moounts will point to a KCP workspace
-	clusterName, found, err := unstructured.NestedString(obj.Object, "status", "cluster")
+	// After this is best effort. It will not work cross-shards mounts type resolution.
+	wss, err := indexers.ByIndex[*tenancyv1alpha1.Workspace](r.workspaceIndexer, workspaceByURL, statusURL)
 	if err != nil {
-		return fmt.Errorf("unable to read .status.cluster, err: %w", err)
-	}
-	if found {
-		workspace.Spec.Cluster = clusterName
+		return reconcileStatusContinue, nil //nolint:nilerr
 	}
 
-	// type is optional since not all mounts will point to a KCP workspace
-	_, found, err = unstructured.NestedStringMap(obj.Object, "status", "type")
-	if err != nil {
-		return fmt.Errorf("unable to read .status.type, err: %w", err)
-	}
-	if !found {
-		return nil
+	if len(wss) != 1 {
+		return reconcileStatusContinue, nil
 	}
 
-	// at this point, the mount object has a type field, so we can attempt to read it's attributes
-	wsTypeName, found, err := unstructured.NestedString(obj.Object, "status", "type", "name")
-	if !found || err != nil {
-		return fmt.Errorf("unable to read .status.type.name, found %v, err: %w", found, err)
-	}
+	workspace.Spec.Cluster = wss[0].Spec.Cluster
+	workspace.Spec.Type = wss[0].Spec.Type
 
-	wsTypePath, found, err := unstructured.NestedString(obj.Object, "status", "type", "path")
-	if !found || err != nil {
-		return fmt.Errorf("unable to read .status.type.path, found %v, err: %w", found, err)
-	}
-
-	if workspace.Spec.Type == nil {
-		workspace.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{}
-	}
-	workspace.Spec.Type.Name = tenancyv1alpha1.WorkspaceTypeName(wsTypeName)
-	workspace.Spec.Type.Path = wsTypePath
-
-	return nil
+	return reconcileStatusContinue, nil
 }

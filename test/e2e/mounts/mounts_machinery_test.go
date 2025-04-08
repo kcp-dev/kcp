@@ -97,7 +97,7 @@ func TestMountsMachinery(t *testing.T) {
 	orgProviderKCPClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating cowboys provider kcp client")
 
-	t.Logf("Install a mount object APIResourceSchema into workspace %q", sourcePath)
+	t.Logf("Install a mount object CRD into workspace %q", sourcePath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(orgProviderKCPClient.Cluster(sourcePath).Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourcePath), mapper, nil, "crd_kubecluster.yaml", testFiles)
 	require.NoError(t, err)
