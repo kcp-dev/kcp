@@ -1,22 +1,32 @@
 <!--
-Thanks for creating a pull request!
 
+Thanks for creating a pull request!
 If this is your first time, please make sure to review CONTRIBUTING.MD.
 
-Please copy the appropriate `:text:` or icon to the beginning of your PR title:
-
-:sparkles: ✨ feature
-:bug: 🐛 bug fix
-:book: 📖 docs
-:memo: 📝 proposal
-:warning: ⚠️ breaking change
-:seedling: 🌱 other/misc
-:question: ❓ requires manual review/categorization
-
 -->
+
 ## Summary
 
-## Related issue(s)
+## What Type of PR Is This?
+
+<!--
+
+Add one of the following kinds:
+/kind bug
+/kind cleanup
+/kind documentation
+/kind feature
+
+Optionally add one or more of the following kinds if applicable:
+/kind api-change
+/kind deprecation
+/kind failing-test
+/kind flake
+/kind regression
+
+-->
+
+## Related Issue(s)
 
 Fixes #
 
