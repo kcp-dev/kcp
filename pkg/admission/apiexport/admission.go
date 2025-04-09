@@ -91,7 +91,7 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 			return admission.NewForbidden(a, err)
 		}
 
-		var v2 *apisv1alpha2.APIExport
+		v2 := new(apisv1alpha2.APIExport)
 		err := apisv1alpha2.Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(ae, v2, nil)
 		if err != nil {
 			return fmt.Errorf("failed to convert v1alpha1 APIExport to v1alpha2: %w", err)
