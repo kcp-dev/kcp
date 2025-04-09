@@ -33,7 +33,9 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 // NonPersistedResourcesClaimable is a list of resources that are not persisted
@@ -52,13 +54,13 @@ var NonPersistedResourcesClaimable = map[schema.GroupResource]bool{
 type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
-	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
 
 // NewLabeler returns a new Labeler.
 func NewLabeler(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) *Labeler {
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
@@ -69,8 +71,8 @@ func NewLabeler(
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 	}
 }
@@ -146,7 +148,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisv1alpha1informers.APIExportClusterInformer) {
+func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer) {
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})

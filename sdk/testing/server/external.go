@@ -184,9 +184,10 @@ func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig,
 // The returned client CA is signed by "test/e2e/framework/client-ca.crt".
 func clientCAUserConfig(t TestingT, cfg *rest.Config, clientCAConfigDirectory, username string, groups ...string) *rest.Config {
 	t.Helper()
-	caBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.crt"))
+	clientCAName := "client-ca"
+	caBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, clientCAName+".crt"))
 	require.NoError(t, err, "error reading CA file")
-	caKeyBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, "client-ca.key"))
+	caKeyBytes, err := os.ReadFile(filepath.Join(clientCAConfigDirectory, clientCAName+".key"))
 	require.NoError(t, err, "error reading CA key")
 	caCerts, err := cert.ParseCertsPEM(caBytes)
 	require.NoError(t, err, "error parsing CA certs")

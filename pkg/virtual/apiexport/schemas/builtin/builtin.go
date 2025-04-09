@@ -36,6 +36,7 @@ import (
 	generatedkcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
@@ -54,6 +55,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	// TODO(mjudeikis): Once we move fully to v1alpha2, we need to refactor this. For now its easier to operate
+	// with v1alpha1 and interface with v1alpha2.
 	builtInAPIResourceSchemas = make(map[apisv1alpha1.GroupResource]*apisv1alpha1.APIResourceSchema, len(apis))
 	for _, api := range apis {
 		builtInAPIResourceSchemas[apisv1alpha1.GroupResource{
@@ -65,16 +68,22 @@ func init() {
 
 // IsBuiltInAPI indicates whether the API identified by group and resource is
 // built-in.
-func IsBuiltInAPI(gr apisv1alpha1.GroupResource) bool {
-	_, exists := builtInAPIResourceSchemas[gr]
+func IsBuiltInAPI(gr apis.GroupResource) bool {
+	_, exists := builtInAPIResourceSchemas[apisv1alpha1.GroupResource{
+		Group:    gr.GetGroup(),
+		Resource: gr.GetResource(),
+	}]
 	return exists
 }
 
 // GetBuiltInAPISchema retrieves the APIResourceSchema for a built-in API.
-func GetBuiltInAPISchema(gr apisv1alpha1.GroupResource) (*apisv1alpha1.APIResourceSchema, error) {
-	s, exists := builtInAPIResourceSchemas[gr]
+func GetBuiltInAPISchema(gr apis.GroupResource) (*apisv1alpha1.APIResourceSchema, error) {
+	s, exists := builtInAPIResourceSchemas[apisv1alpha1.GroupResource{
+		Group:    gr.GetGroup(),
+		Resource: gr.GetResource(),
+	}]
 	if !exists {
-		return nil, fmt.Errorf("no schema found for built-in API %s.%s", gr.Resource, gr.Group)
+		return nil, fmt.Errorf("no schema found for built-in API %s.%s", gr.GetResource(), gr.GetGroup())
 	}
 	return s, nil
 }
@@ -82,6 +91,7 @@ func GetBuiltInAPISchema(gr apisv1alpha1.GroupResource) (*apisv1alpha1.APIResour
 // builtInAPIResourceSchemas contains a list of APIResourceSchema for built-in
 // APIs that are available to be permission-claimed for APIExport virtual
 // workspace
+// TODO(mjudeikis): Once we move fully to v1alpha2, we need to refactor this.
 var builtInAPIResourceSchemas map[apisv1alpha1.GroupResource]*apisv1alpha1.APIResourceSchema
 
 // TODO(hasheddan): ideally this would not be public, but it is currently used

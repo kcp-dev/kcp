@@ -27,7 +27,6 @@ import (
 	"os"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -541,7 +540,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
 	authInfoResolver := webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeControlPlane.ProxyTransport, kubeControlPlane.Generic.EgressSelector, kubeControlPlane.Generic.LoopbackClientConfig, kubeControlPlane.Generic.TracerProvider)
-	conversionFactory, err := conversion.NewCRConverterFactory(serviceResolver, authInfoResolver)
+	conversionFactory, err := NewCRConverterFactory(serviceResolver, authInfoResolver)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +570,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(),
 		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
-		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Cluster(clusterName).Get(name)
 		},

@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 const (
@@ -52,7 +53,7 @@ func NewResourceController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
-	apiExportInformer, globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) (*resourceController, error) {
 	c := &resourceController{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(

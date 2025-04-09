@@ -29,10 +29,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labellogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
@@ -45,7 +45,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) labellogicalcluster.Controller {
 	logicalClusterLister := logicalClusterInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()
@@ -72,7 +72,7 @@ func NewController(
 			obj = tombstone.Obj
 		}
 
-		export, ok := obj.(*apisv1alpha1.APIExport)
+		export, ok := obj.(*apisv1alpha2.APIExport)
 		if !ok {
 			utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
 			return

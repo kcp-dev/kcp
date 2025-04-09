@@ -34,6 +34,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -72,15 +73,24 @@ func TestProtectedAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
-	cowboysAPIExport := &apisv1alpha1.APIExport{
+	cowboysAPIExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "gateway-api",
 		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"latest.tlsroutes.gateway.networking.k8s.io"},
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: []apisv1alpha2.ResourceSchema{
+				{
+					Name:   "tlsroutes",
+					Group:  "gateway.networking.k8s.io",
+					Schema: "latest.tlsroutes.gateway.networking.k8s.io",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the gateway-api export from %q", consumerPath, providerPath)
@@ -139,7 +149,7 @@ func TestProtectedAPIFromServiceExports(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	t.Logf("Get tenancy APIExport from root workspace")
-	tenanciesRoot, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(rootWorkspace).Get(ctx, tenancy.GroupName, metav1.GetOptions{})
+	tenanciesRoot, err := kcpClusterClient.ApisV1alpha2().APIExports().Cluster(rootWorkspace).Get(ctx, tenancy.GroupName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Construct VirtualWorkspace client")

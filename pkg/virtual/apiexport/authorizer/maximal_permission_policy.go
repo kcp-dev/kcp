@@ -32,13 +32,14 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 type maximalPermissionAuthorizer struct {
-	getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error)
+	getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error)
 	newDeepSARAuthorizer    func(clusterName logicalcluster.Name) (authorizer.Authorizer, error)
-	getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha1.APIExport, error)
+	getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha2.APIExport, error)
 }
 
 // NewMaximalPermissionAuthorizer creates an authorizer that checks the maximal permission policy
@@ -47,16 +48,16 @@ type maximalPermissionAuthorizer struct {
 //
 // If the request is a cluster request the authorizer skips authorization if the request is not for a bound resource.
 // If the request is a wildcard request this check is skipped because no unique API binding can be determined.
-func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisv1alpha1informers.APIExportClusterInformer) authorizer.Authorizer {
+func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisv1alpha2informers.APIExportClusterInformer) authorizer.Authorizer {
 	apiExportLister := apiExportInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()
 
 	return &maximalPermissionAuthorizer{
-		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
 			return apiExportLister.Cluster(logicalcluster.Name(clusterName)).Get(apiExportName)
 		},
-		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
+		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+			return indexers.ByIndex[*apisv1alpha2.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
 		},
 		newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
 			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient, delegated.Options{})
@@ -139,7 +140,7 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 	return authorizer.DecisionAllow, "all claimed API exports granted access", nil
 }
 
-func getClaimedIdentity(apiExport *apisv1alpha1.APIExport, attr authorizer.Attributes) (string, bool) {
+func getClaimedIdentity(apiExport *apisv1alpha2.APIExport, attr authorizer.Attributes) (string, bool) {
 	for i := range apiExport.Spec.PermissionClaims {
 		if apiExport.Spec.PermissionClaims[i].Resource == attr.GetResource() &&
 			apiExport.Spec.PermissionClaims[i].Group == attr.GetAPIGroup() {
