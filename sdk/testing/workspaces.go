@@ -83,7 +83,7 @@ func WithLocation(w tenancyv1alpha1.WorkspaceLocation) UnprivilegedWorkspaceOpti
 // WithType sets the type of the workspace.
 func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) UnprivilegedWorkspaceOption {
 	return func(ws *tenancyv1alpha1.Workspace) {
-		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
+		ws.Spec.Type = &tenancyv1alpha1.WorkspaceTypeReference{
 			Name: name,
 			Path: path.String(),
 		}
@@ -118,7 +118,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 			GenerateName: "e2e-workspace-",
 		},
 		Spec: tenancyv1alpha1.WorkspaceSpec{
-			Type: tenancyv1alpha1.WorkspaceTypeReference{
+			Type: &tenancyv1alpha1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.WorkspaceTypeName("universal"),
 				Path: "root",
 			},
