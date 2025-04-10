@@ -32,6 +32,8 @@ set +o xtrace
 set -o errexit
 echo "Command terminated with ${EXIT_CODE}"
 
+sync
+
 echo 'Compressing build artifacts...'
 cd "$ARTIFACTS"
 tar cjf artifacts.tar.bz2 --remove-files *
