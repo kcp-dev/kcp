@@ -334,13 +334,12 @@ test-e2e-sharded-minimal: build-all
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
-	trap 'kill -TERM $$PID' TERM INT EXIT && \
+	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
 		-args --use-default-kcp-server --shard-kubeconfigs=root=$(PWD)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(PWD)/.kcp-$$n/admin.kubeconfig"; done) \
-		$(SUITES_ARGS) \
-	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
+		$(SUITES_ARGS)
 
 # This is just easy target to run 2 shard test server locally until manually killed.
 # You can targer test to it by running:
