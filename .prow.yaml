@@ -95,6 +95,33 @@ presubmits:
               memory: 4Gi
               cpu: 2
 
+  - name: pull-kcp-test-integration
+    decorate: true
+    # only run integration tests if code changed.
+    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.23.7-2
+          command:
+            - ./hack/run-with-prow.sh
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-integration
+          env:
+            - name: USE_GOTESTSUM
+              value: '1'
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: '1'
+            - name: E2E_PARALLELISM
+              value: '3'
+          resources:
+            requests:
+              memory: 6Gi
+              cpu: 4
+
   - name: pull-kcp-test-e2e
     decorate: true
     # only run e2e tests if code changed.

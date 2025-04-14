@@ -43,18 +43,12 @@ type Controllers struct {
 	SAController kcmoptions.SAControllerOptions
 }
 
-var kcmDefaults *kcmoptions.KubeControllerManagerOptions
-
-func init() {
-	var err error
-
-	kcmDefaults, err = kcmoptions.NewKubeControllerManagerOptions()
+func NewControllers() *Controllers {
+	kcmDefaults, err := kcmoptions.NewKubeControllerManagerOptions()
 	if err != nil {
 		panic(err)
 	}
-}
 
-func NewControllers() *Controllers {
 	return &Controllers{
 		EnableAll: true,
 
