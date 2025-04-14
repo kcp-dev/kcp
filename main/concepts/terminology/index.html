@@ -3300,7 +3300,7 @@ where different logical clusters can be used by different users in the organizat
 <p>The kcp server only provides resources to accomplish this, such as <code>LogicalCluster</code>, <code>Workspace</code>, <code>APIBinding</code> and
 <code>APIExport</code>, on top of some core Kubernetes resources, like <code>ConfigMap</code> and <code>Secret</code>. It doesn't provide Kubernetes
 resources for managing and orchestrating workloads, such as Pods and Deployments. The list of resources provided by
-default can be found in the <a href="./apis/built-in">Built-in APIs document</a>.</p>
+default can be found in the <a href="../apis/built-in">Built-in APIs document</a>.</p>
 <p>kcp follows the Kubernetes API semantics in each logical cluster, i.e. kcp should be conformant to the subset of the
 Kubernetes conformance suite that applies to the APIs available in kcp. In other words, if you're building a platform
 on top of kcp, you'll be required to build Kubernetes-like resources and APIs, think of CustomResourceDefinitions
