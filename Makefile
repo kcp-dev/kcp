@@ -363,7 +363,7 @@ endif
 test: WHAT ?= ./...
 # We will need to move into the sub package, of sdk to run those tests.
 test: ## Run tests
-	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -E 'test/(e2e/integration)')
+	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
 	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: test-integration
