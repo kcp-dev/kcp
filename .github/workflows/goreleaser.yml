@@ -29,7 +29,7 @@ jobs:
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
     - name: Run GoReleaser on tag
       if: github.event_name != 'pull_request'
-      uses: goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3 # tag=v6.2.1
+      uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
       with:
         distribution: goreleaser
         version: latest
@@ -39,7 +39,7 @@ jobs:
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
     - name: Run GoReleaser on pull request
       if: github.event_name == 'pull_request'
-      uses: goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3 # tag=v6.2.1
+      uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
       with:
         distribution: goreleaser
         version: latest
