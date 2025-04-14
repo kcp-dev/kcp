@@ -366,6 +366,14 @@ test: ## Run tests
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -E 'test/(e2e/integration)')
 	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
+.PHONY: test-integration
+ifdef USE_GOTESTSUM
+test-integration: $(GOTESTSUM)
+endif
+test-integration: WHAT ?= ./test/integration...
+test-integration: ## Run integration tests
+	$(GO_TEST) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
+
 .PHONY: verify-k8s-deps
 verify-k8s-deps: ## Verify kubernetes deps
 	hack/validate-k8s.sh
