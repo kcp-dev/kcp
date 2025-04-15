@@ -18,6 +18,7 @@ package workspacemounts
 
 import (
 	"context"
+	"fmt"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,7 +58,7 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 				tenancyv1alpha1.MountObjectNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"%s %q not found",
-				obj.GroupVersionKind().Kind, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
+				workspace.Spec.Mount.Reference.Kind, types.NamespacedName{Namespace: workspace.Spec.Mount.Reference.Namespace, Name: workspace.Spec.Mount.Reference.Name},
 			)
 			return reconcileStatusContinue, nil
 		}
@@ -81,15 +82,6 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 		return reconcileStatusContinue, nil //nolint:nilerr // we ignore the error intentionally. Not helpful.
 	}
 
-	// url might not be there if the mount is not ready
-	statusURL, _, _ := unstructured.NestedString(obj.Object, "status", "URL")
-
-	// Only Spec or Status can be updated, not both.
-	if workspace.Spec.URL != statusURL {
-		workspace.Spec.URL = statusURL
-		return reconcileStatusContinue, nil
-	}
-
 	// Inject condition into the workspace.
 	// This is a loose coupling, we are not interested in the rest of the status.
 	switch tenancyv1alpha1.MountPhaseType(statusPhase) {
@@ -106,6 +98,37 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 			obj.GroupVersionKind().Kind, obj.GetName(),
 		)
 	}
+
+	return reconcileStatusContinue, nil
+}
+
+// workspaceSpecUpdater updates the spec of the workspace based on the mount status.
+type workspaceSpecUpdater struct {
+	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+}
+
+func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
+	if workspace.Spec.Mount == nil {
+		return reconcileStatusContinue, nil
+	}
+
+	if !workspace.DeletionTimestamp.IsZero() {
+		return reconcileStatusContinue, nil
+	}
+
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return reconcileStatusContinue, nil
+		}
+		return reconcileStatusStopAndRequeue, err
+	}
+
+	statusURL, found, err := unstructured.NestedString(obj.Object, "status", "URL")
+	if !found || err != nil {
+		return reconcileStatusStopAndRequeue, fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
+	}
+	workspace.Spec.URL = statusURL
 
 	return reconcileStatusContinue, nil
 }

@@ -18,15 +18,14 @@ package workspacemounts
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -197,20 +196,65 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	logger := logging.WithObject(klog.FromContext(ctx), workspace)
 	ctx = klog.NewContext(ctx, logger)
 
-	var errs []error
-	requeue, err := c.reconcile(ctx, workspace)
+	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
+		// TODO(sttts): do proper REST mapping.
+		resource := strings.ToLower(ref.Kind) + "s"
+		gvr := schema.GroupVersionResource{Resource: resource}
+		cs := strings.SplitN(ref.APIVersion, "/", 2)
+		if len(cs) == 2 {
+			gvr.Group = cs[0]
+			gvr.Version = cs[1]
+		} else {
+			gvr.Version = ref.APIVersion
+		}
+		return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Get(ctx, ref.Name, metav1.GetOptions{})
+	}
+
+	// the following logic is a deviation from the standard pattern of reconcilers
+	// because the spec and status are both being updated here
+	// they need to be updated separately through the patch committer
+
+	// reconcile the status
+	statusUpdater := &workspaceStatusUpdater{
+		getMountObject: getMountObjectFunc,
+	}
+
+	status, err := statusUpdater.reconcile(ctx, workspace)
 	if err != nil {
-		errs = append(errs, err)
+		return false, err
+	}
+
+	if status == reconcileStatusStopAndRequeue {
+		return true, nil
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &workspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &workspace.Status}
+	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &workspace.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
-		errs = append(errs, err)
+		return false, err
 	}
 
-	return requeue, utilerrors.NewAggregate(errs)
+	// reconcile the spec
+	specUpdater := &workspaceSpecUpdater{
+		getMountObject: getMountObjectFunc,
+	}
+	status, err = specUpdater.reconcile(ctx, workspace)
+	if err != nil {
+		return false, err
+	}
+	if status == reconcileStatusStopAndRequeue {
+		return true, nil
+	}
+
+	// If the object being reconciled changed as a result, update it.
+	oldResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &old.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 // enqueuePotentiallyMountResource looks for workspaces referencing this kind.
@@ -230,67 +274,4 @@ func (c *Controller) enqueuePotentiallyMountResource(gvr schema.GroupVersionReso
 	for _, ws := range wss {
 		c.enqueueWorkspace(ws, fmt.Sprintf(", because of mount resource: %s", key))
 	}
-}
-
-const workspaceMountsReferenceIndex = "WorkspacesByMountReference"
-
-type workspaceMountsReferenceKey struct {
-	ClusterName string `json:"clusterName"`
-	Group       string `json:"group"`
-	Resource    string `json:"resource"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace,omitempty"`
-}
-
-// InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(
-	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
-) {
-	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
-		workspaceMountsReferenceIndex: indexWorkspaceByMountObject,
-	})
-}
-
-func indexWorkspaceByMountObject(obj interface{}) ([]string, error) {
-	ws, ok := obj.(*tenancyv1alpha1.Workspace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
-	}
-
-	if ws.Spec.Mount == nil {
-		return nil, nil
-	}
-
-	key := workspaceMountsReferenceKey{
-		ClusterName: logicalcluster.From(ws).String(),
-		// TODO(sttts): do proper REST mapping
-		Resource:  strings.ToLower(ws.Spec.Mount.Reference.Kind) + "s",
-		Name:      ws.Spec.Mount.Reference.Name,
-		Namespace: ws.Spec.Mount.Reference.Namespace,
-	}
-	cs := strings.SplitN(ws.Spec.Mount.Reference.APIVersion, "/", 2)
-	if len(cs) == 2 {
-		key.Group = cs[0]
-	}
-	bs, err := json.Marshal(key)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal mount reference: %w", err)
-	}
-
-	return []string{string(bs)}, nil
-}
-
-func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) (string, error) {
-	key := workspaceMountsReferenceKey{
-		ClusterName: logicalcluster.From(obj).String(),
-		Group:       gvr.Group,
-		Resource:    gvr.Resource,
-		Name:        obj.GetName(),
-		Namespace:   obj.GetNamespace(),
-	}
-	bs, err := json.Marshal(key)
-	if err != nil {
-		return "", fmt.Errorf("unable to marshal mount reference: %w", err)
-	}
-	return string(bs), nil
 }
