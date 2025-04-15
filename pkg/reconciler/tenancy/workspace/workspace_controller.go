@@ -275,7 +275,8 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
+func InstallIndexers(
+	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 ) {

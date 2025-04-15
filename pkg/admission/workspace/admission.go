@@ -131,7 +131,8 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 // - has a valid type and it is not mutated
 // - the cluster is not removed
 // - the user is recorded in annotations on create
-// - the required groups match with the LogicalCluster.
+// - the required groups match with the LogicalCluster
+// - only system privileged users can set both spec.Type and spec.Mount.
 func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -206,6 +207,21 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			if old.Spec.Mount.Reference.APIVersion != ws.Spec.Mount.Reference.APIVersion {
 				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion is immutable"))
 			}
+
+			// if not system privileged, disallow setting spec.type
+			if !isSystemPrivileged && ws.Spec.Type != nil {
+				return admission.NewForbidden(a, errors.New("spec.type cannot be set for mounted workspaces"))
+			}
+			// Check for immutability of spec.type via pointers checks first.
+			if !isSystemPrivileged && ((old.Spec.Type == nil && ws.Spec.Type != nil) || (old.Spec.Type != nil && ws.Spec.Type == nil)) {
+				return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+			}
+			// Check for immutability of spec.type via field checks.
+			if !isSystemPrivileged && old.Spec.Type != nil && ws.Spec.Type != nil {
+				if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+					return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+				}
+			}
 		}
 	case admission.Create:
 		// only system users can set spec.Cluster or spec.URL
@@ -250,6 +266,10 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			}
 			if ws.Spec.Mount.Reference.APIVersion == "" {
 				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion must be set"))
+			}
+
+			if !isSystemPrivileged && ws.Spec.Type != nil {
+				return admission.NewForbidden(a, errors.New("spec.type cannot be set for mounted workspaces"))
 			}
 		}
 	}
