@@ -33,6 +33,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
+	"github.com/kcp-dev/kcp/sdk/apis/cache"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
@@ -56,6 +57,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: apis.GroupName, Resource: "apiexportendpointslices"},
 		{Group: core.GroupName, Resource: "logicalclusters"},
 		{Group: apis.GroupName, Resource: "apiconversions"},
+		{Group: cache.GroupName, Resource: "cachedresources"},
 	}
 
 	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
