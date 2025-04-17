@@ -1,0 +1,7 @@
+options:
+  no_parent_owners: false
+filters:
+  ".*":
+    # make sure that all PRs to this package are marked as CLI (kubectl plugin) changes.
+    labels:
+        - area/cli
