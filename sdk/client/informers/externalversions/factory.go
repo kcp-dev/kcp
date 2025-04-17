@@ -35,6 +35,7 @@ import (
 	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	scopedclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 		apisinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis"
+	cacheinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache"
 	coreinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core"
 	tenancyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy"
 	topologyinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/topology"
@@ -271,6 +272,7 @@ type SharedInformerFactory interface {
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) kcpcache.ScopeableSharedIndexInformer
 
 	Apis() apisinformers.ClusterInterface
+	Cache() cacheinformers.ClusterInterface
 	Core() coreinformers.ClusterInterface
 	Tenancy() tenancyinformers.ClusterInterface
 	Topology() topologyinformers.ClusterInterface
@@ -279,6 +281,10 @@ type SharedInformerFactory interface {
 
 func (f *sharedInformerFactory) Apis() apisinformers.ClusterInterface {
   return apisinformers.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Cache() cacheinformers.ClusterInterface {
+  return cacheinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Core() coreinformers.ClusterInterface {
@@ -440,6 +446,7 @@ type SharedScopedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Apis() apisinformers.Interface
+	Cache() cacheinformers.Interface
 	Core() coreinformers.Interface
 	Tenancy() tenancyinformers.Interface
 	Topology() topologyinformers.Interface
@@ -449,6 +456,10 @@ type SharedScopedInformerFactory interface {
 
 func (f *sharedScopedInformerFactory) Apis() apisinformers.Interface {
   return apisinformers.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Cache() cacheinformers.Interface {
+  return cacheinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Core() coreinformers.Interface {
