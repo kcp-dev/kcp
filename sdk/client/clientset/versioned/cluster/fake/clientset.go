@@ -34,6 +34,8 @@ import (
 	kcpfakeapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1/fake"
 	kcpapisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2"
 	kcpfakeapisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2/fake"
+	kcpcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1"
+	kcpfakecachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1/fake"
 	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	kcpfakecorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1/fake"
 	kcptenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
@@ -42,6 +44,7 @@ import (
 	kcpfaketopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1/fake"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
@@ -106,6 +109,11 @@ func (c *ClusterClientset) ApisV1alpha1() kcpapisv1alpha1.ApisV1alpha1ClusterInt
 // ApisV1alpha2 retrieves the ApisV1alpha2ClusterClient
 func (c *ClusterClientset) ApisV1alpha2() kcpapisv1alpha2.ApisV1alpha2ClusterInterface {
 	return &kcpfakeapisv1alpha2.ApisV1alpha2ClusterClient{Fake: &c.Fake}
+}
+
+// CacheV1alpha1 retrieves the CacheV1alpha1ClusterClient
+func (c *ClusterClientset) CacheV1alpha1() kcpcachev1alpha1.CacheV1alpha1ClusterInterface {
+	return &kcpfakecachev1alpha1.CacheV1alpha1ClusterClient{Fake: &c.Fake}
 }
 
 // CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient
@@ -174,6 +182,11 @@ func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 // ApisV1alpha2 retrieves the ApisV1alpha2Client
 func (c *Clientset) ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface {
 	return &kcpfakeapisv1alpha2.ApisV1alpha2Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// CacheV1alpha1 retrieves the CacheV1alpha1Client
+func (c *Clientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface {
+	return &kcpfakecachev1alpha1.CacheV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // CoreV1alpha1 retrieves the CoreV1alpha1Client

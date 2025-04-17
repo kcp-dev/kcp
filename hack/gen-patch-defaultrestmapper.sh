@@ -17,6 +17,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
 DEFAULTRESTMAPPER_FILEPATH="${DEFAULTRESTMAPPER_FILEPATH:-$( go list -m -json k8s.io/apimachinery | jq -r .Dir )/pkg/api/meta/restmapper.go}"
@@ -56,7 +57,11 @@ touch "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
 # after its `package meta` declaration.
 
 cat "${REPO_ROOT}/hack/boilerplate/boilerplate.go.txt" > "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
-sed -i "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+else
+  sed -i "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+fi
 cat >> "${DEFAULTRESTMAPPER_PATCH_FILEPATH}" << Header_EOF
 
 package dynamicrestmapper
