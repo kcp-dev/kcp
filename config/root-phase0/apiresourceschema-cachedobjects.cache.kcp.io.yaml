@@ -1,0 +1,57 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v250523-2b8c1d3c5.cachedobjects.cache.kcp.io
+spec:
+  group: cache.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: CachedObject
+    listKind: CachedObjectList
+    plural: cachedobjects
+    singular: cachedobject
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      description: CachedObject defines a resource that is cached in the cache.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: CachedObjectSpec defines the desired state of CachedObject.
+          properties:
+            raw:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+          required:
+          - raw
+          type: object
+      required:
+      - spec
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

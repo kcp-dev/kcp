@@ -56,14 +56,18 @@ const (
 )
 
 type options struct {
-	inputDir  string
-	outputDir string
+	inputDir            string
+	outputDir           string
+	ignoreExportSchemas []string
+
+	ignoreExportSchemasParsed []metav1.GroupResource
 }
 
 func bindOptions(fs *pflag.FlagSet) *options {
 	o := options{}
 	fs.StringVar(&o.inputDir, "input-dir", "", "Directory containing CustomResourceDefinition YAML files.")
 	fs.StringVar(&o.outputDir, "output-dir", "", "Directory where APIResourceSchemas and APIExports will be written.")
+	fs.StringSliceVar(&o.ignoreExportSchemas, "ignore-export-schemas", []string{}, "Comma-separated list of 'Resource.Group' to be ignored for APIExports generation.")
 	return &o
 }
 
@@ -73,6 +77,23 @@ func (o *options) Validate() error {
 	}
 	if o.outputDir == "" {
 		return fmt.Errorf("--output-dir is required")
+	}
+	if len(o.ignoreExportSchemas) > 0 {
+		for _, s := range o.ignoreExportSchemas {
+			// parse strings like "resource.group.org"
+			parts := strings.Split(s, ".")
+			if len(parts) < 2 {
+				return fmt.Errorf("invalid schema %q: must have at least 2 dot-separated segments", s)
+			}
+
+			resource := parts[0]
+			group := strings.Join(parts[1:], ".")
+			if group == "core" {
+				group = ""
+			}
+			group = strings.TrimSuffix(group, "/")
+			o.ignoreExportSchemasParsed = append(o.ignoreExportSchemasParsed, metav1.GroupResource{Group: group, Resource: resource})
+		}
 	}
 	return nil
 }
@@ -148,7 +169,7 @@ func main() {
 	}
 
 	apiResourceSchemas := resolveLatestAPIResourceSchemas(logger, previousApiResourceSchemas, currentApiResourceSchemas)
-	apiExports, err := generateExports(opts.outputDir, apiResourceSchemas)
+	apiExports, err := generateExports(opts.outputDir, opts.ignoreExportSchemasParsed, apiResourceSchemas)
 	if err != nil {
 		logger.Error(err, "Could not generate APIExports.")
 		os.Exit(1)
@@ -179,6 +200,7 @@ func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[meta
 			Group:    parts[0],
 			Resource: parts[1],
 		}
+
 		if gr.Group == apis.GroupName || gr.Group == rbacv1.GroupName || gr.Group == admissionregistrationv1.GroupName {
 			logger.Info(fmt.Sprintf("Skipping CustomResourceDefinition %s from %s", gr.String(), path))
 			return nil
@@ -324,7 +346,7 @@ func compareSchemas() cmp.Option {
 	}))
 }
 
-func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
+func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResource, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
 	type grs struct {
 		group    string
 		resource string
@@ -334,6 +356,15 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 	byExport := map[string][]grs{}
 	for gr, apiResourceSchema := range allSchemas {
 		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
+			continue
+		}
+		var ignore bool
+		for _, ignoreExportSchema := range ignoreExportSchemas {
+			if ignoreExportSchema.Group == gr.Group && ignoreExportSchema.Resource == gr.Resource {
+				ignore = true
+			}
+		}
+		if ignore {
 			continue
 		}
 

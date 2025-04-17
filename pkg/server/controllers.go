@@ -71,6 +71,7 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
@@ -1621,6 +1622,53 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Conf
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installCacheController(ctx context.Context, config *rest.Config) error {
+	if !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		return nil
+	}
+
+	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
+	workspaceConfig := rest.CopyConfig(config)
+	workspaceConfig = rest.AddUserAgent(workspaceConfig, cachedresources.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := kcpdynamic.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	cachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources()
+	c, err := cachedresources.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.KcpCacheClusterClient,
+		dynamicClient,
+		s.CacheDynamicClient,
+		s.KubeClusterClient,
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.DiscoveringDynamicSharedInformerFactory,
+		s.CacheKcpSharedInformerFactory,
+		cachedResourceInformer,
+	)
+	if err != nil {
+		return err
+	}
+	return s.registerController(&controllerWrapper{
+		Name: cachedresources.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return cachedResourceInformer.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

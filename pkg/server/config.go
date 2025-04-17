@@ -104,6 +104,7 @@ type ExtraConfig struct {
 	DeepSARClient                       kcpkubernetesclientset.ClusterInterface
 	ApiExtensionsClusterClient          kcpapiextensionsclientset.ClusterInterface
 	KcpClusterClient                    kcpclientset.ClusterInterface
+	KcpCacheClusterClient               kcpclientset.ClusterInterface
 	RootShardKcpClusterClient           kcpclientset.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
@@ -125,12 +126,13 @@ type ExtraConfig struct {
 	ShardVirtualWorkspaceURL func() string
 
 	// informers
-	KcpSharedInformerFactory                kcpinformers.SharedInformerFactory
-	KubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
-	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
-	DiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
-	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
-	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
+	KcpSharedInformerFactory                     kcpinformers.SharedInformerFactory
+	KubeSharedInformerFactory                    kcpkubernetesinformers.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory           kcpapiextensionsinformers.SharedInformerFactory
+	DiscoveringDynamicSharedInformerFactory      *informer.DiscoveringDynamicSharedInformerFactory
+	CacheDiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
+	CacheKcpSharedInformerFactory                kcpinformers.SharedInformerFactory
+	CacheKubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -219,10 +221,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+
 	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
+	c.KcpCacheClusterClient = cacheKcpClusterClient
 	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
