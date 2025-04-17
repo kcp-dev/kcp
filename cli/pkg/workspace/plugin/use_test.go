@@ -754,7 +754,7 @@ func TestUse(t *testing.T) {
 							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
 						Spec: tenancyv1alpha1.WorkspaceSpec{
-							Type: tenancyv1alpha1.WorkspaceTypeReference{
+							Type: &tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "universal",
 								Path: "root",
 							},
@@ -780,7 +780,7 @@ func TestUse(t *testing.T) {
 						},
 						Spec: tenancyv1alpha1.WorkspaceSpec{
 							URL: fmt.Sprintf("https://test%s", homeWorkspace.RequestPath()),
-							Type: tenancyv1alpha1.WorkspaceTypeReference{
+							Type: &tenancyv1alpha1.WorkspaceTypeReference{
 								Name: "home",
 								Path: "root",
 							},
