@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,11 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspacemounts
+package indexers
 
-type reconcileStatus int
+import (
+	"fmt"
+
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+)
 
 const (
-	reconcileStatusStopAndRequeue reconcileStatus = iota
-	reconcileStatusContinue
+	// WorkspaceByURL is the indexer workspace by its url.
+	WorkspaceByURL = "WorkspaceByURL"
 )
+
+// IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
+func IndexWorkspaceByURL(obj interface{}) (string, error) {
+	ws, ok := obj.(*tenancyv1alpha1.Workspace)
+	if !ok {
+		return "", fmt.Errorf("obj %T is not an APIExportEndpointSlice", obj)
+	}
+
+	return ws.Spec.URL, nil
+}
