@@ -21,12 +21,14 @@ package applyconfiguration
 import (
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	v1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha2"
+	applyconfigurationcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/cache/v1alpha1"
 	applyconfigurationconditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/conditions/v1alpha1"
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	internal "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/internal"
@@ -131,6 +133,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.ResourceSelectorApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
+
+		// Group=cache.kcp.io, Version=v1alpha1
+	case cachev1alpha1.SchemeGroupVersion.WithKind("GroupResource"):
+		return &applyconfigurationcachev1alpha1.GroupResourceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("PublishedResource"):
+		return &applyconfigurationcachev1alpha1.PublishedResourceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("PublishedResourceSpec"):
+		return &applyconfigurationcachev1alpha1.PublishedResourceSpecApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("PublishedResourceStatus"):
+		return &applyconfigurationcachev1alpha1.PublishedResourceStatusApplyConfiguration{}
 
 		// Group=conditions, Version=v1alpha1
 	case conditionsv1alpha1.SchemeGroupVersion.WithKind("Condition"):

@@ -347,8 +347,15 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("cache") {
+		if err := s.installCacheController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
+
 func (s *Server) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "kcp")
 	ctx = klog.NewContext(ctx, logger)
