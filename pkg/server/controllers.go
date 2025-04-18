@@ -48,6 +48,7 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	"github.com/kcp-dev/client-go/dynamic"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
@@ -73,6 +74,7 @@ import (
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/publishedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
@@ -1587,6 +1589,45 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 					return false, nil
 				}
 				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installCacheController(ctx context.Context, config *rest.Config) error {
+	if !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		return nil
+	}
+
+	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
+	workspaceConfig := rest.CopyConfig(config)
+	workspaceConfig = rest.AddUserAgent(workspaceConfig, publishedresources.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := dynamic.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
+
+	publishedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().PublishedResources()
+	c, err := publishedresources.NewController(
+		kcpClusterClient,
+		dynamicClient,
+		publishedResourceInformer,
+	)
+	if err != nil {
+		return err
+	}
+	return s.registerController(&controllerWrapper{
+		Name: publishedresources.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return publishedResourceInformer.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
