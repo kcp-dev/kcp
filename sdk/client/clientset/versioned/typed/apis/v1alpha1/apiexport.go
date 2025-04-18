@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -38,36 +38,37 @@ type APIExportsGetter interface {
 
 // APIExportInterface has methods to work with APIExport resources.
 type APIExportInterface interface {
-	Create(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.CreateOptions) (*v1alpha1.APIExport, error)
-	Update(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (*v1alpha1.APIExport, error)
+	Create(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts v1.CreateOptions) (*apisv1alpha1.APIExport, error)
+	Update(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts v1.UpdateOptions) (*apisv1alpha1.APIExport, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (*v1alpha1.APIExport, error)
+	UpdateStatus(ctx context.Context, aPIExport *apisv1alpha1.APIExport, opts v1.UpdateOptions) (*apisv1alpha1.APIExport, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.APIExport, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIExportList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*apisv1alpha1.APIExport, error)
+	List(ctx context.Context, opts v1.ListOptions) (*apisv1alpha1.APIExportList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExport, err error)
-	Apply(ctx context.Context, aPIExport *apisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExport, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *apisv1alpha1.APIExport, err error)
+	Apply(ctx context.Context, aPIExport *applyconfigurationapisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIExport, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, aPIExport *apisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExport, err error)
+	ApplyStatus(ctx context.Context, aPIExport *applyconfigurationapisv1alpha1.APIExportApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIExport, err error)
 	APIExportExpansion
 }
 
 // aPIExports implements APIExportInterface
 type aPIExports struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.APIExport, *v1alpha1.APIExportList, *apisv1alpha1.APIExportApplyConfiguration]
+	*gentype.ClientWithListAndApply[*apisv1alpha1.APIExport, *apisv1alpha1.APIExportList, *applyconfigurationapisv1alpha1.APIExportApplyConfiguration]
 }
 
 // newAPIExports returns a APIExports
 func newAPIExports(c *ApisV1alpha1Client) *aPIExports {
 	return &aPIExports{
-		gentype.NewClientWithListAndApply[*v1alpha1.APIExport, *v1alpha1.APIExportList, *apisv1alpha1.APIExportApplyConfiguration](
+		gentype.NewClientWithListAndApply[*apisv1alpha1.APIExport, *apisv1alpha1.APIExportList, *applyconfigurationapisv1alpha1.APIExportApplyConfiguration](
 			"apiexports",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.APIExport { return &v1alpha1.APIExport{} },
-			func() *v1alpha1.APIExportList { return &v1alpha1.APIExportList{} }),
+			func() *apisv1alpha1.APIExport { return &apisv1alpha1.APIExport{} },
+			func() *apisv1alpha1.APIExportList { return &apisv1alpha1.APIExportList{} },
+		),
 	}
 }

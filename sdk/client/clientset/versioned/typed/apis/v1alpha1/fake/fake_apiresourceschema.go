@@ -19,133 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	typedapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeAPIResourceSchemas implements APIResourceSchemaInterface
-type FakeAPIResourceSchemas struct {
+// fakeAPIResourceSchemas implements APIResourceSchemaInterface
+type fakeAPIResourceSchemas struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration]
 	Fake *FakeApisV1alpha1
 }
 
-var apiresourceschemasResource = v1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas")
-
-var apiresourceschemasKind = v1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema")
-
-// Get takes name of the aPIResourceSchema, and returns the corresponding aPIResourceSchema object, and an error if there is any.
-func (c *FakeAPIResourceSchemas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	emptyResult := &v1alpha1.APIResourceSchema{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(apiresourceschemasResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeAPIResourceSchemas(fake *FakeApisV1alpha1) typedapisv1alpha1.APIResourceSchemaInterface {
+	return &fakeAPIResourceSchemas{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.APIResourceSchema, *v1alpha1.APIResourceSchemaList, *apisv1alpha1.APIResourceSchemaApplyConfiguration](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
+			v1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
+			func() *v1alpha1.APIResourceSchema { return &v1alpha1.APIResourceSchema{} },
+			func() *v1alpha1.APIResourceSchemaList { return &v1alpha1.APIResourceSchemaList{} },
+			func(dst, src *v1alpha1.APIResourceSchemaList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.APIResourceSchemaList) []*v1alpha1.APIResourceSchema {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.APIResourceSchemaList, items []*v1alpha1.APIResourceSchema) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.APIResourceSchema), err
-}
-
-// List takes label and field selectors, and returns the list of APIResourceSchemas that match those selectors.
-func (c *FakeAPIResourceSchemas) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIResourceSchemaList, err error) {
-	emptyResult := &v1alpha1.APIResourceSchemaList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(apiresourceschemasResource, apiresourceschemasKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.APIResourceSchemaList{ListMeta: obj.(*v1alpha1.APIResourceSchemaList).ListMeta}
-	for _, item := range obj.(*v1alpha1.APIResourceSchemaList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested aPIResourceSchemas.
-func (c *FakeAPIResourceSchemas) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(apiresourceschemasResource, opts))
-}
-
-// Create takes the representation of a aPIResourceSchema and creates it.  Returns the server's representation of the aPIResourceSchema, and an error, if there is any.
-func (c *FakeAPIResourceSchemas) Create(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.CreateOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	emptyResult := &v1alpha1.APIResourceSchema{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(apiresourceschemasResource, aPIResourceSchema, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIResourceSchema), err
-}
-
-// Update takes the representation of a aPIResourceSchema and updates it. Returns the server's representation of the aPIResourceSchema, and an error, if there is any.
-func (c *FakeAPIResourceSchemas) Update(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.UpdateOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	emptyResult := &v1alpha1.APIResourceSchema{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(apiresourceschemasResource, aPIResourceSchema, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIResourceSchema), err
-}
-
-// Delete takes name of the aPIResourceSchema and deletes it. Returns an error if one occurs.
-func (c *FakeAPIResourceSchemas) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(apiresourceschemasResource, name, opts), &v1alpha1.APIResourceSchema{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeAPIResourceSchemas) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(apiresourceschemasResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.APIResourceSchemaList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched aPIResourceSchema.
-func (c *FakeAPIResourceSchemas) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceSchema, err error) {
-	emptyResult := &v1alpha1.APIResourceSchema{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiresourceschemasResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIResourceSchema), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied aPIResourceSchema.
-func (c *FakeAPIResourceSchemas) Apply(ctx context.Context, aPIResourceSchema *apisv1alpha1.APIResourceSchemaApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIResourceSchema, err error) {
-	if aPIResourceSchema == nil {
-		return nil, fmt.Errorf("aPIResourceSchema provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(aPIResourceSchema)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIResourceSchema.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIResourceSchema.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.APIResourceSchema{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiresourceschemasResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIResourceSchema), err
 }
