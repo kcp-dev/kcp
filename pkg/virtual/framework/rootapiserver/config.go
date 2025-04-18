@@ -18,8 +18,8 @@ package rootapiserver
 
 import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilversion "k8s.io/apiserver/pkg/util/version"
 	"k8s.io/client-go/rest"
+	utilversion "k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
