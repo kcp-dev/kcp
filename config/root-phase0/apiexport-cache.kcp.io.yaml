@@ -7,7 +7,7 @@ spec:
   resources:
   - group: cache.kcp.io
     name: publishedresources
-    schema: v250417-f78f91a24.publishedresources.cache.kcp.io
+    schema: v250418-140e81193.publishedresources.cache.kcp.io
     storage:
       crd: {}
 status: {}

@@ -37,7 +37,7 @@ func TestPublishedResource(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: PublishedResourceSpec{
-					GroupResource: GroupResource{
+					GroupVersionResource: GroupVersionResource{
 						Group:    "corp.com",
 						Resource: "instances",
 					},
@@ -56,8 +56,9 @@ func TestPublishedResource(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: PublishedResourceSpec{
-					GroupResource: GroupResource{
+					GroupVersionResource: GroupVersionResource{
 						Group:    "corp.com",
+						Version:  "v1",
 						Resource: "minimal",
 					},
 				},

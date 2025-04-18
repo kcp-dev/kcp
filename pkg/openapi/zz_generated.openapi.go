@@ -81,7 +81,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual":                schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSelector":                            schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
-		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.GroupResource":                              schema_sdk_apis_cache_v1alpha1_GroupResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.GroupVersionResource":                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.PublishedResource":                          schema_sdk_apis_cache_v1alpha1_PublishedResource(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.PublishedResourceList":                      schema_sdk_apis_cache_v1alpha1_PublishedResourceList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.PublishedResourceSpec":                      schema_sdk_apis_cache_v1alpha1_PublishedResourceSpec(ref),
@@ -2338,7 +2338,7 @@ func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_GroupResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2348,6 +2348,13 @@ func schema_sdk_apis_cache_v1alpha1_GroupResource(ref common.ReferenceCallback) 
 					"group": {
 						SchemaProps: spec.SchemaProps{
 							Description: "group is the name of an API group. For core groups this is the empty string '\"\"'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "version is the version of the resource.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2478,6 +2485,13 @@ func schema_sdk_apis_cache_v1alpha1_PublishedResourceSpec(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "version is the version of the resource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
 							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
@@ -2515,9 +2529,32 @@ func schema_sdk_apis_cache_v1alpha1_PublishedResourceStatus(ref common.Reference
 							Format:      "",
 						},
 					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the workspace (Initializing, Ready, Unavailable).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the Workspace.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 

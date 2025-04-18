@@ -18,27 +18,24 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	v1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
-)
-
-// PublishedResourceSpecApplyConfiguration represents a declarative configuration of the PublishedResourceSpec type for use
+// GroupVersionResourceApplyConfiguration represents a declarative configuration of the GroupVersionResource type for use
 // with apply.
-type PublishedResourceSpecApplyConfiguration struct {
-	GroupVersionResourceApplyConfiguration `json:",inline"`
-	LabelSelector                          *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
+type GroupVersionResourceApplyConfiguration struct {
+	Group    *string `json:"group,omitempty"`
+	Version  *string `json:"version,omitempty"`
+	Resource *string `json:"resource,omitempty"`
 }
 
-// PublishedResourceSpecApplyConfiguration constructs a declarative configuration of the PublishedResourceSpec type for use with
+// GroupVersionResourceApplyConfiguration constructs a declarative configuration of the GroupVersionResource type for use with
 // apply.
-func PublishedResourceSpec() *PublishedResourceSpecApplyConfiguration {
-	return &PublishedResourceSpecApplyConfiguration{}
+func GroupVersionResource() *GroupVersionResourceApplyConfiguration {
+	return &GroupVersionResourceApplyConfiguration{}
 }
 
 // WithGroup sets the Group field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Group field is set to the value of the last call.
-func (b *PublishedResourceSpecApplyConfiguration) WithGroup(value string) *PublishedResourceSpecApplyConfiguration {
+func (b *GroupVersionResourceApplyConfiguration) WithGroup(value string) *GroupVersionResourceApplyConfiguration {
 	b.Group = &value
 	return b
 }
@@ -46,7 +43,7 @@ func (b *PublishedResourceSpecApplyConfiguration) WithGroup(value string) *Publi
 // WithVersion sets the Version field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Version field is set to the value of the last call.
-func (b *PublishedResourceSpecApplyConfiguration) WithVersion(value string) *PublishedResourceSpecApplyConfiguration {
+func (b *GroupVersionResourceApplyConfiguration) WithVersion(value string) *GroupVersionResourceApplyConfiguration {
 	b.Version = &value
 	return b
 }
@@ -54,15 +51,7 @@ func (b *PublishedResourceSpecApplyConfiguration) WithVersion(value string) *Pub
 // WithResource sets the Resource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Resource field is set to the value of the last call.
-func (b *PublishedResourceSpecApplyConfiguration) WithResource(value string) *PublishedResourceSpecApplyConfiguration {
+func (b *GroupVersionResourceApplyConfiguration) WithResource(value string) *GroupVersionResourceApplyConfiguration {
 	b.Resource = &value
-	return b
-}
-
-// WithLabelSelector sets the LabelSelector field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the LabelSelector field is set to the value of the last call.
-func (b *PublishedResourceSpecApplyConfiguration) WithLabelSelector(value *v1.LabelSelectorApplyConfiguration) *PublishedResourceSpecApplyConfiguration {
-	b.LabelSelector = value
 	return b
 }

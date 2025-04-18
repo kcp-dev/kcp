@@ -19,7 +19,12 @@ package publishedresources
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 )
@@ -38,9 +43,14 @@ type reconciler interface {
 // reconcile reconciles the workspace objects. It is intended to be single reconciler for all the
 // workspace replated operations. For now it has single reconciler that updates the status of the
 // workspace based on the mount status.
-func (c *Controller) reconcile(ctx context.Context, ws *cachev1alpha1.PublishedResource) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name, ws *cachev1alpha1.PublishedResource) (bool, error) {
 	reconcilers := []reconciler{
-		&checker{},
+		&finalizer{},
+		&checker{
+			listSelectedResources: func(ctx context.Context, publishedResource *cachev1alpha1.PublishedResource) (*unstructured.UnstructuredList, error) {
+				return c.listSelectedResources(ctx, cluster, publishedResource)
+			},
+		},
 	}
 
 	var errs []error
@@ -60,4 +70,21 @@ func (c *Controller) reconcile(ctx context.Context, ws *cachev1alpha1.PublishedR
 	}
 
 	return requeue, utilerrors.NewAggregate(errs)
+}
+
+func (c *Controller) listSelectedResources(ctx context.Context, cluster logicalcluster.Name, publishedResource *cachev1alpha1.PublishedResource) (*unstructured.UnstructuredList, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    publishedResource.Spec.Group,
+		Version:  publishedResource.Spec.Version,
+		Resource: publishedResource.Spec.Resource,
+	}
+
+	resources, err := c.dynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{
+		//LabelSelector: labels.SelectorFromSet(publishedResource.Spec.LabelSelector.MatchLabels).String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resources, nil
 }

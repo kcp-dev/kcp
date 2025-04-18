@@ -48,6 +48,7 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	"github.com/kcp-dev/client-go/dynamic"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
@@ -1608,10 +1609,15 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	if err != nil {
 		return err
 	}
+	dynamicClient, err := dynamic.NewForConfig(workspaceConfig)
+	if err != nil {
+		return err
+	}
 
 	publishedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().PublishedResources()
 	c, err := publishedresources.NewController(
 		kcpClusterClient,
+		dynamicClient,
 		publishedResourceInformer,
 	)
 	if err != nil {

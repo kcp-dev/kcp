@@ -31,11 +31,13 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	cachev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	cacheinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache/v1alpha1"
 	cachev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/cache/v1alpha1"
 )
@@ -47,6 +49,7 @@ const (
 // NewController returns a new controller for PublishedResource objects.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	dynamicClient dynamic.ClusterInterface,
 	publishedResourceInformer cacheinformers.PublishedResourceClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
@@ -57,8 +60,10 @@ func NewController(
 			},
 		),
 		kcpClient:                kcpClusterClient,
+		dynamicClient:            dynamicClient,
 		publishedResourceLister:  publishedResourceInformer.Lister(),
 		publishedResourceIndexer: publishedResourceInformer.Informer().GetIndexer(),
+		commit:                   committer.NewCommitter[*cachev1alpha1.PublishedResource, cachev1alpha1client.PublishedResourceInterface, *cachev1alpha1.PublishedResourceSpec, *cachev1alpha1.PublishedResourceStatus](kcpClusterClient.CacheV1alpha1().PublishedResources()),
 	}
 
 	_, _ = publishedResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -75,6 +80,8 @@ type publishedResourceResource = committer.Resource[*cachev1alpha1.PublishedReso
 type Controller struct {
 	queue     workqueue.TypedRateLimitingInterface[string]
 	kcpClient kcpclientset.ClusterInterface
+
+	dynamicClient dynamic.ClusterInterface
 
 	publishedResourceIndexer cache.Indexer
 	publishedResourceLister  cachev1alpha1listers.PublishedResourceClusterLister
@@ -164,7 +171,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, publishedResource)
+	requeue, err := c.reconcile(ctx, parent, publishedResource)
 	if err != nil {
 		errs = append(errs, err)
 	}

@@ -18,7 +18,11 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
+
+const PublishedResourceFinalizer = "publishedresource.cache.kcp.dev"
 
 // PublishedResource defines a resource that should be published to other workspaces
 //
@@ -41,8 +45,8 @@ type PublishedResource struct {
 
 // PublishedResourceSpec defines the desired state of PublishedResource
 type PublishedResourceSpec struct {
-	// GroupResource is the fully qualified name of the resource type to be published
-	GroupResource `json:",inline"`
+	// GroupVersionResource is the fully qualified name of the resource type to be published
+	GroupVersionResource `json:",inline"`
 
 	// LabelSelector is used to filter which resources should be published
 	// +optional
@@ -50,13 +54,17 @@ type PublishedResourceSpec struct {
 }
 
 // GroupResource identifies a resource.
-type GroupResource struct {
+type GroupVersionResource struct {
 	// group is the name of an API group.
 	// For core groups this is the empty string '""'.
 	//
 	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
 	// +optional
 	Group string `json:"group,omitempty"`
+
+	// version is the version of the resource.
+	// +optional
+	Version string `json:"version,omitempty"`
 
 	// resource is the name of the resource.
 	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
@@ -67,11 +75,43 @@ type GroupResource struct {
 	Resource string `json:"resource"`
 }
 
+// LogicalClusterPhaseType is the type of the current phase of the logical cluster.
+//
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;Unavailable
+type PublishedResourcePhaseType string
+
+const (
+	PublishedResourcePhaseInitializing PublishedResourcePhaseType = "Initializing"
+	PublishedResourcePhaseReady        PublishedResourcePhaseType = "Ready"
+	// PublishedResourcePhaseUnavailable phase is used to indicate that the published resource is unavailable to be used.
+	LogicalClusterPhaseUnavailable PublishedResourcePhaseType = "Unavailable"
+)
+
+// These are valid conditions of published resource.
+const (
+	// PublishedResourceValid represents status of the scheduling process for this published resource.
+	PublishedResourceValid conditionsv1alpha1.ConditionType = "PublishedResourceValid"
+)
+
+// These are valid reasons of published resource.
+const (
+	PublishedResourceValidNoResources = "NoResources"
+)
+
 // PublishedResourceStatus defines the observed state of PublishedResource
 type PublishedResourceStatus struct {
 	// IdentityHash is a hash of the identity configuration
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// Phase of the workspace (Initializing, Ready, Unavailable).
+	//
+	// +kubebuilder:default=Initializing
+	Phase PublishedResourcePhaseType `json:"phase,omitempty"`
+
+	// Current processing state of the Workspace.
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // PublishedResourceList contains a list of PublishedResource
@@ -81,4 +121,12 @@ type PublishedResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PublishedResource `json:"items"`
+}
+
+func (in *PublishedResource) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *PublishedResource) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
 }

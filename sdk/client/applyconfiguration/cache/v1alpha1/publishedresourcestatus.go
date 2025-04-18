@@ -18,10 +18,17 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+)
+
 // PublishedResourceStatusApplyConfiguration represents a declarative configuration of the PublishedResourceStatus type for use
 // with apply.
 type PublishedResourceStatusApplyConfiguration struct {
-	IdentityHash *string `json:"identityHash,omitempty"`
+	IdentityHash *string                              `json:"identityHash,omitempty"`
+	Phase        *v1alpha1.PublishedResourcePhaseType `json:"phase,omitempty"`
+	Conditions   *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
 }
 
 // PublishedResourceStatusApplyConfiguration constructs a declarative configuration of the PublishedResourceStatus type for use with
@@ -35,5 +42,21 @@ func PublishedResourceStatus() *PublishedResourceStatusApplyConfiguration {
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *PublishedResourceStatusApplyConfiguration) WithIdentityHash(value string) *PublishedResourceStatusApplyConfiguration {
 	b.IdentityHash = &value
+	return b
+}
+
+// WithPhase sets the Phase field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Phase field is set to the value of the last call.
+func (b *PublishedResourceStatusApplyConfiguration) WithPhase(value v1alpha1.PublishedResourcePhaseType) *PublishedResourceStatusApplyConfiguration {
+	b.Phase = &value
+	return b
+}
+
+// WithConditions sets the Conditions field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Conditions field is set to the value of the last call.
+func (b *PublishedResourceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *PublishedResourceStatusApplyConfiguration {
+	b.Conditions = &value
 	return b
 }
