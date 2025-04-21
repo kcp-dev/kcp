@@ -120,12 +120,17 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	if cluster := c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster.String() != ws.Spec.Cluster {
 		if c.shardClusterWorkspaceNameCluster[shard] == nil {
 			c.shardClusterWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
+		}
+		if c.shardClusterWorkspaceName[shard] == nil {
 			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Name]string{}
+		}
+		if c.shardClusterParentCluster[shard] == nil {
 			c.shardClusterParentCluster[shard] = map[logicalcluster.Name]logicalcluster.Name{}
 		}
 		if c.shardClusterWorkspaceNameCluster[shard][clusterName] == nil {
 			c.shardClusterWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
 		}
+
 		c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Spec.Cluster)
 		c.shardClusterWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
