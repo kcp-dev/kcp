@@ -42,7 +42,7 @@ type phaseReconciler struct {
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "phase")
 
-	if !workspace.Spec.IsMounted() {
+	if workspace.Spec.Mount == nil {
 		switch workspace.Status.Phase {
 		case corev1alpha1.LogicalClusterPhaseScheduling:
 			if workspace.Spec.URL != "" && workspace.Spec.Cluster != "" {

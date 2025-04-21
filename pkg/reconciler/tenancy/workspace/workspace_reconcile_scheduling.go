@@ -83,7 +83,7 @@ type schedulingReconciler struct {
 
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
-	if workspace.Spec.IsMounted() {
+	if workspace.Spec.Mount != nil {
 		return reconcileStatusContinue, nil
 	}
 

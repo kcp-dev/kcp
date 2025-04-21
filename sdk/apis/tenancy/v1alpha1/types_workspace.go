@@ -108,6 +108,10 @@ const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 // that the URL that serves a given workspace can be used with standard Kubernetes
 // API machinery and client libraries and command line tools.
 //
+// Workspaces supports mounting, by specifying an Mount object in the spec.
+// If a Mount is specified, the workspace will be mounted to the specified mount object and
+// LogicalCluster will not be created.
+//
 // +crd
 // +genclient
 // +genclient:nonNamespaced
@@ -175,20 +179,17 @@ type WorkspaceSpec struct {
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
 
-	// Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate
+	// Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
 	// where the traffic, intended for the workspace, is sent.
 	// If specified, logicalcluster will not be created and the workspace will be mounted
 	// using reference mount object.
 	//
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="mount is immutable"
 	Mount *Mount `json:"mount,omitempty"`
 }
 
-func (in *WorkspaceSpec) IsMounted() bool {
-	return in.Mount != nil
-}
-
-// Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate
+// Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
 // where the traffic, intended for the workspace, is sent.
 type Mount struct {
 	// Reference is an ObjectReference to the object that is mounted.

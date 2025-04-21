@@ -2797,7 +2797,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent.",
+				Description: "Mount is a reference to an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"ref": {
@@ -2885,7 +2885,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.",
+				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.\n\nWorkspaces supports mounting, by specifying an Mount object in the spec. If a Mount is specified, the workspace will be mounted to the specified mount object and LogicalCluster will not be created.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3033,7 +3033,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 					},
 					"mount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Mount is a reference to a an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent. If specified, logicalcluster will not be created and the workspace will be mounted using reference mount object.",
+							Description: "Mount is a reference to an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent. If specified, logicalcluster will not be created and the workspace will be mounted using reference mount object.",
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount"),
 						},
 					},

@@ -166,7 +166,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		}
 
 		// Not a mountpoint - validate the spec fields
-		if !old.Spec.IsMounted() {
+		if old.Spec.Mount == nil {
 			if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
 				return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
 			}
@@ -257,7 +257,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			}
 		}
 
-		if ws.Spec.IsMounted() {
+		if ws.Spec.Mount != nil {
 			if ws.Spec.Mount.Reference.Kind == "" {
 				return admission.NewForbidden(a, errors.New("spec.mount.kind must be set"))
 			}

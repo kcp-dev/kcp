@@ -183,11 +183,17 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		delete(c.shardClusterWorkspaceMount[shard][clusterName], ws.Name)
 		if len(c.shardClusterWorkspaceMount[shard][clusterName]) == 0 {
 			delete(c.shardClusterWorkspaceMount[shard], clusterName)
+			if len(c.shardClusterWorkspaceMount[shard]) == 0 {
+				delete(c.shardClusterWorkspaceName, shard)
+			}
 		}
 	}
 	delete(c.shardClusterWorkspaceNameErrorCode[shard][clusterName], ws.Name)
 	if len(c.shardClusterWorkspaceNameErrorCode[shard][clusterName]) == 0 {
 		delete(c.shardClusterWorkspaceNameErrorCode[shard], clusterName)
+		if len(c.shardClusterWorkspaceNameErrorCode[shard]) == 0 {
+			delete(c.shardClusterWorkspaceNameErrorCode, shard)
+		}
 	}
 }
 

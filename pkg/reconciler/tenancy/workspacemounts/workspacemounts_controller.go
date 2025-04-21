@@ -207,6 +207,9 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		} else {
 			gvr.Version = ref.APIVersion
 		}
+		if ref.Namespace != "" {
+			return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Namespace(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
+		}
 		return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Get(ctx, ref.Name, metav1.GetOptions{})
 	}
 
